@@ -128,34 +128,6 @@ def generate_diagram(json_file):
     print(f"[OK] Diagrama generado exitosamente: {output_svg}")
 
 
-    # === FUNCIÓN: Dibujar el plátano con cinta adhesiva ===
-    def draw_banana_placeholder(dwg, x, y):
-        """
-        Dibuja una caja amarilla con un plátano y una cinta adhesiva.
-        Usado como placeholder cuando el tipo no es reconocido.
-        """
-        # Dibujar el fondo de la caja
-        dwg.add(dwg.rect(insert=(x, y), size=(ICON_WIDTH, ICON_HEIGHT), fill='lightyellow', stroke='black'))
-
-        # Dibujar el plátano (una curva dorada)
-        banana = dwg.path(
-            d=f'M{x+20},{y+40} Q{x+40},{y} {x+60},{y+40}',
-            fill='none',
-            stroke='gold',
-            stroke_width=5
-        )
-        dwg.add(banana)
-
-        # Dibujar la cinta adhesiva (un rectángulo gris rotado)
-        tape = dwg.rect(
-            insert=(x+35, y+30),
-            size=(20, 10),
-            fill='gray',
-            stroke='black',
-            transform=f"rotate(-30,{x+45},{y+35})"
-        )
-        dwg.add(tape)
-
 
 # === EJECUCIÓN ===
 if __name__ == "__main__":
