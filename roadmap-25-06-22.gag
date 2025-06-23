@@ -1,0 +1,70 @@
+{
+  "canvas": {
+    "width": 1800,
+    "height": 800
+  },
+  "elements": [
+    {
+      "id": "mejora1",
+      "type": "building",
+      "x": 100,
+      "y": 200,
+      "label": "Mejora de Estilo Básico\n(Formas detalladas: racks, nubes suaves)",
+      "color": "lightgreen"
+    },
+    {
+      "id": "mejora2",
+      "type": "building",
+      "x": 400,
+      "y": 200,
+      "label": "Iconografía por Tipo\n(Usar mini-iconos SVG específicos)",
+      "color": "gold"
+    },
+    {
+      "id": "mejora3",
+      "type": "buildingg",
+      "x": 700,
+      "y": 200,
+      "label": "Gradientes de Color\n(Fondos con degradados suaves)",
+      "color": "gold"
+    },
+    {
+      "id": "mejora4",
+      "type": "building",
+      "x": 1000,
+      "y": 200,
+      "label": "Sombreados y Bordes\n(Shadow, redondeos SVG)",
+      "color": "gold"
+    },
+    {
+      "id": "mejora5",
+      "type": "building",
+      "x": 1300,
+      "y": 200,
+      "label": "Plantilla de Temas\n(Estilos Clásico, Cloud, Tech, etc.)",
+      "color": "tomato"
+    }
+  ],
+  "connections": [
+    {
+      "from": "mejora1",
+      "to": "mejora2",
+      "label": "Dificultad: Baja → Media"
+    },
+    {
+      "from": "mejora2",
+      "to": "mejora3",
+      "label": "Media"
+    },
+    {
+      "from": "mejora3",
+      "to": "mejora4",
+      "label": "Media"
+    },
+    {
+      "from": "mejora4",
+      "to": "mejora5",
+      "label": "Alta"
+    }
+  ]
+}
