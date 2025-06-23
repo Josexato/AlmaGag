@@ -11,7 +11,7 @@ ICON_HEIGHT = 50
 # === FUNCIÓN: Dibujar el plátano con cinta adhesiva ===
 def draw_bwt(dwg, x, y):
     """
-    Dibuja un aleph como ícono hardcodeado.
+    Dibuja un plátano con cinta adhesiva ("Banana With Tape").
     """
     dwg.add(dwg.path(
         d=f"M{x+10},{y+40} Q{x+40},{y} {x+70},{y+40} "

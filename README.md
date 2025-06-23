@@ -51,3 +51,36 @@ python3 svg_diagram_generator.py diagram.json
 ```
 
 A new file named `diagram.svg` will be created in the same directory.
+
+
+## Roadmap example
+
+An example file `roadmap-25-06-22.gag` is included with a feature roadmap.
+Generate its SVG with:
+
+```bash
+python3 svg_diagram_generator.py roadmap-25-06-22.gag
+```
+
+Snippet of the file:
+
+```json
+{
+  "canvas": {
+    "width": 1800,
+    "height": 800
+  },
+  "elements": [
+    {
+      "id": "mejora1",
+      "type": "building",
+      "x": 100,
+      "y": 200,
+      "label": "Mejora de Estilo Básico\n(Formas detalladas: racks, nubes suaves)",
+      "color": "lightgreen"
+    }
+  ]
+}
+```
+
+The resulting file `roadmap-25-06-22.svg` shows the planned improvements.
