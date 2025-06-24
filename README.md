@@ -4,8 +4,14 @@ This repository contains `svg_diagram_generator.py`, a simple script that reads 
 
 ## Installation
 
-Ensure you have Python 3 installed. Install the dependency listed in
-`requirements.txt`:
+Ensure you have Python 3 installed. Install the `svgwrite` dependency
+directly:
+
+```bash
+pip install svgwrite
+```
+
+Or install using `requirements.txt`:
 
 ```bash
 pip install -r requirements.txt
