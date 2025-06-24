@@ -83,3 +83,5 @@ Fragmento del archivo:
 ```
 
 El archivo resultante `roadmap-25-06-22.svg` muestra las mejoras planificadas.
+
+![Diagrama de hoja de ruta](roadmap-25-06-22.svg)
