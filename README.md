@@ -91,3 +91,6 @@ Snippet of the file:
 ```
 
 The resulting file `roadmap-25-06-22.svg` shows the planned improvements.
+
+[roadmap-25-06-22.gag](./roadmap-25-06-22.gag)
+ <img src="./roadmap-25-06-22.svg">
