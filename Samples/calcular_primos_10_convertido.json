@@ -1,0 +1,115 @@
+{
+  "elements": [
+    {
+      "id": "n1",
+      "label": "Inicio",
+      "type": "start",
+      "x": 50,
+      "y": 50,
+      "color": "lightgreen"
+    },
+    {
+      "id": "n2",
+      "label": "Inicializar: n = 2, primos = []",
+      "type": "process",
+      "x": 200,
+      "y": 50,
+      "color": "lightblue"
+    },
+    {
+      "id": "n3",
+      "label": "\u00bfCantidad de primos < 10?",
+      "type": "decision",
+      "x": 350,
+      "y": 50,
+      "color": "khaki"
+    },
+    {
+      "id": "n4",
+      "label": "\u00bfn es primo?",
+      "type": "decision",
+      "x": 500,
+      "y": 50,
+      "color": "khaki"
+    },
+    {
+      "id": "n5",
+      "label": "Agregar n a la lista de primos",
+      "type": "process",
+      "x": 650,
+      "y": 30,
+      "color": "lightblue"
+    },
+    {
+      "id": "n6",
+      "label": "Incrementar n",
+      "type": "process",
+      "x": 650,
+      "y": 90,
+      "color": "lightblue"
+    },
+    {
+      "id": "n7",
+      "label": "Mostrar lista de primos",
+      "type": "process",
+      "x": 800,
+      "y": 50,
+      "color": "lightblue"
+    },
+    {
+      "id": "n8",
+      "label": "Fin",
+      "type": "end",
+      "x": 950,
+      "y": 50,
+      "color": "salmon"
+    }
+  ],
+  "connections": [
+    {
+      "from": "n1",
+      "to": "n2",
+      "label": "flujo"
+    },
+    {
+      "from": "n2",
+      "to": "n3",
+      "label": "flujo"
+    },
+    {
+      "from": "n3",
+      "to": "n4",
+      "label": "s\u00ed"
+    },
+    {
+      "from": "n3",
+      "to": "n7",
+      "label": "no"
+    },
+    {
+      "from": "n4",
+      "to": "n5",
+      "label": "s\u00ed"
+    },
+    {
+      "from": "n4",
+      "to": "n6",
+      "label": "no"
+    },
+    {
+      "from": "n5",
+      "to": "n6",
+      "label": "flujo"
+    },
+    {
+      "from": "n6",
+      "to": "n3",
+      "label": "flujo"
+    },
+    {
+      "from": "n7",
+      "to": "n8",
+      "label": "flujo"
+    }
+  ]
+}

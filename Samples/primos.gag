@@ -1,0 +1,25 @@
+{
+  "graph": {
+    "nodes": [
+      { "id": "start", "label": "Inicio", "type": "start" },
+      { "id": "init", "label": "Inicializar: n=2, primos=[]", "type": "process" },
+      { "id": "cond1", "label": "¿Cantidad de primos < 10?", "type": "decision" },
+      { "id": "check", "label": "¿n es primo?", "type": "decision" },
+      { "id": "add", "label": "Agregar n a la lista de primos", "type": "process" },
+      { "id": "inc", "label": "Incrementar n", "type": "process" },
+      { "id": "output", "label": "Mostrar lista de primos", "type": "process" },
+      { "id": "end", "label": "Fin", "type": "end" }
+    ],
+    "edges": [
+      { "source": "start", "target": "init", "relation": "flujo" },
+      { "source": "init", "target": "cond1", "relation": "flujo" },
+      { "source": "cond1", "target": "check", "relation": "Sí" },
+      { "source": "cond1", "target": "output", "relation": "No" },
+      { "source": "check", "target": "add", "relation": "Sí" },
+      { "source": "check", "target": "inc", "relation": "No" },
+      { "source": "add", "target": "inc", "relation": "flujo" },
+      { "source": "inc", "target": "cond1", "relation": "flujo" },
+      { "source": "output", "target": "end", "relation": "flujo" }
+    ]
+  }
+}
