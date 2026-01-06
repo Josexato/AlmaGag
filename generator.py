@@ -1,6 +1,7 @@
 import os, json, svgwrite
 from AlmaGag.config import WIDTH, HEIGHT
-from AlmaGag.draw.icons import draw_icon, draw_connection
+from AlmaGag.draw.icons import draw_icon
+from AlmaGag.draw.connections import  draw_connection
 
 def setup_arrow_markers(dwg):
     """
@@ -72,10 +73,12 @@ def generate_diagram(json_file):
 
     elements_by_id = {e['id']: e for e in data.get('elements', [])}
 
-    for conn in data.get('connections', []):
-        draw_connection(dwg, elements_by_id, conn, markers)
+    # Dibujar elementos primero, luego conexiones
     for elem in data.get('elements', []):
         draw_icon(dwg, elem)
+    for conn in data.get('connections', []):
+        draw_connection(dwg, elements_by_id, conn, markers)
+
 
     dwg.save()
     print(f"[OK] Diagrama generado exitosamente: {output_svg}")

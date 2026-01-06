@@ -124,11 +124,12 @@ python -m AlmaGag.main data/primos.gag
 ```
 AlmaGag/
 ├── main.py              # Punto de entrada
-├── generator.py         # Lógica de generación SVG
+├── generator.py         # Lógica de generación SVG y markers de flechas
 ├── config.py            # Constantes (WIDTH, HEIGHT, ICON_WIDTH, etc.)
 └── draw/
     ├── __init__.py
-    ├── icons.py         # Lógica de dibujo de íconos y conexiones
+    ├── icons.py         # Lógica de dibujo de íconos
+    ├── connections.py   # Lógica de conexiones con offset visual
     ├── bwt.py           # Fallback: Banana With Tape
     ├── server.py        # Ícono tipo server
     ├── firewall.py      # Ícono tipo firewall
@@ -145,6 +146,12 @@ AlmaGag/
 ✅ Fallback BWT para tipos desconocidos (explícita ambigüedad)
 ✅ Etiquetas multilínea en elementos
 ✅ Codificación UTF-8 sin BOM
+
+## Mejoras v1.1
+
+✅ **Módulo `connections.py` separado**: Lógica de conexiones extraída a su propio módulo para mejor mantenibilidad
+✅ **Offset visual en conexiones**: Las líneas de conexión ahora calculan un offset desde el centro del ícono para evitar superposición visual con los elementos. Diferentes tipos de íconos (como `cloud`) tienen offsets adaptados a su forma
+✅ **Orden de renderizado optimizado**: Los íconos se dibujan primero y las conexiones después, asegurando que las flechas queden visualmente encima cuando corresponde
 
 ## Roadmap futuro
 
