@@ -1,0 +1,105 @@
+{
+  "canvas": {
+    "width": 900,
+    "height": 400
+  },
+  "elements": [
+    {
+      "id": "color1",
+      "type": "building",
+      "x": 50,
+      "y": 100,
+      "label": "lightgreen",
+      "color": "lightgreen"
+    },
+    {
+      "id": "color2",
+      "type": "building",
+      "x": 170,
+      "y": 100,
+      "label": "gold",
+      "color": "gold"
+    },
+    {
+      "id": "color3",
+      "type": "building",
+      "x": 290,
+      "y": 100,
+      "label": "tomato",
+      "color": "tomato"
+    },
+    {
+      "id": "color4",
+      "type": "building",
+      "x": 410,
+      "y": 100,
+      "label": "lightblue",
+      "color": "lightblue"
+    },
+    {
+      "id": "color5",
+      "type": "building",
+      "x": 530,
+      "y": 100,
+      "label": "purple",
+      "color": "purple"
+    },
+    {
+      "id": "color6",
+      "type": "building",
+      "x": 650,
+      "y": 100,
+      "label": "cyan",
+      "color": "cyan"
+    },
+    {
+      "id": "hex1",
+      "type": "server",
+      "x": 50,
+      "y": 250,
+      "label": "#FF5733\n(hex)",
+      "color": "#FF5733"
+    },
+    {
+      "id": "hex2",
+      "type": "server",
+      "x": 170,
+      "y": 250,
+      "label": "#3498DB\n(hex)",
+      "color": "#3498DB"
+    },
+    {
+      "id": "hex3",
+      "type": "server",
+      "x": 290,
+      "y": 250,
+      "label": "#2ECC71\n(hex)",
+      "color": "#2ECC71"
+    },
+    {
+      "id": "hex4",
+      "type": "cloud",
+      "x": 410,
+      "y": 250,
+      "label": "#9B59B6\n(hex)",
+      "color": "#9B59B6"
+    },
+    {
+      "id": "hex5",
+      "type": "cloud",
+      "x": 530,
+      "y": 250,
+      "label": "#E74C3C\n(hex)",
+      "color": "#E74C3C"
+    },
+    {
+      "id": "hex6",
+      "type": "cloud",
+      "x": 650,
+      "y": 250,
+      "label": "#1ABC9C\n(hex)",
+      "color": "#1ABC9C"
+    }
+  ],
+  "connections": []
+}

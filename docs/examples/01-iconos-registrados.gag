@@ -1,0 +1,41 @@
+{
+  "canvas": {
+    "width": 800,
+    "height": 400
+  },
+  "elements": [
+    {
+      "id": "building1",
+      "type": "building",
+      "x": 50,
+      "y": 100,
+      "label": "Building\n(Edificio)",
+      "color": "lightblue"
+    },
+    {
+      "id": "server1",
+      "type": "server",
+      "x": 200,
+      "y": 100,
+      "label": "Server\n(Servidor)",
+      "color": "lightgreen"
+    },
+    {
+      "id": "cloud1",
+      "type": "cloud",
+      "x": 350,
+      "y": 100,
+      "label": "Cloud\n(Nube)",
+      "color": "gold"
+    },
+    {
+      "id": "firewall1",
+      "type": "firewall",
+      "x": 500,
+      "y": 100,
+      "label": "Firewall\n(Cortafuegos)",
+      "color": "tomato"
+    }
+  ],
+  "connections": []
+}

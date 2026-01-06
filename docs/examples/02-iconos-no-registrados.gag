@@ -1,0 +1,57 @@
+{
+  "canvas": {
+    "width": 900,
+    "height": 450
+  },
+  "elements": [
+    {
+      "id": "valid1",
+      "type": "server",
+      "x": 50,
+      "y": 80,
+      "label": "Icono Valido\n(server)",
+      "color": "lightgreen"
+    },
+    {
+      "id": "invalid1",
+      "type": "router",
+      "x": 200,
+      "y": 80,
+      "label": "Icono NO registrado\n(router)",
+      "color": "orange"
+    },
+    {
+      "id": "invalid2",
+      "type": "database",
+      "x": 350,
+      "y": 80,
+      "label": "Icono NO registrado\n(database)",
+      "color": "purple"
+    },
+    {
+      "id": "invalid3",
+      "type": "switch",
+      "x": 500,
+      "y": 80,
+      "label": "Icono NO registrado\n(switch)",
+      "color": "cyan"
+    },
+    {
+      "id": "invalid4",
+      "type": "laptop",
+      "x": 650,
+      "y": 80,
+      "label": "Icono NO registrado\n(laptop)",
+      "color": "pink"
+    },
+    {
+      "id": "nota",
+      "type": "building",
+      "x": 300,
+      "y": 280,
+      "label": "Los iconos no registrados\nmuestran el 'platano con cinta'\n(banana with tape - bwt)",
+      "color": "silver"
+    }
+  ],
+  "connections": []
+}

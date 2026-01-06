@@ -126,15 +126,25 @@ AlmaGag/
 ├── main.py              # Punto de entrada
 ├── generator.py         # Lógica de generación SVG y markers de flechas
 ├── config.py            # Constantes (WIDTH, HEIGHT, ICON_WIDTH, etc.)
-└── draw/
-    ├── __init__.py
-    ├── icons.py         # Lógica de dibujo de íconos
-    ├── connections.py   # Lógica de conexiones con offset visual
-    ├── bwt.py           # Fallback: Banana With Tape
-    ├── server.py        # Ícono tipo server
-    ├── firewall.py      # Ícono tipo firewall
-    ├── building.py      # Ícono tipo building
-    └── cloud.py         # Ícono tipo cloud
+├── draw/
+│   ├── __init__.py
+│   ├── icons.py         # Lógica de dibujo de íconos y gradientes
+│   ├── connections.py   # Lógica de conexiones con offset visual
+│   ├── bwt.py           # Fallback: Banana With Tape
+│   ├── server.py        # Ícono tipo server
+│   ├── firewall.py      # Ícono tipo firewall
+│   ├── building.py      # Ícono tipo building
+│   └── cloud.py         # Ícono tipo cloud
+└── docs/
+    └── examples/        # Archivos de ejemplo .gag y .svg generados
+        ├── 01-iconos-registrados.gag
+        ├── 01-iconos-registrados.svg
+        ├── 02-iconos-no-registrados.gag
+        ├── 02-iconos-no-registrados.svg
+        ├── 03-conexiones.gag
+        ├── 03-conexiones.svg
+        ├── 04-gradientes-colores.gag
+        └── 04-gradientes-colores.svg
 ```
 
 ## Características de la v1.0
@@ -153,10 +163,47 @@ AlmaGag/
 ✅ **Offset visual en conexiones**: Las líneas de conexión ahora calculan un offset desde el centro del ícono para evitar superposición visual con los elementos. Diferentes tipos de íconos (como `cloud`) tienen offsets adaptados a su forma
 ✅ **Orden de renderizado optimizado**: Los íconos se dibujan primero y las conexiones después, asegurando que las flechas queden visualmente encima cuando corresponde
 
+## Mejoras v1.2
+
+✅ **Gradientes automáticos**: Los colores de los elementos ahora generan gradientes lineales automáticamente (de claro a oscuro), mejorando significativamente la apariencia visual
+✅ **Soporte de colores CSS y hex**: Acepta tanto nombres de colores CSS (`lightgreen`, `gold`, `tomato`) como valores hexadecimales (`#FF5733`, `#3498DB`)
+✅ **Documentación con ejemplos**: Nueva carpeta `docs/examples/` con archivos `.gag` de demostración y sus SVG generados
+
+## Galería de ejemplos
+
+### Íconos registrados con gradientes
+
+Los tipos de íconos disponibles (`building`, `server`, `cloud`, `firewall`) se renderizan con gradientes automáticos basados en el color especificado:
+
+![Íconos registrados](docs/examples/01-iconos-registrados.svg)
+
+### Fallback para íconos no registrados (BWT)
+
+Cuando se solicita un tipo de ícono que no existe, el sistema muestra el **"Plátano con Cinta"** (Banana With Tape) como indicador visual de ambigüedad:
+
+![Íconos no registrados](docs/examples/02-iconos-no-registrados.svg)
+
+```
+[WARN] No se pudo dibujar 'router', se usará ícono por defecto. Error: No module named 'AlmaGag.draw.router'
+[WARN] No se pudo dibujar 'database', se usará ícono por defecto. Error: No module named 'AlmaGag.draw.database'
+```
+
+### Tipos de conexiones
+
+Soporte para diferentes direcciones de flechas: `forward`, `backward`, `bidirectional` y `none`:
+
+![Conexiones](docs/examples/03-conexiones.svg)
+
+### Variedad de colores y gradientes
+
+Demostración de gradientes automáticos con colores CSS nombrados y valores hexadecimales:
+
+![Gradientes de colores](docs/examples/04-gradientes-colores.svg)
+
 ## Roadmap futuro
 
 - **Autolayout**: Generación automática de coordenadas
-- **Gradientes y sombras**: Mejoras visuales avanzadas
+- ~~**Gradientes y sombras**~~: ✅ Implementado en v1.2
 - **Temas**: Estilos predefinidos (Cloud, Tech, Minimal)
 - **Animación**: Timeline para aparición secuencial
 - **Íconos SVG externos**: Soporte para iconografía personalizada

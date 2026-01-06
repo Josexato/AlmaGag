@@ -1,0 +1,66 @@
+{
+  "canvas": {
+    "width": 700,
+    "height": 500
+  },
+  "elements": [
+    {
+      "id": "cliente",
+      "type": "building",
+      "x": 50,
+      "y": 100,
+      "label": "Cliente",
+      "color": "lightblue"
+    },
+    {
+      "id": "firewall",
+      "type": "firewall",
+      "x": 250,
+      "y": 100,
+      "label": "Firewall",
+      "color": "tomato"
+    },
+    {
+      "id": "servidor",
+      "type": "server",
+      "x": 450,
+      "y": 100,
+      "label": "Servidor",
+      "color": "lightgreen"
+    },
+    {
+      "id": "nube",
+      "type": "cloud",
+      "x": 250,
+      "y": 300,
+      "label": "Cloud",
+      "color": "gold"
+    }
+  ],
+  "connections": [
+    {
+      "from": "cliente",
+      "to": "firewall",
+      "label": "forward (->)",
+      "direction": "forward"
+    },
+    {
+      "from": "firewall",
+      "to": "servidor",
+      "label": "bidirectional (<->)",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "servidor",
+      "to": "nube",
+      "label": "backward (<-)",
+      "direction": "backward"
+    },
+    {
+      "from": "cliente",
+      "to": "nube",
+      "label": "sin direccion",
+      "direction": "none"
+    }
+  ]
+}
