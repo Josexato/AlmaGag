@@ -1,112 +1,120 @@
 {
   "canvas": {
-    "width": 1100,
-    "height": 700
+    "width": 1000,
+    "height": 750
   },
   "elements": [
     {
       "id": "input",
       "type": "building",
-      "x": 50,
-      "y": 50,
+      "x": 100,
+      "y": 30,
       "label": "archivo.gag\n(JSON SDJF)",
       "color": "lightblue"
     },
     {
       "id": "main",
       "type": "server",
-      "x": 250,
-      "y": 50,
+      "x": 300,
+      "y": 30,
       "label": "main.py\n(entrada CLI)",
       "color": "lightgreen"
     },
     {
       "id": "generator",
       "type": "server",
-      "x": 450,
-      "y": 50,
+      "x": 500,
+      "y": 30,
       "label": "generator.py\n(orquestador)",
       "color": "gold"
     },
     {
       "id": "svgwrite",
       "type": "cloud",
-      "x": 650,
-      "y": 50,
-      "label": "svgwrite\n(libreria SVG)",
+      "x": 700,
+      "y": 30,
+      "label": "svgwrite\n(libreria)",
       "color": "cyan"
     },
     {
       "id": "canvas",
       "type": "building",
-      "x": 450,
-      "y": 180,
-      "label": "Crear canvas\n+ markers flechas",
+      "x": 500,
+      "y": 150,
+      "label": "Crear canvas\n+ markers",
       "color": "gold"
+    },
+    {
+      "id": "loop_elem",
+      "type": "building",
+      "x": 300,
+      "y": 150,
+      "label": "for element\nin elements",
+      "color": "orange"
+    },
+    {
+      "id": "loop_conn",
+      "type": "building",
+      "x": 700,
+      "y": 150,
+      "label": "for conn\nin connections",
+      "color": "orange"
     },
     {
       "id": "icons",
       "type": "server",
-      "x": 250,
-      "y": 300,
-      "label": "draw/icons.py\n(dispatcher)",
-      "color": "orange"
+      "x": 300,
+      "y": 270,
+      "label": "draw/icons.py\ndraw_icon()",
+      "color": "purple"
     },
     {
       "id": "gradient",
       "type": "building",
-      "x": 50,
-      "y": 300,
-      "label": "create_gradient()\n(claro -> oscuro)",
+      "x": 300,
+      "y": 390,
+      "label": "1. create_gradient()\nclaro -> oscuro",
       "color": "purple"
     },
     {
-      "id": "dynamic",
-      "type": "cloud",
-      "x": 250,
-      "y": 430,
-      "label": "importlib\n(carga dinamica)",
-      "color": "pink"
+      "id": "try_import",
+      "type": "firewall",
+      "x": 300,
+      "y": 510,
+      "label": "2. try: importlib\ndraw_{type}()",
+      "color": "yellow"
     },
     {
       "id": "modules",
       "type": "server",
-      "x": 50,
-      "y": 430,
+      "x": 100,
+      "y": 600,
       "label": "building.py\nserver.py\ncloud.py\nfirewall.py",
       "color": "lightgreen"
     },
     {
       "id": "bwt",
       "type": "building",
-      "x": 450,
-      "y": 430,
-      "label": "bwt.py\n(fallback)",
+      "x": 500,
+      "y": 600,
+      "label": "3. except:\nbwt.py (fallback)",
       "color": "tomato"
     },
     {
       "id": "connections",
       "type": "server",
-      "x": 650,
-      "y": 300,
-      "label": "connections.py\n(lineas + flechas)",
+      "x": 700,
+      "y": 270,
+      "label": "connections.py\ndraw_connection()",
       "color": "orange"
     },
     {
       "id": "output",
       "type": "building",
-      "x": 850,
-      "y": 180,
-      "label": "archivo.svg\n(resultado)",
+      "x": 700,
+      "y": 390,
+      "label": "dwg.save()\narchivo.svg",
       "color": "lightgreen"
-    },
-    {
-      "id": "decision",
-      "type": "firewall",
-      "x": 450,
-      "y": 300,
-      "label": "type existe?",
-      "color": "yellow"
     }
   ],
   "connections": [
@@ -125,61 +133,67 @@
     {
       "from": "generator",
       "to": "svgwrite",
-      "label": "crea Drawing",
+      "label": "Drawing()",
       "direction": "forward"
     },
     {
       "from": "generator",
       "to": "canvas",
-      "label": "setup",
+      "label": "",
       "direction": "forward"
     },
     {
       "from": "canvas",
+      "to": "loop_elem",
+      "label": "",
+      "direction": "forward"
+    },
+    {
+      "from": "canvas",
+      "to": "loop_conn",
+      "label": "",
+      "direction": "forward"
+    },
+    {
+      "from": "loop_elem",
       "to": "icons",
-      "label": "for elem in elements",
+      "label": "",
       "direction": "forward"
     },
     {
       "from": "icons",
       "to": "gradient",
-      "label": "genera gradiente",
+      "label": "",
       "direction": "forward"
     },
     {
-      "from": "icons",
-      "to": "dynamic",
-      "label": "import modulo",
+      "from": "gradient",
+      "to": "try_import",
+      "label": "",
       "direction": "forward"
     },
     {
-      "from": "dynamic",
+      "from": "try_import",
       "to": "modules",
-      "label": "draw_{type}()",
+      "label": "OK",
       "direction": "forward"
     },
     {
-      "from": "icons",
-      "to": "decision",
-      "label": "verifica tipo",
-      "direction": "forward"
-    },
-    {
-      "from": "decision",
+      "from": "try_import",
       "to": "bwt",
-      "label": "NO: fallback",
+      "label": "Error",
       "direction": "forward"
     },
     {
-      "from": "canvas",
+      "from": "loop_conn",
       "to": "connections",
-      "label": "for conn in connections",
+      "label": "",
       "direction": "forward"
     },
     {
       "from": "connections",
       "to": "output",
-      "label": "dwg.save()",
+      "label": "",
       "direction": "forward"
     }
   ]
