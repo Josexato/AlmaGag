@@ -1,0 +1,186 @@
+{
+  "canvas": {
+    "width": 1100,
+    "height": 700
+  },
+  "elements": [
+    {
+      "id": "input",
+      "type": "building",
+      "x": 50,
+      "y": 50,
+      "label": "archivo.gag\n(JSON SDJF)",
+      "color": "lightblue"
+    },
+    {
+      "id": "main",
+      "type": "server",
+      "x": 250,
+      "y": 50,
+      "label": "main.py\n(entrada CLI)",
+      "color": "lightgreen"
+    },
+    {
+      "id": "generator",
+      "type": "server",
+      "x": 450,
+      "y": 50,
+      "label": "generator.py\n(orquestador)",
+      "color": "gold"
+    },
+    {
+      "id": "svgwrite",
+      "type": "cloud",
+      "x": 650,
+      "y": 50,
+      "label": "svgwrite\n(libreria SVG)",
+      "color": "cyan"
+    },
+    {
+      "id": "canvas",
+      "type": "building",
+      "x": 450,
+      "y": 180,
+      "label": "Crear canvas\n+ markers flechas",
+      "color": "gold"
+    },
+    {
+      "id": "icons",
+      "type": "server",
+      "x": 250,
+      "y": 300,
+      "label": "draw/icons.py\n(dispatcher)",
+      "color": "orange"
+    },
+    {
+      "id": "gradient",
+      "type": "building",
+      "x": 50,
+      "y": 300,
+      "label": "create_gradient()\n(claro -> oscuro)",
+      "color": "purple"
+    },
+    {
+      "id": "dynamic",
+      "type": "cloud",
+      "x": 250,
+      "y": 430,
+      "label": "importlib\n(carga dinamica)",
+      "color": "pink"
+    },
+    {
+      "id": "modules",
+      "type": "server",
+      "x": 50,
+      "y": 430,
+      "label": "building.py\nserver.py\ncloud.py\nfirewall.py",
+      "color": "lightgreen"
+    },
+    {
+      "id": "bwt",
+      "type": "building",
+      "x": 450,
+      "y": 430,
+      "label": "bwt.py\n(fallback)",
+      "color": "tomato"
+    },
+    {
+      "id": "connections",
+      "type": "server",
+      "x": 650,
+      "y": 300,
+      "label": "connections.py\n(lineas + flechas)",
+      "color": "orange"
+    },
+    {
+      "id": "output",
+      "type": "building",
+      "x": 850,
+      "y": 180,
+      "label": "archivo.svg\n(resultado)",
+      "color": "lightgreen"
+    },
+    {
+      "id": "decision",
+      "type": "firewall",
+      "x": 450,
+      "y": 300,
+      "label": "type existe?",
+      "color": "yellow"
+    }
+  ],
+  "connections": [
+    {
+      "from": "input",
+      "to": "main",
+      "label": "lee JSON",
+      "direction": "forward"
+    },
+    {
+      "from": "main",
+      "to": "generator",
+      "label": "generate_diagram()",
+      "direction": "forward"
+    },
+    {
+      "from": "generator",
+      "to": "svgwrite",
+      "label": "crea Drawing",
+      "direction": "forward"
+    },
+    {
+      "from": "generator",
+      "to": "canvas",
+      "label": "setup",
+      "direction": "forward"
+    },
+    {
+      "from": "canvas",
+      "to": "icons",
+      "label": "for elem in elements",
+      "direction": "forward"
+    },
+    {
+      "from": "icons",
+      "to": "gradient",
+      "label": "genera gradiente",
+      "direction": "forward"
+    },
+    {
+      "from": "icons",
+      "to": "dynamic",
+      "label": "import modulo",
+      "direction": "forward"
+    },
+    {
+      "from": "dynamic",
+      "to": "modules",
+      "label": "draw_{type}()",
+      "direction": "forward"
+    },
+    {
+      "from": "icons",
+      "to": "decision",
+      "label": "verifica tipo",
+      "direction": "forward"
+    },
+    {
+      "from": "decision",
+      "to": "bwt",
+      "label": "NO: fallback",
+      "direction": "forward"
+    },
+    {
+      "from": "canvas",
+      "to": "connections",
+      "label": "for conn in connections",
+      "direction": "forward"
+    },
+    {
+      "from": "connections",
+      "to": "output",
+      "label": "dwg.save()",
+      "direction": "forward"
+    }
+  ]
+}

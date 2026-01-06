@@ -119,32 +119,50 @@ Diagrama de flujo para calcular números primos:
 python -m AlmaGag.main data/primos.gag
 ```
 
+## Arquitectura
+
+El siguiente diagrama (generado con GAG) muestra el flujo de procesamiento:
+
+![Arquitectura de GAG](docs/examples/05-arquitectura-gag.svg)
+
+### Flujo de ejecución
+
+1. **Entrada**: El usuario proporciona un archivo `.gag` (JSON en formato SDJF)
+2. **main.py**: Punto de entrada CLI que invoca al generador
+3. **generator.py**: Orquesta el proceso:
+   - Crea el canvas SVG usando `svgwrite`
+   - Configura markers para flechas direccionales
+   - Itera sobre `elements` llamando a `draw/icons.py`
+   - Itera sobre `connections` llamando a `draw/connections.py`
+4. **draw/icons.py**: Dispatcher que:
+   - Genera gradientes automáticos con `create_gradient()`
+   - Usa `importlib` para cargar dinámicamente el módulo según `type`
+   - Si el tipo no existe, usa `bwt.py` como fallback
+5. **Salida**: Se genera el archivo `.svg` resultante
+
 ## Estructura del proyecto
 
 ```
 AlmaGag/
-├── main.py              # Punto de entrada
-├── generator.py         # Lógica de generación SVG y markers de flechas
+├── main.py              # Punto de entrada CLI
+├── generator.py         # Orquestador: canvas, markers, render loop
 ├── config.py            # Constantes (WIDTH, HEIGHT, ICON_WIDTH, etc.)
 ├── draw/
 │   ├── __init__.py
-│   ├── icons.py         # Lógica de dibujo de íconos y gradientes
-│   ├── connections.py   # Lógica de conexiones con offset visual
-│   ├── bwt.py           # Fallback: Banana With Tape
-│   ├── server.py        # Ícono tipo server
-│   ├── firewall.py      # Ícono tipo firewall
-│   ├── building.py      # Ícono tipo building
-│   └── cloud.py         # Ícono tipo cloud
+│   ├── icons.py         # Dispatcher + gradientes automáticos
+│   ├── connections.py   # Líneas con offset visual y flechas
+│   ├── bwt.py           # Fallback: Banana With Tape (plátano con cinta)
+│   ├── server.py        # Ícono tipo server (rectángulo)
+│   ├── firewall.py      # Ícono tipo firewall (rectángulo)
+│   ├── building.py      # Ícono tipo building (rectángulo)
+│   └── cloud.py         # Ícono tipo cloud (elipse)
 └── docs/
-    └── examples/        # Archivos de ejemplo .gag y .svg generados
-        ├── 01-iconos-registrados.gag
-        ├── 01-iconos-registrados.svg
-        ├── 02-iconos-no-registrados.gag
-        ├── 02-iconos-no-registrados.svg
-        ├── 03-conexiones.gag
-        ├── 03-conexiones.svg
-        ├── 04-gradientes-colores.gag
-        └── 04-gradientes-colores.svg
+    └── examples/        # Archivos de demostración .gag y .svg
+        ├── 01-iconos-registrados.*
+        ├── 02-iconos-no-registrados.*
+        ├── 03-conexiones.*
+        ├── 04-gradientes-colores.*
+        └── 05-arquitectura-gag.*
 ```
 
 ## Características de la v1.0
