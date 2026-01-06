@@ -5,3 +5,10 @@
 /roadmap-25-04-25.json.bak
 /sdjf_base_template_v1.json
 /.idea/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
