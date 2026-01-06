@@ -1,101 +1,128 @@
 {
-  "graph": {
-    "nodes": [
-      {
-        "id": "n1",
-        "label": "Inicio",
-        "type": "start",
-        "ambiguous": false
-      },
-      {
-        "id": "n2",
-        "label": "Inicializar: n = 2, primos = []",
-        "type": "process",
-        "ambiguous": false
-      },
-      {
-        "id": "n3",
-        "label": "\u00bfCantidad de primos < 10?",
-        "type": "decision",
-        "ambiguous": false
-      },
-      {
-        "id": "n4",
-        "label": "\u00bfn es primo?",
-        "type": "decision",
-        "ambiguous": false
-      },
-      {
-        "id": "n5",
-        "label": "Agregar n a la lista de primos",
-        "type": "process",
-        "ambiguous": false
-      },
-      {
-        "id": "n6",
-        "label": "Incrementar n",
-        "type": "process",
-        "ambiguous": false
-      },
-      {
-        "id": "n7",
-        "label": "Mostrar lista de primos",
-        "type": "process",
-        "ambiguous": false
-      },
-      {
-        "id": "n8",
-        "label": "Fin",
-        "type": "end",
-        "ambiguous": false
-      }
-    ],
-    "edges": [
-      {
-        "source": "n1",
-        "target": "n2",
-        "relation": "flujo"
-      },
-      {
-        "source": "n2",
-        "target": "n3",
-        "relation": "flujo"
-      },
-      {
-        "source": "n3",
-        "target": "n4",
-        "relation": "s\u00ed"
-      },
-      {
-        "source": "n3",
-        "target": "n7",
-        "relation": "no"
-      },
-      {
-        "source": "n4",
-        "target": "n5",
-        "relation": "s\u00ed"
-      },
-      {
-        "source": "n4",
-        "target": "n6",
-        "relation": "no"
-      },
-      {
-        "source": "n5",
-        "target": "n6",
-        "relation": "flujo"
-      },
-      {
-        "source": "n6",
-        "target": "n3",
-        "relation": "flujo"
-      },
-      {
-        "source": "n7",
-        "target": "n8",
-        "relation": "flujo"
-      }
-    ]
-  }
+  "canvas": {
+    "width": 1000,
+    "height": 800
+  },
+  "elements": [
+    {
+      "id": "n1",
+      "type": "start",
+      "x": 400,
+      "y": 50,
+      "label": "Inicio",
+      "color": "lightgreen"
+    },
+    {
+      "id": "n2",
+      "type": "process",
+      "x": 400,
+      "y": 150,
+      "label": "Inicializar: n = 2, primos = []",
+      "color": "lightblue"
+    },
+    {
+      "id": "n3",
+      "type": "decision",
+      "x": 400,
+      "y": 250,
+      "label": "¿Cantidad de primos < 10?",
+      "color": "yellow"
+    },
+    {
+      "id": "n4",
+      "type": "decision",
+      "x": 200,
+      "y": 350,
+      "label": "¿n es primo?",
+      "color": "yellow"
+    },
+    {
+      "id": "n5",
+      "type": "process",
+      "x": 100,
+      "y": 450,
+      "label": "Agregar n a la lista de primos",
+      "color": "lightblue"
+    },
+    {
+      "id": "n6",
+      "type": "process",
+      "x": 300,
+      "y": 550,
+      "label": "Incrementar n",
+      "color": "lightblue"
+    },
+    {
+      "id": "n7",
+      "type": "process",
+      "x": 600,
+      "y": 350,
+      "label": "Mostrar lista de primos",
+      "color": "lightblue"
+    },
+    {
+      "id": "n8",
+      "type": "end",
+      "x": 600,
+      "y": 450,
+      "label": "Fin",
+      "color": "lightcoral"
+    }
+  ],
+  "connections": [
+    {
+      "from": "n1",
+      "to": "n2",
+      "label": "flujo",
+      "direction": "forward"
+    },
+    {
+      "from": "n2",
+      "to": "n3",
+      "label": "flujo",
+      "direction": "forward"
+    },
+    {
+      "from": "n3",
+      "to": "n4",
+      "label": "sí",
+      "direction": "forward"
+    },
+    {
+      "from": "n3",
+      "to": "n7",
+      "label": "no",
+      "direction": "forward"
+    },
+    {
+      "from": "n4",
+      "to": "n5",
+      "label": "sí",
+      "direction": "forward"
+    },
+    {
+      "from": "n4",
+      "to": "n6",
+      "label": "no",
+      "direction": "forward"
+    },
+    {
+      "from": "n5",
+      "to": "n6",
+      "label": "flujo",
+      "direction": "forward"
+    },
+    {
+      "from": "n6",
+      "to": "n3",
+      "label": "flujo",
+      "direction": "backward"
+    },
+    {
+      "from": "n7",
+      "to": "n8",
+      "label": "flujo",
+      "direction": "forward"
+    }
+  ]
 }
