@@ -71,7 +71,7 @@ def draw_icon(dwg, element):
         ))
 
 
-def draw_connection(dwg, elements_by_id, connection):
+def draw_connection(dwg, elements_by_id, connection, markers):
     """
     Dibuja una línea entre dos elementos definidos en el grafo.
 
@@ -82,24 +82,49 @@ def draw_connection(dwg, elements_by_id, connection):
             - 'from': id del elemento origen.
             - 'to': id del elemento destino.
             - 'label' (opcional): texto a mostrar en la línea.
+            - 'direction' (opcional): dirección de la flecha.
+              Valores: 'forward', 'backward', 'bidirectional', 'none'
+        markers (dict): Diccionario con markers SVG para flechas.
 
     Ejemplo:
         {
             "from": "router1",
             "to": "switch2",
-            "label": "enlace 1Gbps"
+            "label": "enlace 1Gbps",
+            "direction": "forward"
         }
     """
+    from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
+
     from_elem = elements_by_id[connection['from']]
     to_elem = elements_by_id[connection['to']]
 
-    x1 = from_elem['x'] + 40  # Centrado horizontal
-    y1 = from_elem['y'] + 25  # Centrado vertical
-    x2 = to_elem['x'] + 40
-    y2 = to_elem['y'] + 25
+    # Centrado usando constantes de config
+    x1 = from_elem['x'] + ICON_WIDTH // 2
+    y1 = from_elem['y'] + ICON_HEIGHT // 2
+    x2 = to_elem['x'] + ICON_WIDTH // 2
+    y2 = to_elem['y'] + ICON_HEIGHT // 2
+
+    # Configurar markers según direction
+    direction = connection.get('direction', 'none')
+    line_attrs = {
+        'start': (x1, y1),
+        'end': (x2, y2),
+        'stroke': 'black',
+        'stroke_width': 2
+    }
+
+    if direction == 'forward':
+        line_attrs['marker_end'] = markers['forward']
+    elif direction == 'backward':
+        line_attrs['marker_start'] = markers['backward']
+    elif direction == 'bidirectional':
+        line_attrs['marker_start'] = markers['bidirectional'][0]
+        line_attrs['marker_end'] = markers['bidirectional'][1]
+    # 'none' o valor desconocido: sin markers
 
     # Línea de conexión
-    dwg.add(dwg.line(start=(x1, y1), end=(x2, y2), stroke="black", stroke_width=2))
+    dwg.add(dwg.line(**line_attrs))
 
     # Etiqueta opcional en el medio
     if 'label' in connection:

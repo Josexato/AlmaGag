@@ -1,25 +1,128 @@
 {
-  "graph": {
-    "nodes": [
-      { "id": "start", "label": "Inicio", "type": "start" },
-      { "id": "init", "label": "Inicializar: n=2, primos=[]", "type": "process" },
-      { "id": "cond1", "label": "¿Cantidad de primos < 10?", "type": "decision" },
-      { "id": "check", "label": "¿n es primo?", "type": "decision" },
-      { "id": "add", "label": "Agregar n a la lista de primos", "type": "process" },
-      { "id": "inc", "label": "Incrementar n", "type": "process" },
-      { "id": "output", "label": "Mostrar lista de primos", "type": "process" },
-      { "id": "end", "label": "Fin", "type": "end" }
-    ],
-    "edges": [
-      { "source": "start", "target": "init", "relation": "flujo" },
-      { "source": "init", "target": "cond1", "relation": "flujo" },
-      { "source": "cond1", "target": "check", "relation": "Sí" },
-      { "source": "cond1", "target": "output", "relation": "No" },
-      { "source": "check", "target": "add", "relation": "Sí" },
-      { "source": "check", "target": "inc", "relation": "No" },
-      { "source": "add", "target": "inc", "relation": "flujo" },
-      { "source": "inc", "target": "cond1", "relation": "flujo" },
-      { "source": "output", "target": "end", "relation": "flujo" }
-    ]
-  }
+  "canvas": {
+    "width": 1000,
+    "height": 800
+  },
+  "elements": [
+    {
+      "id": "start",
+      "type": "start",
+      "x": 400,
+      "y": 50,
+      "label": "Inicio",
+      "color": "lightgreen"
+    },
+    {
+      "id": "init",
+      "type": "process",
+      "x": 400,
+      "y": 150,
+      "label": "Inicializar: n=2, primos=[]",
+      "color": "lightblue"
+    },
+    {
+      "id": "cond1",
+      "type": "decision",
+      "x": 400,
+      "y": 250,
+      "label": "¿Cantidad de primos < 10?",
+      "color": "yellow"
+    },
+    {
+      "id": "check",
+      "type": "decision",
+      "x": 200,
+      "y": 350,
+      "label": "¿n es primo?",
+      "color": "yellow"
+    },
+    {
+      "id": "add",
+      "type": "process",
+      "x": 100,
+      "y": 450,
+      "label": "Agregar n a la lista de primos",
+      "color": "lightblue"
+    },
+    {
+      "id": "inc",
+      "type": "process",
+      "x": 300,
+      "y": 550,
+      "label": "Incrementar n",
+      "color": "lightblue"
+    },
+    {
+      "id": "output",
+      "type": "process",
+      "x": 600,
+      "y": 350,
+      "label": "Mostrar lista de primos",
+      "color": "lightblue"
+    },
+    {
+      "id": "end",
+      "type": "end",
+      "x": 600,
+      "y": 450,
+      "label": "Fin",
+      "color": "lightcoral"
+    }
+  ],
+  "connections": [
+    {
+      "from": "start",
+      "to": "init",
+      "label": "flujo",
+      "direction": "forward"
+    },
+    {
+      "from": "init",
+      "to": "cond1",
+      "label": "flujo",
+      "direction": "forward"
+    },
+    {
+      "from": "cond1",
+      "to": "check",
+      "label": "Sí",
+      "direction": "forward"
+    },
+    {
+      "from": "cond1",
+      "to": "output",
+      "label": "No",
+      "direction": "forward"
+    },
+    {
+      "from": "check",
+      "to": "add",
+      "label": "Sí",
+      "direction": "forward"
+    },
+    {
+      "from": "check",
+      "to": "inc",
+      "label": "No",
+      "direction": "forward"
+    },
+    {
+      "from": "add",
+      "to": "inc",
+      "label": "flujo",
+      "direction": "forward"
+    },
+    {
+      "from": "inc",
+      "to": "cond1",
+      "label": "flujo",
+      "direction": "backward"
+    },
+    {
+      "from": "output",
+      "to": "end",
+      "label": "flujo",
+      "direction": "forward"
+    }
+  ]
 }

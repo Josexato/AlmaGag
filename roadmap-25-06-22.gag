@@ -1,6 +1,6 @@
 {
   "canvas": {
-    "width": 600,
+    "width": 1800,
     "height": 800
   },
   "elements": [
@@ -49,22 +49,26 @@
     {
       "from": "mejora1",
       "to": "mejora2",
-      "label": "Dificultad: Baja → Media"
+      "label": "Dificultad: Baja → Media",
+      "direction": "forward"
     },
     {
       "from": "mejora2",
       "to": "mejora3",
-      "label": "Media"
+      "label": "Media",
+      "direction": "forward"
     },
     {
       "from": "mejora3",
       "to": "mejora4",
-      "label": "Media"
+      "label": "Media",
+      "direction": "forward"
     },
     {
       "from": "mejora4",
       "to": "mejora5",
-      "label": "Alta"
+      "label": "Alta",
+      "direction": "forward"
     }
   ]
 }
