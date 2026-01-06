@@ -22,7 +22,7 @@
     },
     {
       "id": "mejora3",
-      "type": "buildingg",
+      "type": "building",
       "x": 700,
       "y": 200,
       "label": "Gradientes de Color\n(Fondos con degradados suaves)",

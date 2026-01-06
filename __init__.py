@@ -1,0 +1,1 @@
+# AlmaGag - Generador de diagramas SVG
