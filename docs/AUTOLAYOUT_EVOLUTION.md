@@ -88,6 +88,43 @@ Este documento rastrea la evolución del sistema AutoLayout de GAG, usando el di
 **Colisión pendiente:**
 - Línea diagonal que cruza zona de etiqueta (requiere routing de líneas)
 
+### Rediseño del Diagrama de Arquitectura
+
+**Fecha:** 2026-01-06
+
+El diagrama original tenía problemas de claridad:
+- Flechas confusas desde AutoLayout
+- No mostraba dónde ocurre el análisis matemático
+- Estructura horizontal poco intuitiva
+
+**Nueva estructura vertical:**
+```
+archivo.gag (input)
+    ↓
+main.py (CLI)
+    ↓
+generator.py ──→ svgwrite
+    ↓
+AutoLayout v2.1 ←→ Analysis / Optimization
+    ↓
+Detection
+    ↓
+Renderizado ←→ icons.py / labels
+    ↓
+connections.py
+    ↓
+archivo.svg (output)
+```
+
+![AutoLayout v2.1 - Nuevo](history/arquitectura-v2.1-new.svg)
+
+```
+[WARN] AutoLayout v2.1: 2 colisiones no resueltas (inicial: 2)
+     - 8 niveles, 1 grupo(s)
+     - Prioridades: 2 high, 4 normal, 7 low
+     - Canvas expandido a 930x1020
+```
+
 ---
 
 ## v2.2 - (Futuro)

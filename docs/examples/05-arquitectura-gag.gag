@@ -1,30 +1,30 @@
 {
   "canvas": {
-    "width": 1200,
-    "height": 850
+    "width": 900,
+    "height": 950
   },
   "elements": [
     {
       "id": "input",
       "type": "building",
-      "x": 50,
-      "y": 80,
+      "x": 400,
+      "y": 50,
       "label": "archivo.gag\n(JSON SDJF)",
       "color": "lightblue"
     },
     {
       "id": "main",
       "type": "server",
-      "x": 250,
-      "y": 80,
-      "label": "main.py\n(entrada CLI)",
+      "x": 400,
+      "y": 150,
+      "label": "main.py\n(CLI)",
       "color": "lightgreen"
     },
     {
       "id": "generator",
       "type": "server",
-      "x": 450,
-      "y": 80,
+      "x": 400,
+      "y": 250,
       "label": "generator.py\n(orquestador)",
       "color": "gold"
     },
@@ -32,88 +32,80 @@
       "id": "svgwrite",
       "type": "cloud",
       "x": 650,
-      "y": 80,
+      "y": 250,
       "label": "svgwrite\n(libreria)",
       "color": "cyan"
     },
     {
       "id": "autolayout",
       "type": "server",
-      "x": 450,
-      "y": 200,
-      "label": "AutoLayout\n(v2.0)",
+      "x": 400,
+      "y": 370,
+      "label": "AutoLayout\n(v2.1)",
       "color": "tomato"
     },
     {
-      "id": "detect",
+      "id": "analysis",
       "type": "building",
-      "x": 300,
-      "y": 320,
-      "label": "Detectar colisiones\niconos + lineas",
+      "x": 150,
+      "y": 370,
+      "label": "Analisis\nbuild_graph()\ncalc_levels()",
       "color": "tomato"
     },
     {
-      "id": "optimize",
+      "id": "detection",
       "type": "building",
-      "x": 600,
-      "y": 320,
-      "label": "Optimizar posiciones\n(max 5 iter)",
+      "x": 400,
+      "y": 490,
+      "label": "Deteccion\ncount_collisions()\nfind_pairs()",
       "color": "tomato"
     },
     {
-      "id": "phase1",
+      "id": "optimization",
       "type": "building",
-      "x": 200,
-      "y": 470,
-      "label": "FASE 1\ndraw_icon_shape()",
+      "x": 650,
+      "y": 370,
+      "label": "Optimizacion\nmover labels\nmover elementos",
+      "color": "tomato"
+    },
+    {
+      "id": "render",
+      "type": "server",
+      "x": 400,
+      "y": 610,
+      "label": "Renderizado\n(3 fases)",
       "color": "purple"
     },
     {
-      "id": "phase2",
+      "id": "icons",
       "type": "building",
-      "x": 450,
-      "y": 470,
-      "label": "FASE 2\ndraw_connection_line()",
-      "color": "orange"
-    },
-    {
-      "id": "phase3",
-      "type": "building",
-      "x": 700,
-      "y": 470,
-      "label": "FASE 3\ndraw_*_label()",
-      "color": "pink"
-    },
-    {
-      "id": "icons_module",
-      "type": "server",
-      "x": 200,
-      "y": 600,
-      "label": "icons.py\nshape only",
+      "x": 150,
+      "y": 610,
+      "label": "1. icons.py\n(formas)",
       "color": "purple"
     },
     {
-      "id": "conn_module",
-      "type": "server",
-      "x": 450,
-      "y": 600,
-      "label": "connections.py\nline only",
+      "id": "connections",
+      "type": "building",
+      "x": 400,
+      "y": 730,
+      "label": "2. connections.py\n(lineas)",
       "color": "orange"
     },
     {
       "id": "labels",
-      "type": "server",
-      "x": 700,
-      "y": 600,
-      "label": "Todas las\netiquetas",
+      "type": "building",
+      "x": 650,
+      "y": 610,
+      "label": "3. labels\n(etiquetas)",
       "color": "pink"
     },
     {
       "id": "output",
       "type": "building",
-      "x": 450,
-      "y": 730,
-      "label": "dwg.save()\narchivo.svg",
+      "x": 400,
+      "y": 850,
+      "label": "archivo.svg\n(salida)",
       "color": "lightgreen"
     }
   ],
@@ -139,79 +131,55 @@
     {
       "from": "generator",
       "to": "autolayout",
+      "label": "AutoLayout()",
+      "direction": "forward"
+    },
+    {
+      "from": "autolayout",
+      "to": "analysis",
+      "label": "",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "autolayout",
+      "to": "detection",
       "label": "",
       "direction": "forward"
     },
     {
       "from": "autolayout",
-      "to": "detect",
+      "to": "optimization",
+      "label": "",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "detection",
+      "to": "render",
+      "label": "optimizado",
+      "direction": "forward"
+    },
+    {
+      "from": "render",
+      "to": "icons",
+      "label": "",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "render",
+      "to": "connections",
       "label": "",
       "direction": "forward"
     },
     {
-      "from": "autolayout",
-      "to": "optimize",
-      "label": "",
-      "direction": "forward"
-    },
-    {
-      "from": "detect",
-      "to": "optimize",
-      "label": "colisiones?",
-      "direction": "forward"
-    },
-    {
-      "from": "optimize",
-      "to": "phase1",
-      "label": "",
-      "direction": "forward"
-    },
-    {
-      "from": "phase1",
-      "to": "phase2",
-      "label": "",
-      "direction": "forward"
-    },
-    {
-      "from": "phase2",
-      "to": "phase3",
-      "label": "",
-      "direction": "forward"
-    },
-    {
-      "from": "phase1",
-      "to": "icons_module",
-      "label": "",
-      "direction": "forward"
-    },
-    {
-      "from": "phase2",
-      "to": "conn_module",
-      "label": "",
-      "direction": "forward"
-    },
-    {
-      "from": "phase3",
+      "from": "render",
       "to": "labels",
       "label": "",
-      "direction": "forward"
+      "direction": "bidirectional"
     },
     {
-      "from": "icons_module",
+      "from": "connections",
       "to": "output",
-      "label": "",
-      "direction": "forward"
-    },
-    {
-      "from": "conn_module",
-      "to": "output",
-      "label": "",
-      "direction": "forward"
-    },
-    {
-      "from": "labels",
-      "to": "output",
-      "label": "",
+      "label": "dwg.save()",
       "direction": "forward"
     }
   ]
