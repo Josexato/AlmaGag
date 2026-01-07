@@ -1,13 +1,13 @@
 {
   "canvas": {
-    "width": 1100,
-    "height": 850
+    "width": 1200,
+    "height": 750
   },
   "elements": [
     {
       "id": "input",
       "type": "building",
-      "x": 100,
+      "x": 50,
       "y": 30,
       "label": "archivo.gag\n(JSON SDJF)",
       "color": "lightblue"
@@ -15,7 +15,7 @@
     {
       "id": "main",
       "type": "server",
-      "x": 300,
+      "x": 250,
       "y": 30,
       "label": "main.py\n(entrada CLI)",
       "color": "lightgreen"
@@ -23,7 +23,7 @@
     {
       "id": "generator",
       "type": "server",
-      "x": 500,
+      "x": 450,
       "y": 30,
       "label": "generator.py\n(orquestador)",
       "color": "gold"
@@ -31,106 +31,92 @@
     {
       "id": "svgwrite",
       "type": "cloud",
-      "x": 700,
+      "x": 650,
       "y": 30,
       "label": "svgwrite\n(libreria)",
       "color": "cyan"
     },
     {
-      "id": "canvas",
-      "type": "building",
-      "x": 500,
-      "y": 150,
-      "label": "Crear canvas\n+ markers",
-      "color": "gold"
-    },
-    {
-      "id": "loop_elem",
-      "type": "building",
-      "x": 300,
-      "y": 150,
-      "label": "for element\nin elements",
-      "color": "orange"
-    },
-    {
-      "id": "loop_conn",
-      "type": "building",
-      "x": 800,
-      "y": 150,
-      "label": "for conn\nin connections",
-      "color": "orange"
-    },
-    {
-      "id": "icons",
+      "id": "autolayout",
       "type": "server",
+      "x": 450,
+      "y": 150,
+      "label": "AutoLayout\n(v1.4)",
+      "color": "tomato"
+    },
+    {
+      "id": "detect",
+      "type": "building",
       "x": 300,
       "y": 270,
-      "label": "draw/icons.py\ndraw_icon()",
-      "color": "purple"
-    },
-    {
-      "id": "gradient",
-      "type": "building",
-      "x": 300,
-      "y": 390,
-      "label": "1. create_gradient()\nclaro -> oscuro",
-      "color": "purple"
-    },
-    {
-      "id": "try_import",
-      "type": "firewall",
-      "x": 300,
-      "y": 510,
-      "label": "2. try: importlib\ndraw_{type}()",
-      "color": "yellow"
-    },
-    {
-      "id": "modules",
-      "type": "server",
-      "x": 100,
-      "y": 600,
-      "label": "building.py\nserver.py\ncloud.py\nfirewall.py",
-      "color": "lightgreen",
+      "label": "Detectar colisiones\niconos + lineas",
+      "color": "tomato",
       "label_position": "left"
     },
     {
-      "id": "bwt",
+      "id": "optimize",
       "type": "building",
-      "x": 500,
-      "y": 510,
-      "label": "except:\nbwt.py",
+      "x": 600,
+      "y": 270,
+      "label": "Optimizar posiciones\n(max 5 iter)",
       "color": "tomato",
       "label_position": "right"
     },
     {
-      "id": "label_pos",
+      "id": "phase1",
       "type": "building",
-      "x": 300,
-      "y": 700,
-      "label": "3. calculate_label_position()\ndetecta colisiones",
-      "color": "pink"
+      "x": 200,
+      "y": 400,
+      "label": "FASE 1\ndraw_icon_shape()",
+      "color": "purple"
     },
     {
-      "id": "render_text",
+      "id": "phase2",
       "type": "building",
-      "x": 550,
-      "y": 700,
-      "label": "4. Renderizar texto\nArial, sans-serif",
-      "color": "pink"
-    },
-    {
-      "id": "connections",
-      "type": "server",
-      "x": 800,
-      "y": 270,
-      "label": "connections.py\ndraw_connection()",
+      "x": 450,
+      "y": 400,
+      "label": "FASE 2\ndraw_connection_line()",
       "color": "orange"
+    },
+    {
+      "id": "phase3",
+      "type": "building",
+      "x": 700,
+      "y": 400,
+      "label": "FASE 3\ndraw_*_label()",
+      "color": "pink"
+    },
+    {
+      "id": "icons_module",
+      "type": "server",
+      "x": 200,
+      "y": 530,
+      "label": "icons.py\nshape only",
+      "color": "purple",
+      "label_position": "left"
+    },
+    {
+      "id": "conn_module",
+      "type": "server",
+      "x": 450,
+      "y": 530,
+      "label": "connections.py\nline only",
+      "color": "orange"
+    },
+    {
+      "id": "labels",
+      "type": "server",
+      "x": 700,
+      "y": 530,
+      "label": "Todas las\netiquetas",
+      "color": "pink",
+      "label_position": "right"
     },
     {
       "id": "output",
       "type": "building",
-      "x": 800,
-      "y": 390,
+      "x": 450,
+      "y": 650,
       "label": "dwg.save()\narchivo.svg",
       "color": "lightgreen"
     }
@@ -156,78 +142,78 @@
     },
     {
       "from": "generator",
-      "to": "canvas",
+      "to": "autolayout",
       "label": "",
       "direction": "forward"
     },
     {
-      "from": "canvas",
-      "to": "loop_elem",
+      "from": "autolayout",
+      "to": "detect",
       "label": "",
       "direction": "forward"
     },
     {
-      "from": "canvas",
-      "to": "loop_conn",
+      "from": "autolayout",
+      "to": "optimize",
       "label": "",
       "direction": "forward"
     },
     {
-      "from": "loop_elem",
-      "to": "icons",
+      "from": "detect",
+      "to": "optimize",
+      "label": "colisiones?",
+      "direction": "forward"
+    },
+    {
+      "from": "optimize",
+      "to": "phase1",
       "label": "",
       "direction": "forward"
     },
     {
-      "from": "icons",
-      "to": "gradient",
+      "from": "phase1",
+      "to": "phase2",
       "label": "",
       "direction": "forward"
     },
     {
-      "from": "gradient",
-      "to": "try_import",
+      "from": "phase2",
+      "to": "phase3",
       "label": "",
       "direction": "forward"
     },
     {
-      "from": "try_import",
-      "to": "modules",
-      "label": "OK",
-      "direction": "forward"
-    },
-    {
-      "from": "try_import",
-      "to": "bwt",
-      "label": "Error",
-      "direction": "forward"
-    },
-    {
-      "from": "modules",
-      "to": "label_pos",
+      "from": "phase1",
+      "to": "icons_module",
       "label": "",
       "direction": "forward"
     },
     {
-      "from": "bwt",
-      "to": "label_pos",
+      "from": "phase2",
+      "to": "conn_module",
       "label": "",
       "direction": "forward"
     },
     {
-      "from": "label_pos",
-      "to": "render_text",
-      "label": "posicion",
-      "direction": "forward"
-    },
-    {
-      "from": "loop_conn",
-      "to": "connections",
+      "from": "phase3",
+      "to": "labels",
       "label": "",
       "direction": "forward"
     },
     {
-      "from": "connections",
+      "from": "icons_module",
+      "to": "output",
+      "label": "",
+      "direction": "forward"
+    },
+    {
+      "from": "conn_module",
+      "to": "output",
+      "label": "",
+      "direction": "forward"
+    },
+    {
+      "from": "labels",
       "to": "output",
       "label": "",
       "direction": "forward"
