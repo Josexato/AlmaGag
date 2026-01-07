@@ -84,7 +84,10 @@ Define los nodos del diagrama. Cada elemento debe tener:
 - **`type`** (opcional): Tipo de ícono a dibujar
   - Tipos disponibles: `server`, `firewall`, `building`, `cloud`
   - Si el tipo no existe o no se especifica, se dibuja un **plátano con cinta** (BWT) como fallback de ambigüedad
-- **`label`** (opcional): Texto debajo del ícono. Soporta saltos de línea con `\n`
+- **`label`** (opcional): Texto del ícono. Soporta saltos de línea con `\n`
+- **`label_position`** (opcional): Posición del texto respecto al ícono (v1.3+)
+  - Valores: `bottom` (default), `top`, `left`, `right`
+  - Si no se especifica, se auto-detecta la mejor posición evitando colisiones
 - **`color`** (opcional): Color de relleno del ícono (default: `gray`)
 
 ### Sección `connections` (requerida)
@@ -186,6 +189,21 @@ AlmaGag/
 ✅ **Gradientes automáticos**: Los colores de los elementos ahora generan gradientes lineales automáticamente (de claro a oscuro), mejorando significativamente la apariencia visual
 ✅ **Soporte de colores CSS y hex**: Acepta tanto nombres de colores CSS (`lightgreen`, `gold`, `tomato`) como valores hexadecimales (`#FF5733`, `#3498DB`)
 ✅ **Documentación con ejemplos**: Nueva carpeta `docs/examples/` con archivos `.gag` de demostración y sus SVG generados
+
+## Mejoras v1.3
+
+✅ **Fuente Arial**: El texto ahora usa `Arial, sans-serif` para mejor legibilidad en todos los navegadores
+✅ **Posicionamiento inteligente de etiquetas**: El texto se posiciona automáticamente evitando colisiones con otros íconos. Prueba posiciones en orden: `bottom` → `right` → `top` → `left`
+✅ **Nueva propiedad `label_position`**: Permite forzar la posición del texto manualmente:
+```json
+{
+  "id": "srv1",
+  "type": "server",
+  "label": "Servidor",
+  "label_position": "right"
+}
+```
+Valores válidos: `bottom` (default), `top`, `left`, `right`
 
 ## Galería de ejemplos
 
