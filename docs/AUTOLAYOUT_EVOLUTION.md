@@ -127,6 +127,110 @@ archivo.svg (output)
 
 ---
 
+## v2.1 Refactorización - Arquitectura Modular
+
+**Fecha:** 2026-01-07
+
+**Motivación:**
+La clase `AutoLayout` era monolítica (1117 líneas) mezclando:
+- Almacenamiento de estructura (elements, connections)
+- Análisis de grafos (niveles, grupos, prioridades)
+- Cálculos geométricos (bounding boxes, intersecciones)
+- Detección de colisiones
+- Algoritmos de optimización
+
+**Problema crítico:** El optimizador modificaba directamente `self.elements` durante optimización, imposibilitando ver el gradiente de optimización.
+
+**Nueva arquitectura:**
+
+```
+Layout (datos inmutables)
+  ↓
+GeometryCalculator → CollisionDetector
+  ↓                       ↓
+GraphAnalyzer → AutoLayoutOptimizer
+                  ↓
+              generator.py
+```
+
+**Componentes creados:**
+
+1. **layout/layout.py** (230 líneas)
+   - Contenedor inmutable del estado del diagrama
+   - Método `copy()` para crear candidatos independientes
+   - Atributos de análisis escritos por optimizador
+
+2. **layout/geometry.py** (330 líneas)
+   - Extraído de autolayout.py (líneas 321-554)
+   - Cálculos de bounding boxes e intersecciones
+   - Stateless y reutilizable
+
+3. **layout/graph_analysis.py** (180 líneas)
+   - Extraído de autolayout.py (líneas 89-164)
+   - Análisis de estructura: niveles, grupos, prioridades
+   - Sistema de prioridades basado en conexiones
+
+4. **layout/collision.py** (210 líneas)
+   - Extraído de autolayout.py (líneas 556-701)
+   - Detección de colisiones usando GeometryCalculator
+   - Colisiones: ícono vs ícono, etiqueta vs ícono, etiqueta vs línea
+
+5. **layout/optimizer_base.py** (100 líneas)
+   - Interfaz abstracta `LayoutOptimizer`
+   - Define contrato: `analyze()`, `evaluate()`, `optimize()`
+   - Facilita agregar nuevos optimizadores
+
+6. **layout/auto_optimizer.py** (600 líneas)
+   - Implementación completa de AutoLayout v2.1
+   - No modifica layout original, retorna nuevo layout optimizado
+   - Optimización iterativa con candidatos independientes
+
+**Nuevo flujo en generator.py:**
+
+```python
+# 1. Crear Layout inmutable
+initial_layout = Layout(
+    elements=all_elements,
+    connections=all_connections,
+    canvas={'width': canvas_width, 'height': canvas_height}
+)
+
+# 2. Instanciar optimizador
+optimizer = AutoLayoutOptimizer(verbose=False)
+
+# 3. Analizar para obtener info inicial
+optimizer.analyze(initial_layout)
+initial_collisions = optimizer.evaluate(initial_layout)
+
+# 4. Optimizar (retorna NUEVO layout)
+optimized_layout = optimizer.optimize(initial_layout, max_iterations=10)
+
+# 5. Obtener resultados
+elements = optimized_layout.elements
+label_positions = optimized_layout.label_positions
+conn_labels = optimized_layout.connection_labels
+```
+
+**Beneficios:**
+- ✅ Separación de responsabilidades (Layout almacena, Optimizer procesa)
+- ✅ Inmutabilidad permite ver gradiente de optimización
+- ✅ Extensibilidad: fácil agregar nuevos optimizadores
+- ✅ Testabilidad: cada componente es testeable independientemente
+- ✅ Mantenibilidad: código más claro y comprensible
+
+**Benchmark - Mantiene resultados de v2.1:**
+
+```
+[WARN] AutoLayout v2.1: 2 colisiones no resueltas (inicial: 2)
+     - 8 niveles, 1 grupo(s)
+     - Prioridades: 2 high, 4 normal, 7 low
+[OK] Diagrama generado exitosamente: 05-arquitectura-gag.svg
+```
+
+**Estado:** Todos los ejemplos (`01-iconos-registrados.gag` a `05-arquitectura-gag.gag`) generan correctamente con la nueva arquitectura.
+
+---
+
 ## v2.2 - (Futuro)
 
 **Objetivos:**

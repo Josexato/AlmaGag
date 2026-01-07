@@ -135,17 +135,24 @@ El siguiente diagrama (generado con GAG) muestra el flujo de procesamiento:
 
 1. **Entrada**: El usuario proporciona un archivo `.gag` (JSON en formato SDJF)
 2. **main.py**: Punto de entrada CLI que invoca al generador
-3. **generator.py**: Orquesta el proceso:
-   - Crea el canvas SVG usando `svgwrite`
+3. **generator.py**: Orquesta el proceso completo:
+   - Crea un objeto `Layout` inmutable con elementos y conexiones
+   - Instancia `AutoLayoutOptimizer` con sus componentes auxiliares
+   - El optimizador analiza el grafo (niveles, grupos, prioridades)
+   - Ejecuta optimización iterativa para resolver colisiones
+   - Crea canvas SVG con `svgwrite` usando el layout optimizado
    - Configura markers para flechas direccionales
-   - Itera sobre `elements` llamando a `draw/icons.py`
-   - Itera sobre `connections` llamando a `draw/connections.py`
-4. **draw/icons.py**: Dispatcher que ejecuta secuencialmente:
+4. **AutoLayoutOptimizer**: Arquitectura modular en `layout/`:
+   - `GeometryCalculator`: Cálculos de bounding boxes e intersecciones
+   - `GraphAnalyzer`: Análisis de estructura (niveles, grupos, prioridades)
+   - `CollisionDetector`: Detección de colisiones entre elementos
+   - `AutoLayoutOptimizer`: Estrategias de optimización iterativa
+5. **draw/icons.py**: Dispatcher que ejecuta secuencialmente:
    1. `create_gradient()` - Genera gradiente claro→oscuro del color base
    2. `importlib` - Carga dinámicamente el módulo según `type` (o `bwt.py` si falla)
-   3. `calculate_label_position()` - **Detecta colisiones** con otros íconos y determina la mejor posición para el texto (bottom → right → top → left)
-   4. Renderiza el texto con fuente **Arial, sans-serif**
-5. **Salida**: Se genera el archivo `.svg` resultante
+   3. Renderiza el ícono y su etiqueta usando posiciones calculadas por AutoLayout
+6. **draw/connections.py**: Renderiza líneas de conexión con flechas direccionales
+7. **Salida**: Se genera el archivo `.svg` resultante
 
 ## Estructura del proyecto
 
@@ -153,8 +160,15 @@ El siguiente diagrama (generado con GAG) muestra el flujo de procesamiento:
 AlmaGag/
 ├── main.py              # Punto de entrada CLI
 ├── generator.py         # Orquestador: canvas, markers, render loop
-├── autolayout.py        # Clase AutoLayout: detección y resolución de colisiones
 ├── config.py            # Constantes (WIDTH, HEIGHT, ICON_WIDTH, etc.)
+├── layout/              # Módulo de Layout y Optimización (v2.1)
+│   ├── __init__.py
+│   ├── layout.py        # Clase Layout: contenedor inmutable del estado
+│   ├── optimizer_base.py    # Interfaz abstracta LayoutOptimizer
+│   ├── auto_optimizer.py    # AutoLayoutOptimizer v2.1
+│   ├── geometry.py      # GeometryCalculator: bounding boxes, intersecciones
+│   ├── collision.py     # CollisionDetector: detección de colisiones
+│   └── graph_analysis.py    # GraphAnalyzer: niveles, grupos, prioridades
 ├── draw/
 │   ├── __init__.py
 │   ├── icons.py         # Dispatcher + gradientes + draw_icon_shape/label
@@ -165,6 +179,7 @@ AlmaGag/
 │   ├── building.py      # Ícono tipo building (rectángulo)
 │   └── cloud.py         # Ícono tipo cloud (elipse)
 └── docs/
+    ├── AUTOLAYOUT_EVOLUTION.md  # Historia de versiones de AutoLayout
     └── examples/        # Archivos de demostración .gag y .svg
         ├── 01-iconos-registrados.*
         ├── 02-iconos-no-registrados.*
@@ -233,6 +248,39 @@ Valores válidos: `bottom` (default), `top`, `left`, `right`
 ```
 [OK] AutoLayout: 0 colisiones detectadas
 [OK] Diagrama generado exitosamente: diagrama.svg
+```
+
+## Refactorización v2.1 - Arquitectura Modular
+
+✅ **Separación de responsabilidades**: El código se reestructuró para separar el almacenamiento de datos de la lógica de optimización:
+
+**Layout (layout.py)**: Contenedor inmutable del estado del diagrama
+- Almacena elements, connections, canvas
+- Método `copy()` para crear candidatos independientes durante optimización
+- Atributos de análisis (levels, groups, priorities) escritos por el optimizador
+
+**AutoLayoutOptimizer (auto_optimizer.py)**: Estrategia de optimización v2.1
+- No modifica el layout original, retorna nuevo layout optimizado
+- Optimización iterativa con candidatos independientes
+- Permite ver gradiente de optimización entre iteraciones
+
+**Componentes auxiliares**:
+- `GeometryCalculator`: Cálculos de bounding boxes e intersecciones
+- `CollisionDetector`: Detección de colisiones usando geometría
+- `GraphAnalyzer`: Análisis de estructura (niveles, grupos, prioridades)
+- `LayoutOptimizer`: Interfaz abstracta para futuros optimizadores
+
+**Beneficios**:
+- Código más mantenible y testeable
+- Fácil agregar nuevos algoritmos de optimización
+- Clara separación entre datos y procesamiento
+- Componentes independientes y reutilizables
+
+```python
+# Flujo de optimización
+initial_layout = Layout(elements, connections, canvas)
+optimizer = AutoLayoutOptimizer()
+optimized_layout = optimizer.optimize(initial_layout, max_iterations=10)
 ```
 
 ## Galería de ejemplos

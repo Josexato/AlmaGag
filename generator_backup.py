@@ -1,6 +1,6 @@
 import os, json, svgwrite
 from AlmaGag.config import WIDTH, HEIGHT
-from AlmaGag.layout import Layout, AutoLayoutOptimizer
+from AlmaGag.autolayout import AutoLayout
 from AlmaGag.draw.icons import draw_icon_shape, draw_icon_label
 from AlmaGag.draw.connections import draw_connection_line, draw_connection_label
 
@@ -69,36 +69,19 @@ def generate_diagram(json_file):
     all_elements = data.get('elements', [])
     all_connections = data.get('connections', [])
 
-    # === NUEVO FLUJO: Layout + AutoLayoutOptimizer v2.1 ===
-
-    # 1. Crear Layout inmutable
-    initial_layout = Layout(
-        elements=all_elements,
-        connections=all_connections,
-        canvas={'width': canvas_width, 'height': canvas_height}
-    )
-
-    # 2. Instanciar optimizador
-    optimizer = AutoLayoutOptimizer(verbose=False)
-
-    # 3. Analizar para obtener info inicial
-    optimizer.analyze(initial_layout)
-    initial_collisions = optimizer.evaluate(initial_layout)
+    # === AutoLayout v2.0: Detectar y resolver colisiones ===
+    layout = AutoLayout(all_elements, all_connections, canvas={'width': canvas_width, 'height': canvas_height})
+    initial_collisions = layout.count_collisions()
 
     # Mostrar info de estructura
-    num_levels = len(set(initial_layout.levels.values()))
-    num_groups = len(initial_layout.groups)
-    high_priority = sum(1 for priority in initial_layout.priorities.values() if priority == 0)
-    normal_priority = sum(1 for priority in initial_layout.priorities.values() if priority == 1)
-    low_priority = sum(1 for priority in initial_layout.priorities.values() if priority == 2)
+    num_levels = len(set(layout.levels.values()))
+    num_groups = len(layout.groups)
+    high_priority = sum(1 for e in all_elements if layout._get_element_priority(e) == 0)
+    normal_priority = sum(1 for e in all_elements if layout._get_element_priority(e) == 1)
+    low_priority = sum(1 for e in all_elements if layout._get_element_priority(e) == 2)
 
-    # 4. Optimizar (retorna NUEVO layout)
-    optimized_layout = optimizer.optimize(initial_layout, max_iterations=10)
-
-    # Mostrar resultados
-    remaining = optimized_layout._collision_count if optimized_layout._collision_count is not None else 0
-
-    if initial_collisions > 0:
+    if layout.has_collisions():
+        remaining = layout.optimize(max_iterations=10)
         if remaining > 0:
             print(f"[WARN] AutoLayout v2.1: {remaining} colisiones no resueltas (inicial: {initial_collisions})")
         else:
@@ -109,24 +92,20 @@ def generate_diagram(json_file):
     print(f"     - {num_levels} niveles, {num_groups} grupo(s)")
     print(f"     - Prioridades: {high_priority} high, {normal_priority} normal, {low_priority} low")
 
-    # 5. Obtener canvas final (puede haber sido expandido)
-    final_canvas = optimized_layout.canvas
-    if final_canvas['width'] > canvas_width or final_canvas['height'] > canvas_height:
-        canvas_width = final_canvas['width']
-        canvas_height = final_canvas['height']
+    # Usar canvas recomendado si fue expandido
+    rec_canvas = layout.recommended_canvas
+    if rec_canvas['width'] > canvas_width or rec_canvas['height'] > canvas_height:
+        canvas_width = rec_canvas['width']
+        canvas_height = rec_canvas['height']
         print(f"     - Canvas expandido a {canvas_width}x{canvas_height}")
 
-    # 6. Crear SVG
     dwg = svgwrite.Drawing(output_svg, size=(canvas_width, canvas_height))
     dwg.viewbox(0, 0, canvas_width, canvas_height)
 
     # Configurar markers para flechas direccionales
     markers = setup_arrow_markers(dwg)
 
-    # Obtener resultados optimizados
-    elements = optimized_layout.elements
-    label_positions = optimized_layout.label_positions
-    conn_labels = optimized_layout.connection_labels
+    elements, label_positions, conn_labels = layout.get_result()
     elements_by_id = {e['id']: e for e in elements}
 
     # === Renderizado en orden correcto ===

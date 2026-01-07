@@ -1,0 +1,321 @@
+"""
+GeometryCalculator - Cálculos geométricos para bounding boxes y coordenadas
+
+Este módulo es stateless y proporciona métodos puros para cálculos geométricos:
+- Bounding boxes de íconos y etiquetas
+- Coordenadas de texto según posición
+- Endpoints y centros de conexiones
+- Detección de intersecciones entre rectángulos y líneas
+"""
+
+from typing import Tuple, Optional
+from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
+
+
+class GeometryCalculator:
+    """
+    Calculadora de geometría para elementos de diagramas.
+
+    Esta clase es stateless - todos los métodos son funciones puras que
+    toman los datos necesarios como argumentos y retornan resultados sin
+    efectos secundarios.
+    """
+
+    def get_icon_bbox(self, element: dict) -> Tuple[float, float, float, float]:
+        """
+        Calcula bounding box de un ícono.
+
+        Args:
+            element: Elemento con 'x' e 'y'
+
+        Returns:
+            Tuple[float, float, float, float]: (x1, y1, x2, y2)
+        """
+        x, y = element['x'], element['y']
+        return (x, y, x + ICON_WIDTH, y + ICON_HEIGHT)
+
+    def get_text_coords(
+        self,
+        element: dict,
+        position: str,
+        num_lines: int = 1
+    ) -> Tuple[float, float, str, str]:
+        """
+        Calcula coordenadas del texto según posición.
+
+        Args:
+            element: Elemento con 'x' e 'y'
+            position: 'bottom', 'top', 'left', 'right'
+            num_lines: Número de líneas de texto
+
+        Returns:
+            Tuple: (x, y, anchor, position_name)
+                anchor: 'middle', 'start', 'end'
+        """
+        x, y = element['x'], element['y']
+        center_x = x + ICON_WIDTH // 2
+        center_y = y + ICON_HEIGHT // 2
+
+        if position == 'bottom':
+            return (center_x, y + ICON_HEIGHT + 20, 'middle', 'bottom')
+        elif position == 'top':
+            text_y = y - 10 - ((num_lines - 1) * 18)
+            return (center_x, text_y, 'middle', 'top')
+        elif position == 'right':
+            return (x + ICON_WIDTH + 15, center_y, 'start', 'right')
+        elif position == 'left':
+            return (x - 15, center_y, 'end', 'left')
+        else:
+            return (center_x, y + ICON_HEIGHT + 20, 'middle', 'bottom')
+
+    def get_label_bbox(
+        self,
+        element: dict,
+        position: str
+    ) -> Optional[Tuple[float, float, float, float]]:
+        """
+        Calcula bounding box de una etiqueta de ícono.
+
+        Args:
+            element: Elemento con 'label'
+            position: 'bottom', 'top', 'left', 'right'
+
+        Returns:
+            Optional[Tuple]: (x1, y1, x2, y2) o None si no hay etiqueta
+        """
+        label = element.get('label', '')
+        if not label:
+            return None
+
+        lines = label.split('\n')
+        num_lines = len(lines)
+        max_line_len = max(len(line) for line in lines)
+
+        text_x, text_y, anchor, _ = self.get_text_coords(element, position, num_lines)
+
+        # Estimación del tamaño del texto (~8px por caracter en Arial 14px)
+        text_width = max_line_len * 8
+        text_height = num_lines * 18
+
+        # Calcular bbox según anchor
+        if anchor == 'middle':
+            x1 = text_x - text_width // 2
+            x2 = text_x + text_width // 2
+        elif anchor == 'start':
+            x1 = text_x
+            x2 = text_x + text_width
+        else:  # 'end'
+            x1 = text_x - text_width
+            x2 = text_x
+
+        # Ajuste de Y según posición
+        if position == 'top':
+            y1 = text_y - 14
+            y2 = text_y + text_height - 14
+        elif position in ('left', 'right'):
+            y1 = text_y - (text_height // 2)
+            y2 = text_y + (text_height // 2)
+        else:  # bottom
+            y1 = text_y - 14
+            y2 = text_y + text_height - 14
+
+        return (x1, y1, x2, y2)
+
+    def get_connection_endpoints(
+        self,
+        layout,
+        connection: dict
+    ) -> Optional[Tuple[float, float, float, float]]:
+        """
+        Calcula los puntos de inicio y fin de una conexión.
+
+        Args:
+            layout: Layout con elements_by_id
+            connection: Conexión con 'from' y 'to'
+
+        Returns:
+            Optional[Tuple]: (x1, y1, x2, y2) o None si no se puede calcular
+        """
+        from_elem = layout.elements_by_id.get(connection['from'])
+        to_elem = layout.elements_by_id.get(connection['to'])
+
+        if not from_elem or not to_elem:
+            return None
+
+        x1 = from_elem['x'] + ICON_WIDTH // 2
+        y1 = from_elem['y'] + ICON_HEIGHT // 2
+        x2 = to_elem['x'] + ICON_WIDTH // 2
+        y2 = to_elem['y'] + ICON_HEIGHT // 2
+
+        return (x1, y1, x2, y2)
+
+    def get_connection_center(
+        self,
+        layout,
+        connection: dict
+    ) -> Tuple[float, float]:
+        """
+        Calcula el centro de una conexión.
+
+        Args:
+            layout: Layout con elements_by_id
+            connection: Conexión con 'from' y 'to'
+
+        Returns:
+            Tuple[float, float]: (x, y) - retorna (0, 0) si no se puede calcular
+        """
+        endpoints = self.get_connection_endpoints(layout, connection)
+        if not endpoints:
+            return (0, 0)
+
+        x1, y1, x2, y2 = endpoints
+        return ((x1 + x2) / 2, (y1 + y2) / 2)
+
+    def get_connection_line_bbox(
+        self,
+        layout,
+        connection: dict,
+        padding: int = 8
+    ) -> Optional[Tuple[float, float, float, float]]:
+        """
+        Calcula bounding box de la línea de conexión.
+
+        Para líneas verticales u horizontales, crea un rectángulo delgado.
+        Para líneas diagonales, crea un rectángulo que envuelve la línea.
+
+        Args:
+            layout: Layout con elements_by_id
+            connection: Diccionario de conexión
+            padding: Padding alrededor de la línea (default: 8px)
+
+        Returns:
+            Optional[Tuple]: (x1, y1, x2, y2) o None
+        """
+        endpoints = self.get_connection_endpoints(layout, connection)
+        if not endpoints:
+            return None
+
+        x1, y1, x2, y2 = endpoints
+
+        # Crear bbox con padding
+        min_x = min(x1, x2) - padding
+        max_x = max(x1, x2) + padding
+        min_y = min(y1, y2) - padding
+        max_y = max(y1, y2) + padding
+
+        return (min_x, min_y, max_x, max_y)
+
+    def get_connection_label_bbox(
+        self,
+        layout,
+        connection: dict
+    ) -> Optional[Tuple[float, float, float, float]]:
+        """
+        Calcula bounding box de una etiqueta de conexión.
+
+        Args:
+            layout: Layout con connection_labels
+            connection: Conexión con 'label'
+
+        Returns:
+            Optional[Tuple]: (x1, y1, x2, y2) o None si no hay etiqueta
+        """
+        label = connection.get('label', '')
+        if not label:
+            return None
+
+        key = f"{connection['from']}->{connection['to']}"
+        center = layout.connection_labels.get(
+            key,
+            self.get_connection_center(layout, connection)
+        )
+        mid_x, mid_y = center
+
+        # Estimación: 7px por caracter, 12px altura
+        text_width = len(label) * 7
+        text_height = 16
+
+        return (
+            mid_x - text_width // 2,
+            mid_y - 10 - text_height,
+            mid_x + text_width // 2,
+            mid_y - 10
+        )
+
+    def rectangles_intersect(
+        self,
+        rect1: Tuple[float, float, float, float],
+        rect2: Tuple[float, float, float, float]
+    ) -> bool:
+        """
+        Verifica si dos rectángulos se intersectan.
+
+        Args:
+            rect1: (x1, y1, x2, y2)
+            rect2: (x1, y1, x2, y2)
+
+        Returns:
+            bool: True si se intersectan
+        """
+        if rect1 is None or rect2 is None:
+            return False
+
+        x1_1, y1_1, x2_1, y2_1 = rect1
+        x1_2, y1_2, x2_2, y2_2 = rect2
+
+        if x2_1 < x1_2 or x2_2 < x1_1:
+            return False
+        if y2_1 < y1_2 or y2_2 < y1_1:
+            return False
+
+        return True
+
+    def line_intersects_rect(
+        self,
+        line_endpoints: Tuple[float, float, float, float],
+        rect: Tuple[float, float, float, float]
+    ) -> bool:
+        """
+        Verifica si una línea intersecta con un rectángulo.
+
+        Más preciso que comparar bboxes para líneas diagonales.
+
+        Args:
+            line_endpoints: (x1, y1, x2, y2)
+            rect: (rx1, ry1, rx2, ry2)
+
+        Returns:
+            bool: True si la línea cruza el rectángulo
+        """
+        if line_endpoints is None or rect is None:
+            return False
+
+        x1, y1, x2, y2 = line_endpoints
+        rx1, ry1, rx2, ry2 = rect
+
+        # Primero verificar si el bbox de la línea intersecta el rectángulo
+        line_bbox = (min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2))
+        if not self.rectangles_intersect(line_bbox, rect):
+            return False
+
+        # Para líneas verticales
+        if abs(x2 - x1) < 1:
+            return rx1 <= x1 <= rx2 and not (max(y1, y2) < ry1 or min(y1, y2) > ry2)
+
+        # Para líneas horizontales
+        if abs(y2 - y1) < 1:
+            return ry1 <= y1 <= ry2 and not (max(x1, x2) < rx1 or min(x1, x2) > rx2)
+
+        # Para líneas diagonales, verificar si algún punto del rectángulo
+        # está en lados opuestos de la línea
+        def side(px, py):
+            return (x2 - x1) * (py - y1) - (y2 - y1) * (px - x1)
+
+        corners = [(rx1, ry1), (rx2, ry1), (rx2, ry2), (rx1, ry2)]
+        sides = [side(px, py) for px, py in corners]
+
+        # Si todas las esquinas están del mismo lado, no hay intersección
+        if all(s > 0 for s in sides) or all(s < 0 for s in sides):
+            return False
+
+        return True
