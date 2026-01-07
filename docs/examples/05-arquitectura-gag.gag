@@ -1,14 +1,14 @@
 {
   "canvas": {
     "width": 1200,
-    "height": 750
+    "height": 850
   },
   "elements": [
     {
       "id": "input",
       "type": "building",
       "x": 50,
-      "y": 30,
+      "y": 80,
       "label": "archivo.gag\n(JSON SDJF)",
       "color": "lightblue"
     },
@@ -16,7 +16,7 @@
       "id": "main",
       "type": "server",
       "x": 250,
-      "y": 30,
+      "y": 80,
       "label": "main.py\n(entrada CLI)",
       "color": "lightgreen"
     },
@@ -24,16 +24,15 @@
       "id": "generator",
       "type": "server",
       "x": 450,
-      "y": 30,
+      "y": 80,
       "label": "generator.py\n(orquestador)",
-      "color": "gold",
-      "label_position": "left"
+      "color": "gold"
     },
     {
       "id": "svgwrite",
       "type": "cloud",
       "x": 650,
-      "y": 30,
+      "y": 80,
       "label": "svgwrite\n(libreria)",
       "color": "cyan"
     },
@@ -41,7 +40,7 @@
       "id": "autolayout",
       "type": "server",
       "x": 450,
-      "y": 150,
+      "y": 200,
       "label": "AutoLayout\n(v2.0)",
       "color": "tomato"
     },
@@ -49,79 +48,71 @@
       "id": "detect",
       "type": "building",
       "x": 300,
-      "y": 270,
+      "y": 320,
       "label": "Detectar colisiones\niconos + lineas",
-      "color": "tomato",
-      "label_position": "left"
+      "color": "tomato"
     },
     {
       "id": "optimize",
       "type": "building",
       "x": 600,
-      "y": 270,
+      "y": 320,
       "label": "Optimizar posiciones\n(max 5 iter)",
-      "color": "tomato",
-      "label_position": "right"
+      "color": "tomato"
     },
     {
       "id": "phase1",
       "type": "building",
       "x": 200,
-      "y": 420,
+      "y": 470,
       "label": "FASE 1\ndraw_icon_shape()",
-      "color": "purple",
-      "label_position": "top"
+      "color": "purple"
     },
     {
       "id": "phase2",
       "type": "building",
       "x": 450,
-      "y": 420,
+      "y": 470,
       "label": "FASE 2\ndraw_connection_line()",
-      "color": "orange",
-      "label_position": "top"
+      "color": "orange"
     },
     {
       "id": "phase3",
       "type": "building",
       "x": 700,
-      "y": 420,
+      "y": 470,
       "label": "FASE 3\ndraw_*_label()",
-      "color": "pink",
-      "label_position": "right"
+      "color": "pink"
     },
     {
       "id": "icons_module",
       "type": "server",
       "x": 200,
-      "y": 550,
+      "y": 600,
       "label": "icons.py\nshape only",
-      "color": "purple",
-      "label_position": "left"
+      "color": "purple"
     },
     {
       "id": "conn_module",
       "type": "server",
       "x": 450,
-      "y": 550,
+      "y": 600,
       "label": "connections.py\nline only",
-      "color": "orange",
-      "label_position": "right"
+      "color": "orange"
     },
     {
       "id": "labels",
       "type": "server",
       "x": 700,
-      "y": 550,
+      "y": 600,
       "label": "Todas las\netiquetas",
-      "color": "pink",
-      "label_position": "right"
+      "color": "pink"
     },
     {
       "id": "output",
       "type": "building",
       "x": 450,
-      "y": 670,
+      "y": 730,
       "label": "dwg.save()\narchivo.svg",
       "color": "lightgreen"
     }
