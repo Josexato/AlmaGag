@@ -150,11 +150,12 @@ El siguiente diagrama (generado con GAG) muestra el flujo de procesamiento:
 AlmaGag/
 ├── main.py              # Punto de entrada CLI
 ├── generator.py         # Orquestador: canvas, markers, render loop
+├── autolayout.py        # Clase AutoLayout: detección y resolución de colisiones
 ├── config.py            # Constantes (WIDTH, HEIGHT, ICON_WIDTH, etc.)
 ├── draw/
 │   ├── __init__.py
-│   ├── icons.py         # Dispatcher + gradientes automáticos
-│   ├── connections.py   # Líneas con offset visual y flechas
+│   ├── icons.py         # Dispatcher + gradientes + draw_icon_shape/label
+│   ├── connections.py   # Líneas + draw_connection_line/label
 │   ├── bwt.py           # Fallback: Banana With Tape (plátano con cinta)
 │   ├── server.py        # Ícono tipo server (rectángulo)
 │   ├── firewall.py      # Ícono tipo firewall (rectángulo)
@@ -206,6 +207,31 @@ AlmaGag/
 ```
 Valores válidos: `bottom` (default), `top`, `left`, `right`
 
+## Mejoras v1.4
+
+✅ **Clase AutoLayout independiente**: Nueva clase modular que maneja toda la detección y resolución de colisiones, separada del renderizado. Facilita el mantenimiento y testing.
+
+✅ **Detección de colisiones con líneas**: Las etiquetas ahora evitan las líneas de conexión, no solo los íconos. El algoritmo `_line_intersects_rect()` detecta intersecciones precisas entre líneas y rectángulos de texto.
+
+✅ **Nuevo orden de renderizado**:
+```
+1. AutoLayout evalúa y optimiza posiciones
+2. Dibujar todos los íconos (sin etiquetas)
+3. Dibujar todas las conexiones (sin etiquetas)
+4. Dibujar TODAS las etiquetas (íconos + conexiones)
+```
+
+✅ **Funciones separadas para shape y label**:
+- `draw_icon_shape()` / `draw_icon_label()` en icons.py
+- `draw_connection_line()` / `draw_connection_label()` en connections.py
+
+✅ **Optimización iterativa**: Si hay colisiones inevitables, el algoritmo intenta hasta 5 iteraciones desplazando elementos problemáticos.
+
+```
+[OK] AutoLayout: 0 colisiones detectadas
+[OK] Diagrama generado exitosamente: diagrama.svg
+```
+
 ## Galería de ejemplos
 
 ### Íconos registrados con gradientes
@@ -239,7 +265,7 @@ Demostración de gradientes automáticos con colores CSS nombrados y valores hex
 
 ## Roadmap futuro
 
-- **Autolayout**: Generación automática de coordenadas
+- ~~**Autolayout**~~: ✅ Detección de colisiones implementada en v1.4 (pendiente: generación automática de coordenadas)
 - ~~**Gradientes y sombras**~~: ✅ Implementado en v1.2
 - **Temas**: Estilos predefinidos (Cloud, Tech, Minimal)
 - **Animación**: Timeline para aparición secuencial
