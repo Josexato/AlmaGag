@@ -250,9 +250,74 @@ def calculate_label_position(element, all_elements, preferred='bottom'):
     return get_text_coords(element, preferred, num_lines)
 
 
+def draw_icon_shape(dwg, element):
+    """
+    Dibuja solo la forma del ícono, sin etiqueta.
+
+    Parámetros:
+        dwg (svgwrite.Drawing): Objeto de dibujo SVG.
+        element (dict): Elemento con las claves:
+            - 'x' (int): coordenada X del ícono.
+            - 'y' (int): coordenada Y del ícono.
+            - 'type' (str): tipo del ícono ('server', 'cloud', etc).
+            - 'color' (str, opcional): color de relleno (por defecto: 'gray').
+
+    Comportamiento:
+        - Si el tipo es válido y el módulo correspondiente existe:
+            → llama a draw_<type>(dwg, x, y, color).
+        - Si el tipo no existe o hay error:
+            → se dibuja el ícono por defecto (plátano con cinta).
+    """
+    x = element['x']
+    y = element['y']
+    elem_type = element.get('type', 'unknown')
+    color = element.get('color', 'gray')
+
+    element_id = element.get('id', f'{elem_type}_{x}_{y}')
+
+    try:
+        module = importlib.import_module(f'AlmaGag.draw.{elem_type}')
+        draw_func = getattr(module, f'draw_{elem_type}')
+        draw_func(dwg, x, y, color, element_id)
+    except Exception as e:
+        print(f"[WARN] No se pudo dibujar '{elem_type}', se usará ícono por defecto. Error: {e}")
+        from AlmaGag.draw.bwt import draw_bwt
+        draw_bwt(dwg, x, y)
+
+
+def draw_icon_label(dwg, element, position_info):
+    """
+    Dibuja solo la etiqueta de un ícono en la posición indicada.
+
+    Parámetros:
+        dwg (svgwrite.Drawing): Objeto de dibujo SVG.
+        element (dict): Elemento con 'label'.
+        position_info (tuple): (x, y, anchor, position_name) calculado por AutoLayout.
+    """
+    label = element.get('label', '')
+    if not label or not position_info:
+        return
+
+    text_x, text_y, anchor, _ = position_info
+    lines = label.split('\n')
+
+    for i, line in enumerate(lines):
+        dwg.add(dwg.text(
+            line,
+            insert=(text_x, text_y + (i * 18)),
+            text_anchor=anchor,
+            font_size="14px",
+            font_family="Arial, sans-serif",
+            fill="black"
+        ))
+
+
 def draw_icon(dwg, element, all_elements=None):
     """
-    Dibuja un ícono en el canvas SVG a partir de los datos del elemento.
+    Dibuja un ícono completo (forma + etiqueta) en el canvas SVG.
+
+    NOTA: Esta función se mantiene por compatibilidad. Para el nuevo flujo
+    con AutoLayout, usar draw_icon_shape() y draw_icon_label() por separado.
 
     Parámetros:
         dwg (svgwrite.Drawing): Objeto de dibujo SVG.
@@ -271,60 +336,19 @@ def draw_icon(dwg, element, all_elements=None):
         - Si el tipo no existe o hay error:
             → se dibuja el ícono por defecto (plátano con cinta).
         - El texto se posiciona inteligentemente evitando colisiones.
-
-    Ejemplo de uso:
-        draw_icon(dwg, {
-            "type": "server",
-            "x": 100,
-            "y": 150,
-            "label": "Servidor 1",
-            "color": "lightblue",
-            "label_position": "right"
-        }, all_elements)
     """
-    x = element['x']
-    y = element['y']
-    label = element.get('label', '')
-    elem_type = element.get('type', 'unknown')
-    color = element.get('color', 'gray')
-
-    element_id = element.get('id', f'{elem_type}_{x}_{y}')
-
-    try:
-        # Intentar importar el módulo de dibujo específico según tipo
-        module = importlib.import_module(f'AlmaGag.draw.{elem_type}')
-        draw_func = getattr(module, f'draw_{elem_type}')
-        draw_func(dwg, x, y, color, element_id)
-    except Exception as e:
-        print(f"[WARN] No se pudo dibujar '{elem_type}', se usará ícono por defecto. Error: {e}")
-        from AlmaGag.draw.bwt import draw_bwt
-        draw_bwt(dwg, x, y)
+    # Dibujar forma del ícono
+    draw_icon_shape(dwg, element)
 
     # Renderizar texto con posicionamiento inteligente
+    label = element.get('label', '')
     if label:
         lines = label.split('\n')
-
-        # Obtener posición preferida del JSON o usar 'bottom'
         preferred_pos = element.get('label_position', 'bottom')
 
-        # Calcular mejor posición (evitando colisiones si hay lista de elementos)
         if all_elements:
-            text_x, text_y, anchor, _ = calculate_label_position(
-                element, all_elements, preferred_pos
-            )
+            position_info = calculate_label_position(element, all_elements, preferred_pos)
         else:
-            # Sin lista de elementos, usar posición preferida directamente
-            text_x, text_y, anchor, _ = get_text_coords(
-                element, preferred_pos, len(lines)
-            )
+            position_info = get_text_coords(element, preferred_pos, len(lines))
 
-        # Renderizar cada línea de texto
-        for i, line in enumerate(lines):
-            dwg.add(dwg.text(
-                line,
-                insert=(text_x, text_y + (i * 18)),
-                text_anchor=anchor,
-                font_size="14px",
-                font_family="Arial, sans-serif",
-                fill="black"
-            ))
+        draw_icon_label(dwg, element, position_info)

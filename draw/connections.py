@@ -29,10 +29,9 @@ def compute_visual_offset(elem):
     return max(ICON_WIDTH, ICON_HEIGHT) / 2.5  # Para rectángulos u otros
 
 
-def draw_connection(dwg, elements_by_id, connection, markers):
+def draw_connection_line(dwg, elements_by_id, connection, markers):
     """
-    Dibuja una línea entre dos elementos, ajustando los puntos para evitar
-    superposición con los íconos.
+    Dibuja solo la línea de conexión, sin etiqueta.
 
     Parámetros:
         dwg (svgwrite.Drawing): Objeto SVG donde se dibuja.
@@ -40,18 +39,11 @@ def draw_connection(dwg, elements_by_id, connection, markers):
         connection (dict): Diccionario con:
             - 'from': id del elemento origen.
             - 'to': id del elemento destino.
-            - 'label' (opcional): texto a mostrar en la línea.
             - 'direction' (opcional): dirección de la flecha.
-              Valores: 'forward', 'backward', 'bidirectional', 'none'
         markers (dict): Diccionario con markers SVG para flechas.
 
-    Ejemplo:
-        {
-            "from": "router1",
-            "to": "switch2",
-            "label": "enlace 1Gbps",
-            "direction": "forward"
-        }
+    Returns:
+        tuple: (mid_x, mid_y) coordenadas del centro de la línea
     """
     from_elem = elements_by_id[connection['from']]
     to_elem = elements_by_id[connection['to']]
@@ -94,19 +86,68 @@ def draw_connection(dwg, elements_by_id, connection, markers):
     elif direction == 'bidirectional':
         line_attrs['marker_start'] = markers['bidirectional'][0]
         line_attrs['marker_end'] = markers['bidirectional'][1]
-    # 'none' o valor desconocido: sin markers
 
     # Línea de conexión
     dwg.add(dwg.line(**line_attrs))
 
-    # Etiqueta opcional en el medio
-    if 'label' in connection:
-        mid_x = (new_x1 + new_x2) / 2
-        mid_y = (new_y1 + new_y2) / 2
-        dwg.add(dwg.text(
-            connection['label'],
-            insert=(mid_x, mid_y - 10),
-            text_anchor="middle",
-            font_size="12px",
-            fill="gray"
-        ))
+    # Retornar centro de la línea
+    mid_x = (new_x1 + new_x2) / 2
+    mid_y = (new_y1 + new_y2) / 2
+    return (mid_x, mid_y)
+
+
+def draw_connection_label(dwg, connection, position):
+    """
+    Dibuja solo la etiqueta de una conexión.
+
+    Parámetros:
+        dwg (svgwrite.Drawing): Objeto SVG donde se dibuja.
+        connection (dict): Diccionario con 'label'.
+        position (tuple): (x, y) coordenadas del centro de la conexión.
+    """
+    label = connection.get('label', '')
+    if not label:
+        return
+
+    mid_x, mid_y = position
+    dwg.add(dwg.text(
+        label,
+        insert=(mid_x, mid_y - 10),
+        text_anchor="middle",
+        font_size="12px",
+        font_family="Arial, sans-serif",
+        fill="gray"
+    ))
+
+
+def draw_connection(dwg, elements_by_id, connection, markers):
+    """
+    Dibuja una línea completa (línea + etiqueta) entre dos elementos.
+
+    NOTA: Esta función se mantiene por compatibilidad. Para el nuevo flujo
+    con AutoLayout, usar draw_connection_line() y draw_connection_label() por separado.
+
+    Parámetros:
+        dwg (svgwrite.Drawing): Objeto SVG donde se dibuja.
+        elements_by_id (dict): Mapa de id → elemento.
+        connection (dict): Diccionario con:
+            - 'from': id del elemento origen.
+            - 'to': id del elemento destino.
+            - 'label' (opcional): texto a mostrar en la línea.
+            - 'direction' (opcional): dirección de la flecha.
+              Valores: 'forward', 'backward', 'bidirectional', 'none'
+        markers (dict): Diccionario con markers SVG para flechas.
+
+    Ejemplo:
+        {
+            "from": "router1",
+            "to": "switch2",
+            "label": "enlace 1Gbps",
+            "direction": "forward"
+        }
+    """
+    # Dibujar línea
+    center = draw_connection_line(dwg, elements_by_id, connection, markers)
+
+    # Dibujar etiqueta
+    draw_connection_label(dwg, connection, center)
