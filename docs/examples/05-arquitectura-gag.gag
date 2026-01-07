@@ -26,7 +26,8 @@
       "x": 450,
       "y": 30,
       "label": "generator.py\n(orquestador)",
-      "color": "gold"
+      "color": "gold",
+      "label_position": "left"
     },
     {
       "id": "svgwrite",
@@ -66,31 +67,34 @@
       "id": "phase1",
       "type": "building",
       "x": 200,
-      "y": 400,
+      "y": 420,
       "label": "FASE 1\ndraw_icon_shape()",
-      "color": "purple"
+      "color": "purple",
+      "label_position": "top"
     },
     {
       "id": "phase2",
       "type": "building",
       "x": 450,
-      "y": 400,
+      "y": 420,
       "label": "FASE 2\ndraw_connection_line()",
-      "color": "orange"
+      "color": "orange",
+      "label_position": "top"
     },
     {
       "id": "phase3",
       "type": "building",
       "x": 700,
-      "y": 400,
+      "y": 420,
       "label": "FASE 3\ndraw_*_label()",
-      "color": "pink"
+      "color": "pink",
+      "label_position": "right"
     },
     {
       "id": "icons_module",
       "type": "server",
       "x": 200,
-      "y": 530,
+      "y": 550,
       "label": "icons.py\nshape only",
       "color": "purple",
       "label_position": "left"
@@ -99,15 +103,16 @@
       "id": "conn_module",
       "type": "server",
       "x": 450,
-      "y": 530,
+      "y": 550,
       "label": "connections.py\nline only",
-      "color": "orange"
+      "color": "orange",
+      "label_position": "right"
     },
     {
       "id": "labels",
       "type": "server",
       "x": 700,
-      "y": 530,
+      "y": 550,
       "label": "Todas las\netiquetas",
       "color": "pink",
       "label_position": "right"
@@ -116,7 +121,7 @@
       "id": "output",
       "type": "building",
       "x": 450,
-      "y": 650,
+      "y": 670,
       "label": "dwg.save()\narchivo.svg",
       "color": "lightgreen"
     }
