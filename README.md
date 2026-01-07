@@ -7,21 +7,24 @@ GAG es una herramienta para generar diagramas SVG a partir de archivos JSON en f
 
 ## Instalación
 
-Asegúrate de tener Python 3 instalado. Instala la dependencia `svgwrite`:
+Asegúrate de tener Python 3.8+ instalado. Instala AlmaGag en modo editable:
 
 ```bash
-pip install svgwrite
+cd AlmaGag
+pip install -e .
 ```
 
-O usando `requirements.txt`:
-
-```bash
-pip install -r requirements.txt
-```
+Esto instala el comando `almagag` y todas las dependencias automáticamente.
 
 ## Uso
 
-Ejecuta GAG desde el directorio padre del proyecto con:
+Después de instalar, puedes usar el comando `almagag` desde cualquier directorio:
+
+```bash
+almagag archivo.gag
+```
+
+O usando el módulo Python directamente:
 
 ```bash
 python -m AlmaGag.main archivo.gag
@@ -32,10 +35,10 @@ Esto genera un archivo SVG con el mismo nombre base en el directorio actual.
 ### Ejemplo:
 
 ```bash
-python -m AlmaGag.main roadmap-25-06-22.gag
+almagag docs/examples/05-arquitectura-gag.gag
 ```
 
-Genera: `roadmap-25-06-22.svg`
+Genera: `05-arquitectura-gag.svg`
 
 ## Formato de entrada: SDJF v1.0
 

@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "AlmaGag"
+version = "2.0.0"
+description = "Generador Automático de Grafos - Genera diagramas SVG desde archivos JSON (SDJF)"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "Jose", email = "jose@example.com"}
+]
+keywords = ["svg", "diagram", "graph", "generator", "visualization"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Graphics",
+]
+dependencies = [
+    "svgwrite>=1.4",
+]
+
+[project.scripts]
+almagag = "AlmaGag.main:main"
+
+[project.urls]
+Homepage = "https://github.com/Josexato/AlmaGag"
+Repository = "https://github.com/Josexato/AlmaGag.git"
+Issues = "https://github.com/Josexato/AlmaGag/issues"
+
+[tool.setuptools]
+packages = ["AlmaGag", "AlmaGag.draw"]
+package-dir = {"AlmaGag" = ".", "AlmaGag.draw" = "draw"}

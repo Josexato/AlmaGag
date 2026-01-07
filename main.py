@@ -1,11 +1,18 @@
 import sys
 from AlmaGag.generator import generate_diagram
 
-if __name__ == "__main__":
+
+def main():
+    """Punto de entrada CLI para AlmaGag."""
     if len(sys.argv) != 2:
-        print("Uso: python -m AlmaGag.main archivo.gag")
+        print("Uso: almagag archivo.gag")
+        print("     python -m AlmaGag.main archivo.gag")
         print("\nEjemplos:")
-        print("  python -m AlmaGag.main roadmap-25-06-22.gag")
-        print("  python -m AlmaGag.main data/primos.gag")
+        print("  almagag roadmap-25-06-22.gag")
+        print("  almagag docs/examples/05-arquitectura-gag.gag")
     else:
         generate_diagram(sys.argv[1])
+
+
+if __name__ == "__main__":
+    main()
