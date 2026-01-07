@@ -71,11 +71,12 @@ def generate_diagram(json_file):
     # Configurar markers para flechas direccionales
     markers = setup_arrow_markers(dwg)
 
-    elements_by_id = {e['id']: e for e in data.get('elements', [])}
+    all_elements = data.get('elements', [])
+    elements_by_id = {e['id']: e for e in all_elements}
 
     # Dibujar elementos primero, luego conexiones
-    for elem in data.get('elements', []):
-        draw_icon(dwg, elem)
+    for elem in all_elements:
+        draw_icon(dwg, elem, all_elements)
     for conn in data.get('connections', []):
         draw_connection(dwg, elements_by_id, conn, markers)
 

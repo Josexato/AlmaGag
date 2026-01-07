@@ -13,6 +13,7 @@ Fecha: 2025-07-06
 """
 
 import importlib
+from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 
 # Diccionario de colores CSS nombrados a valores hex
 CSS_COLORS = {
@@ -87,7 +88,169 @@ def create_gradient(dwg, element_id, base_color):
     return f'url(#{gradient_id})'
 
 
-def draw_icon(dwg, element):
+# ============================================================================
+# POSICIONAMIENTO INTELIGENTE DE TEXTO
+# ============================================================================
+
+def get_text_coords(element, position, num_lines=1):
+    """
+    Calcula las coordenadas del texto según la posición deseada.
+
+    Args:
+        element: Elemento con 'x', 'y'
+        position: 'bottom', 'top', 'left', 'right'
+        num_lines: Número de líneas de texto
+
+    Returns:
+        tuple: (x, y, text_anchor, position_name)
+    """
+    x, y = element['x'], element['y']
+    center_x = x + ICON_WIDTH // 2   # Centro horizontal del ícono
+    center_y = y + ICON_HEIGHT // 2  # Centro vertical del ícono
+
+    if position == 'bottom':
+        return (center_x, y + ICON_HEIGHT + 20, 'middle', 'bottom')
+    elif position == 'top':
+        # Ajustar hacia arriba según número de líneas
+        text_y = y - 10 - ((num_lines - 1) * 18)
+        return (center_x, text_y, 'middle', 'top')
+    elif position == 'right':
+        return (x + ICON_WIDTH + 15, center_y, 'start', 'right')
+    elif position == 'left':
+        return (x - 15, center_y, 'end', 'left')
+    else:
+        # Default: bottom
+        return (center_x, y + ICON_HEIGHT + 20, 'middle', 'bottom')
+
+
+def get_text_bbox(element, position, num_lines=1):
+    """
+    Calcula el bounding box aproximado del texto en una posición.
+
+    Returns:
+        tuple: (x1, y1, x2, y2) del área ocupada por el texto
+    """
+    text_x, text_y, anchor, _ = get_text_coords(element, position, num_lines)
+
+    # Estimación del ancho del texto (aproximado)
+    label = element.get('label', '')
+    max_line_len = max((len(line) for line in label.split('\n')), default=0)
+    text_width = max_line_len * 8  # ~8px por caracter en Arial 14px
+    text_height = num_lines * 18
+
+    # Calcular bbox según anchor
+    if anchor == 'middle':
+        x1 = text_x - text_width // 2
+        x2 = text_x + text_width // 2
+    elif anchor == 'start':
+        x1 = text_x
+        x2 = text_x + text_width
+    else:  # 'end'
+        x1 = text_x - text_width
+        x2 = text_x
+
+    # Y va de arriba hacia abajo
+    if position == 'top':
+        y1 = text_y - 14  # Ajuste por baseline
+        y2 = text_y + text_height - 14
+    elif position in ('left', 'right'):
+        y1 = text_y - (text_height // 2)
+        y2 = text_y + (text_height // 2)
+    else:  # bottom
+        y1 = text_y - 14
+        y2 = text_y + text_height - 14
+
+    return (x1, y1, x2, y2)
+
+
+def rectangles_intersect(rect1, rect2):
+    """
+    Verifica si dos rectángulos se intersectan.
+
+    Args:
+        rect1, rect2: tuplas (x1, y1, x2, y2)
+
+    Returns:
+        bool: True si se intersectan
+    """
+    x1_1, y1_1, x2_1, y2_1 = rect1
+    x1_2, y1_2, x2_2, y2_2 = rect2
+
+    # No hay intersección si uno está completamente a un lado del otro
+    if x2_1 < x1_2 or x2_2 < x1_1:
+        return False
+    if y2_1 < y1_2 or y2_2 < y1_1:
+        return False
+
+    return True
+
+
+def has_collision(text_bbox, current_elem, all_elements):
+    """
+    Verifica si el texto colisiona con otros elementos (íconos).
+
+    Args:
+        text_bbox: (x1, y1, x2, y2) del texto
+        current_elem: Elemento actual
+        all_elements: Lista de todos los elementos
+
+    Returns:
+        bool: True si hay colisión
+    """
+    current_id = current_elem.get('id', '')
+
+    for elem in all_elements:
+        if elem.get('id', '') == current_id:
+            continue
+
+        # Bounding box del ícono
+        icon_bbox = (
+            elem['x'],
+            elem['y'],
+            elem['x'] + ICON_WIDTH,
+            elem['y'] + ICON_HEIGHT
+        )
+
+        if rectangles_intersect(text_bbox, icon_bbox):
+            return True
+
+    return False
+
+
+def calculate_label_position(element, all_elements, preferred='bottom'):
+    """
+    Calcula la mejor posición para el texto evitando colisiones.
+
+    Args:
+        element: Elemento actual
+        all_elements: Lista de todos los elementos
+        preferred: Posición preferida ('bottom', 'top', 'left', 'right')
+
+    Returns:
+        tuple: (x, y, text_anchor, position_name)
+    """
+    label = element.get('label', '')
+    num_lines = len(label.split('\n')) if label else 1
+
+    # Orden de prioridad para probar posiciones
+    positions_order = ['bottom', 'right', 'top', 'left']
+
+    # Mover la preferida al inicio
+    if preferred in positions_order:
+        positions_order.remove(preferred)
+        positions_order.insert(0, preferred)
+
+    # Probar cada posición
+    for pos in positions_order:
+        text_bbox = get_text_bbox(element, pos, num_lines)
+        if not has_collision(text_bbox, element, all_elements):
+            return get_text_coords(element, pos, num_lines)
+
+    # Si todas colisionan, usar la preferida
+    return get_text_coords(element, preferred, num_lines)
+
+
+def draw_icon(dwg, element, all_elements=None):
     """
     Dibuja un ícono en el canvas SVG a partir de los datos del elemento.
 
@@ -97,14 +260,17 @@ def draw_icon(dwg, element):
             - 'x' (int): coordenada X del ícono.
             - 'y' (int): coordenada Y del ícono.
             - 'type' (str): tipo del ícono ('server', 'cloud', etc).
-            - 'label' (str, opcional): texto a mostrar debajo.
+            - 'label' (str, opcional): texto a mostrar.
             - 'color' (str, opcional): color de relleno (por defecto: 'gray').
+            - 'label_position' (str, opcional): posición del texto
+              ('bottom', 'top', 'left', 'right'). Por defecto: auto-detectar.
 
     Comportamiento:
         - Si el tipo es válido y el módulo correspondiente existe:
             → llama a draw_<type>(dwg, x, y, color).
         - Si el tipo no existe o hay error:
             → se dibuja el ícono por defecto (plátano con cinta).
+        - El texto se posiciona inteligentemente evitando colisiones.
 
     Ejemplo de uso:
         draw_icon(dwg, {
@@ -112,8 +278,9 @@ def draw_icon(dwg, element):
             "x": 100,
             "y": 150,
             "label": "Servidor 1",
-            "color": "lightblue"
-        })
+            "color": "lightblue",
+            "label_position": "right"
+        }, all_elements)
     """
     x = element['x']
     y = element['y']
@@ -133,13 +300,31 @@ def draw_icon(dwg, element):
         from AlmaGag.draw.bwt import draw_bwt
         draw_bwt(dwg, x, y)
 
-    # Renderizar texto debajo del ícono (admite múltiples líneas)
-    lines = label.split('\n')
-    for i, line in enumerate(lines):
-        dwg.add(dwg.text(
-            line,
-            insert=(x + 40, y + 70 + (i * 18)),  # Posición centrada
-            text_anchor="middle",
-            font_size="14px",
-            fill="black"
-        ))
+    # Renderizar texto con posicionamiento inteligente
+    if label:
+        lines = label.split('\n')
+
+        # Obtener posición preferida del JSON o usar 'bottom'
+        preferred_pos = element.get('label_position', 'bottom')
+
+        # Calcular mejor posición (evitando colisiones si hay lista de elementos)
+        if all_elements:
+            text_x, text_y, anchor, _ = calculate_label_position(
+                element, all_elements, preferred_pos
+            )
+        else:
+            # Sin lista de elementos, usar posición preferida directamente
+            text_x, text_y, anchor, _ = get_text_coords(
+                element, preferred_pos, len(lines)
+            )
+
+        # Renderizar cada línea de texto
+        for i, line in enumerate(lines):
+            dwg.add(dwg.text(
+                line,
+                insert=(text_x, text_y + (i * 18)),
+                text_anchor=anchor,
+                font_size="14px",
+                font_family="Arial, sans-serif",
+                fill="black"
+            ))
