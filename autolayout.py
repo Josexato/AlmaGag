@@ -1,9 +1,9 @@
 """
 AlmaGag.autolayout
 
-Clase AutoLayout v2.0 para detección y resolución de colisiones.
-Maneja el posicionamiento inteligente de etiquetas considerando
-íconos, conexiones, estructura del grafo y prioridades.
+Clase AutoLayout v2.1 para detección y resolución de colisiones.
+Maneja el posicionamiento inteligente de etiquetas Y elementos
+considerando íconos, conexiones, estructura del grafo y prioridades.
 
 Uso:
     layout = AutoLayout(elements, connections, canvas)
@@ -12,9 +12,11 @@ Uso:
     elements, label_positions, conn_labels = layout.get_result()
     recommended_canvas = layout.recommended_canvas
 
+v2.1: Movimiento inteligente de elementos cuando mover etiquetas no basta.
+
 Autor: Jose + ALMA
-Fecha: 2025-07-06
-Version: 2.0
+Fecha: 2025-01-06
+Version: 2.1
 """
 
 from copy import deepcopy
@@ -23,7 +25,7 @@ from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 
 class AutoLayout:
     """
-    Clase v2.0 para optimizar el layout de diagramas evitando colisiones.
+    Clase v2.1 para optimizar el layout de diagramas evitando colisiones.
 
     Detecta colisiones entre:
     - Etiquetas de íconos vs otros íconos
@@ -31,12 +33,12 @@ class AutoLayout:
     - Etiquetas de íconos vs líneas de conexión
     - Etiquetas de conexiones vs íconos
 
-    Estrategia de resolución v2.0:
+    Estrategia de resolución v2.1:
     1. Analiza estructura del grafo (niveles, grupos, prioridades)
     2. Posiciona etiquetas respetando prioridades
     3. Intenta mover etiquetas a posiciones alternativas
-    4. Desplaza niveles completos si es necesario
-    5. Expande el canvas como último recurso
+    4. NUEVO: Mueve elementos de baja prioridad si etiquetas no bastan
+    5. Expande el canvas dinámicamente según necesidad
     """
 
     # Posiciones a probar en orden de preferencia
@@ -655,6 +657,207 @@ class AutoLayout:
         """
         return self.count_collisions() > 0
 
+    # =========================================================================
+    # v2.1: MOVIMIENTO INTELIGENTE DE ELEMENTOS
+    # =========================================================================
+
+    def _find_collision_pairs(self):
+        """
+        Identifica qué elementos colisionan entre sí.
+
+        Returns:
+            list: [(elem_id_1, elem_id_2, collision_type), ...]
+                  collision_type: 'icon_label_vs_icon', 'icon_label_vs_line', etc.
+        """
+        pairs = []
+        bboxes = self._collect_all_bboxes()
+        lines = self._collect_all_lines()
+
+        # Colisiones entre bboxes (etiqueta vs ícono, etiqueta vs etiqueta)
+        for i, (bbox1, type1, id1) in enumerate(bboxes):
+            for j, (bbox2, type2, id2) in enumerate(bboxes):
+                if i >= j:
+                    continue
+                # No contar colisión de ícono con su propia etiqueta
+                if (type1 == 'icon' and type2 == 'icon_label' and id1 == id2):
+                    continue
+                if (type1 == 'icon_label' and type2 == 'icon' and id1 == id2):
+                    continue
+
+                if self._rectangles_intersect(bbox1, bbox2):
+                    pairs.append((id1, id2, f'{type1}_vs_{type2}'))
+
+        # Colisiones etiqueta vs línea
+        for bbox, bbox_type, bbox_id in bboxes:
+            if bbox_type != 'icon_label':
+                continue
+            for endpoints, conn_key in lines:
+                from_id, to_id = conn_key.split('->')
+                if bbox_id in (from_id, to_id):
+                    continue
+                if self._line_intersects_rect(endpoints, bbox):
+                    pairs.append((bbox_id, conn_key, 'label_vs_line'))
+
+        return pairs
+
+    def _find_free_space(self, element):
+        """
+        Calcula cuánto espacio libre hay en cada dirección.
+
+        Args:
+            element: Dict del elemento
+
+        Returns:
+            dict: {'down': px, 'up': px, 'right': px, 'left': px}
+        """
+        elem_bbox = self._get_icon_bbox(element)
+        ex1, ey1, ex2, ey2 = elem_bbox
+
+        free = {'down': 999, 'up': 999, 'right': 999, 'left': 999}
+
+        for other in self.elements:
+            if other['id'] == element['id']:
+                continue
+
+            other_bbox = self._get_icon_bbox(other)
+            ox1, oy1, ox2, oy2 = other_bbox
+
+            # Espacio abajo (otros elementos debajo que solapan en X)
+            if ox1 < ex2 and ox2 > ex1:  # Solapan en X
+                if oy1 > ey2:  # Está debajo
+                    free['down'] = min(free['down'], oy1 - ey2)
+
+            # Espacio arriba
+            if ox1 < ex2 and ox2 > ex1:
+                if oy2 < ey1:
+                    free['up'] = min(free['up'], ey1 - oy2)
+
+            # Espacio derecha (otros elementos a la derecha que solapan en Y)
+            if oy1 < ey2 and oy2 > ey1:  # Solapan en Y
+                if ox1 > ex2:
+                    free['right'] = min(free['right'], ox1 - ex2)
+
+            # Espacio izquierda
+            if oy1 < ey2 and oy2 > ey1:
+                if ox2 < ex1:
+                    free['left'] = min(free['left'], ex1 - ox2)
+
+        # Considerar bordes del canvas
+        free['down'] = min(free['down'],
+                           self.recommended_canvas['height'] - ey2 - 100)
+        free['right'] = min(free['right'],
+                            self.recommended_canvas['width'] - ex2 - 100)
+        free['up'] = min(free['up'], ey1 - 50)
+        free['left'] = min(free['left'], ex1 - 50)
+
+        return {k: max(0, v) for k, v in free.items()}
+
+    def _select_element_to_move(self, collision_pairs):
+        """
+        Selecciona el elemento de MENOR prioridad para mover.
+
+        Reglas:
+        1. Si colisión es label_vs_line → mover el elemento de la etiqueta
+        2. Si colisión es label_vs_icon → mover el de menor prioridad
+        3. Nunca mover elementos con prioridad 'high' (valor 0)
+
+        Args:
+            collision_pairs: Lista de (id1, id2, collision_type)
+
+        Returns:
+            str: ID del elemento a mover, o None
+        """
+        candidates = {}
+
+        for id1, id2, coll_type in collision_pairs:
+            if 'label_vs_line' in coll_type:
+                # La etiqueta (id1) debe moverse
+                elem = self.elements_by_id.get(id1)
+                if elem:
+                    priority = self._get_element_priority(elem)
+                    if priority > 0:  # No mover high priority
+                        candidates[id1] = priority
+            else:
+                # Mover el de menor prioridad
+                for eid in [id1, id2]:
+                    if '->' in str(eid):  # Es una conexión, no elemento
+                        continue
+                    elem = self.elements_by_id.get(eid)
+                    if elem:
+                        priority = self._get_element_priority(elem)
+                        if priority > 0:
+                            candidates[eid] = priority
+
+        if not candidates:
+            return None
+
+        # Retornar el de menor prioridad (mayor número = menor prioridad)
+        return max(candidates, key=candidates.get)
+
+    def _calculate_move_direction(self, element_id, collision_pairs):
+        """
+        Determina hacia dónde y cuánto mover un elemento.
+
+        Estrategia:
+        1. Calcular espacio libre en cada dirección
+        2. Elegir dirección con más espacio
+        3. Si no hay espacio suficiente → mover abajo y expandir canvas
+
+        Args:
+            element_id: ID del elemento a mover
+            collision_pairs: Lista de colisiones
+
+        Returns:
+            tuple: (dx, dy) desplazamiento recomendado
+        """
+        elem = self.elements_by_id.get(element_id)
+        if not elem:
+            return (0, 0)
+
+        # Calcular espacio libre en cada dirección
+        free_space = self._find_free_space(elem)
+
+        # Preferir mover hacia abajo o derecha (más natural en diagramas)
+        preferred_order = ['down', 'right', 'left', 'up']
+
+        for direction in preferred_order:
+            if free_space[direction] >= 80:
+                distance = min(free_space[direction], 100)
+                if direction == 'down':
+                    return (0, distance)
+                elif direction == 'right':
+                    return (distance, 0)
+                elif direction == 'left':
+                    return (-distance, 0)
+                elif direction == 'up':
+                    return (0, -distance)
+
+        # No hay suficiente espacio → mover abajo y expandir canvas
+        return (0, 80)
+
+    def _recalculate_structures(self):
+        """
+        Recalcula todas las estructuras después de mover elementos.
+        """
+        self.elements_by_id = {e['id']: e for e in self.elements}
+        self._calculate_levels()
+        self.label_positions = {}
+        self.connection_labels = {}
+        self._calculate_initial_positions()
+
+    def _ensure_canvas_fits(self, needed_x, needed_y):
+        """
+        Expande canvas si es necesario para acomodar el movimiento.
+
+        Args:
+            needed_x: Coordenada X mínima necesaria
+            needed_y: Coordenada Y mínima necesaria
+        """
+        if needed_x > self.recommended_canvas['width']:
+            self.recommended_canvas['width'] = int(needed_x + 50)
+        if needed_y > self.recommended_canvas['height']:
+            self.recommended_canvas['height'] = int(needed_y + 50)
+
     def _find_best_label_position(self, element, preferred='bottom'):
         """
         Encuentra la mejor posición para una etiqueta.
@@ -828,12 +1031,12 @@ class AutoLayout:
 
     def optimize(self, max_iterations=5):
         """
-        Ejecuta el algoritmo de optimización v2.0.
+        Ejecuta el algoritmo de optimización v2.1.
 
         Estrategia de resolución:
         1. Intentar reubicar etiquetas a posiciones alternativas
-        2. Desplazar niveles completos si hay colisiones persistentes
-        3. Expandir el canvas como último recurso
+        2. NUEVO: Mover elementos de baja prioridad
+        3. Expandir el canvas dinámicamente
 
         Args:
             max_iterations: Máximo número de iteraciones
@@ -843,6 +1046,7 @@ class AutoLayout:
         """
         best_config = None
         min_collisions = float('inf')
+        moved_elements = []  # Track de elementos movidos
 
         for iteration in range(max_iterations):
             collision_count = self.count_collisions()
@@ -865,15 +1069,25 @@ class AutoLayout:
             if improved:
                 continue
 
-            # Estrategia B: Desplazar nivel problemático
-            problem_level = self._find_most_problematic_level()
-            if problem_level is not None:
-                self._shift_level_down(problem_level + 1, delta_y=60)
-                # Recalcular posiciones después del desplazamiento
-                self.label_positions = {}
-                self.connection_labels = {}
-                self._calculate_initial_positions()
-                continue
+            # Estrategia B: NUEVO v2.1 - Mover elementos
+            collision_pairs = self._find_collision_pairs()
+            victim_id = self._select_element_to_move(collision_pairs)
+
+            if victim_id and victim_id not in moved_elements:
+                dx, dy = self._calculate_move_direction(victim_id, collision_pairs)
+
+                # Expandir canvas si el movimiento lo requiere
+                elem = self.elements_by_id.get(victim_id)
+                if elem:
+                    new_x = elem['x'] + dx
+                    new_y = elem['y'] + dy
+                    self._ensure_canvas_fits(new_x + ICON_WIDTH + 150,
+                                             new_y + ICON_HEIGHT + 100)
+
+                    self._shift_element(victim_id, dx=dx, dy=dy)
+                    moved_elements.append(victim_id)
+                    self._recalculate_structures()
+                    continue
 
             # Estrategia C: Expandir canvas (último recurso)
             self._expand_canvas_if_needed()

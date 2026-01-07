@@ -81,13 +81,13 @@ def generate_diagram(json_file):
     low_priority = sum(1 for e in all_elements if layout._get_element_priority(e) == 2)
 
     if layout.has_collisions():
-        remaining = layout.optimize(max_iterations=5)
+        remaining = layout.optimize(max_iterations=10)
         if remaining > 0:
-            print(f"[WARN] AutoLayout v2.0: {remaining} colisiones no resueltas (inicial: {initial_collisions})")
+            print(f"[WARN] AutoLayout v2.1: {remaining} colisiones no resueltas (inicial: {initial_collisions})")
         else:
-            print(f"[OK] AutoLayout v2.0: colisiones resueltas ({initial_collisions} -> 0)")
+            print(f"[OK] AutoLayout v2.1: colisiones resueltas ({initial_collisions} -> 0)")
     else:
-        print(f"[OK] AutoLayout v2.0: 0 colisiones detectadas")
+        print(f"[OK] AutoLayout v2.1: 0 colisiones detectadas")
 
     print(f"     - {num_levels} niveles, {num_groups} grupo(s)")
     print(f"     - Prioridades: {high_priority} high, {normal_priority} normal, {low_priority} low")

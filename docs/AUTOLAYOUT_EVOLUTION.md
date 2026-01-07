@@ -61,12 +61,41 @@ Este documento rastrea la evolución del sistema AutoLayout de GAG, usando el di
 
 ---
 
-## v2.1 - (Planificado)
+## v2.1 - Movimiento Inteligente de Elementos
+
+**Fecha:** 2025-01-06
+
+**Características nuevas:**
+- Identificación de pares en colisión (`_find_collision_pairs()`)
+- Cálculo de espacio libre en cada dirección (`_find_free_space()`)
+- Selección de elemento a mover por prioridad (`_select_element_to_move()`)
+- Movimiento dinámico de elementos (`_calculate_move_direction()`)
+- Expansión de canvas según necesidad (`_ensure_canvas_fits()`)
+
+**Benchmark - Diagrama de Arquitectura:**
+
+![AutoLayout v2.1](history/arquitectura-v2.1.svg)
+
+```
+[WARN] AutoLayout v2.1: 1 colisiones no resueltas (inicial: 2)
+     - 6 niveles, 1 grupo(s)
+     - Prioridades: 0 high, 12 normal, 2 low
+     - Canvas expandido a 1200x900
+```
+
+**Mejora:** De 2 colisiones (v2.0) a 1 colisión (v2.1)
+
+**Colisión pendiente:**
+- Línea diagonal que cruza zona de etiqueta (requiere routing de líneas)
+
+---
+
+## v2.2 - (Futuro)
 
 **Objetivos:**
-- [ ] Detectar cuándo mover el elemento es mejor que mover la etiqueta
 - [ ] Routing de conexiones (ortogonal vs diagonal)
 - [ ] Waypoints para evitar cruzar elementos
+- [ ] Mover grupos de elementos relacionados
 
 ---
 
