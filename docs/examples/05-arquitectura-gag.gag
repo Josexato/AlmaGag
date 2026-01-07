@@ -1,7 +1,7 @@
 {
   "canvas": {
-    "width": 1000,
-    "height": 750
+    "width": 1100,
+    "height": 850
   },
   "elements": [
     {
@@ -55,7 +55,7 @@
     {
       "id": "loop_conn",
       "type": "building",
-      "x": 700,
+      "x": 800,
       "y": 150,
       "label": "for conn\nin connections",
       "color": "orange"
@@ -90,20 +90,38 @@
       "x": 100,
       "y": 600,
       "label": "building.py\nserver.py\ncloud.py\nfirewall.py",
-      "color": "lightgreen"
+      "color": "lightgreen",
+      "label_position": "left"
     },
     {
       "id": "bwt",
       "type": "building",
       "x": 500,
-      "y": 600,
-      "label": "3. except:\nbwt.py (fallback)",
-      "color": "tomato"
+      "y": 510,
+      "label": "except:\nbwt.py",
+      "color": "tomato",
+      "label_position": "right"
+    },
+    {
+      "id": "label_pos",
+      "type": "building",
+      "x": 300,
+      "y": 700,
+      "label": "3. calculate_label_position()\ndetecta colisiones",
+      "color": "pink"
+    },
+    {
+      "id": "render_text",
+      "type": "building",
+      "x": 550,
+      "y": 700,
+      "label": "4. Renderizar texto\nArial, sans-serif",
+      "color": "pink"
     },
     {
       "id": "connections",
       "type": "server",
-      "x": 700,
+      "x": 800,
       "y": 270,
       "label": "connections.py\ndraw_connection()",
       "color": "orange"
@@ -111,7 +129,7 @@
     {
       "id": "output",
       "type": "building",
-      "x": 700,
+      "x": 800,
       "y": 390,
       "label": "dwg.save()\narchivo.svg",
       "color": "lightgreen"
@@ -182,6 +200,24 @@
       "from": "try_import",
       "to": "bwt",
       "label": "Error",
+      "direction": "forward"
+    },
+    {
+      "from": "modules",
+      "to": "label_pos",
+      "label": "",
+      "direction": "forward"
+    },
+    {
+      "from": "bwt",
+      "to": "label_pos",
+      "label": "",
+      "direction": "forward"
+    },
+    {
+      "from": "label_pos",
+      "to": "render_text",
+      "label": "posicion",
       "direction": "forward"
     },
     {

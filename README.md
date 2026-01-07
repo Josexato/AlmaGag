@@ -137,10 +137,11 @@ El siguiente diagrama (generado con GAG) muestra el flujo de procesamiento:
    - Configura markers para flechas direccionales
    - Itera sobre `elements` llamando a `draw/icons.py`
    - Itera sobre `connections` llamando a `draw/connections.py`
-4. **draw/icons.py**: Dispatcher que:
-   - Genera gradientes automáticos con `create_gradient()`
-   - Usa `importlib` para cargar dinámicamente el módulo según `type`
-   - Si el tipo no existe, usa `bwt.py` como fallback
+4. **draw/icons.py**: Dispatcher que ejecuta secuencialmente:
+   1. `create_gradient()` - Genera gradiente claro→oscuro del color base
+   2. `importlib` - Carga dinámicamente el módulo según `type` (o `bwt.py` si falla)
+   3. `calculate_label_position()` - **Detecta colisiones** con otros íconos y determina la mejor posición para el texto (bottom → right → top → left)
+   4. Renderiza el texto con fuente **Arial, sans-serif**
 5. **Salida**: Se genera el archivo `.svg` resultante
 
 ## Estructura del proyecto
