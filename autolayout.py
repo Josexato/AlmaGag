@@ -1,18 +1,20 @@
 """
 AlmaGag.autolayout
 
-Clase AutoLayout independiente para detección y resolución de colisiones.
-Maneja el posicionamiento inteligente de etiquetas considerando tanto
-íconos como conexiones.
+Clase AutoLayout v2.0 para detección y resolución de colisiones.
+Maneja el posicionamiento inteligente de etiquetas considerando
+íconos, conexiones, estructura del grafo y prioridades.
 
 Uso:
-    layout = AutoLayout(elements, connections)
+    layout = AutoLayout(elements, connections, canvas)
     if layout.has_collisions():
         layout.optimize(max_iterations=5)
     elements, label_positions, conn_labels = layout.get_result()
+    recommended_canvas = layout.recommended_canvas
 
 Autor: Jose + ALMA
 Fecha: 2025-07-06
+Version: 2.0
 """
 
 from copy import deepcopy
@@ -21,53 +23,294 @@ from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 
 class AutoLayout:
     """
-    Clase para optimizar el layout de diagramas evitando colisiones.
+    Clase v2.0 para optimizar el layout de diagramas evitando colisiones.
 
     Detecta colisiones entre:
     - Etiquetas de íconos vs otros íconos
     - Etiquetas de íconos vs etiquetas de conexiones
+    - Etiquetas de íconos vs líneas de conexión
     - Etiquetas de conexiones vs íconos
 
-    Estrategia de resolución:
-    1. Intenta mover etiquetas a posiciones alternativas (bottom/right/top/left)
-    2. Si no es posible, desplaza elementos problemáticos (abajo/derecha)
+    Estrategia de resolución v2.0:
+    1. Analiza estructura del grafo (niveles, grupos, prioridades)
+    2. Posiciona etiquetas respetando prioridades
+    3. Intenta mover etiquetas a posiciones alternativas
+    4. Desplaza niveles completos si es necesario
+    5. Expande el canvas como último recurso
     """
 
     # Posiciones a probar en orden de preferencia
     POSITIONS = ['bottom', 'right', 'top', 'left']
 
-    def __init__(self, elements, connections):
+    # Sistema de prioridades
+    PRIORITY_ORDER = {'high': 0, 'normal': 1, 'low': 2}
+
+    def __init__(self, elements, connections, canvas=None):
         """
-        Inicializa el AutoLayout.
+        Inicializa el AutoLayout v2.0.
 
         Args:
             elements: Lista de elementos del diagrama
             connections: Lista de conexiones
+            canvas: Dict con 'width' y 'height' (opcional)
         """
         self.original_elements = elements
         self.connections = connections
         self.elements = deepcopy(elements)
         self.elements_by_id = {e['id']: e for e in self.elements}
 
+        # Canvas original y recomendado
+        self.original_canvas = canvas or {'width': 1400, 'height': 900}
+        self.recommended_canvas = dict(self.original_canvas)
+
         # Posiciones calculadas para etiquetas
         self.label_positions = {}      # {element_id: (x, y, anchor, position)}
         self.connection_labels = {}    # {conn_key: (x, y)}
 
+        # v2.0: Análisis de estructura del grafo
+        self.graph = {}                # {element_id: [connected_ids]}
+        self.levels = {}               # {element_id: level_number}
+        self.groups = []               # [[elem_ids grupo 1], ...]
+
+        # Construir estructura del grafo
+        self._build_graph()
+        self._calculate_levels()
+        self._identify_groups()
+
+        # Calcular posiciones iniciales
         self._calculate_initial_positions()
 
-    def _calculate_initial_positions(self):
-        """Calcula posiciones iniciales de todas las etiquetas."""
-        # Recolectar bboxes de íconos
-        icon_bboxes = [self._get_icon_bbox(e) for e in self.elements]
+    # =========================================================================
+    # v2.0: ANÁLISIS DE ESTRUCTURA DEL GRAFO
+    # =========================================================================
 
+    def _build_graph(self):
+        """
+        Construye grafo de adyacencia desde connections.
+
+        Returns:
+            dict: {element_id: [connected_ids]}
+        """
+        self.graph = {e['id']: [] for e in self.elements}
+        for conn in self.connections:
+            from_id = conn['from']
+            to_id = conn['to']
+            if from_id in self.graph:
+                self.graph[from_id].append(to_id)
+            if to_id in self.graph:
+                self.graph[to_id].append(from_id)
+
+    def _calculate_levels(self):
+        """
+        Asigna nivel (fila lógica) a cada elemento basado en su posición Y.
+        Elementos con Y similar (±80px) están en el mismo nivel.
+
+        Returns:
+            dict: {element_id: level_number}
+        """
+        sorted_by_y = sorted(self.elements, key=lambda e: e['y'])
+        self.levels = {}
+        current_level = 0
+        last_y = -100
+
+        for elem in sorted_by_y:
+            if elem['y'] - last_y > 80:  # Nueva fila
+                current_level += 1
+            self.levels[elem['id']] = current_level
+            last_y = elem['y']
+
+    def _identify_groups(self):
+        """
+        Identifica subgrafos conectados usando DFS.
+
+        Returns:
+            list: [[elem_ids del grupo 1], [elem_ids del grupo 2], ...]
+        """
+        visited = set()
+        self.groups = []
+
+        def dfs(node, group):
+            if node in visited:
+                return
+            visited.add(node)
+            group.append(node)
+            for neighbor in self.graph.get(node, []):
+                dfs(neighbor, group)
+
+        for elem in self.elements:
+            if elem['id'] not in visited:
+                group = []
+                dfs(elem['id'], group)
+                self.groups.append(group)
+
+    def _calculate_auto_priority(self, element_id):
+        """
+        Calcula prioridad automática basada en número de conexiones.
+        Elementos con más conexiones son más importantes.
+
+        Args:
+            element_id: ID del elemento
+
+        Returns:
+            str: 'high', 'normal', o 'low'
+        """
+        connections = len(self.graph.get(element_id, []))
+        if connections >= 4:
+            return 'high'
+        elif connections >= 2:
+            return 'normal'
+        return 'low'
+
+    def _get_element_priority(self, element):
+        """
+        Obtiene prioridad de un elemento (manual o automática).
+
+        Args:
+            element: Dict del elemento
+
+        Returns:
+            int: Valor de prioridad (0=high, 1=normal, 2=low)
+        """
+        # Prioridad manual tiene precedencia
+        manual_priority = element.get('label_priority')
+        if manual_priority in self.PRIORITY_ORDER:
+            return self.PRIORITY_ORDER[manual_priority]
+
+        # Calcular automáticamente
+        auto_priority = self._calculate_auto_priority(element['id'])
+        return self.PRIORITY_ORDER[auto_priority]
+
+    # =========================================================================
+    # v2.0: DESPLAZAMIENTO DE NIVELES Y EXPANSIÓN DE CANVAS
+    # =========================================================================
+
+    def _shift_level_down(self, from_level, delta_y=60):
+        """
+        Desplaza todos los elementos desde un nivel hacia abajo.
+
+        Args:
+            from_level: Nivel desde el cual desplazar
+            delta_y: Cantidad de píxeles a desplazar
+        """
+        for elem in self.elements:
+            if self.levels.get(elem['id'], 0) >= from_level:
+                elem['y'] += delta_y
+
+        # Actualizar elements_by_id
+        self.elements_by_id = {e['id']: e for e in self.elements}
+
+        # Recalcular niveles
+        self._calculate_levels()
+
+    def _find_most_problematic_level(self):
+        """
+        Identifica el nivel con más colisiones.
+
+        Returns:
+            int: Número de nivel problemático, o None
+        """
+        level_collisions = {}
+
+        for elem in self.elements:
+            elem_id = elem['id']
+            collisions = self._count_element_collisions(elem_id)
+            level = self.levels.get(elem_id, 0)
+            level_collisions[level] = level_collisions.get(level, 0) + collisions
+
+        if not level_collisions:
+            return None
+
+        max_level = max(level_collisions, key=level_collisions.get)
+        if level_collisions[max_level] > 0:
+            return max_level
+        return None
+
+    def _expand_canvas_if_needed(self):
+        """
+        Expande el canvas si los elementos + etiquetas exceden el tamaño actual.
+        """
+        # Calcular espacio necesario
+        max_x = max(e['x'] + ICON_WIDTH for e in self.elements)
+        max_y = max(e['y'] + ICON_HEIGHT for e in self.elements)
+
+        # Agregar espacio para etiquetas (estimado)
+        needed_width = max_x + 200   # Margen para etiquetas a la derecha
+        needed_height = max_y + 120  # Margen para etiquetas abajo
+
+        # Actualizar canvas recomendado
+        self.recommended_canvas = {
+            'width': max(needed_width, self.original_canvas.get('width', 1400)),
+            'height': max(needed_height, self.original_canvas.get('height', 900))
+        }
+
+    def _try_relocate_labels(self):
+        """
+        Intenta reubicar etiquetas con colisiones a otras posiciones.
+
+        Returns:
+            bool: True si se mejoró alguna posición
+        """
+        improved = False
+
+        for elem in self.elements:
+            if not elem.get('label'):
+                continue
+
+            elem_id = elem['id']
+            current_collisions = self._count_element_collisions(elem_id)
+
+            if current_collisions == 0:
+                continue
+
+            # Probar otras posiciones
+            current_pos = self.label_positions.get(elem_id)
+            if not current_pos:
+                continue
+
+            current_position_name = current_pos[3]
+            best_collisions = current_collisions
+            best_pos = current_pos
+
+            for pos_name in self.POSITIONS:
+                if pos_name == current_position_name:
+                    continue
+
+                # Temporalmente cambiar posición
+                test_pos = self._get_text_coords(elem, pos_name, len(elem.get('label', '').split('\n')))
+                self.label_positions[elem_id] = test_pos
+
+                new_collisions = self._count_element_collisions(elem_id)
+                if new_collisions < best_collisions:
+                    best_collisions = new_collisions
+                    best_pos = test_pos
+
+            # Restaurar mejor posición
+            self.label_positions[elem_id] = best_pos
+            if best_collisions < current_collisions:
+                improved = True
+
+        return improved
+
+    def _calculate_initial_positions(self):
+        """
+        Calcula posiciones iniciales de todas las etiquetas.
+        v2.0: Ordena por prioridad para que elementos importantes
+        obtengan sus posiciones preferidas primero.
+        """
         # Calcular posiciones de etiquetas de conexiones primero
         for conn in self.connections:
             if conn.get('label'):
                 key = f"{conn['from']}->{conn['to']}"
                 self.connection_labels[key] = self._get_connection_center(conn)
 
-        # Calcular posiciones de etiquetas de íconos
-        for elem in self.elements:
+        # v2.0: Ordenar elementos por prioridad (high primero)
+        sorted_elements = sorted(
+            self.elements,
+            key=lambda e: self._get_element_priority(e)
+        )
+
+        # Calcular posiciones de etiquetas de íconos en orden de prioridad
+        for elem in sorted_elements:
             if elem.get('label'):
                 preferred = elem.get('label_position', 'bottom')
                 pos = self._find_best_label_position(elem, preferred)
@@ -585,12 +828,12 @@ class AutoLayout:
 
     def optimize(self, max_iterations=5):
         """
-        Ejecuta el algoritmo de optimización.
+        Ejecuta el algoritmo de optimización v2.0.
 
-        Estrategia:
-        1. Intenta mover etiquetas a posiciones sin colisión
-        2. Si no es posible, desplaza elementos problemáticos
-        3. Repite hasta max_iterations o 0 colisiones
+        Estrategia de resolución:
+        1. Intentar reubicar etiquetas a posiciones alternativas
+        2. Desplazar niveles completos si hay colisiones persistentes
+        3. Expandir el canvas como último recurso
 
         Args:
             max_iterations: Máximo número de iteraciones
@@ -602,36 +845,46 @@ class AutoLayout:
         min_collisions = float('inf')
 
         for iteration in range(max_iterations):
-            # Limpiar y recalcular posiciones
-            self.label_positions = {}
-            self.connection_labels = {}
-            self._calculate_initial_positions()
-
             collision_count = self.count_collisions()
 
+            # Guardar mejor configuración
             if collision_count < min_collisions:
                 min_collisions = collision_count
                 best_config = (
                     deepcopy(self.elements),
                     dict(self.label_positions),
-                    dict(self.connection_labels)
+                    dict(self.connection_labels),
+                    dict(self.recommended_canvas)
                 )
 
             if collision_count == 0:
                 break
 
-            # Desplazar elemento más problemático
-            problematic = self._find_most_problematic_element()
-            if problematic:
-                self._shift_element(problematic, dy=60)
-            else:
-                break  # No hay más elementos problemáticos
+            # Estrategia A: Intentar reubicar etiquetas
+            improved = self._try_relocate_labels()
+            if improved:
+                continue
+
+            # Estrategia B: Desplazar nivel problemático
+            problem_level = self._find_most_problematic_level()
+            if problem_level is not None:
+                self._shift_level_down(problem_level + 1, delta_y=60)
+                # Recalcular posiciones después del desplazamiento
+                self.label_positions = {}
+                self.connection_labels = {}
+                self._calculate_initial_positions()
+                continue
+
+            # Estrategia C: Expandir canvas (último recurso)
+            self._expand_canvas_if_needed()
+            break
 
         # Restaurar mejor configuración encontrada
-        if best_config:
+        if best_config and min_collisions < self.count_collisions():
             self.elements = best_config[0]
             self.label_positions = best_config[1]
             self.connection_labels = best_config[2]
+            self.recommended_canvas = best_config[3]
             self.elements_by_id = {e['id']: e for e in self.elements}
 
         return min_collisions
