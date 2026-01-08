@@ -49,7 +49,7 @@
       "type": "server",
       "x": 500,
       "y": 490,
-      "label": "AutoLayoutOptimizer\n(v2.1)",
+      "label": "AutoLayoutOptimizer\n(v2.1 modular)",
       "color": "tomato"
     },
     {
@@ -97,7 +97,7 @@
       "type": "building",
       "x": 500,
       "y": 750,
-      "label": "2. connections.py\ndraw_connection_line()",
+      "label": "2. connections.py\nwaypoints v1.5",
       "color": "orange"
     },
     {

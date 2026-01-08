@@ -231,11 +231,95 @@ conn_labels = optimized_layout.connection_labels
 
 ---
 
+## v1.5 - Waypoints en Conexiones
+
+**Fecha:** 2026-01-07
+
+**Motivación:**
+Las líneas rectas diagonales causan colisiones inevitables al cruzar elementos y etiquetas. En diagramas complejos como el de arquitectura, las líneas directas entre componentes generan múltiples colisiones que AutoLayout no puede resolver solo moviendo elementos o etiquetas.
+
+**Problema identificado:**
+```
+[WARN] AutoLayout v2.1: 5 colisiones no resueltas (inicial: 4)
+```
+
+La mayoría de estas colisiones son causadas por líneas que cruzan elementos intermedios.
+
+**Solución implementada - SDJF v1.5:**
+
+Soporte de waypoints (puntos intermedios) en conexiones para routing manual:
+
+```json
+{
+  "from": "optimizer",
+  "to": "geometry",
+  "waypoints": [
+    {"x": 450, "y": 490},
+    {"x": 300, "y": 490}
+  ],
+  "label": "usa",
+  "direction": "forward"
+}
+```
+
+**Implementación en draw/connections.py:**
+
+- `draw_connection_line()` detecta presencia de waypoints
+- Sin waypoints: `<line>` recta (compatibilidad retroactiva)
+- Con waypoints: `<polyline>` pasando por todos los puntos
+- Offsets visuales aplicados solo en primer y último segmento
+- Flechas direccionales en extremos de la polyline
+
+**Tipos de routing soportados:**
+
+1. **Línea recta** (default): Sin waypoints
+2. **Routing en L**: 1 waypoint formando ángulo recto
+3. **Routing en U**: 2+ waypoints rodeando elementos
+4. **Routing ortogonal**: Waypoints que forman solo líneas horizontales/verticales
+
+**Ejemplo aplicado - 05-arquitectura-gag.gag:**
+
+Agregados waypoints a 5 conexiones problemáticas:
+- `optimizer → graph`: routing en L (evita collision detector)
+- `optimizer → collision`: routing en L (evita graph analyzer)
+- `collision → geometry`: routing en U (rodea todo el diagrama por abajo)
+- `render → icons`: routing en L (evita connections)
+- `render → labels`: routing en L (evita connections)
+
+**Nuevo ejemplo - 06-waypoints.gag:**
+
+Diagrama demostrativo con 4 elementos y centro evitado:
+- Línea directa sin waypoints (cruza centro)
+- Routing en U con 3 waypoints (rodea centro)
+- Routing horizontal con 1 waypoint
+- Comparación visual clara del antes/después
+
+**Beneficios:**
+- ✅ Reduce colisiones en diagramas complejos
+- ✅ Mejora claridad visual con routing ortogonal
+- ✅ Permite representar bucles y retroalimentación
+- ✅ Compatible hacia atrás (conexiones sin waypoints funcionan igual)
+- ✅ Formato SDJF extensible para futuras mejoras
+
+**Limitaciones:**
+- Waypoints son manuales (usuario debe especificarlos)
+- No hay algoritmo automático de pathfinding (futuro v2.2+)
+
+**SVG generado:**
+```svg
+<polyline points="140.0,457.0 140,450 640,450 640,150 640.0,157.0"
+          marker-end="url(#arrow-end)"
+          stroke="black" stroke-width="2" fill="none" />
+```
+
+---
+
 ## v2.2 - (Futuro)
 
 **Objetivos:**
-- [ ] Routing de conexiones (ortogonal vs diagonal)
-- [ ] Waypoints para evitar cruzar elementos
+- [ ] Pathfinding automático de waypoints (A*, Dijkstra)
+- [ ] Routing ortogonal automático
+- [ ] Detección de bucles para evitar cruces
 - [ ] Mover grupos de elementos relacionados
 
 ---
