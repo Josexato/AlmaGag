@@ -135,7 +135,7 @@ def draw_container(dwg, container, elements_by_id):
         size=(width, height),
         rx=radius,
         ry=radius,
-        fill=f"url(#{gradient_id})",
+        fill=gradient_id,  # create_gradient ya retorna url(#...)
         stroke='black',
         stroke_width=2,
         opacity=0.3  # Transparente para ver elementos dentro
@@ -151,25 +151,17 @@ def draw_container(dwg, container, elements_by_id):
     # Intentar cargar módulo del ícono
     try:
         icon_module = importlib.import_module(f'AlmaGag.draw.{icon_type}')
-        # Crear elemento temporal para el ícono
-        icon_elem = {
-            'x': icon_x,
-            'y': icon_y,
-            'width': icon_size,
-            'height': icon_size,
-            'color': color,
-            'id': f"{container['id']}_icon"
-        }
-        # Crear gradiente para ícono
-        icon_gradient_id = create_gradient(dwg, icon_elem['id'], color)
-        # Dibujar ícono (opacidad completa)
-        icon_module.draw_icon(dwg, icon_elem, icon_gradient_id)
-    except ImportError:
+        # Obtener función específica draw_<type>
+        draw_func = getattr(icon_module, f'draw_{icon_type}')
+        # Dibujar ícono (el módulo crea su propio gradiente)
+        icon_elem_id = f"{container['id']}_icon"
+        draw_func(dwg, icon_x, icon_y, color, icon_elem_id)
+    except (ImportError, AttributeError) as e:
         # Fallback: dibujar rectángulo simple
         dwg.add(dwg.rect(
             insert=(icon_x, icon_y),
             size=(icon_size, icon_size),
-            fill=f"url(#{gradient_id})",
+            fill=gradient_id,  # create_gradient ya retorna url(#...)
             stroke='black',
             opacity=1.0
         ))
