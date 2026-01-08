@@ -1,0 +1,85 @@
+{
+  "canvas": {
+    "width": 800,
+    "height": 600
+  },
+  "elements": [
+    {
+      "id": "a",
+      "type": "server",
+      "x": 100,
+      "y": 100,
+      "label": "Elemento A",
+      "color": "lightblue"
+    },
+    {
+      "id": "b",
+      "type": "server",
+      "x": 600,
+      "y": 100,
+      "label": "Elemento B",
+      "color": "lightgreen"
+    },
+    {
+      "id": "c",
+      "type": "server",
+      "x": 100,
+      "y": 400,
+      "label": "Elemento C",
+      "color": "orange"
+    },
+    {
+      "id": "d",
+      "type": "server",
+      "x": 600,
+      "y": 400,
+      "label": "Elemento D",
+      "color": "pink"
+    },
+    {
+      "id": "center",
+      "type": "building",
+      "x": 350,
+      "y": 250,
+      "label": "Centro\n(evitado)",
+      "color": "tomato"
+    }
+  ],
+  "connections": [
+    {
+      "from": "a",
+      "to": "d",
+      "label": "Línea directa\n(cruza centro)",
+      "direction": "forward"
+    },
+    {
+      "from": "c",
+      "to": "b",
+      "waypoints": [
+        {"x": 140, "y": 450},
+        {"x": 640, "y": 450},
+        {"x": 640, "y": 150}
+      ],
+      "label": "Con waypoints\n(routing en U)",
+      "direction": "forward"
+    },
+    {
+      "from": "a",
+      "to": "b",
+      "waypoints": [
+        {"x": 350, "y": 125}
+      ],
+      "label": "Waypoint intermedio",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "c",
+      "to": "d",
+      "waypoints": [
+        {"x": 350, "y": 425}
+      ],
+      "label": "Routing inferior",
+      "direction": "forward"
+    }
+  ]
+}

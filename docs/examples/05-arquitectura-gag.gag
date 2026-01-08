@@ -157,18 +157,31 @@
     {
       "from": "optimizer",
       "to": "graph",
+      "waypoints": [
+        {"x": 720, "y": 515},
+        {"x": 720, "y": 425}
+      ],
       "label": "analyze()",
       "direction": "forward"
     },
     {
       "from": "optimizer",
       "to": "collision",
+      "waypoints": [
+        {"x": 720, "y": 515},
+        {"x": 720, "y": 565}
+      ],
       "label": "evaluate()",
       "direction": "forward"
     },
     {
       "from": "collision",
       "to": "geometry",
+      "waypoints": [
+        {"x": 890, "y": 600},
+        {"x": 100, "y": 600},
+        {"x": 100, "y": 515}
+      ],
       "label": "usa",
       "direction": "forward"
     },
@@ -181,6 +194,10 @@
     {
       "from": "render",
       "to": "icons",
+      "waypoints": [
+        {"x": 350, "y": 675},
+        {"x": 350, "y": 775}
+      ],
       "label": "fase 1",
       "direction": "forward"
     },
@@ -193,6 +210,10 @@
     {
       "from": "render",
       "to": "labels",
+      "waypoints": [
+        {"x": 700, "y": 675},
+        {"x": 700, "y": 775}
+      ],
       "label": "fase 3",
       "direction": "forward"
     },

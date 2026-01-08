@@ -100,12 +100,31 @@ Define las aristas del diagrama. Cada conexión puede tener:
 - **`from`** (requerido): ID del nodo origen
 - **`to`** (requerido): ID del nodo destino
 - **`label`** (opcional): Texto en el centro de la línea
+- **`waypoints`** (opcional, v1.5+): Lista de puntos intermedios para routing complejo
+  - Formato: `[{"x": 100, "y": 200}, {"x": 150, "y": 200}, ...]`
+  - Sin waypoints: línea recta directa (default)
+  - Con waypoints: polyline que pasa por los puntos especificados
+  - Útil para evitar elementos, crear bucles, o routing ortogonal
 - **`direction`** (opcional): Dirección de la flecha
   - `forward`: flecha al final (A → B)
   - `backward`: flecha al inicio (A ← B)
   - `bidirectional`: flechas en ambos extremos (A ↔ B)
   - `none`: sin flechas (default)
 - **`relation`** (opcional): Tipo semántico de relación (decorativo en v1.0)
+
+Ejemplo con waypoints:
+```json
+{
+  "from": "optimizer",
+  "to": "geometry",
+  "waypoints": [
+    {"x": 450, "y": 490},
+    {"x": 300, "y": 490}
+  ],
+  "label": "usa",
+  "direction": "forward"
+}
+```
 
 ## Ejemplos incluidos
 
@@ -282,6 +301,40 @@ initial_layout = Layout(elements, connections, canvas)
 optimizer = AutoLayoutOptimizer()
 optimized_layout = optimizer.optimize(initial_layout, max_iterations=10)
 ```
+
+## Mejoras v1.5 - Waypoints en Conexiones
+
+✅ **Soporte de waypoints**: Las conexiones ahora soportan puntos intermedios para routing complejo:
+
+**Problema resuelto**: Las líneas rectas diagonales causan colisiones inevitables al cruzar elementos y etiquetas. Los waypoints permiten:
+- Evitar elementos intermedios con rutas ortogonales o personalizadas
+- Crear representaciones visuales de bucles y retroalimentación
+- Mejorar la claridad de diagramas complejos
+
+**Formato SDJF v1.5**:
+```json
+{
+  "from": "optimizer",
+  "to": "geometry",
+  "waypoints": [
+    {"x": 450, "y": 490},
+    {"x": 300, "y": 490}
+  ],
+  "label": "usa",
+  "direction": "forward"
+}
+```
+
+**Implementación**:
+- Sin waypoints: línea recta directa (compatibilidad retroactiva)
+- Con waypoints: SVG polyline que pasa por todos los puntos
+- Los offsets visuales se aplican solo en el primer y último segmento
+- Las flechas direccionales se colocan en los extremos de la polyline
+
+**Beneficios**:
+- Reduce colisiones en diagramas complejos
+- Permite representar flujos más claros
+- Compatible hacia atrás con diagramas existentes
 
 ## Galería de ejemplos
 
