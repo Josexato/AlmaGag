@@ -1,0 +1,138 @@
+{
+  "canvas": {"width": 1400, "height": 900},
+  "elements": [
+    {
+      "id": "v1.0",
+      "type": "building",
+      "x": 100,
+      "y": 200,
+      "label": "SDJF v1.0\n(Jun 2025)\nBase",
+      "color": "lightgreen"
+    },
+    {
+      "id": "v1.5",
+      "type": "building",
+      "x": 300,
+      "y": 200,
+      "label": "SDJF v1.5\n(Dic 2025)\nWaypoints",
+      "color": "lightblue"
+    },
+    {
+      "id": "v2.0",
+      "type": "building",
+      "x": 500,
+      "y": 200,
+      "label": "SDJF v2.0\n(Ene 2026)\nAuto-layout",
+      "color": "gold"
+    },
+    {
+      "id": "v2.1",
+      "type": "building",
+      "x": 700,
+      "y": 200,
+      "label": "SDJF v2.1\n(Q1 2026)\nRouting",
+      "color": "orange"
+    },
+    {
+      "id": "v2.2",
+      "type": "building",
+      "x": 900,
+      "y": 200,
+      "label": "SDJF v2.2\n(Q2 2026)\nOptimización",
+      "color": "tomato"
+    },
+    {
+      "id": "v3.0",
+      "type": "cloud",
+      "x": 1100,
+      "y": 200,
+      "label": "SDJF v3.0\n(Q3-Q4 2026)\nTemas",
+      "color": "violet"
+    },
+    {
+      "id": "feat-coords",
+      "type": "server",
+      "x": 100,
+      "y": 400,
+      "label": "Coordenadas\nexplícitas",
+      "color": "lightgray"
+    },
+    {
+      "id": "feat-waypoints",
+      "type": "server",
+      "x": 300,
+      "y": 400,
+      "label": "Waypoints\nmanuales",
+      "color": "lightgray"
+    },
+    {
+      "id": "feat-autolayout",
+      "type": "server",
+      "x": 500,
+      "y": 400,
+      "label": "Coordenadas\nopcionales\nhp/wp",
+      "color": "lightgray"
+    },
+    {
+      "id": "feat-routing",
+      "type": "server",
+      "x": 700,
+      "y": 400,
+      "label": "Routing\ndeclarativo\northogonal/bezier",
+      "color": "lightgray"
+    },
+    {
+      "id": "feat-constraints",
+      "type": "server",
+      "x": 900,
+      "y": 400,
+      "label": "Layout\nconstraints\nmargins",
+      "color": "lightgray"
+    },
+    {
+      "id": "feat-themes",
+      "type": "server",
+      "x": 1100,
+      "y": 400,
+      "label": "Temas\nAnimación\nÍconos custom",
+      "color": "lightgray"
+    },
+    {
+      "id": "status-done",
+      "type": "cloud",
+      "x": 350,
+      "y": 600,
+      "label": "COMPLETADO",
+      "color": "lightgreen"
+    },
+    {
+      "id": "status-current",
+      "type": "cloud",
+      "x": 700,
+      "y": 600,
+      "label": "EN DESARROLLO",
+      "color": "gold"
+    },
+    {
+      "id": "status-planned",
+      "type": "cloud",
+      "x": 1000,
+      "y": 600,
+      "label": "PLANIFICADO",
+      "color": "lightgray"
+    }
+  ],
+  "connections": [
+    {"from": "v1.0", "to": "v1.5", "direction": "forward"},
+    {"from": "v1.5", "to": "v2.0", "direction": "forward"},
+    {"from": "v2.0", "to": "v2.1", "direction": "forward"},
+    {"from": "v2.1", "to": "v2.2", "direction": "forward"},
+    {"from": "v2.2", "to": "v3.0", "direction": "forward"},
+    {"from": "v1.0", "to": "feat-coords", "label": "features", "direction": "forward"},
+    {"from": "v1.5", "to": "feat-waypoints", "label": "features", "direction": "forward"},
+    {"from": "v2.0", "to": "feat-autolayout", "label": "features", "direction": "forward"},
+    {"from": "v2.1", "to": "feat-routing", "label": "features", "direction": "forward"},
+    {"from": "v2.2", "to": "feat-constraints", "label": "features", "direction": "forward"},
+    {"from": "v3.0", "to": "feat-themes", "label": "features", "direction": "forward"}
+  ]
+}

@@ -1,0 +1,126 @@
+{
+  "canvas": {"width": 1200, "height": 900},
+  "elements": [
+    {
+      "id": "manager",
+      "type": "server",
+      "x": 550,
+      "y": 100,
+      "label": "ConnectionRouterManager\n(Dispatcher)",
+      "color": "gold"
+    },
+    {
+      "id": "router-base",
+      "type": "building",
+      "x": 550,
+      "y": 250,
+      "label": "ConnectionRouter\n(Abstract)",
+      "color": "lightblue"
+    },
+    {
+      "id": "straight",
+      "type": "server",
+      "x": 150,
+      "y": 400,
+      "label": "StraightRouter\n(Línea recta)",
+      "color": "lightgreen"
+    },
+    {
+      "id": "orthogonal",
+      "type": "server",
+      "x": 350,
+      "y": 400,
+      "label": "OrthogonalRouter\n(H-V / V-H)",
+      "color": "orange"
+    },
+    {
+      "id": "bezier",
+      "type": "server",
+      "x": 550,
+      "y": 400,
+      "label": "BezierRouter\n(Curvas)",
+      "color": "cyan"
+    },
+    {
+      "id": "arc",
+      "type": "server",
+      "x": 750,
+      "y": 400,
+      "label": "ArcRouter\n(Círculos)",
+      "color": "violet"
+    },
+    {
+      "id": "manual",
+      "type": "server",
+      "x": 950,
+      "y": 400,
+      "label": "ManualRouter\n(v1.5 compat)",
+      "color": "lightgray"
+    },
+    {
+      "id": "path-class",
+      "type": "cloud",
+      "x": 200,
+      "y": 600,
+      "label": "Path\n(Resultado)",
+      "color": "lightblue"
+    },
+    {
+      "id": "point-class",
+      "type": "cloud",
+      "x": 400,
+      "y": 600,
+      "label": "Point\n(2D)",
+      "color": "lightblue"
+    },
+    {
+      "id": "astar",
+      "type": "cloud",
+      "x": 600,
+      "y": 600,
+      "label": "A* Algorithm\n(Collision avoid)",
+      "color": "tomato"
+    },
+    {
+      "id": "grid",
+      "type": "cloud",
+      "x": 800,
+      "y": 600,
+      "label": "Grid\n(Discretization)",
+      "color": "lightgray"
+    },
+    {
+      "id": "optimizer",
+      "type": "building",
+      "x": 100,
+      "y": 100,
+      "label": "AutoLayoutOptimizer",
+      "color": "gold"
+    },
+    {
+      "id": "draw-connections",
+      "type": "building",
+      "x": 1000,
+      "y": 100,
+      "label": "draw/connections.py\n(Rendering)",
+      "color": "lightgreen"
+    }
+  ],
+  "connections": [
+    {"from": "optimizer", "to": "manager", "label": "usa", "direction": "forward"},
+    {"from": "manager", "to": "router-base", "label": "delega", "direction": "forward"},
+    {"from": "router-base", "to": "straight", "direction": "forward"},
+    {"from": "router-base", "to": "orthogonal", "direction": "forward"},
+    {"from": "router-base", "to": "bezier", "direction": "forward"},
+    {"from": "router-base", "to": "arc", "direction": "forward"},
+    {"from": "router-base", "to": "manual", "direction": "forward"},
+    {"from": "straight", "to": "path-class", "label": "retorna", "direction": "forward"},
+    {"from": "orthogonal", "to": "path-class", "label": "retorna", "direction": "forward"},
+    {"from": "bezier", "to": "path-class", "label": "retorna", "direction": "forward"},
+    {"from": "arc", "to": "path-class", "label": "retorna", "direction": "forward"},
+    {"from": "orthogonal", "to": "astar", "label": "usa (avoid)", "direction": "forward"},
+    {"from": "astar", "to": "grid", "label": "usa", "direction": "forward"},
+    {"from": "path-class", "to": "point-class", "label": "contiene", "direction": "forward"},
+    {"from": "manager", "to": "draw-connections", "label": "computed_path", "direction": "forward"}
+  ]
+}
