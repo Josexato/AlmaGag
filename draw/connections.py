@@ -45,10 +45,19 @@ def draw_connection_line(dwg, elements_by_id, connection, markers):
         markers (dict): Diccionario con markers SVG para flechas.
 
     Returns:
-        tuple: (mid_x, mid_y) coordenadas del centro de la línea
+        tuple: (mid_x, mid_y) coordenadas del centro de la línea o None si elementos sin coords
     """
-    from_elem = elements_by_id[connection['from']]
-    to_elem = elements_by_id[connection['to']]
+    from_elem = elements_by_id.get(connection['from'])
+    to_elem = elements_by_id.get(connection['to'])
+
+    # Validar que ambos elementos existen y tienen coordenadas
+    if not from_elem or not to_elem:
+        return None
+
+    if from_elem.get('x') is None or from_elem.get('y') is None:
+        return None
+    if to_elem.get('x') is None or to_elem.get('y') is None:
+        return None
 
     # Centro de cada elemento
     x1 = from_elem['x'] + ICON_WIDTH // 2

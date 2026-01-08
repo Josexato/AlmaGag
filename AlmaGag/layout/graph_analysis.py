@@ -61,7 +61,10 @@ class GraphAnalyzer:
         Returns:
             Dict[str, int]: {element_id: level_number}
         """
-        sorted_by_y = sorted(elements, key=lambda e: e['y'])
+        # Filtrar contenedores (elementos con 'contains') y elementos sin coordenadas
+        normal_elements = [e for e in elements if 'contains' not in e and 'y' in e]
+
+        sorted_by_y = sorted(normal_elements, key=lambda e: e['y'])
         levels = {}
         current_level = 0
         last_y = -100

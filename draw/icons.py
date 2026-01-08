@@ -257,8 +257,8 @@ def draw_icon_shape(dwg, element):
     Parámetros:
         dwg (svgwrite.Drawing): Objeto de dibujo SVG.
         element (dict): Elemento con las claves:
-            - 'x' (int): coordenada X del ícono.
-            - 'y' (int): coordenada Y del ícono.
+            - 'x' (int, opcional): coordenada X del ícono.
+            - 'y' (int, opcional): coordenada Y del ícono.
             - 'type' (str): tipo del ícono ('server', 'cloud', etc).
             - 'color' (str, opcional): color de relleno (por defecto: 'gray').
 
@@ -267,9 +267,18 @@ def draw_icon_shape(dwg, element):
             → llama a draw_<type>(dwg, x, y, color).
         - Si el tipo no existe o hay error:
             → se dibuja el ícono por defecto (plátano con cinta).
+        - Si el elemento no tiene coordenadas, no se dibuja (se omite).
     """
-    x = element['x']
-    y = element['y']
+    # Validar coordenadas
+    x = element.get('x')
+    y = element.get('y')
+
+    if x is None or y is None:
+        # Elemento sin coordenadas, no dibujar (debería haber sido posicionado por auto-layout)
+        elem_id = element.get('id', 'unknown')
+        print(f"[WARN] Element {elem_id} sin coordenadas, omitiendo")
+        return
+
     elem_type = element.get('type', 'unknown')
     color = element.get('color', 'gray')
 

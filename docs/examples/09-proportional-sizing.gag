@@ -1,0 +1,60 @@
+{
+  "canvas": {"width": 1000, "height": 700},
+  "elements": [
+    {
+      "id": "main-server",
+      "type": "server",
+      "x": 400,
+      "y": 250,
+      "hp": 2.5,
+      "wp": 2.0,
+      "label": "Main Server\n(Large)",
+      "color": "lightblue"
+    },
+    {
+      "id": "db-primary",
+      "type": "building",
+      "x": 200,
+      "y": 300,
+      "hp": 1.8,
+      "wp": 1.5,
+      "label": "Primary DB\n(Medium-Large)",
+      "color": "orange"
+    },
+    {
+      "id": "cache",
+      "type": "cloud",
+      "x": 600,
+      "y": 300,
+      "hp": 1.2,
+      "label": "Cache\n(Medium)",
+      "color": "cyan"
+    },
+    {
+      "id": "worker-1",
+      "type": "server",
+      "x": 250,
+      "y": 500,
+      "hp": 0.8,
+      "wp": 0.8,
+      "label": "Worker 1\n(Small)",
+      "color": "lightgreen"
+    },
+    {
+      "id": "worker-2",
+      "type": "server",
+      "x": 550,
+      "y": 500,
+      "hp": 0.8,
+      "wp": 0.8,
+      "label": "Worker 2\n(Small)",
+      "color": "lightgreen"
+    }
+  ],
+  "connections": [
+    {"from": "main-server", "to": "db-primary", "label": "read/write", "direction": "bidirectional"},
+    {"from": "main-server", "to": "cache", "label": "get/set", "direction": "bidirectional"},
+    {"from": "worker-1", "to": "db-primary", "label": "query"},
+    {"from": "worker-2", "to": "db-primary", "label": "query"}
+  ]
+}

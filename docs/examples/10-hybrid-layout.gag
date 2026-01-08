@@ -1,0 +1,72 @@
+{
+  "canvas": {"width": 1000, "height": 800},
+  "elements": [
+    {
+      "id": "load-balancer",
+      "type": "server",
+      "hp": 2.0,
+      "wp": 1.5,
+      "label": "Load Balancer\n(High Priority)",
+      "label_priority": "high",
+      "color": "gold"
+    },
+    {
+      "id": "app-server-1",
+      "type": "server",
+      "hp": 1.5,
+      "label": "App Server 1",
+      "color": "lightblue"
+    },
+    {
+      "id": "app-server-2",
+      "type": "server",
+      "hp": 1.5,
+      "label": "App Server 2",
+      "color": "lightblue"
+    },
+    {
+      "id": "database",
+      "type": "building",
+      "hp": 1.8,
+      "wp": 1.3,
+      "label": "Database\n(Important)",
+      "label_priority": "high",
+      "color": "orange"
+    },
+    {
+      "id": "cache",
+      "type": "cloud",
+      "hp": 1.2,
+      "label": "Cache",
+      "color": "cyan"
+    },
+    {
+      "id": "logger",
+      "type": "cloud",
+      "hp": 0.8,
+      "wp": 0.8,
+      "label": "Logger\n(Low Priority)",
+      "label_priority": "low",
+      "color": "gray"
+    },
+    {
+      "id": "metrics",
+      "type": "cloud",
+      "hp": 0.8,
+      "wp": 0.8,
+      "label": "Metrics\n(Low Priority)",
+      "label_priority": "low",
+      "color": "silver"
+    }
+  ],
+  "connections": [
+    {"from": "load-balancer", "to": "app-server-1", "label": "route"},
+    {"from": "load-balancer", "to": "app-server-2", "label": "route"},
+    {"from": "app-server-1", "to": "database", "label": "query"},
+    {"from": "app-server-2", "to": "database", "label": "query"},
+    {"from": "app-server-1", "to": "cache", "label": "get/set"},
+    {"from": "app-server-2", "to": "cache", "label": "get/set"},
+    {"from": "app-server-1", "to": "logger", "label": "log"},
+    {"from": "app-server-2", "to": "metrics", "label": "report"}
+  ]
+}

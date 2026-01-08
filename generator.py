@@ -3,6 +3,7 @@ from AlmaGag.config import WIDTH, HEIGHT
 from AlmaGag.layout import Layout, AutoLayoutOptimizer
 from AlmaGag.draw.icons import draw_icon_shape, draw_icon_label
 from AlmaGag.draw.connections import draw_connection_line, draw_connection_label
+from AlmaGag.draw.container import draw_container
 
 def setup_arrow_markers(dwg):
     """
@@ -81,28 +82,22 @@ def generate_diagram(json_file):
     # 2. Instanciar optimizador
     optimizer = AutoLayoutOptimizer(verbose=False)
 
-    # 3. Analizar para obtener info inicial
-    optimizer.analyze(initial_layout)
-    initial_collisions = optimizer.evaluate(initial_layout)
-
-    # Mostrar info de estructura
-    num_levels = len(set(initial_layout.levels.values()))
-    num_groups = len(initial_layout.groups)
-    high_priority = sum(1 for priority in initial_layout.priorities.values() if priority == 0)
-    normal_priority = sum(1 for priority in initial_layout.priorities.values() if priority == 1)
-    low_priority = sum(1 for priority in initial_layout.priorities.values() if priority == 2)
-
-    # 4. Optimizar (retorna NUEVO layout)
+    # 3. Optimizar (retorna NUEVO layout)
+    #    NOTA: optimize() ahora maneja auto-layout para coordenadas faltantes (SDJF v2.0)
     optimized_layout = optimizer.optimize(initial_layout, max_iterations=10)
+
+    # Mostrar info de estructura (después de auto-layout)
+    num_levels = len(set(optimized_layout.levels.values()))
+    num_groups = len(optimized_layout.groups)
+    high_priority = sum(1 for priority in optimized_layout.priorities.values() if priority == 0)
+    normal_priority = sum(1 for priority in optimized_layout.priorities.values() if priority == 1)
+    low_priority = sum(1 for priority in optimized_layout.priorities.values() if priority == 2)
 
     # Mostrar resultados
     remaining = optimized_layout._collision_count if optimized_layout._collision_count is not None else 0
 
-    if initial_collisions > 0:
-        if remaining > 0:
-            print(f"[WARN] AutoLayout v2.1: {remaining} colisiones no resueltas (inicial: {initial_collisions})")
-        else:
-            print(f"[OK] AutoLayout v2.1: colisiones resueltas ({initial_collisions} -> 0)")
+    if remaining > 0:
+        print(f"[WARN] AutoLayout v2.1: {remaining} colisiones detectadas")
     else:
         print(f"[OK] AutoLayout v2.1: 0 colisiones detectadas")
 
@@ -129,9 +124,17 @@ def generate_diagram(json_file):
     conn_labels = optimized_layout.connection_labels
     elements_by_id = {e['id']: e for e in elements}
 
+    # Separar contenedores de elementos normales
+    containers = [e for e in elements if 'contains' in e]
+    normal_elements = [e for e in elements if 'contains' not in e]
+
     # === Renderizado en orden correcto ===
-    # 1. Dibujar todos los íconos (sin etiquetas)
-    for elem in elements:
+    # 0. Dibujar todos los contenedores (fondo)
+    for container in containers:
+        draw_container(dwg, container, elements_by_id)
+
+    # 1. Dibujar todos los íconos normales (sin etiquetas)
+    for elem in normal_elements:
         draw_icon_shape(dwg, elem)
 
     # 2. Dibujar todas las conexiones (sin etiquetas)
@@ -142,7 +145,8 @@ def generate_diagram(json_file):
         conn_centers[key] = center
 
     # 3. Dibujar todas las etiquetas (íconos + conexiones)
-    for elem in elements:
+    # Nota: Los contenedores ya tienen su etiqueta dibujada
+    for elem in normal_elements:
         if elem.get('label'):
             pos = label_positions.get(elem['id'])
             draw_icon_label(dwg, elem, pos)

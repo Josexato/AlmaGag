@@ -21,18 +21,39 @@ class GeometryCalculator:
     efectos secundarios.
     """
 
-    def get_icon_bbox(self, element: dict) -> Tuple[float, float, float, float]:
+    def __init__(self, sizing=None):
+        """
+        Inicializa el calculador geométrico.
+
+        Args:
+            sizing: Instancia de SizingCalculator para cálculos de tamaño.
+                    Si es None, usa dimensiones por defecto (ICON_WIDTH/HEIGHT)
+        """
+        self.sizing = sizing
+
+    def get_icon_bbox(self, element: dict) -> Optional[Tuple[float, float, float, float]]:
         """
         Calcula bounding box de un ícono.
 
         Args:
-            element: Elemento con 'x' e 'y'
+            element: Elemento con 'x' e 'y', opcionalmente 'hp'/'wp' para sizing
 
         Returns:
-            Tuple[float, float, float, float]: (x1, y1, x2, y2)
+            Optional[Tuple[float, float, float, float]]: (x1, y1, x2, y2) o None si falta coordenada
         """
-        x, y = element['x'], element['y']
-        return (x, y, x + ICON_WIDTH, y + ICON_HEIGHT)
+        # Validar que elemento tiene coordenadas
+        x = element.get('x')
+        y = element.get('y')
+        if x is None or y is None:
+            return None
+
+        # Usar SizingCalculator si está disponible
+        if self.sizing:
+            width, height = self.sizing.get_element_size(element)
+        else:
+            width, height = ICON_WIDTH, ICON_HEIGHT
+
+        return (x, y, x + width, y + height)
 
     def get_text_coords(
         self,
@@ -44,7 +65,7 @@ class GeometryCalculator:
         Calcula coordenadas del texto según posición.
 
         Args:
-            element: Elemento con 'x' e 'y'
+            element: Elemento con 'x' e 'y', opcionalmente 'hp'/'wp' para sizing
             position: 'bottom', 'top', 'left', 'right'
             num_lines: Número de líneas de texto
 
@@ -53,20 +74,27 @@ class GeometryCalculator:
                 anchor: 'middle', 'start', 'end'
         """
         x, y = element['x'], element['y']
-        center_x = x + ICON_WIDTH // 2
-        center_y = y + ICON_HEIGHT // 2
+
+        # Usar SizingCalculator si está disponible
+        if self.sizing:
+            width, height = self.sizing.get_element_size(element)
+        else:
+            width, height = ICON_WIDTH, ICON_HEIGHT
+
+        center_x = x + width // 2
+        center_y = y + height // 2
 
         if position == 'bottom':
-            return (center_x, y + ICON_HEIGHT + 20, 'middle', 'bottom')
+            return (center_x, y + height + 20, 'middle', 'bottom')
         elif position == 'top':
             text_y = y - 10 - ((num_lines - 1) * 18)
             return (center_x, text_y, 'middle', 'top')
         elif position == 'right':
-            return (x + ICON_WIDTH + 15, center_y, 'start', 'right')
+            return (x + width + 15, center_y, 'start', 'right')
         elif position == 'left':
             return (x - 15, center_y, 'end', 'left')
         else:
-            return (center_x, y + ICON_HEIGHT + 20, 'middle', 'bottom')
+            return (center_x, y + height + 20, 'middle', 'bottom')
 
     def get_label_bbox(
         self,
@@ -142,10 +170,18 @@ class GeometryCalculator:
         if not from_elem or not to_elem:
             return None
 
-        x1 = from_elem['x'] + ICON_WIDTH // 2
-        y1 = from_elem['y'] + ICON_HEIGHT // 2
-        x2 = to_elem['x'] + ICON_WIDTH // 2
-        y2 = to_elem['y'] + ICON_HEIGHT // 2
+        # Calcular centro del elemento 'from' usando sizing si está disponible
+        if self.sizing:
+            from_width, from_height = self.sizing.get_element_size(from_elem)
+            to_width, to_height = self.sizing.get_element_size(to_elem)
+        else:
+            from_width, from_height = ICON_WIDTH, ICON_HEIGHT
+            to_width, to_height = ICON_WIDTH, ICON_HEIGHT
+
+        x1 = from_elem['x'] + from_width // 2
+        y1 = from_elem['y'] + from_height // 2
+        x2 = to_elem['x'] + to_width // 2
+        y2 = to_elem['y'] + to_height // 2
 
         return (x1, y1, x2, y2)
 

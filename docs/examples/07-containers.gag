@@ -1,0 +1,125 @@
+{
+  "canvas": {
+    "width": 1000,
+    "height": 700
+  },
+  "elements": [
+    {
+      "id": "backend-module",
+      "type": "building",
+      "label": "Backend Module",
+      "color": "lightblue",
+      "padding": 50,
+      "aspect_ratio": 1.3,
+      "contains": [
+        {"id": "api", "scope": "full"},
+        {"id": "db", "scope": "full"},
+        {"id": "cache", "scope": "border"}
+      ]
+    },
+    {
+      "id": "api",
+      "type": "server",
+      "x": 150,
+      "y": 150,
+      "label": "REST API",
+      "color": "green"
+    },
+    {
+      "id": "db",
+      "type": "building",
+      "x": 350,
+      "y": 150,
+      "label": "Database",
+      "color": "orange"
+    },
+    {
+      "id": "cache",
+      "type": "cloud",
+      "x": 250,
+      "y": 280,
+      "label": "Redis Cache",
+      "color": "cyan"
+    },
+    {
+      "id": "frontend-module",
+      "type": "building",
+      "label": "Frontend Module",
+      "color": "lightgreen",
+      "padding": 50,
+      "aspect_ratio": 1.3,
+      "contains": [
+        {"id": "webapp", "scope": "full"},
+        {"id": "mobile", "scope": "full"}
+      ]
+    },
+    {
+      "id": "webapp",
+      "type": "server",
+      "x": 600,
+      "y": 150,
+      "label": "Web App",
+      "color": "purple"
+    },
+    {
+      "id": "mobile",
+      "type": "server",
+      "x": 750,
+      "y": 150,
+      "label": "Mobile App",
+      "color": "pink"
+    },
+    {
+      "id": "external-service",
+      "type": "cloud",
+      "x": 450,
+      "y": 500,
+      "label": "External API",
+      "color": "yellow"
+    }
+  ],
+  "connections": [
+    {
+      "from": "api",
+      "to": "db",
+      "label": "queries",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "api",
+      "to": "cache",
+      "label": "get/set",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "webapp",
+      "to": "api",
+      "waypoints": [
+        {"x": 640, "y": 200},
+        {"x": 190, "y": 200}
+      ],
+      "label": "HTTP requests",
+      "direction": "forward"
+    },
+    {
+      "from": "mobile",
+      "to": "api",
+      "waypoints": [
+        {"x": 790, "y": 250},
+        {"x": 190, "y": 250}
+      ],
+      "label": "HTTP requests",
+      "direction": "forward"
+    },
+    {
+      "from": "api",
+      "to": "external-service",
+      "waypoints": [
+        {"x": 190, "y": 400},
+        {"x": 490, "y": 400}
+      ],
+      "label": "integrations",
+      "direction": "forward"
+    }
+  ]
+}

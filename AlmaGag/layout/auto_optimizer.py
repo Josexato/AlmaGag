@@ -17,6 +17,8 @@ from copy import deepcopy
 from typing import List, Tuple, Optional
 from AlmaGag.layout.optimizer_base import LayoutOptimizer
 from AlmaGag.layout.layout import Layout
+from AlmaGag.layout.sizing import SizingCalculator
+from AlmaGag.layout.auto_positioner import AutoLayoutPositioner
 from AlmaGag.layout.geometry import GeometryCalculator
 from AlmaGag.layout.collision import CollisionDetector
 from AlmaGag.layout.graph_analysis import GraphAnalyzer
@@ -49,9 +51,11 @@ class AutoLayoutOptimizer(LayoutOptimizer):
             verbose: Si True, imprime información de debug
         """
         super().__init__(verbose)
-        self.geometry = GeometryCalculator()
+        self.sizing = SizingCalculator()
+        self.geometry = GeometryCalculator(self.sizing)
         self.collision_detector = CollisionDetector(self.geometry)
         self.graph_analyzer = GraphAnalyzer()
+        self.positioner = AutoLayoutPositioner(self.sizing, self.graph_analyzer)
 
     def analyze(self, layout: Layout) -> None:
         """
@@ -100,6 +104,7 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         Optimiza layout con selección del mejor candidato.
 
         Flujo:
+        0. Auto-layout para coordenadas faltantes (SDJF v2.0)
         1. Analizar layout inicial
         2. Calcular posiciones iniciales
         3. Evaluar colisiones iniciales
@@ -120,7 +125,13 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         # Trabajar sobre una copia inicial
         current = layout.copy()
 
-        # 1. Análisis de grafo
+        # 0. Auto-layout para elementos sin coordenadas (SDJF v2.0)
+        #    NOTA: Debe hacerse ANTES del análisis para que las prioridades
+        #    se calculen correctamente y el posicionador las use
+        self.analyze(current)  # Análisis preliminar para prioridades
+        self.positioner.calculate_missing_positions(current)
+
+        # 1. Análisis de grafo (re-analizar después de auto-layout)
         self.analyze(current)
 
         # 2. Posiciones iniciales
@@ -160,25 +171,31 @@ class AutoLayoutOptimizer(LayoutOptimizer):
             improved = self._try_relocate_labels(candidate)
 
             if not improved:
-                # Estrategia B: Mover elementos
+                # Estrategia B: Mover elementos (con pesos SDJF v2.0)
                 collision_pairs = candidate._collision_pairs or []
-                victim_id = self._select_element_to_move(candidate, collision_pairs)
+                victim_id = self._select_element_to_move_weighted(candidate, collision_pairs)
 
                 if victim_id and victim_id not in moved_elements:
                     dx, dy = self._calculate_move_direction(candidate, victim_id)
 
                     # Expandir canvas si el movimiento lo requiere
                     elem = candidate.elements_by_id.get(victim_id)
-                    if elem:
-                        new_x = elem['x'] + dx
-                        new_y = elem['y'] + dy
+                    if elem and 'x' in elem and 'y' in elem:
+                        # Escalar movimiento por peso inverso (SDJF v2.0)
+                        # Elementos pesados (hp/wp > 1.0) se mueven menos
+                        weight = self.sizing.get_element_weight(elem)
+                        scaled_dx = int(dx / weight) if weight > 0 else dx
+                        scaled_dy = int(dy / weight) if weight > 0 else dy
+
+                        new_x = elem['x'] + scaled_dx
+                        new_y = elem['y'] + scaled_dy
                         self._ensure_canvas_fits(
                             candidate,
                             new_x + ICON_WIDTH + 150,
                             new_y + ICON_HEIGHT + 100
                         )
 
-                        self._shift_element(candidate, victim_id, dx, dy)
+                        self._shift_element(candidate, victim_id, scaled_dx, scaled_dy)
                         moved_elements.append(victim_id)
 
                         # Recalcular después de mover
@@ -230,9 +247,12 @@ class AutoLayoutOptimizer(LayoutOptimizer):
                     conn
                 )
 
+        # Filtrar contenedores (elementos con 'contains')
+        normal_elements = [e for e in layout.elements if 'contains' not in e]
+
         # Ordenar elementos por prioridad (high primero)
         sorted_elements = sorted(
-            layout.elements,
+            normal_elements,
             key=lambda e: layout.priorities.get(e['id'], 1)
         )
 
@@ -343,9 +363,10 @@ class AutoLayoutOptimizer(LayoutOptimizer):
             positions.insert(0, preferred)
 
         # Recolectar bboxes de otros elementos (íconos y etiquetas existentes)
+        # Filtrar contenedores (elementos con 'contains')
         occupied_bboxes = []
         for elem in layout.elements:
-            if elem['id'] != element['id']:
+            if elem['id'] != element['id'] and 'contains' not in elem:
                 occupied_bboxes.append(self.geometry.get_icon_bbox(elem))
 
         # Añadir etiquetas de conexiones
@@ -442,6 +463,68 @@ class AutoLayoutOptimizer(LayoutOptimizer):
             return None
 
         # Retornar el de menor prioridad (mayor número = menor prioridad)
+        return max(candidates, key=candidates.get)
+
+    def _select_element_to_move_weighted(
+        self,
+        layout: Layout,
+        collision_pairs: List[Tuple]
+    ) -> Optional[str]:
+        """
+        Selecciona elemento a mover considerando PESO (SDJF v2.0).
+
+        Elementos ligeros (hp/wp = 1.0) son candidatos preferidos.
+        Elementos pesados (hp/wp > 1.0) se evitan.
+
+        Score = collisions / weight
+        Mayor score = mejor candidato (muchas colisiones, poco peso)
+
+        Args:
+            layout: Layout actual
+            collision_pairs: Lista de (id1, id2, collision_type)
+
+        Returns:
+            Optional[str]: ID del elemento a mover, o None
+        """
+        # Contar colisiones por elemento
+        collision_count = {}
+        for id1, id2, coll_type in collision_pairs:
+            for eid in [id1, id2]:
+                if '->' in str(eid):  # Es una conexión, no elemento
+                    continue
+                collision_count[eid] = collision_count.get(eid, 0) + 1
+
+        # Calcular scores considerando peso
+        candidates = {}
+        for elem_id, collisions in collision_count.items():
+            elem = layout.elements_by_id.get(elem_id)
+            if not elem:
+                continue
+
+            # Ignorar contenedores
+            if 'contains' in elem:
+                continue
+
+            # Ignorar elementos sin coordenadas
+            if elem.get('x') is None or elem.get('y') is None:
+                continue
+
+            # No mover HIGH priority
+            priority = layout.priorities.get(elem_id, 1)
+            if priority == 0:
+                continue
+
+            # Calcular peso del elemento
+            weight = self.sizing.get_element_weight(elem)
+
+            # Score: priorizar muchas colisiones + bajo peso
+            score = collisions / weight
+            candidates[elem_id] = score
+
+        if not candidates:
+            return None
+
+        # Retornar elemento con mayor score
         return max(candidates, key=candidates.get)
 
     def _calculate_move_direction(
@@ -563,7 +646,7 @@ class AutoLayoutOptimizer(LayoutOptimizer):
             dy: Desplazamiento vertical
         """
         elem = layout.elements_by_id.get(element_id)
-        if elem:
+        if elem and 'x' in elem and 'y' in elem:
             elem['x'] += dx
             elem['y'] += dy
 

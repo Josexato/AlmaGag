@@ -185,8 +185,14 @@ class Layout:
         if not self.elements:
             return self.canvas.copy()
 
-        max_x = max(e['x'] + ICON_WIDTH for e in self.elements)
-        max_y = max(e['y'] + ICON_HEIGHT for e in self.elements)
+        # Filtrar elementos con coordenadas válidas
+        positioned_elements = [e for e in self.elements if 'x' in e and 'y' in e]
+
+        if not positioned_elements:
+            return self.canvas.copy()
+
+        max_x = max(e['x'] + ICON_WIDTH for e in positioned_elements)
+        max_y = max(e['y'] + ICON_HEIGHT for e in positioned_elements)
 
         return {
             'width': max(max_x + 200, self.canvas['width']),

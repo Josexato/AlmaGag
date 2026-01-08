@@ -1,0 +1,49 @@
+{
+  "canvas": {"width": 800, "height": 600},
+  "elements": [
+    {
+      "id": "api-gateway",
+      "type": "server",
+      "label": "API Gateway",
+      "color": "lightblue"
+    },
+    {
+      "id": "auth-service",
+      "type": "server",
+      "label": "Auth Service",
+      "color": "lightgreen"
+    },
+    {
+      "id": "user-service",
+      "type": "server",
+      "label": "User Service",
+      "color": "lightgreen"
+    },
+    {
+      "id": "database",
+      "type": "building",
+      "label": "PostgreSQL",
+      "color": "orange"
+    },
+    {
+      "id": "redis",
+      "type": "cloud",
+      "label": "Redis Cache",
+      "color": "cyan"
+    },
+    {
+      "id": "queue",
+      "type": "cloud",
+      "label": "Message Queue",
+      "color": "pink"
+    }
+  ],
+  "connections": [
+    {"from": "api-gateway", "to": "auth-service", "label": "authenticate"},
+    {"from": "api-gateway", "to": "user-service", "label": "proxy"},
+    {"from": "auth-service", "to": "database", "label": "query"},
+    {"from": "user-service", "to": "database", "label": "query"},
+    {"from": "auth-service", "to": "redis", "label": "cache"},
+    {"from": "user-service", "to": "queue", "label": "publish"}
+  ]
+}

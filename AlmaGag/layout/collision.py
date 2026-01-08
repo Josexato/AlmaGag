@@ -109,6 +109,10 @@ class CollisionDetector:
         if not elem:
             return 0
 
+        # Ignorar contenedores (elementos con 'contains')
+        if 'contains' in elem:
+            return 0
+
         count = 0
         icon_bbox = self.geometry.get_icon_bbox(elem)
 
@@ -134,7 +138,7 @@ class CollisionDetector:
                 if other_elem['id'] == element_id:
                     continue
                 other_icon_bbox = self.geometry.get_icon_bbox(other_elem)
-                if self.geometry.rectangles_intersect(my_label_bbox, other_icon_bbox):
+                if other_icon_bbox and self.geometry.rectangles_intersect(my_label_bbox, other_icon_bbox):
                     count += 1
 
             # Con líneas de conexión (que no conectan este elemento)
@@ -164,13 +168,16 @@ class CollisionDetector:
         """
         bboxes = []
 
+        # Filtrar contenedores (elementos con 'contains')
+        normal_elements = [e for e in layout.elements if 'contains' not in e]
+
         # Bboxes de íconos
-        for elem in layout.elements:
+        for elem in normal_elements:
             bbox = self.geometry.get_icon_bbox(elem)
             bboxes.append((bbox, 'icon', elem['id']))
 
         # Bboxes de etiquetas de íconos
-        for elem in layout.elements:
+        for elem in normal_elements:
             if elem['id'] in layout.label_positions:
                 pos_info = layout.label_positions[elem['id']]
                 position = pos_info[3]  # (x, y, anchor, position)
