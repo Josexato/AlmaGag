@@ -1,384 +1,279 @@
-# GAG - Generador Automático de Grafos
+# AlmaGag - Generador Automático de Grafos
 
-**Proyecto:** ALMA (Almas y Sentidos)
-**Módulo:** GAG - Intérprete de sentidos para Funes
+**Proyecto**: ALMA (Almas y Sentidos)
+**Módulo**: GAG - Intérprete de sentidos para Funes
+**Versión**: v2.1 + SDJF v2.0
 
-GAG es una herramienta para generar diagramas SVG a partir de archivos JSON en formato SDJF (Simple Diagram JSON Format). Permite describir nodos, conexiones y sus relaciones visuales de forma declarativa.
+---
 
-## Instalación
+AlmaGag es un generador de diagramas SVG que transforma archivos JSON (formato SDJF) en gráficos vectoriales mediante auto-layout inteligente.
 
-Asegúrate de tener Python 3.8+ instalado. Instala AlmaGag en modo editable:
+## 🚀 Inicio Rápido
+
+### Instalación
 
 ```bash
 cd AlmaGag
 pip install -e .
 ```
 
-Esto instala el comando `almagag` y todas las dependencias automáticamente.
-
-## Uso
-
-Después de instalar, puedes usar el comando `almagag` desde cualquier directorio:
+### Uso
 
 ```bash
-almagag archivo.gag
+almagag mi-diagrama.gag
 ```
 
-O usando el módulo Python directamente:
+### Ejemplo Mínimo
 
-```bash
-python -m AlmaGag.main archivo.gag
-```
-
-Esto genera un archivo SVG con el mismo nombre base en el directorio actual.
-
-### Ejemplo:
-
-```bash
-almagag docs/examples/05-arquitectura-gag.gag
-```
-
-Genera: `05-arquitectura-gag.svg`
-
-## Formato de entrada: SDJF v1.0
-
-GAG utiliza archivos `.gag` que contienen JSON en formato SDJF. La estructura básica es:
+Crear `ejemplo.gag`:
 
 ```json
 {
-  "canvas": {
-    "width": 1400,
-    "height": 900
-  },
   "elements": [
     {
-      "id": "srv1",
+      "id": "api",
       "type": "server",
-      "x": 100,
-      "y": 200,
-      "label": "Servidor 1\n(Producción)",
-      "color": "lightblue"
+      "label": "REST API",
+      "label_priority": "high",
+      "hp": 2.0,
+      "color": "gold"
+    },
+    {
+      "id": "db",
+      "type": "building",
+      "label": "Database",
+      "label_priority": "high",
+      "hp": 1.8,
+      "color": "orange"
+    },
+    {
+      "id": "cache",
+      "type": "cloud",
+      "label": "Redis",
+      "color": "cyan"
     }
   ],
   "connections": [
-    {
-      "from": "srv1",
-      "to": "fw1",
-      "label": "HTTPS",
-      "direction": "forward"
-    }
+    {"from": "api", "to": "db", "label": "SQL", "direction": "forward"},
+    {"from": "api", "to": "cache", "label": "get/set", "direction": "bidirectional"}
   ]
 }
 ```
 
-### Sección `canvas` (opcional)
-
-Define el tamaño del SVG resultante:
-
-- `width`: ancho en píxeles (default: 1400)
-- `height`: alto en píxeles (default: 900)
-
-### Sección `elements` (requerida)
-
-Define los nodos del diagrama. Cada elemento debe tener:
-
-- **`id`** (requerido): Identificador único
-- **`x`, `y`** (requerido): Coordenadas top-left del ícono en píxeles
-- **`type`** (opcional): Tipo de ícono a dibujar
-  - Tipos disponibles: `server`, `firewall`, `building`, `cloud`
-  - Si el tipo no existe o no se especifica, se dibuja un **plátano con cinta** (BWT) como fallback de ambigüedad
-- **`label`** (opcional): Texto del ícono. Soporta saltos de línea con `\n`
-- **`label_position`** (opcional): Posición del texto respecto al ícono (v1.3+)
-  - Valores: `bottom` (default), `top`, `left`, `right`
-  - Si no se especifica, se auto-detecta la mejor posición evitando colisiones
-- **`color`** (opcional): Color de relleno del ícono (default: `gray`)
-
-### Sección `connections` (requerida)
-
-Define las aristas del diagrama. Cada conexión puede tener:
-
-- **`from`** (requerido): ID del nodo origen
-- **`to`** (requerido): ID del nodo destino
-- **`label`** (opcional): Texto en el centro de la línea
-- **`waypoints`** (opcional, v1.5+): Lista de puntos intermedios para routing complejo
-  - Formato: `[{"x": 100, "y": 200}, {"x": 150, "y": 200}, ...]`
-  - Sin waypoints: línea recta directa (default)
-  - Con waypoints: polyline que pasa por los puntos especificados
-  - Útil para evitar elementos, crear bucles, o routing ortogonal
-- **`direction`** (opcional): Dirección de la flecha
-  - `forward`: flecha al final (A → B)
-  - `backward`: flecha al inicio (A ← B)
-  - `bidirectional`: flechas en ambos extremos (A ↔ B)
-  - `none`: sin flechas (default)
-- **`relation`** (opcional): Tipo semántico de relación (decorativo en v1.0)
-
-Ejemplo con waypoints:
-```json
-{
-  "from": "optimizer",
-  "to": "geometry",
-  "waypoints": [
-    {"x": 450, "y": 490},
-    {"x": 300, "y": 490}
-  ],
-  "label": "usa",
-  "direction": "forward"
-}
-```
-
-## Ejemplos incluidos
-
-### roadmap-25-06-22.gag
-
-Diagrama de roadmap de mejoras visuales:
+Generar:
 
 ```bash
-python -m AlmaGag.main roadmap-25-06-22.gag
+almagag ejemplo.gag
 ```
 
-### data/primos.gag
+**Resultado**: `ejemplo.svg` con auto-layout inteligente, sin coordenadas manuales.
 
-Diagrama de flujo para calcular números primos:
+---
+
+## ✨ Características Principales
+
+### SDJF v2.0
+
+- **✅ Coordenadas Opcionales**: Auto-layout calcula posiciones automáticamente
+- **✅ Sizing Proporcional**: `hp` y `wp` para escalar elementos
+- **✅ Prioridades Inteligentes**: HIGH → centro, NORMAL → alrededor, LOW → periferia
+- **✅ Weight-Based Optimization**: Elementos grandes resisten movimiento
+
+### SDJF v1.5
+
+- **✅ Waypoints**: Routing complejo con puntos intermedios
+- **✅ Contenedores**: Agrupación visual de elementos
+
+### SDJF v1.0
+
+- **✅ 4 Tipos de Íconos**: server, building, cloud, firewall
+- **✅ Gradientes Automáticos**: Colores CSS y hexadecimales
+- **✅ 4 Direcciones de Flechas**: forward, backward, bidirectional, none
+- **✅ Fallback BWT**: Banana With Tape para tipos desconocidos
+
+---
+
+## 📖 Documentación Completa
+
+### Especificaciones del Estándar SDJF
+
+- **[SDJF v1.0](docs/spec/SDJF_v1.0_SPEC.md)** - Especificación base
+- **[SDJF v2.0](docs/spec/SDJF_v2.0_SPEC.md)** - Coordenadas opcionales + Sizing proporcional
+- **[SDJF v2.1 (Propuesta)](docs/spec/SDJF_v2.1_PROPOSAL.md)** - Waypoints automáticos + Tipos de líneas
+
+### Guías de Uso
+
+- **[Quickstart](docs/guides/QUICKSTART.md)** - Instalación y primer diagrama
+- **[Galería de Ejemplos](docs/guides/EXAMPLES.md)** - 10 ejemplos con explicaciones
+
+### Arquitectura del Código
+
+- **[Arquitectura](docs/architecture/ARCHITECTURE.md)** - Diseño modular y patrones
+- **[Evolución](docs/architecture/EVOLUTION.md)** - Historia de versiones
+
+---
+
+## 🎨 Ejemplos
+
+Ver carpeta [`docs/examples/`](docs/examples/) con 10 ejemplos `.gag` y sus SVGs generados:
+
+| Ejemplo | Descripción |
+|---------|-------------|
+| 01-iconos-registrados | Tipos de íconos disponibles |
+| 02-iconos-no-registrados | Fallback BWT |
+| 03-conexiones | Direcciones de flechas |
+| 04-gradientes-colores | Sistema de colores |
+| 05-arquitectura-gag | Diagrama complejo (auto-documentación) |
+| 06-waypoints | Routing con puntos intermedios |
+| 07-containers | Contenedores y agrupación |
+| 08-auto-layout | Auto-layout completo (sin coordenadas) |
+| 09-proportional-sizing | Sizing proporcional (hp/wp) |
+| 10-hybrid-layout | Híbrido: auto + manual + prioridades |
 
 ```bash
-python -m AlmaGag.main data/primos.gag
+# Generar todos los ejemplos
+almagag docs/examples/08-auto-layout.gag
+almagag docs/examples/10-hybrid-layout.gag
 ```
 
-## Arquitectura
+---
 
-El siguiente diagrama (generado con GAG) muestra el flujo de procesamiento:
+## 🏗️ Arquitectura
 
 ![Arquitectura de GAG](docs/examples/05-arquitectura-gag.svg)
 
-### Flujo de ejecución
+**Flujo de ejecución:**
 
-1. **Entrada**: El usuario proporciona un archivo `.gag` (JSON en formato SDJF)
-2. **main.py**: Punto de entrada CLI que invoca al generador
-3. **generator.py**: Orquesta el proceso completo:
-   - Crea un objeto `Layout` inmutable con elementos y conexiones
-   - Instancia `AutoLayoutOptimizer` con sus componentes auxiliares
-   - El optimizador analiza el grafo (niveles, grupos, prioridades)
-   - Ejecuta optimización iterativa para resolver colisiones
-   - Crea canvas SVG con `svgwrite` usando el layout optimizado
-   - Configura markers para flechas direccionales
-4. **AutoLayoutOptimizer**: Arquitectura modular en `layout/`:
-   - `GeometryCalculator`: Cálculos de bounding boxes e intersecciones
-   - `GraphAnalyzer`: Análisis de estructura (niveles, grupos, prioridades)
-   - `CollisionDetector`: Detección de colisiones entre elementos
-   - `AutoLayoutOptimizer`: Estrategias de optimización iterativa
-5. **draw/icons.py**: Dispatcher que ejecuta secuencialmente:
-   1. `create_gradient()` - Genera gradiente claro→oscuro del color base
-   2. `importlib` - Carga dinámicamente el módulo según `type` (o `bwt.py` si falla)
-   3. Renderiza el ícono y su etiqueta usando posiciones calculadas por AutoLayout
-6. **draw/connections.py**: Renderiza líneas de conexión con flechas direccionales
-7. **Salida**: Se genera el archivo `.svg` resultante
+```
+archivo.gag (JSON)
+    ↓
+main.py (CLI)
+    ↓
+generator.py (Orquestador)
+    ├─ Layout (datos inmutables)
+    ├─ AutoLayoutOptimizer v2.1
+    │   ├─ Auto-positioning (v2.0)
+    │   ├─ Graph analysis
+    │   ├─ Collision detection
+    │   └─ Iterative optimization
+    ├─ SVG canvas + markers
+    └─ Render (shapes → lines → labels)
+    ↓
+archivo.svg
+```
 
-## Estructura del proyecto
+**Módulos principales:**
+
+- `layout/` - Layout inmutable + Optimización modular
+- `draw/` - Renderizado SVG (íconos, conexiones, contenedores)
+
+Ver [documentación completa de arquitectura](docs/architecture/ARCHITECTURE.md).
+
+---
+
+## 🛠️ Desarrollo
+
+### Estructura del Proyecto
 
 ```
 AlmaGag/
-├── main.py              # Punto de entrada CLI
-├── generator.py         # Orquestador: canvas, markers, render loop
-├── config.py            # Constantes (WIDTH, HEIGHT, ICON_WIDTH, etc.)
-├── layout/              # Módulo de Layout y Optimización (v2.1)
-│   ├── __init__.py
-│   ├── layout.py        # Clase Layout: contenedor inmutable del estado
-│   ├── optimizer_base.py    # Interfaz abstracta LayoutOptimizer
-│   ├── auto_optimizer.py    # AutoLayoutOptimizer v2.1
-│   ├── geometry.py      # GeometryCalculator: bounding boxes, intersecciones
-│   ├── collision.py     # CollisionDetector: detección de colisiones
-│   └── graph_analysis.py    # GraphAnalyzer: niveles, grupos, prioridades
-├── draw/
-│   ├── __init__.py
-│   ├── icons.py         # Dispatcher + gradientes + draw_icon_shape/label
-│   ├── connections.py   # Líneas + draw_connection_line/label
-│   ├── bwt.py           # Fallback: Banana With Tape (plátano con cinta)
-│   ├── server.py        # Ícono tipo server (rectángulo)
-│   ├── firewall.py      # Ícono tipo firewall (rectángulo)
-│   ├── building.py      # Ícono tipo building (rectángulo)
-│   └── cloud.py         # Ícono tipo cloud (elipse)
-└── docs/
-    ├── AUTOLAYOUT_EVOLUTION.md  # Historia de versiones de AutoLayout
-    └── examples/        # Archivos de demostración .gag y .svg
-        ├── 01-iconos-registrados.*
-        ├── 02-iconos-no-registrados.*
-        ├── 03-conexiones.*
-        ├── 04-gradientes-colores.*
-        └── 05-arquitectura-gag.*
+├── main.py                   # CLI entry point
+├── generator.py              # Orquestador
+├── config.py                 # Constantes
+├── layout/                   # Módulo de Layout (v2.1)
+│   ├── layout.py             # Clase Layout (inmutable)
+│   ├── auto_optimizer.py     # AutoLayoutOptimizer v2.1
+│   ├── sizing.py             # SizingCalculator (v2.0)
+│   ├── auto_positioner.py    # AutoLayoutPositioner (v2.0)
+│   ├── geometry.py           # GeometryCalculator
+│   ├── collision.py          # CollisionDetector
+│   └── graph_analysis.py     # GraphAnalyzer
+├── draw/                     # Módulo de renderizado
+│   ├── icons.py              # Dispatcher + gradientes
+│   ├── connections.py        # Líneas + waypoints
+│   ├── container.py          # Contenedores (v2.0)
+│   └── [server|building|cloud|firewall|bwt].py
+└── docs/                     # Documentación organizada
+    ├── spec/                 # Especificaciones SDJF
+    ├── guides/               # Guías de uso
+    ├── architecture/         # Arquitectura del código
+    └── examples/             # Archivos .gag y .svg
 ```
 
-## Características de la v1.0
+### Extensibilidad
 
-✅ Formato SDJF estándar con `elements` y `connections`
-✅ Soporte de canvas personalizado
-✅ Flechas direccionales (forward, backward, bidirectional, none)
-✅ Sistema modular de íconos con importación dinámica
-✅ Fallback BWT para tipos desconocidos (explícita ambigüedad)
-✅ Etiquetas multilínea en elementos
-✅ Codificación UTF-8 sin BOM
+**Agregar nuevo tipo de ícono:**
 
-## Mejoras v1.1
-
-✅ **Módulo `connections.py` separado**: Lógica de conexiones extraída a su propio módulo para mejor mantenibilidad
-✅ **Offset visual en conexiones**: Las líneas de conexión ahora calculan un offset desde el centro del ícono para evitar superposición visual con los elementos. Diferentes tipos de íconos (como `cloud`) tienen offsets adaptados a su forma
-✅ **Orden de renderizado optimizado**: Los íconos se dibujan primero y las conexiones después, asegurando que las flechas queden visualmente encima cuando corresponde
-
-## Mejoras v1.2
-
-✅ **Gradientes automáticos**: Los colores de los elementos ahora generan gradientes lineales automáticamente (de claro a oscuro), mejorando significativamente la apariencia visual
-✅ **Soporte de colores CSS y hex**: Acepta tanto nombres de colores CSS (`lightgreen`, `gold`, `tomato`) como valores hexadecimales (`#FF5733`, `#3498DB`)
-✅ **Documentación con ejemplos**: Nueva carpeta `docs/examples/` con archivos `.gag` de demostración y sus SVG generados
-
-## Mejoras v1.3
-
-✅ **Fuente Arial**: El texto ahora usa `Arial, sans-serif` para mejor legibilidad en todos los navegadores
-✅ **Posicionamiento inteligente de etiquetas**: El texto se posiciona automáticamente evitando colisiones con otros íconos. Prueba posiciones en orden: `bottom` → `right` → `top` → `left`
-✅ **Nueva propiedad `label_position`**: Permite forzar la posición del texto manualmente:
-```json
-{
-  "id": "srv1",
-  "type": "server",
-  "label": "Servidor",
-  "label_position": "right"
-}
-```
-Valores válidos: `bottom` (default), `top`, `left`, `right`
-
-## Mejoras v1.4
-
-✅ **Clase AutoLayout independiente**: Nueva clase modular que maneja toda la detección y resolución de colisiones, separada del renderizado. Facilita el mantenimiento y testing.
-
-✅ **Detección de colisiones con líneas**: Las etiquetas ahora evitan las líneas de conexión, no solo los íconos. El algoritmo `_line_intersects_rect()` detecta intersecciones precisas entre líneas y rectángulos de texto.
-
-✅ **Nuevo orden de renderizado**:
-```
-1. AutoLayout evalúa y optimiza posiciones
-2. Dibujar todos los íconos (sin etiquetas)
-3. Dibujar todas las conexiones (sin etiquetas)
-4. Dibujar TODAS las etiquetas (íconos + conexiones)
-```
-
-✅ **Funciones separadas para shape y label**:
-- `draw_icon_shape()` / `draw_icon_label()` en icons.py
-- `draw_connection_line()` / `draw_connection_label()` en connections.py
-
-✅ **Optimización iterativa**: Si hay colisiones inevitables, el algoritmo intenta hasta 5 iteraciones desplazando elementos problemáticos.
-
-```
-[OK] AutoLayout: 0 colisiones detectadas
-[OK] Diagrama generado exitosamente: diagrama.svg
-```
-
-## Refactorización v2.1 - Arquitectura Modular
-
-✅ **Separación de responsabilidades**: El código se reestructuró para separar el almacenamiento de datos de la lógica de optimización:
-
-**Layout (layout.py)**: Contenedor inmutable del estado del diagrama
-- Almacena elements, connections, canvas
-- Método `copy()` para crear candidatos independientes durante optimización
-- Atributos de análisis (levels, groups, priorities) escritos por el optimizador
-
-**AutoLayoutOptimizer (auto_optimizer.py)**: Estrategia de optimización v2.1
-- No modifica el layout original, retorna nuevo layout optimizado
-- Optimización iterativa con candidatos independientes
-- Permite ver gradiente de optimización entre iteraciones
-
-**Componentes auxiliares**:
-- `GeometryCalculator`: Cálculos de bounding boxes e intersecciones
-- `CollisionDetector`: Detección de colisiones usando geometría
-- `GraphAnalyzer`: Análisis de estructura (niveles, grupos, prioridades)
-- `LayoutOptimizer`: Interfaz abstracta para futuros optimizadores
-
-**Beneficios**:
-- Código más mantenible y testeable
-- Fácil agregar nuevos algoritmos de optimización
-- Clara separación entre datos y procesamiento
-- Componentes independientes y reutilizables
+1. Crear `draw/mi_icono.py`:
 
 ```python
-# Flujo de optimización
-initial_layout = Layout(elements, connections, canvas)
-optimizer = AutoLayoutOptimizer()
-optimized_layout = optimizer.optimize(initial_layout, max_iterations=10)
+from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
+from AlmaGag.draw.icons import create_gradient
+
+def draw_mi_icono(dwg, x, y, color, element_id):
+    fill = create_gradient(dwg, element_id, color)
+    dwg.add(dwg.circle(center=(x + ICON_WIDTH/2, y + ICON_HEIGHT/2),
+                       r=25, fill=fill, stroke='black'))
 ```
 
-## Mejoras v1.5 - Waypoints en Conexiones
+2. Usar en SDJF:
 
-✅ **Soporte de waypoints**: Las conexiones ahora soportan puntos intermedios para routing complejo:
-
-**Problema resuelto**: Las líneas rectas diagonales causan colisiones inevitables al cruzar elementos y etiquetas. Los waypoints permiten:
-- Evitar elementos intermedios con rutas ortogonales o personalizadas
-- Crear representaciones visuales de bucles y retroalimentación
-- Mejorar la claridad de diagramas complejos
-
-**Formato SDJF v1.5**:
 ```json
 {
-  "from": "optimizer",
-  "to": "geometry",
-  "waypoints": [
-    {"x": 450, "y": 490},
-    {"x": 300, "y": 490}
-  ],
-  "label": "usa",
-  "direction": "forward"
+  "id": "elem1",
+  "type": "mi_icono",
+  "label": "Custom Icon"
 }
 ```
 
-**Implementación**:
-- Sin waypoints: línea recta directa (compatibilidad retroactiva)
-- Con waypoints: SVG polyline que pasa por todos los puntos
-- Los offsets visuales se aplican solo en el primer y último segmento
-- Las flechas direccionales se colocan en los extremos de la polyline
+No requiere modificar código existente (dynamic import).
 
-**Beneficios**:
-- Reduce colisiones en diagramas complejos
-- Permite representar flujos más claros
-- Compatible hacia atrás con diagramas existentes
+---
 
-## Galería de ejemplos
+## 🗺️ Roadmap
 
-### Íconos registrados con gradientes
+### v2.1 (Propuesta) - Waypoints Automáticos
 
-Los tipos de íconos disponibles (`building`, `server`, `cloud`, `firewall`) se renderizan con gradientes automáticos basados en el color especificado:
+- **Routing declarativo**: `{"routing": {"type": "orthogonal"}}`
+- **Tipos de líneas**: `straight`, `orthogonal`, `bezier`, `arc`, `manual`
+- **Avoid elements**: Routing inteligente evitando colisiones
+- **Corner radius**: Esquinas redondeadas en líneas ortogonales
 
-![Íconos registrados](docs/examples/01-iconos-registrados.svg)
+Ver [propuesta completa](docs/spec/SDJF_v2.1_PROPOSAL.md).
 
-### Fallback para íconos no registrados (BWT)
+### Futuro
 
-Cuando se solicita un tipo de ícono que no existe, el sistema muestra el **"Plátano con Cinta"** (Banana With Tape) como indicador visual de ambigüedad:
+- ~~Autolayout~~ ✅ Implementado v2.0
+- ~~Gradientes y sombras~~ ✅ Implementado v1.2
+- Temas predefinidos (Cloud, Tech, Minimal)
+- Animación SVG (timeline de aparición)
+- Íconos SVG externos
 
-![Íconos no registrados](docs/examples/02-iconos-no-registrados.svg)
+---
 
-```
-[WARN] No se pudo dibujar 'router', se usará ícono por defecto. Error: No module named 'AlmaGag.draw.router'
-[WARN] No se pudo dibujar 'database', se usará ícono por defecto. Error: No module named 'AlmaGag.draw.database'
-```
+## 📄 Licencia
 
-### Tipos de conexiones
+[Especificar licencia aquí]
 
-Soporte para diferentes direcciones de flechas: `forward`, `backward`, `bidirectional` y `none`:
+---
 
-![Conexiones](docs/examples/03-conexiones.svg)
-
-### Variedad de colores y gradientes
-
-Demostración de gradientes automáticos con colores CSS nombrados y valores hexadecimales:
-
-![Gradientes de colores](docs/examples/04-gradientes-colores.svg)
-
-## Roadmap futuro
-
-- ~~**Autolayout**~~: ✅ Detección de colisiones implementada en v1.4 (pendiente: generación automática de coordenadas)
-- ~~**Gradientes y sombras**~~: ✅ Implementado en v1.2
-- **Temas**: Estilos predefinidos (Cloud, Tech, Minimal)
-- **Animación**: Timeline para aparición secuencial
-- **Íconos SVG externos**: Soporte para iconografía personalizada
-
-## Contribuir
+## 🤝 Contribuir
 
 Este proyecto es parte de ALMA. Para reportar bugs o sugerir mejoras, abre un issue en el repositorio.
 
-## Licencia
+---
 
-[Especificar licencia aquí]
+## 📚 Enlaces Rápidos
+
+| Recurso | Enlace |
+|---------|--------|
+| Guía de inicio | [docs/guides/QUICKSTART.md](docs/guides/QUICKSTART.md) |
+| Especificación v2.0 | [docs/spec/SDJF_v2.0_SPEC.md](docs/spec/SDJF_v2.0_SPEC.md) |
+| Galería de ejemplos | [docs/guides/EXAMPLES.md](docs/guides/EXAMPLES.md) |
+| Arquitectura | [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md) |
+| Propuesta v2.1 | [docs/spec/SDJF_v2.1_PROPOSAL.md](docs/spec/SDJF_v2.1_PROPOSAL.md) |
+
+---
+
+**AlmaGag** - Generación automática de diagramas con auto-layout inteligente
+Versión: v2.1 + SDJF v2.0 | Actualizado: 2026-01-08
