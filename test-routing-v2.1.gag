@@ -1,0 +1,111 @@
+{
+  "canvas": {"width": 1200, "height": 800},
+  "elements": [
+    {
+      "id": "frontend",
+      "type": "cloud",
+      "label": "Frontend\nReact App",
+      "x": 100,
+      "y": 100,
+      "color": "lightblue"
+    },
+    {
+      "id": "api",
+      "type": "server",
+      "label": "REST API",
+      "x": 500,
+      "y": 100,
+      "color": "gold"
+    },
+    {
+      "id": "database",
+      "type": "building",
+      "label": "PostgreSQL",
+      "x": 900,
+      "y": 100,
+      "color": "orange"
+    },
+    {
+      "id": "cache",
+      "type": "cloud",
+      "label": "Redis Cache",
+      "x": 700,
+      "y": 300,
+      "color": "cyan"
+    },
+    {
+      "id": "queue",
+      "type": "server",
+      "label": "Message Queue",
+      "x": 300,
+      "y": 300,
+      "color": "pink"
+    },
+    {
+      "id": "worker",
+      "type": "server",
+      "label": "Background Worker",
+      "x": 500,
+      "y": 500,
+      "color": "lightgreen"
+    }
+  ],
+  "connections": [
+    {
+      "from": "frontend",
+      "to": "api",
+      "routing": {"type": "bezier", "curvature": 0.4},
+      "label": "HTTPS",
+      "direction": "forward"
+    },
+    {
+      "from": "api",
+      "to": "database",
+      "routing": {"type": "orthogonal", "preference": "horizontal"},
+      "label": "SQL queries",
+      "direction": "forward"
+    },
+    {
+      "from": "api",
+      "to": "cache",
+      "routing": {"type": "orthogonal", "preference": "vertical"},
+      "label": "get/set",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "api",
+      "to": "queue",
+      "routing": {"type": "orthogonal"},
+      "label": "publish",
+      "direction": "forward"
+    },
+    {
+      "from": "queue",
+      "to": "worker",
+      "routing": {"type": "bezier", "curvature": 0.6},
+      "label": "consume",
+      "direction": "forward"
+    },
+    {
+      "from": "worker",
+      "to": "database",
+      "routing": {"type": "orthogonal"},
+      "label": "write results",
+      "direction": "forward"
+    },
+    {
+      "from": "cache",
+      "to": "cache",
+      "routing": {"type": "arc", "radius": 60, "side": "top"},
+      "label": "evict",
+      "direction": "forward"
+    },
+    {
+      "from": "worker",
+      "to": "cache",
+      "routing": {"type": "straight"},
+      "label": "update cache",
+      "direction": "forward"
+    }
+  ]
+}

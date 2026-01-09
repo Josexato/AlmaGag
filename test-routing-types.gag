@@ -1,0 +1,114 @@
+{
+  "canvas": {"width": 1000, "height": 900},
+  "elements": [
+    {
+      "id": "straight_from",
+      "type": "server",
+      "label": "Straight",
+      "x": 100,
+      "y": 100,
+      "color": "lightblue"
+    },
+    {
+      "id": "straight_to",
+      "type": "server",
+      "label": "Line",
+      "x": 300,
+      "y": 100,
+      "color": "lightblue"
+    },
+    {
+      "id": "ortho_h_from",
+      "type": "server",
+      "label": "Orthogonal\nHorizontal",
+      "x": 500,
+      "y": 100,
+      "color": "lightgreen"
+    },
+    {
+      "id": "ortho_h_to",
+      "type": "server",
+      "label": "First",
+      "x": 800,
+      "y": 200,
+      "color": "lightgreen"
+    },
+    {
+      "id": "ortho_v_from",
+      "type": "server",
+      "label": "Orthogonal\nVertical",
+      "x": 100,
+      "y": 300,
+      "color": "yellow"
+    },
+    {
+      "id": "ortho_v_to",
+      "type": "server",
+      "label": "First",
+      "x": 200,
+      "y": 500,
+      "color": "yellow"
+    },
+    {
+      "id": "bezier_from",
+      "type": "cloud",
+      "label": "Bezier",
+      "x": 400,
+      "y": 300,
+      "color": "pink"
+    },
+    {
+      "id": "bezier_to",
+      "type": "cloud",
+      "label": "Curve",
+      "x": 700,
+      "y": 400,
+      "color": "pink"
+    },
+    {
+      "id": "arc_elem",
+      "type": "building",
+      "label": "Arc\nSelf-Loop",
+      "x": 500,
+      "y": 600,
+      "color": "orange"
+    }
+  ],
+  "connections": [
+    {
+      "from": "straight_from",
+      "to": "straight_to",
+      "routing": {"type": "straight"},
+      "label": "type: straight",
+      "direction": "forward"
+    },
+    {
+      "from": "ortho_h_from",
+      "to": "ortho_h_to",
+      "routing": {"type": "orthogonal", "preference": "horizontal"},
+      "label": "type: orthogonal (H-V)",
+      "direction": "forward"
+    },
+    {
+      "from": "ortho_v_from",
+      "to": "ortho_v_to",
+      "routing": {"type": "orthogonal", "preference": "vertical"},
+      "label": "type: orthogonal (V-H)",
+      "direction": "forward"
+    },
+    {
+      "from": "bezier_from",
+      "to": "bezier_to",
+      "routing": {"type": "bezier", "curvature": 0.5},
+      "label": "type: bezier",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "arc_elem",
+      "to": "arc_elem",
+      "routing": {"type": "arc", "radius": 70, "side": "top"},
+      "label": "type: arc",
+      "direction": "forward"
+    }
+  ]
+}

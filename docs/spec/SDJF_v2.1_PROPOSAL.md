@@ -1,7 +1,7 @@
-# SDJF v2.1 - Propuesta: Waypoints Automáticos y Tipos de Líneas
+# SDJF v2.1 - Waypoints Automáticos y Tipos de Líneas
 
-**Estado**: 🔄 Propuesta (No Implementado)
-**Versión**: 2.1 (Draft)
+**Estado**: ✅ Implementado
+**Versión**: 2.1
 **Fecha**: 2026-01-08
 
 ## Motivación
@@ -539,14 +539,20 @@ def draw_connection_line(dwg, connection):
 
 ## Roadmap
 
-- [ ] **v2.1-alpha**: Infraestructura de routing + `straight` (refactor existing)
-- [ ] **v2.1-beta**: `orthogonal` básico (sin avoid_elements)
-- [ ] **v2.1-rc1**: `bezier` + `arc` + corner_radius
-- [ ] **v2.1**: `orthogonal` con `avoid_elements=true` (A* o heurística)
-- [ ] **v2.2**: Optimización avanzada, visibility graphs
+- [x] **v2.1-alpha**: Infraestructura de routing + `straight` (refactor existing)
+- [x] **v2.1-beta**: `orthogonal` básico (sin avoid_elements)
+- [x] **v2.1-rc1**: `bezier` + `arc` + corner_radius
+- [ ] **v2.2**: `orthogonal` con `avoid_elements=true` (A* o heurística)
+- [ ] **v2.3**: Optimización avanzada, visibility graphs
 
 ---
 
-**Estado**: 🔄 Propuesta (No Implementado)
-**Siguiente Paso**: Validación de la propuesta con casos de uso reales
+**Estado**: ✅ Implementado (v2.1)
+**Siguiente Paso**: Implementar collision avoidance en v2.2
 **Feedback**: Bienvenido en issues o PRs
+
+## Ejemplos de Uso
+
+Ver archivos de prueba:
+- `test-routing-v2.1.gag` - Ejemplo completo con todos los tipos de routing
+- `test-routing-types.gag` - Demostración de cada tipo de routing individual

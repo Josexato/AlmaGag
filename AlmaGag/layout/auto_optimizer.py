@@ -22,6 +22,7 @@ from AlmaGag.layout.auto_positioner import AutoLayoutPositioner
 from AlmaGag.layout.geometry import GeometryCalculator
 from AlmaGag.layout.collision import CollisionDetector
 from AlmaGag.layout.graph_analysis import GraphAnalyzer
+from AlmaGag.routing.router_manager import ConnectionRouterManager
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 
 
@@ -30,6 +31,7 @@ class AutoLayoutOptimizer(LayoutOptimizer):
     Implementación del optimizador automático v2.1.
 
     Estrategia de optimización:
+    - Fase 0: Auto-routing de conexiones (SDJF v2.1)
     - Fase 1: Reubicar etiquetas (más rápido, menos invasivo)
     - Fase 2: Mover elementos (más efectivo, más costoso)
     - Fase 3: Expandir canvas (último recurso)
@@ -38,6 +40,7 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         geometry (GeometryCalculator): Calculadora geométrica
         collision_detector (CollisionDetector): Detector de colisiones
         graph_analyzer (GraphAnalyzer): Analizador de grafos
+        router_manager (ConnectionRouterManager): Gestor de routing de conexiones
         POSITIONS (List[str]): Posiciones posibles para etiquetas
     """
 
@@ -56,6 +59,7 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         self.collision_detector = CollisionDetector(self.geometry)
         self.graph_analyzer = GraphAnalyzer()
         self.positioner = AutoLayoutPositioner(self.sizing, self.graph_analyzer)
+        self.router_manager = ConnectionRouterManager()
 
     def analyze(self, layout: Layout) -> None:
         """
@@ -105,6 +109,7 @@ class AutoLayoutOptimizer(LayoutOptimizer):
 
         Flujo:
         0. Auto-layout para coordenadas faltantes (SDJF v2.0)
+        0.5. Auto-routing de conexiones (SDJF v2.1)
         1. Analizar layout inicial
         2. Calcular posiciones iniciales
         3. Evaluar colisiones iniciales
@@ -130,6 +135,11 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         #    se calculen correctamente y el posicionador las use
         self.analyze(current)  # Análisis preliminar para prioridades
         self.positioner.calculate_missing_positions(current)
+
+        # 0.5. Auto-routing de conexiones (SDJF v2.1)
+        #      Calcula paths para todas las conexiones después de posicionar elementos
+        self.router_manager.calculate_all_paths(current)
+        self._log("Routing de conexiones calculado")
 
         # 1. Análisis de grafo (re-analizar después de auto-layout)
         self.analyze(current)
