@@ -1,0 +1,405 @@
+{
+  "canvas": {"width": 1400, "height": 1000},
+  "elements": [
+    {
+      "id": "americas",
+      "type": "cloud",
+      "label": "América\nContinente",
+      "x": 600,
+      "y": 50,
+      "hp": 2.5,
+      "color": "#87CEEB",
+      "label_priority": "high"
+    },
+    {
+      "id": "norte",
+      "type": "building",
+      "label": "América\ndel Norte",
+      "x": 300,
+      "y": 200,
+      "hp": 1.8,
+      "color": "#FFD700"
+    },
+    {
+      "id": "centro",
+      "type": "building",
+      "label": "América\nCentral",
+      "x": 600,
+      "y": 200,
+      "hp": 1.5,
+      "color": "#FFA500"
+    },
+    {
+      "id": "sur",
+      "type": "building",
+      "label": "América\ndel Sur",
+      "x": 900,
+      "y": 200,
+      "hp": 1.8,
+      "color": "#90EE90"
+    },
+    {
+      "id": "canada",
+      "type": "server",
+      "label": "Canadá",
+      "x": 100,
+      "y": 380,
+      "color": "#FF6B6B"
+    },
+    {
+      "id": "usa",
+      "type": "server",
+      "label": "Estados Unidos",
+      "x": 300,
+      "y": 380,
+      "hp": 1.3,
+      "color": "#4ECDC4",
+      "label_priority": "high"
+    },
+    {
+      "id": "mexico",
+      "type": "server",
+      "label": "México",
+      "x": 500,
+      "y": 380,
+      "color": "#95E1D3"
+    },
+    {
+      "id": "guatemala",
+      "type": "server",
+      "label": "Guatemala",
+      "x": 550,
+      "y": 500,
+      "color": "#F38181"
+    },
+    {
+      "id": "costarica",
+      "type": "server",
+      "label": "Costa Rica",
+      "x": 650,
+      "y": 500,
+      "color": "#AA96DA"
+    },
+    {
+      "id": "panama",
+      "type": "server",
+      "label": "Panamá",
+      "x": 750,
+      "y": 500,
+      "color": "#FCBAD3"
+    },
+    {
+      "id": "colombia",
+      "type": "server",
+      "label": "Colombia",
+      "x": 850,
+      "y": 380,
+      "color": "#FFFFD2"
+    },
+    {
+      "id": "venezuela",
+      "type": "server",
+      "label": "Venezuela",
+      "x": 950,
+      "y": 380,
+      "color": "#A8D8EA"
+    },
+    {
+      "id": "brasil",
+      "type": "server",
+      "label": "Brasil",
+      "x": 1050,
+      "y": 500,
+      "hp": 1.5,
+      "color": "#FFCCCC",
+      "label_priority": "high"
+    },
+    {
+      "id": "peru",
+      "type": "server",
+      "label": "Perú",
+      "x": 800,
+      "y": 620,
+      "color": "#D4A5A5"
+    },
+    {
+      "id": "ecuador",
+      "type": "server",
+      "label": "Ecuador",
+      "x": 700,
+      "y": 620,
+      "color": "#9DD9D2"
+    },
+    {
+      "id": "bolivia",
+      "type": "server",
+      "label": "Bolivia",
+      "x": 900,
+      "y": 680,
+      "color": "#FFF8DC"
+    },
+    {
+      "id": "chile",
+      "type": "server",
+      "label": "Chile",
+      "x": 800,
+      "y": 780,
+      "color": "#E0BBE4"
+    },
+    {
+      "id": "argentina",
+      "type": "server",
+      "label": "Argentina",
+      "x": 950,
+      "y": 780,
+      "hp": 1.2,
+      "color": "#FFDFD3"
+    },
+    {
+      "id": "uruguay",
+      "type": "server",
+      "label": "Uruguay",
+      "x": 1050,
+      "y": 780,
+      "color": "#C7CEEA"
+    },
+    {
+      "id": "paraguay",
+      "type": "server",
+      "label": "Paraguay",
+      "x": 1000,
+      "y": 680,
+      "color": "#B5EAD7"
+    }
+  ],
+  "connections": [
+    {
+      "from": "americas",
+      "to": "norte",
+      "routing": {"type": "bezier", "curvature": 0.4},
+      "direction": "forward"
+    },
+    {
+      "from": "americas",
+      "to": "centro",
+      "routing": {"type": "straight"},
+      "direction": "forward"
+    },
+    {
+      "from": "americas",
+      "to": "sur",
+      "routing": {"type": "bezier", "curvature": 0.4},
+      "direction": "forward"
+    },
+    {
+      "from": "norte",
+      "to": "canada",
+      "routing": {"type": "orthogonal", "preference": "vertical"},
+      "label": "país",
+      "direction": "forward"
+    },
+    {
+      "from": "norte",
+      "to": "usa",
+      "routing": {"type": "orthogonal"},
+      "label": "país",
+      "direction": "forward"
+    },
+    {
+      "from": "norte",
+      "to": "mexico",
+      "routing": {"type": "orthogonal", "preference": "vertical"},
+      "label": "país",
+      "direction": "forward"
+    },
+    {
+      "from": "centro",
+      "to": "guatemala",
+      "routing": {"type": "orthogonal"},
+      "label": "país",
+      "direction": "forward"
+    },
+    {
+      "from": "centro",
+      "to": "costarica",
+      "routing": {"type": "orthogonal"},
+      "label": "país",
+      "direction": "forward"
+    },
+    {
+      "from": "centro",
+      "to": "panama",
+      "routing": {"type": "orthogonal"},
+      "label": "país",
+      "direction": "forward"
+    },
+    {
+      "from": "sur",
+      "to": "colombia",
+      "routing": {"type": "orthogonal", "preference": "vertical"},
+      "label": "país",
+      "direction": "forward"
+    },
+    {
+      "from": "sur",
+      "to": "venezuela",
+      "routing": {"type": "orthogonal", "preference": "vertical"},
+      "label": "país",
+      "direction": "forward"
+    },
+    {
+      "from": "sur",
+      "to": "brasil",
+      "routing": {"type": "bezier", "curvature": 0.5},
+      "label": "país",
+      "direction": "forward"
+    },
+    {
+      "from": "canada",
+      "to": "usa",
+      "routing": {"type": "orthogonal", "preference": "horizontal"},
+      "label": "frontera",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "usa",
+      "to": "mexico",
+      "routing": {"type": "orthogonal", "preference": "horizontal"},
+      "label": "frontera",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "mexico",
+      "to": "guatemala",
+      "routing": {"type": "orthogonal"},
+      "label": "frontera",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "panama",
+      "to": "colombia",
+      "routing": {"type": "orthogonal"},
+      "label": "frontera",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "colombia",
+      "to": "venezuela",
+      "routing": {"type": "straight"},
+      "label": "frontera",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "colombia",
+      "to": "ecuador",
+      "routing": {"type": "orthogonal"},
+      "label": "frontera",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "colombia",
+      "to": "peru",
+      "routing": {"type": "orthogonal"},
+      "label": "frontera",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "colombia",
+      "to": "brasil",
+      "routing": {"type": "bezier", "curvature": 0.6},
+      "label": "frontera",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "ecuador",
+      "to": "peru",
+      "routing": {"type": "straight"},
+      "label": "frontera",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "peru",
+      "to": "bolivia",
+      "routing": {"type": "orthogonal"},
+      "label": "frontera",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "peru",
+      "to": "chile",
+      "routing": {"type": "orthogonal", "preference": "vertical"},
+      "label": "frontera",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "bolivia",
+      "to": "brasil",
+      "routing": {"type": "orthogonal"},
+      "label": "frontera",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "bolivia",
+      "to": "paraguay",
+      "routing": {"type": "straight"},
+      "label": "frontera",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "bolivia",
+      "to": "argentina",
+      "routing": {"type": "orthogonal"},
+      "label": "frontera",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "bolivia",
+      "to": "chile",
+      "routing": {"type": "orthogonal"},
+      "label": "frontera",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "chile",
+      "to": "argentina",
+      "routing": {"type": "orthogonal", "preference": "horizontal"},
+      "label": "frontera",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "argentina",
+      "to": "uruguay",
+      "routing": {"type": "straight"},
+      "label": "frontera",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "argentina",
+      "to": "paraguay",
+      "routing": {"type": "orthogonal"},
+      "label": "frontera",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "brasil",
+      "to": "paraguay",
+      "routing": {"type": "orthogonal"},
+      "label": "frontera",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "brasil",
+      "to": "argentina",
+      "routing": {"type": "bezier", "curvature": 0.5},
+      "label": "frontera",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "brasil",
+      "to": "uruguay",
+      "routing": {"type": "orthogonal"},
+      "label": "frontera",
+      "direction": "bidirectional"
+    }
+  ]
+}

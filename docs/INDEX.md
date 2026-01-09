@@ -1,6 +1,6 @@
 # Índice de Documentación - AlmaGag
 
-**Versión**: v2.1 (código) + SDJF v2.0 (estándar)
+**Versión**: v2.1 (código) + SDJF v2.1 (estándar)
 **Actualizado**: 2026-01-08
 
 ---
@@ -32,13 +32,13 @@ Esta es la guía completa de documentación de AlmaGag, organizada por tipo de d
 | [SDJF v1.0](spec/SDJF_v1.0_SPEC.md) | 1.0 | ✅ Estable | Especificación base (coordenadas requeridas) |
 | [SDJF v2.0](spec/SDJF_v2.0_SPEC.md) | 2.0 | ✅ Estable | Auto-layout + sizing proporcional |
 | [SDJF v2.0 Features](spec/SDJF_v2.0_FEATURES.md) | 2.0 | ✅ Referencia | Documento original de features v2.0 |
-| [SDJF v2.1](spec/SDJF_v2.1_PROPOSAL.md) | 2.1 | 🔄 Propuesta | Waypoints automáticos + tipos de líneas |
+| [SDJF v2.1](spec/SDJF_v2.1_PROPOSAL.md) | 2.1 | ✅ Implementado | Routing declarativo + waypoints automáticos |
 
 ### ¿Qué versión debo usar?
 
 - **Empezando**: Lee [v1.0](spec/SDJF_v1.0_SPEC.md) para entender la base
 - **Auto-layout**: Lee [v2.0](spec/SDJF_v2.0_SPEC.md) para coordenadas opcionales
-- **Routing avanzado**: Lee [v2.1](spec/SDJF_v2.1_PROPOSAL.md) (próximamente)
+- **Routing declarativo**: Lee [v2.1](spec/SDJF_v2.1_PROPOSAL.md) para 5 tipos de líneas
 
 ---
 
@@ -92,9 +92,9 @@ Esta es la guía completa de documentación de AlmaGag, organizada por tipo de d
 
 ### Resumen del Roadmap
 
-- **✅ Completado**: v1.0, v1.5, v2.0 (código v2.1)
-- **🔄 En desarrollo**: v2.1 (waypoints automáticos)
-- **📅 Planificado**: v2.2 (optimizaciones), v3.0 (temas)
+- **✅ Completado**: v1.0, v1.5, v2.0, v2.1 (código y estándar)
+- **🔄 En desarrollo**: v2.2 (collision avoidance)
+- **📅 Planificado**: v2.3 (optimizaciones avanzadas), v3.0 (temas)
 
 ---
 
@@ -224,7 +224,7 @@ Diagrama auto-documentado del flujo de ejecución actual.
 3. [Implementation Strategy](architecture/IMPLEMENTATION_STRATEGY.md) - Guía técnica
 
 **Áreas prioritarias:**
-- [ ] Implementación v2.1 (routing automático)
+- [ ] Implementación v2.2 (collision avoidance con A*)
 - [ ] Tests visuales automáticos
 - [ ] Nuevos tipos de íconos
 - [ ] Documentación de ejemplos
@@ -244,5 +244,5 @@ Este proyecto es parte de ALMA. Para reportar bugs o sugerir mejoras, abre un is
 
 ---
 
-**AlmaGag** - Generación automática de diagramas con auto-layout inteligente
-**Versión**: v2.1 + SDJF v2.0 | **Actualizado**: 2026-01-08
+**AlmaGag** - Generación automática de diagramas con auto-layout inteligente y routing declarativo
+**Versión**: v2.1 + SDJF v2.1 | **Actualizado**: 2026-01-08

@@ -2,7 +2,7 @@
 
 **Proyecto**: ALMA (Almas y Sentidos)
 **Módulo**: GAG - Intérprete de sentidos para Funes
-**Versión**: v2.1 + SDJF v2.0
+**Versión**: v2.1 + SDJF v2.1
 
 ---
 
@@ -54,8 +54,20 @@ Crear `ejemplo.gag`:
     }
   ],
   "connections": [
-    {"from": "api", "to": "db", "label": "SQL", "direction": "forward"},
-    {"from": "api", "to": "cache", "label": "get/set", "direction": "bidirectional"}
+    {
+      "from": "api",
+      "to": "db",
+      "routing": {"type": "orthogonal"},
+      "label": "SQL",
+      "direction": "forward"
+    },
+    {
+      "from": "api",
+      "to": "cache",
+      "routing": {"type": "bezier", "curvature": 0.5},
+      "label": "get/set",
+      "direction": "bidirectional"
+    }
   ]
 }
 ```
@@ -72,6 +84,17 @@ almagag ejemplo.gag
 
 ## ✨ Características Principales
 
+### SDJF v2.1 ✨ NUEVO
+
+- **✅ Routing Declarativo**: 5 tipos de líneas sin waypoints manuales
+  - `straight`: Líneas rectas (default)
+  - `orthogonal`: Líneas H-V o V-H (arquitectura)
+  - `bezier`: Curvas suaves (flujos)
+  - `arc`: Arcos circulares (self-loops)
+  - `manual`: Waypoints explícitos (v1.5 compatible)
+- **✅ Auto-waypoints**: Calculados automáticamente después de posicionamiento
+- **✅ Corner Radius**: Esquinas redondeadas preparadas
+
 ### SDJF v2.0
 
 - **✅ Coordenadas Opcionales**: Auto-layout calcula posiciones automáticamente
@@ -81,8 +104,7 @@ almagag ejemplo.gag
 
 ### SDJF v1.5
 
-- **✅ Waypoints**: Routing complejo con puntos intermedios
-- **✅ Contenedores**: Agrupación visual de elementos
+- **✅ Contenedores**: Agrupación visual de elementos con `contains`
 
 ### SDJF v1.0
 
@@ -99,7 +121,7 @@ almagag ejemplo.gag
 
 - **[SDJF v1.0](docs/spec/SDJF_v1.0_SPEC.md)** - Especificación base
 - **[SDJF v2.0](docs/spec/SDJF_v2.0_SPEC.md)** - Coordenadas opcionales + Sizing proporcional
-- **[SDJF v2.1 (Propuesta)](docs/spec/SDJF_v2.1_PROPOSAL.md)** - Waypoints automáticos + Tipos de líneas
+- **[SDJF v2.1](docs/spec/SDJF_v2.1_PROPOSAL.md)** - ✅ Routing declarativo + Waypoints automáticos
 
 ### Guías de Uso
 
@@ -165,6 +187,7 @@ archivo.svg
 **Módulos principales:**
 
 - `layout/` - Layout inmutable + Optimización modular
+- `routing/` - Sistema de routing declarativo (v2.1)
 - `draw/` - Renderizado SVG (íconos, conexiones, contenedores)
 
 Ver [documentación completa de arquitectura](docs/architecture/ARCHITECTURE.md).
@@ -188,10 +211,18 @@ AlmaGag/
 │   ├── geometry.py           # GeometryCalculator
 │   ├── collision.py          # CollisionDetector
 │   └── graph_analysis.py     # GraphAnalyzer
+├── routing/                  # Sistema de routing (v2.1)
+│   ├── router_base.py        # Base classes: ConnectionRouter, Path
+│   ├── straight_router.py    # Líneas rectas
+│   ├── orthogonal_router.py  # Líneas H-V/V-H
+│   ├── bezier_router.py      # Curvas Bézier
+│   ├── arc_router.py         # Arcos circulares
+│   ├── manual_router.py      # Waypoints manuales (v1.5)
+│   └── router_manager.py     # Coordinador de routers
 ├── draw/                     # Módulo de renderizado
 │   ├── icons.py              # Dispatcher + gradientes
-│   ├── connections.py        # Líneas + waypoints
-│   ├── container.py          # Contenedores (v2.0)
+│   ├── connections.py        # Líneas + routing types (v2.1)
+│   ├── container.py          # Contenedores (v1.5)
 │   └── [server|building|cloud|firewall|bwt].py
 └── docs/                     # Documentación organizada
     ├── spec/                 # Especificaciones SDJF
@@ -232,18 +263,25 @@ No requiere modificar código existente (dynamic import).
 
 ## 🗺️ Roadmap
 
-### v2.1 (Propuesta) - Waypoints Automáticos
+### ✅ v2.1 - Routing Declarativo (Implementado)
 
-- **Routing declarativo**: `{"routing": {"type": "orthogonal"}}`
-- **Tipos de líneas**: `straight`, `orthogonal`, `bezier`, `arc`, `manual`
-- **Avoid elements**: Routing inteligente evitando colisiones
-- **Corner radius**: Esquinas redondeadas en líneas ortogonales
+- **✅ Routing declarativo**: `{"routing": {"type": "orthogonal"}}`
+- **✅ 5 tipos de líneas**: `straight`, `orthogonal`, `bezier`, `arc`, `manual`
+- **✅ Auto-waypoints**: Calculados después de posicionamiento
+- **✅ Corner radius**: Preparado (rendering básico)
 
-Ver [propuesta completa](docs/spec/SDJF_v2.1_PROPOSAL.md).
+Ver [especificación completa](docs/spec/SDJF_v2.1_PROPOSAL.md) y [resumen de implementación](SDJF_v2.1_IMPLEMENTATION_SUMMARY.md).
+
+### v2.2 (Próximo) - Collision Avoidance
+
+- **Avoid elements**: Routing inteligente evitando colisiones con A*
+- **Corner radius avanzado**: SVG path smoothing completo
+- **Smart routing**: Preferencias automáticas según tipos de elementos
 
 ### Futuro
 
 - ~~Autolayout~~ ✅ Implementado v2.0
+- ~~Routing declarativo~~ ✅ Implementado v2.1
 - ~~Gradientes y sombras~~ ✅ Implementado v1.2
 - Temas predefinidos (Cloud, Tech, Minimal)
 - Animación SVG (timeline de aparición)
@@ -275,5 +313,5 @@ Este proyecto es parte de ALMA. Para reportar bugs o sugerir mejoras, abre un is
 
 ---
 
-**AlmaGag** - Generación automática de diagramas con auto-layout inteligente
-Versión: v2.1 + SDJF v2.0 | Actualizado: 2026-01-08
+**AlmaGag** - Generación automática de diagramas con auto-layout inteligente y routing declarativo
+Versión: v2.1 + SDJF v2.1 | Actualizado: 2026-01-08
