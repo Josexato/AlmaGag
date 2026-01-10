@@ -217,7 +217,7 @@ class LabelPositionOptimizer:
         - Fuera del canvas: +1000 (penalización severa)
         - Distancia al anchor: +1 por cada 10 píxeles
         - Preferencia por "top" para conexiones: -10
-        - Densidad local: +30 por cada etiqueta en radio de 100px (NUEVO v3.1)
+        - Densidad local: +60 por cada etiqueta en radio de 75px (v3.1)
 
         Args:
             position: Posición candidata
@@ -256,9 +256,11 @@ class LabelPositionOptimizer:
         distance = ((position.x - label.anchor_x)**2 + (position.y - label.anchor_y)**2)**0.5
         score += distance / 10
 
-        # Penalización por densidad local (evitar clustering) - NUEVO v3.1
-        density = self.calculate_local_density(label_bbox, placed_labels, radius=100.0)
-        density_penalty = density * 30
+        # Penalización por densidad local (evitar clustering) - v3.1
+        # Configuración optimizada: radius=75px, penalty=60
+        # Balance entre detección efectiva y no sobre-penalizar
+        density = self.calculate_local_density(label_bbox, placed_labels, radius=75.0)
+        density_penalty = density * 60
         score += density_penalty
         if self.debug and density > 0:
             logger.debug(f"    Densidad local: {density} etiquetas cercanas (+{density_penalty})")
