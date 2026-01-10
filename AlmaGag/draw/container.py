@@ -106,6 +106,7 @@ def draw_container(dwg, container, elements_by_id):
         dwg (svgwrite.Drawing): Objeto SVG donde se dibuja.
         container (dict): Elemento contenedor con:
             - 'contains': lista de elementos contenidos
+            - 'x', 'y', 'width', 'height': dimensiones pre-calculadas (v2.2+)
             - 'type' (opcional): tipo de ícono para esquina superior izquierda
             - 'label' (opcional): etiqueta del contenedor
             - 'color' (opcional): color del contenedor
@@ -113,12 +114,23 @@ def draw_container(dwg, container, elements_by_id):
             - 'padding' (opcional): espacio interno (default: 40)
         elements_by_id (dict): Mapa de id → elemento.
     """
-    # Calcular bounds del contenedor
-    bounds = calculate_container_bounds(container, elements_by_id)
-    x = bounds['x']
-    y = bounds['y']
-    width = bounds['width']
-    height = bounds['height']
+    # IMPORTANTE (v2.2+): Usar dimensiones pre-calculadas si existen.
+    # container_calculator ya calculó las dimensiones considerando
+    # TANTO íconos como etiquetas de elementos contenidos.
+    # Solo recalcular si no existen (fallback para compatibilidad).
+    if '_is_container_calculated' in container and all(k in container for k in ['x', 'y', 'width', 'height']):
+        # Usar dimensiones ya calculadas (incluyen etiquetas)
+        x = container['x']
+        y = container['y']
+        width = container['width']
+        height = container['height']
+    else:
+        # Fallback: calcular bounds (solo para retrocompatibilidad)
+        bounds = calculate_container_bounds(container, elements_by_id)
+        x = bounds['x']
+        y = bounds['y']
+        width = bounds['width']
+        height = bounds['height']
 
     # Calcular radio de bordes redondeados (5% del lado más corto)
     radius = min(width, height) * 0.05
