@@ -1,0 +1,258 @@
+{
+  "elements": [
+    {
+      "id": "input_svg",
+      "type": "cloud",
+      "label": "archivo.svg\n(input)",
+      "priority": "high"
+    },
+    {
+      "id": "parser",
+      "type": "server",
+      "label": "SVG Parser\n(Fase 1)",
+      "color": "#4c9aff",
+      "priority": "high"
+    },
+    {
+      "id": "extract_elements",
+      "type": "server",
+      "label": "Extraer Elementos\n<path> <rect>\n<circle> etc.",
+      "color": "#4c9aff"
+    },
+    {
+      "id": "extract_attrs",
+      "type": "server",
+      "label": "Extraer Atributos\nfill, stroke\ntransform",
+      "color": "#4c9aff"
+    },
+    {
+      "id": "normalizer",
+      "type": "server",
+      "label": "Normalizer\n(Fase 2)",
+      "color": "#ffa64c",
+      "priority": "high"
+    },
+    {
+      "id": "calc_bbox",
+      "type": "server",
+      "label": "Calcular\nBounding Box",
+      "color": "#ffa64c"
+    },
+    {
+      "id": "calc_scale",
+      "type": "server",
+      "label": "Calcular Escala\nICON_WIDTH/HEIGHT",
+      "color": "#ffa64c"
+    },
+    {
+      "id": "normalize_coords",
+      "type": "server",
+      "label": "Normalizar\nCoordenadas\n(0,0 origin)",
+      "color": "#ffa64c"
+    },
+    {
+      "id": "simplifier",
+      "type": "server",
+      "label": "Simplifier\n(Fase 3)\nOpcional",
+      "color": "#a64ca6",
+      "priority": "high"
+    },
+    {
+      "id": "combine_paths",
+      "type": "server",
+      "label": "Combinar\nPaths Similares",
+      "color": "#a64ca6"
+    },
+    {
+      "id": "remove_invisible",
+      "type": "server",
+      "label": "Eliminar\nInvisibles\nopacity=0",
+      "color": "#a64ca6"
+    },
+    {
+      "id": "optimize_paths",
+      "type": "server",
+      "label": "Optimizar\nPath Data\nReducir decimales",
+      "color": "#a64ca6"
+    },
+    {
+      "id": "codegen",
+      "type": "server",
+      "label": "Code Generator\n(Fase 4)",
+      "color": "#b1f3b1",
+      "priority": "high"
+    },
+    {
+      "id": "create_function",
+      "type": "server",
+      "label": "Crear Función\ndraw_<nombre>()",
+      "color": "#b1f3b1"
+    },
+    {
+      "id": "generate_paths",
+      "type": "server",
+      "label": "Generar\ndwg.add()\npara cada elemento",
+      "color": "#b1f3b1"
+    },
+    {
+      "id": "format_code",
+      "type": "server",
+      "label": "Formatear\nCódigo PEP8",
+      "color": "#b1f3b1"
+    },
+    {
+      "id": "output_py",
+      "type": "cloud",
+      "label": "draw_<nombre>.py\n(output)",
+      "priority": "high"
+    },
+    {
+      "id": "register",
+      "type": "server",
+      "label": "Registrar en\nICON_TYPES\n(opcional)",
+      "color": "#ffe34c"
+    },
+    {
+      "id": "ready",
+      "type": "cloud",
+      "label": "Ícono Listo\npara Usar en .gag",
+      "color": "#b1f3b1",
+      "priority": "high"
+    }
+  ],
+  "connections": [
+    {
+      "from": "input_svg",
+      "to": "parser",
+      "label": "lee SVG",
+      "routing": {"type": "straight"}
+    },
+    {
+      "from": "parser",
+      "to": "extract_elements",
+      "label": "parsea XML",
+      "routing": {"type": "orthogonal"}
+    },
+    {
+      "from": "parser",
+      "to": "extract_attrs",
+      "label": "extrae",
+      "routing": {"type": "orthogonal"}
+    },
+    {
+      "from": "extract_elements",
+      "to": "normalizer",
+      "routing": {"type": "bezier", "curvature": 0.3}
+    },
+    {
+      "from": "extract_attrs",
+      "to": "normalizer",
+      "routing": {"type": "bezier", "curvature": 0.3}
+    },
+    {
+      "from": "normalizer",
+      "to": "calc_bbox",
+      "label": "procesa",
+      "routing": {"type": "orthogonal"}
+    },
+    {
+      "from": "normalizer",
+      "to": "calc_scale",
+      "routing": {"type": "orthogonal"}
+    },
+    {
+      "from": "normalizer",
+      "to": "normalize_coords",
+      "routing": {"type": "orthogonal"}
+    },
+    {
+      "from": "calc_bbox",
+      "to": "simplifier",
+      "routing": {"type": "bezier", "curvature": 0.3}
+    },
+    {
+      "from": "calc_scale",
+      "to": "simplifier",
+      "routing": {"type": "bezier", "curvature": 0.3}
+    },
+    {
+      "from": "normalize_coords",
+      "to": "simplifier",
+      "routing": {"type": "bezier", "curvature": 0.3}
+    },
+    {
+      "from": "simplifier",
+      "to": "combine_paths",
+      "label": "optimiza",
+      "routing": {"type": "orthogonal"}
+    },
+    {
+      "from": "simplifier",
+      "to": "remove_invisible",
+      "routing": {"type": "orthogonal"}
+    },
+    {
+      "from": "simplifier",
+      "to": "optimize_paths",
+      "routing": {"type": "orthogonal"}
+    },
+    {
+      "from": "combine_paths",
+      "to": "codegen",
+      "routing": {"type": "bezier", "curvature": 0.3}
+    },
+    {
+      "from": "remove_invisible",
+      "to": "codegen",
+      "routing": {"type": "bezier", "curvature": 0.3}
+    },
+    {
+      "from": "optimize_paths",
+      "to": "codegen",
+      "routing": {"type": "bezier", "curvature": 0.3}
+    },
+    {
+      "from": "codegen",
+      "to": "create_function",
+      "label": "genera",
+      "routing": {"type": "orthogonal"}
+    },
+    {
+      "from": "codegen",
+      "to": "generate_paths",
+      "routing": {"type": "orthogonal"}
+    },
+    {
+      "from": "codegen",
+      "to": "format_code",
+      "routing": {"type": "orthogonal"}
+    },
+    {
+      "from": "create_function",
+      "to": "output_py",
+      "routing": {"type": "bezier", "curvature": 0.3}
+    },
+    {
+      "from": "generate_paths",
+      "to": "output_py",
+      "routing": {"type": "bezier", "curvature": 0.3}
+    },
+    {
+      "from": "format_code",
+      "to": "output_py",
+      "routing": {"type": "bezier", "curvature": 0.3}
+    },
+    {
+      "from": "output_py",
+      "to": "register",
+      "label": "registro\nopcional",
+      "routing": {"type": "straight"}
+    },
+    {
+      "from": "register",
+      "to": "ready",
+      "label": "disponible",
+      "routing": {"type": "straight"}
+    }
+  ]
+}
