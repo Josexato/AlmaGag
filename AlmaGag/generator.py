@@ -1,4 +1,4 @@
-import os, json, svgwrite
+import os, json, svgwrite, logging
 from AlmaGag.config import WIDTH, HEIGHT
 from AlmaGag.layout import Layout, AutoLayoutOptimizer
 from AlmaGag.layout.label_optimizer import LabelPositionOptimizer, Label
@@ -6,6 +6,9 @@ from AlmaGag.draw.icons import draw_icon_shape, draw_icon_label
 from AlmaGag.draw.connections import draw_connection_line, draw_connection_label
 from AlmaGag.draw.container import draw_container
 from AlmaGag.debug import add_debug_badge, convert_svg_to_png
+
+# Logger global para AlmaGag
+logger = logging.getLogger('AlmaGag')
 
 def setup_arrow_markers(dwg):
     """
@@ -49,10 +52,27 @@ def setup_arrow_markers(dwg):
         'bidirectional': (marker_start.get_funciri(), marker_end.get_funciri())
     }
 
-def generate_diagram(json_file):
+def generate_diagram(json_file, debug=False):
+    # Configurar logging si debug está activo
+    if debug:
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format='[%(levelname)s] %(name)s: %(message)s',
+            force=True
+        )
+        logger.setLevel(logging.DEBUG)
+        logger.debug("="*70)
+        logger.debug("MODO DEBUG ACTIVADO")
+        logger.debug("="*70)
+    else:
+        logging.basicConfig(level=logging.WARNING)
+        logger.setLevel(logging.WARNING)
+
     if not os.path.exists(json_file):
         print(f"[ERROR] Archivo no encontrado: {json_file}")
         return
+
+    logger.debug(f"Leyendo archivo: {json_file}")
 
     try:
         with open(json_file, 'r', encoding='utf-8') as f:
@@ -63,6 +83,9 @@ def generate_diagram(json_file):
 
     base_name = os.path.splitext(os.path.basename(json_file))[0]
     output_svg = f"{base_name}.svg"
+
+    logger.debug(f"Elementos: {len(data.get('elements', []))}")
+    logger.debug(f"Conexiones: {len(data.get('connections', []))}")
 
     # Leer canvas del JSON o usar valores por defecto
     canvas = data.get('canvas', {})
@@ -82,7 +105,8 @@ def generate_diagram(json_file):
     )
 
     # 2. Instanciar optimizador
-    optimizer = AutoLayoutOptimizer(verbose=False)
+    optimizer = AutoLayoutOptimizer(verbose=debug)
+    logger.debug(f"AutoLayoutOptimizer instanciado (verbose={debug})")
 
     # 3. Optimizar (retorna NUEVO layout)
     #    NOTA: optimize() ahora maneja auto-layout para coordenadas faltantes (SDJF v2.0)
@@ -150,10 +174,15 @@ def generate_diagram(json_file):
         conn_centers[key] = center
 
     # 2.5. Optimizar posiciones de etiquetas (v3.0 - Label Collision Optimizer)
+    logger.debug("\n" + "="*70)
+    logger.debug("INICIANDO OPTIMIZACION DE ETIQUETAS")
+    logger.debug("="*70)
+
     label_optimizer = LabelPositionOptimizer(
         optimizer.geometry,  # Reusar GeometryCalculator del optimizador
         canvas_width,
-        canvas_height
+        canvas_height,
+        debug=debug
     )
 
     # Recolectar todas las etiquetas a optimizar
@@ -193,7 +222,15 @@ def generate_diagram(json_file):
                 ))
 
     # Optimizar todas las posiciones de conexiones/contenedores
+    logger.debug(f"\nTotal de etiquetas a optimizar: {len(labels_to_optimize)}")
+    logger.debug(f"  - Conexiones: {sum(1 for l in labels_to_optimize if l.category == 'connection')}")
+    logger.debug(f"  - Contenedores: {sum(1 for l in labels_to_optimize if l.category == 'container')}")
+    logger.debug(f"  - Elementos: {sum(1 for l in labels_to_optimize if l.category == 'element')}")
+
     optimized_label_positions = label_optimizer.optimize_labels(labels_to_optimize, all_elements)
+
+    logger.debug(f"\nPosiciones optimizadas generadas: {len(optimized_label_positions)}")
+    logger.debug("="*70 + "\n")
 
     # 3. Dibujar todas las etiquetas (íconos + conexiones)
     # Nota: Los contenedores ya tienen su etiqueta dibujada

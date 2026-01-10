@@ -14,6 +14,9 @@ Algoritmo:
 
 from typing import List, Tuple, Dict, Optional
 from dataclasses import dataclass
+import logging
+
+logger = logging.getLogger('AlmaGag.LabelOptimizer')
 
 
 @dataclass
@@ -67,7 +70,7 @@ class LabelPositionOptimizer:
     Optimizador de posiciones de etiquetas para minimizar colisiones.
     """
 
-    def __init__(self, geometry_calculator, canvas_width: int, canvas_height: int):
+    def __init__(self, geometry_calculator, canvas_width: int, canvas_height: int, debug: bool = False):
         """
         Inicializa el optimizador.
 
@@ -75,10 +78,18 @@ class LabelPositionOptimizer:
             geometry_calculator: Instancia de GeometryCalculator
             canvas_width: Ancho del canvas
             canvas_height: Alto del canvas
+            debug: Si es True, activa logging detallado
         """
         self.geometry = geometry_calculator
         self.canvas_width = canvas_width
         self.canvas_height = canvas_height
+        self.debug = debug
+
+        if debug:
+            logger.setLevel(logging.DEBUG)
+            logger.debug("LabelPositionOptimizer inicializado en modo DEBUG")
+        else:
+            logger.setLevel(logging.WARNING)
 
     def generate_candidate_positions(
         self,
@@ -240,8 +251,18 @@ class LabelPositionOptimizer:
         fixed_labels = [lbl for lbl in labels if lbl.fixed]
         optimizable = [lbl for lbl in labels if not lbl.fixed]
 
+        logger.debug(f"\nOptimizando {len(labels)} etiquetas:")
+        logger.debug(f"  - Fijas: {len(fixed_labels)}")
+        logger.debug(f"  - Optimizables: {len(optimizable)}")
+
         # Ordenar por prioridad (0 = alta prioridad primero)
         optimizable.sort(key=lambda lbl: lbl.priority)
+
+        if self.debug:
+            priority_counts = {}
+            for lbl in optimizable:
+                priority_counts[lbl.priority] = priority_counts.get(lbl.priority, 0) + 1
+            logger.debug(f"  - Prioridades: {priority_counts}")
 
         # Resultado
         best_positions = {}
@@ -272,9 +293,15 @@ class LabelPositionOptimizer:
             placed_bboxes.append(bbox)
 
         # Optimizar etiquetas movibles
-        for label in optimizable:
+        for idx, label in enumerate(optimizable, 1):
+            if self.debug:
+                logger.debug(f"\n[{idx}/{len(optimizable)}] Procesando: {label.id[:30]}...")
+                logger.debug(f"  Texto: '{label.text[:40]}...' " if len(label.text) > 40 else f"  Texto: '{label.text}'")
+                logger.debug(f"  Categoria: {label.category}, Prioridad: {label.priority}")
+
             # Generar candidatos
             candidates = self.generate_candidate_positions(label)
+            logger.debug(f"  Candidatos generados: {len(candidates)}")
 
             # Evaluar cada candidato
             best_score = float('inf')
@@ -290,6 +317,11 @@ class LabelPositionOptimizer:
 
             # Guardar mejor posición
             if best_position:
+                if self.debug:
+                    logger.debug(f"  Mejor posicion: {best_position.offset_name} (score: {best_score:.2f})")
+                    if best_score > 50:
+                        logger.warning(f"    ALTO SCORE detectado para '{label.id[:30]}' - posible colision")
+
                 best_positions[label.id] = best_position
 
                 # Agregar a placed_bboxes
@@ -301,5 +333,13 @@ class LabelPositionOptimizer:
                     best_position.anchor
                 )
                 placed_bboxes.append(bbox)
+
+        if self.debug:
+            high_scores = sum(1 for pos in best_positions.values() if pos.score > 50)
+            logger.debug(f"\n[RESUMEN] Optimizacion completada:")
+            logger.debug(f"  - Total posicionadas: {len(best_positions)}")
+            logger.debug(f"  - Con score alto (>50): {high_scores}")
+            if high_scores > 0:
+                logger.warning(f"  {high_scores} etiqueta(s) tienen score alto - revisar colisiones")
 
         return best_positions
