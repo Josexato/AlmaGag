@@ -1,18 +1,37 @@
+# Legacy JSON files
 /banana.json
 /diagrama.json
 /diagrama.json.bak
 /roadmap-25-04-25.json
 /roadmap-25-04-25.json.bak
 /sdjf_base_template_v1.json
-/.idea/
 
-# Python cache files
+# IDE
+/.idea/
+/.vscode/
+/.claude/
+
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
 
-# Debug outputs
-debugs/
+# Debug outputs (gitignore generated files, keep structure)
+debug/outputs/*.png
+debug/outputs/*.svg
 *.png
+*.svg
+
+# Keep examples SVG outputs gitignored (regenerate on demand)
+# docs/diagrams/outputs/*.svg
+
+# OS
+.DS_Store
+Thumbs.db

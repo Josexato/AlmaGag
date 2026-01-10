@@ -83,7 +83,7 @@ def add_debug_badge(dwg, canvas_width: int, canvas_height: int) -> None:
 
 def convert_svg_to_png(svg_path: str, scale: float = 2.0) -> None:
     """
-    Convierte un archivo SVG a PNG y lo guarda en la carpeta debugs/.
+    Convierte un archivo SVG a PNG y lo guarda en la carpeta debug/outputs/.
 
     La conversión se realiza con una escala 2x para obtener mayor resolución.
     Usa Chrome/Edge/Chromium en modo headless (sin dependencias extra en Windows).
@@ -96,17 +96,17 @@ def convert_svg_to_png(svg_path: str, scale: float = 2.0) -> None:
     import xml.etree.ElementTree as ET
 
     try:
-        # Obtener directorio y nombre base del SVG
-        svg_dir = os.path.dirname(svg_path)
+        # Obtener nombre base del SVG
         svg_name = os.path.basename(svg_path)
         base_name = os.path.splitext(svg_name)[0]
 
-        # Crear carpeta debugs/ si no existe
-        debugs_dir = os.path.join(svg_dir, 'debugs')
-        os.makedirs(debugs_dir, exist_ok=True)
+        # Crear carpeta debug/outputs/ en la raíz del proyecto
+        # Asumimos que estamos ejecutando desde el directorio del proyecto
+        debug_dir = os.path.join(os.getcwd(), 'debug', 'outputs')
+        os.makedirs(debug_dir, exist_ok=True)
 
         # Ruta de salida para el PNG
-        png_path = os.path.join(debugs_dir, f"{base_name}.png")
+        png_path = os.path.join(debug_dir, f"{base_name}.png")
 
         # Leer dimensiones del SVG
         tree = ET.parse(svg_path)

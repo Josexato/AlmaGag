@@ -41,5 +41,5 @@ Repository = "https://github.com/Josexato/AlmaGag.git"
 Issues = "https://github.com/Josexato/AlmaGag/issues"
 
 [tool.setuptools]
-packages = ["AlmaGag", "AlmaGag.draw", "AlmaGag.layout"]
-package-dir = {"AlmaGag" = ".", "AlmaGag.draw" = "draw", "AlmaGag.layout" = "AlmaGag/layout"}
+packages = ["AlmaGag", "AlmaGag.draw", "AlmaGag.layout", "AlmaGag.routing"]
+package-dir = {"AlmaGag" = "AlmaGag"}

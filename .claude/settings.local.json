@@ -27,7 +27,8 @@
       "WebSearch",
       "Bash(dir:*)",
       "Bash(del:*)",
-      "Bash(start 05-arquitectura-gag.svg)"
+      "Bash(start 05-arquitectura-gag.svg)",
+      "Bash(git mv:*)"
     ]
   }
 }
