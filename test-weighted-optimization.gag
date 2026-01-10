@@ -1,0 +1,33 @@
+{
+  "canvas": {"width": 600, "height": 500},
+  "elements": [
+    {
+      "id": "big-server",
+      "type": "server",
+      "x": 250,
+      "y": 200,
+      "hp": 2.0,
+      "wp": 2.0,
+      "label": "Big Server\n(Heavy)",
+      "color": "lightblue"
+    },
+    {
+      "id": "small-cloud",
+      "type": "cloud",
+      "x": 260,
+      "y": 210,
+      "label": "Small Cache\n(Light)",
+      "color": "cyan"
+    },
+    {
+      "id": "normal-db",
+      "type": "building",
+      "x": 270,
+      "y": 220,
+      "hp": 1.5,
+      "label": "Medium DB",
+      "color": "orange"
+    }
+  ],
+  "connections": []
+}

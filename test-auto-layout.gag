@@ -1,0 +1,34 @@
+{
+  "canvas": {"width": 800, "height": 600},
+  "elements": [
+    {
+      "id": "api",
+      "type": "server",
+      "label": "REST API",
+      "color": "lightblue"
+    },
+    {
+      "id": "db",
+      "type": "building",
+      "label": "Database",
+      "color": "orange"
+    },
+    {
+      "id": "cache",
+      "type": "cloud",
+      "label": "Redis Cache",
+      "color": "cyan"
+    },
+    {
+      "id": "frontend",
+      "type": "server",
+      "label": "Frontend",
+      "color": "lightgreen"
+    }
+  ],
+  "connections": [
+    {"from": "frontend", "to": "api", "label": "HTTP"},
+    {"from": "api", "to": "db", "label": "SQL"},
+    {"from": "api", "to": "cache", "label": "GET/SET"}
+  ]
+}

@@ -6,9 +6,10 @@ Este módulo es stateless y proporciona métodos puros para cálculos geométric
 - Coordenadas de texto según posición
 - Endpoints y centros de conexiones
 - Detección de intersecciones entre rectángulos y líneas
+- Detección de colisiones de etiquetas (v3.0)
 """
 
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 
 
@@ -360,3 +361,91 @@ class GeometryCalculator:
             return False
 
         return True
+
+    def get_text_bbox(
+        self,
+        x: float,
+        y: float,
+        text: str,
+        font_size: int = 12,
+        anchor: str = "middle"
+    ) -> Tuple[float, float, float, float]:
+        """
+        Calcula bounding box aproximado de un texto (v3.0 - Label Optimizer).
+
+        Args:
+            x: Coordenada X del punto de inserción
+            y: Coordenada Y del punto de inserción
+            text: Texto de la etiqueta
+            font_size: Tamaño de fuente en píxeles
+            anchor: Alineación del texto ('start', 'middle', 'end')
+
+        Returns:
+            Tuple[float, float, float, float]: (x1, y1, x2, y2) del bbox
+        """
+        # Estimar ancho del texto (6px promedio por carácter para Arial)
+        char_width = font_size * 0.6
+        lines = text.split('\n')
+        max_line_length = max(len(line) for line in lines) if lines else 0
+        text_width = max_line_length * char_width
+
+        # Alto del texto
+        line_height = font_size * 1.2
+        text_height = len(lines) * line_height
+
+        # Ajustar según anchor
+        if anchor == "middle":
+            x1 = x - text_width / 2
+            x2 = x + text_width / 2
+        elif anchor == "end":
+            x1 = x - text_width
+            x2 = x
+        else:  # start
+            x1 = x
+            x2 = x + text_width
+
+        y1 = y - font_size  # Texto va arriba de la coordenada Y
+        y2 = y + text_height - font_size
+
+        return (x1, y1, x2, y2)
+
+    def label_intersects_elements(
+        self,
+        label_bbox: Tuple[float, float, float, float],
+        elements: List[dict]
+    ) -> bool:
+        """
+        Verifica si una etiqueta colisiona con algún elemento.
+
+        Args:
+            label_bbox: Bounding box de la etiqueta (x1, y1, x2, y2)
+            elements: Lista de elementos con coordenadas
+
+        Returns:
+            bool: True si hay colisión, False si no
+        """
+        for elem in elements:
+            elem_bbox = self.get_icon_bbox(elem)
+            if elem_bbox and self.rectangles_intersect(label_bbox, elem_bbox):
+                return True
+        return False
+
+    def label_intersects_labels(
+        self,
+        label_bbox: Tuple[float, float, float, float],
+        other_labels: List[Tuple[float, float, float, float]]
+    ) -> bool:
+        """
+        Verifica si una etiqueta colisiona con otras etiquetas.
+
+        Args:
+            label_bbox: Bounding box de la etiqueta a verificar
+            other_labels: Lista de bboxes de otras etiquetas
+
+        Returns:
+            bool: True si hay colisión, False si no
+        """
+        for other_bbox in other_labels:
+            if self.rectangles_intersect(label_bbox, other_bbox):
+                return True
+        return False

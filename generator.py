@@ -1,6 +1,7 @@
 import os, json, svgwrite
 from AlmaGag.config import WIDTH, HEIGHT
 from AlmaGag.layout import Layout, AutoLayoutOptimizer
+from AlmaGag.layout.label_optimizer import LabelPositionOptimizer, Label
 from AlmaGag.draw.icons import draw_icon_shape, draw_icon_label
 from AlmaGag.draw.connections import draw_connection_line, draw_connection_label
 from AlmaGag.draw.container import draw_container
@@ -148,19 +149,100 @@ def generate_diagram(json_file):
         key = f"{conn['from']}->{conn['to']}"
         conn_centers[key] = center
 
+    # 2.5. Optimizar posiciones de etiquetas (v3.0 - Label Collision Optimizer)
+    label_optimizer = LabelPositionOptimizer(
+        optimizer.geometry,  # Reusar GeometryCalculator del optimizador
+        canvas_width,
+        canvas_height
+    )
+
+    # Recolectar todas las etiquetas a optimizar
+    labels_to_optimize = []
+
+    # Etiquetas de conexiones
+    for conn in all_connections:
+        if conn.get('label'):
+            key = f"{conn['from']}->{conn['to']}"
+            center = conn_centers.get(key)
+            if center:
+                labels_to_optimize.append(Label(
+                    id=key,
+                    text=conn['label'],
+                    anchor_x=center[0],
+                    anchor_y=center[1],
+                    font_size=12,
+                    priority=1,  # Normal
+                    category="connection"
+                ))
+
+    # Etiquetas de contenedores
+    for container in containers:
+        if container.get('label'):
+            # Calcular centro superior del contenedor
+            if 'x' in container and 'width' in container:
+                cx = container['x'] + container['width'] / 2
+                cy = container['y']
+                labels_to_optimize.append(Label(
+                    id=f"container_{container['id']}",
+                    text=container['label'],
+                    anchor_x=cx,
+                    anchor_y=cy,
+                    font_size=16,
+                    priority=0,  # Alta (contenedores son importantes)
+                    category="container"
+                ))
+
+    # Optimizar todas las posiciones de conexiones/contenedores
+    optimized_label_positions = label_optimizer.optimize_labels(labels_to_optimize, all_elements)
+
     # 3. Dibujar todas las etiquetas (íconos + conexiones)
     # Nota: Los contenedores ya tienen su etiqueta dibujada
     for elem in normal_elements:
         if elem.get('label'):
-            pos = label_positions.get(elem['id'])
-            draw_icon_label(dwg, elem, pos)
+            # Usar posiciones del layout para etiquetas de elementos
+            position_info = label_positions.get(elem['id'])
+            draw_icon_label(dwg, elem, position_info)
 
+    # Dibujar etiquetas de conexiones con posiciones optimizadas
     for conn in all_connections:
         if conn.get('label'):
             key = f"{conn['from']}->{conn['to']}"
-            center = conn_centers.get(key) or conn_labels.get(key)
-            if center:
-                draw_connection_label(dwg, conn, center)
+            optimized_pos = optimized_label_positions.get(key)
+            if optimized_pos:
+                # Usar posición optimizada
+                dwg.add(dwg.text(
+                    conn['label'],
+                    insert=(optimized_pos.x, optimized_pos.y),
+                    text_anchor=optimized_pos.anchor,
+                    font_size="12px",
+                    font_family="Arial, sans-serif",
+                    fill="gray"
+                ))
+            else:
+                # Fallback a método antiguo
+                center = conn_centers.get(key)
+                if center:
+                    draw_connection_label(dwg, conn, center)
+
+    # Dibujar etiquetas de contenedores con posiciones optimizadas
+    for container in containers:
+        if container.get('label'):
+            container_key = f"container_{container['id']}"
+            optimized_pos = optimized_label_positions.get(container_key)
+            if optimized_pos:
+                # Usar posición optimizada (multiline support)
+                lines = container['label'].split('\n')
+                for i, line in enumerate(lines):
+                    dwg.add(dwg.text(
+                        line,
+                        insert=(optimized_pos.x, optimized_pos.y + (i * 18)),
+                        text_anchor=optimized_pos.anchor,
+                        font_size="16px",
+                        font_family="Arial, sans-serif",
+                        font_weight="bold",
+                        fill="black"
+                    ))
+
 
     dwg.save()
     print(f"[OK] Diagrama generado exitosamente: {output_svg}")
