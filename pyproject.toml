@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "AlmaGag"
-version = "2.0.0"
-description = "Generador Automático de Grafos - Genera diagramas SVG desde archivos JSON (SDJF)"
+version = "3.0.0"
+description = "Generador Automático de Grafos - Genera diagramas SVG con layout jerárquico inteligente desde archivos JSON (SDJF v3.0)"
 readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "MIT"}
@@ -30,9 +30,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-debug = [
-    "cairosvg>=2.7.0",
-]
+debug = []
 
 [project.scripts]
 almagag = "AlmaGag.main:main"

@@ -26,7 +26,7 @@ def get_gag_version() -> str:
         return version("AlmaGag")
     except Exception:
         # Fallback si no se puede obtener desde metadata
-        return "2.0.0"
+        return "3.0.0"
 
 
 def add_debug_badge(dwg, canvas_width: int, canvas_height: int) -> None:
@@ -86,24 +86,14 @@ def convert_svg_to_png(svg_path: str, scale: float = 2.0) -> None:
     Convierte un archivo SVG a PNG y lo guarda en la carpeta debugs/.
 
     La conversión se realiza con una escala 2x para obtener mayor resolución.
-    Si cairosvg no está instalado, muestra una advertencia pero no falla.
+    Usa Chrome/Edge/Chromium en modo headless (sin dependencias extra en Windows).
 
     Args:
         svg_path: Ruta completa al archivo SVG
         scale: Factor de escala para la resolución (default: 2.0 = 2x)
     """
-    try:
-        import cairosvg
-    except (ImportError, OSError) as e:
-        if isinstance(e, ImportError):
-            print("[WARN] cairosvg no está instalado. PNG no generado.")
-            print("      Instalar con: pip install cairosvg")
-        else:
-            print("[WARN] Librería Cairo no encontrada en el sistema. PNG no generado.")
-            print("      En Windows: Descargar GTK+ desde https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases")
-            print("      En Linux: sudo apt-get install libcairo2")
-            print("      En macOS: brew install cairo")
-        return
+    import subprocess
+    import xml.etree.ElementTree as ET
 
     try:
         # Obtener directorio y nombre base del SVG
@@ -118,16 +108,63 @@ def convert_svg_to_png(svg_path: str, scale: float = 2.0) -> None:
         # Ruta de salida para el PNG
         png_path = os.path.join(debugs_dir, f"{base_name}.png")
 
-        # Convertir SVG a PNG con escala para mayor resolución
-        cairosvg.svg2png(
-            url=svg_path,
-            write_to=png_path,
-            scale=scale
-        )
+        # Leer dimensiones del SVG
+        tree = ET.parse(svg_path)
+        root = tree.getroot()
+        width = int(float(root.get('width', '800')))
+        height = int(float(root.get('height', '600')))
 
-        print(f"[OK] PNG generado: {png_path}")
+        # Aplicar escala
+        width = int(width * scale)
+        height = int(height * scale)
 
-    except OSError as e:
-        print(f"[WARN] No se pudo crear carpeta debugs/: {e}")
+        # Convertir ruta absoluta para Chrome
+        svg_abs_path = os.path.abspath(svg_path)
+        png_abs_path = os.path.abspath(png_path)
+
+        # Buscar Chrome/Edge/Chromium en ubicaciones comunes de Windows
+        chrome_paths = [
+            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+            r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        ]
+
+        chrome_exe = None
+        for path in chrome_paths:
+            if os.path.exists(path):
+                chrome_exe = path
+                break
+
+        if chrome_exe is None:
+            print("[WARN] Chrome/Edge no encontrado. PNG no generado.")
+            print("      Alternativas:")
+            print("      1. Instalar Chrome: https://www.google.com/chrome/")
+            print("      2. Instalar Cairo + GTK: https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases")
+            return
+
+        # Ejecutar Chrome en modo headless para captura
+        cmd = [
+            chrome_exe,
+            '--headless',
+            '--disable-gpu',
+            f'--screenshot={png_abs_path}',
+            f'--window-size={width},{height}',
+            f'file:///{svg_abs_path.replace(chr(92), "/")}'  # Convertir \ a /
+        ]
+
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+
+        if result.returncode == 0 and os.path.exists(png_path):
+            print(f"[OK] PNG generado: {png_path}")
+        else:
+            print(f"[ERROR] Chrome falló al generar PNG")
+            if result.stderr:
+                print(f"      {result.stderr}")
+
+    except FileNotFoundError:
+        print("[ERROR] Archivo SVG no encontrado")
+    except subprocess.TimeoutExpired:
+        print("[ERROR] Timeout al ejecutar Chrome")
     except Exception as e:
         print(f"[ERROR] No se pudo convertir a PNG: {e}")

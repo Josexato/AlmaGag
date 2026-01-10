@@ -49,11 +49,80 @@ class GraphAnalyzer:
 
         return graph
 
+    def calculate_topological_levels(
+        self,
+        elements: List[dict],
+        connections: List[dict]
+    ) -> Dict[str, int]:
+        """
+        Calcula niveles basándose en la topología del grafo (jerarquía).
+
+        Usa las direcciones de las conexiones para determinar niveles:
+        - Elementos sin incoming edges → nivel 0 (raíces)
+        - Elementos que reciben de nivel N → nivel N+1
+        - Usa BFS desde las raíces
+
+        Args:
+            elements: Lista de elementos del diagrama
+            connections: Lista de conexiones direccionales
+
+        Returns:
+            Dict[str, int]: {element_id: level_number}
+        """
+        # Filtrar contenedores
+        normal_elements = [e for e in elements if 'contains' not in e]
+
+        # Construir grafo direccional (quién apunta a quién)
+        outgoing = {e['id']: [] for e in normal_elements}
+        incoming = {e['id']: [] for e in normal_elements}
+
+        for conn in connections:
+            from_id = conn['from']
+            to_id = conn['to']
+            if from_id in outgoing and to_id in incoming:
+                outgoing[from_id].append(to_id)
+                incoming[to_id].append(from_id)
+
+        # Encontrar raíces (elementos sin incoming edges)
+        roots = [e_id for e_id in incoming if len(incoming[e_id]) == 0]
+
+        # Si no hay raíces (ciclo o grafo vacío), usar elementos con más outgoing
+        if not roots:
+            roots = [max(outgoing, key=lambda k: len(outgoing[k]))] if outgoing else []
+
+        # BFS para asignar niveles
+        levels = {}
+        queue = [(root, 0) for root in roots]
+        visited = set()
+
+        while queue:
+            node, level = queue.pop(0)
+            if node in visited:
+                continue
+
+            visited.add(node)
+            levels[node] = level
+
+            # Agregar hijos al siguiente nivel
+            for child in outgoing.get(node, []):
+                if child not in visited:
+                    queue.append((child, level + 1))
+
+        # Asignar nivel 0 a elementos no visitados (desconectados)
+        for elem in normal_elements:
+            if elem['id'] not in levels:
+                levels[elem['id']] = 0
+
+        return levels
+
     def calculate_levels(self, elements: List[dict]) -> Dict[str, int]:
         """
         Asigna nivel (fila lógica) a cada elemento basado en su posición Y.
 
         Elementos con Y similar (±80px) están en el mismo nivel.
+
+        NOTA: Este método se usa DESPUÉS del auto-layout para verificar.
+        Para auto-layout inicial, usar calculate_topological_levels().
 
         Args:
             elements: Lista de elementos del diagrama

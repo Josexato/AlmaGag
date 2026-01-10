@@ -41,11 +41,12 @@ class AutoLayoutPositioner:
         """
         Calcula x, y para elementos que no tienen coordenadas.
 
-        Estrategia (v2.2 - Container-Aware):
-        1. Agrupar elementos por contenedor
-        2. Posicionar cada grupo de contenedor de forma compacta
-        3. Posicionar elementos libres con estrategia híbrida
-        4. Calcular coordenadas parciales (x-only, y-only)
+        Estrategia (v2.3 - Hierarchical Layout):
+        1. Calcular niveles topológicos del grafo (jerarquía)
+        2. Agrupar elementos por contenedor
+        3. Posicionar cada grupo de contenedor de forma compacta
+        4. Posicionar elementos libres con layout jerárquico
+        5. Calcular coordenadas parciales (x-only, y-only)
 
         Args:
             layout: Layout con algunos elementos sin x/y
@@ -61,7 +62,18 @@ class AutoLayoutPositioner:
         missing_x = [e for e in normal_elements if 'x' not in e and 'y' in e]
         missing_y = [e for e in normal_elements if 'x' in e and 'y' not in e]
 
-        # NUEVO v2.2: Agrupar elementos sin coordenadas por contenedor
+        # NUEVO v2.3: Calcular niveles topológicos ANTES de posicionar
+        if missing_both and layout.connections:
+            topological_levels = self.graph_analyzer.calculate_topological_levels(
+                layout.elements,
+                layout.connections
+            )
+            # Guardar en layout para uso posterior
+            layout.topological_levels = topological_levels
+        else:
+            layout.topological_levels = {}
+
+        # v2.2: Agrupar elementos sin coordenadas por contenedor
         if missing_both:
             groups = self._group_elements_by_container(layout, missing_both)
             self._position_groups(layout, groups)
@@ -73,6 +85,60 @@ class AutoLayoutPositioner:
             self._calculate_y_only(layout, missing_y)
 
         return layout
+
+    def _calculate_hierarchical_layout(self, layout: Layout, elements: List[dict]):
+        """
+        Auto-layout jerárquico basado en topología del grafo (v2.3).
+
+        Algoritmo:
+        1. Agrupar elementos por nivel topológico
+        2. Calcular posición Y para cada nivel (vertical spacing)
+        3. Distribuir elementos de cada nivel horizontalmente
+        4. Centrar cada nivel respecto al canvas
+
+        Args:
+            layout: Layout con topological_levels calculados
+            elements: Elementos sin coordenadas a posicionar
+        """
+        # Agrupar por nivel topológico
+        by_level = {}
+        for elem in elements:
+            level = layout.topological_levels.get(elem['id'], 0)
+            if level not in by_level:
+                by_level[level] = []
+            by_level[level].append(elem)
+
+        # Calcular número de niveles
+        num_levels = len(by_level)
+        if num_levels == 0:
+            return
+
+        # Configuración de spacing
+        VERTICAL_SPACING = 150  # Espacio entre niveles
+        HORIZONTAL_SPACING = 120  # Espacio entre elementos del mismo nivel
+        TOP_MARGIN = 100  # Margen superior
+
+        # Calcular centro horizontal del canvas
+        center_x = layout.canvas['width'] / 2
+
+        # Posicionar cada nivel
+        for level_num in sorted(by_level.keys()):
+            level_elements = by_level[level_num]
+            num_elements = len(level_elements)
+
+            # Calcular Y para este nivel
+            y_position = TOP_MARGIN + (level_num * VERTICAL_SPACING)
+
+            # Calcular ancho total necesario para este nivel
+            total_width = num_elements * HORIZONTAL_SPACING
+
+            # Calcular X inicial para centrar el nivel
+            start_x = center_x - (total_width / 2) + (HORIZONTAL_SPACING / 2)
+
+            # Posicionar elementos horizontalmente
+            for i, elem in enumerate(level_elements):
+                elem['x'] = start_x + (i * HORIZONTAL_SPACING)
+                elem['y'] = y_position
 
     def _calculate_hybrid_layout(self, layout: Layout, elements: List[dict]):
         """
@@ -99,6 +165,16 @@ class AutoLayoutPositioner:
         center_x = layout.canvas['width'] / 2
         center_y = layout.canvas['height'] / 2
 
+        # Calcular radios máximos seguros (con margen de 100px)
+        max_radius_x = center_x - 100  # Margen desde centro hasta borde
+        max_radius_y = center_y - 100
+        max_safe_radius = min(max_radius_x, max_radius_y)
+
+        # Radios adaptativos basados en espacio disponible
+        # Si el canvas es grande, usar radios más grandes; si es pequeño, ajustar
+        radius_normal = min(max_safe_radius * 0.5, 250)  # 50% del radio seguro o 250px
+        radius_low = min(max_safe_radius * 0.8, 350)     # 80% del radio seguro o 350px
+
         # HIGH: grid compacto en centro (sorted by centrality)
         high_elements = sorted(
             by_priority[0],
@@ -113,11 +189,11 @@ class AutoLayoutPositioner:
             key=lambda e: self.sizing.get_centrality_score(e, 1),
             reverse=True
         )
-        self._position_ring(normal_elements, center_x, center_y, radius=300)
+        self._position_ring(normal_elements, center_x, center_y, radius=radius_normal)
 
         # LOW: anillo externo
         low_elements = by_priority[2]
-        self._position_ring(low_elements, center_x, center_y, radius=450)
+        self._position_ring(low_elements, center_x, center_y, radius=radius_low)
 
     def _position_grid_center(
         self,
@@ -297,11 +373,12 @@ class AutoLayoutPositioner:
 
     def _position_groups(self, layout: Layout, groups: dict):
         """
-        Posiciona grupos de contenedores y elementos libres (v2.2).
+        Posiciona grupos de contenedores y elementos libres (v2.3 - Hierarchical).
 
         Estrategia:
         1. Posicionar contenedores primero (compactos, en horizontal)
-        2. Posicionar elementos libres al final (estrategia híbrida)
+        2. Posicionar elementos libres con layout jerárquico si hay conexiones
+        3. Fallback a layout híbrido si no hay jerarquía clara
 
         Args:
             layout: Layout con canvas info
@@ -336,7 +413,12 @@ class AutoLayoutPositioner:
         # 2. Posicionar elementos libres (sin contenedor)
         free_elements = groups.get(None, [])
         if free_elements:
-            self._calculate_hybrid_layout(layout, free_elements)
+            # v2.3: Usar layout jerárquico si hay niveles topológicos
+            if hasattr(layout, 'topological_levels') and layout.topological_levels:
+                self._calculate_hierarchical_layout(layout, free_elements)
+            else:
+                # Fallback a layout híbrido
+                self._calculate_hybrid_layout(layout, free_elements)
 
     def _position_container_group(
         self,
