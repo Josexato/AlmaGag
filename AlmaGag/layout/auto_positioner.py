@@ -41,10 +41,11 @@ class AutoLayoutPositioner:
         """
         Calcula x, y para elementos que no tienen coordenadas.
 
-        Estrategia:
-        1. Separar elementos por tipo de coordenadas faltantes
-        2. Calcular coordenadas parciales primero (x-only, y-only)
-        3. Auto-layout híbrido para elementos sin coordenadas
+        Estrategia (v2.2 - Container-Aware):
+        1. Agrupar elementos por contenedor
+        2. Posicionar cada grupo de contenedor de forma compacta
+        3. Posicionar elementos libres con estrategia híbrida
+        4. Calcular coordenadas parciales (x-only, y-only)
 
         Args:
             layout: Layout con algunos elementos sin x/y
@@ -55,20 +56,21 @@ class AutoLayoutPositioner:
         # Filtrar contenedores (no necesitan auto-layout, se calculan dinámicamente)
         normal_elements = [e for e in layout.elements if 'contains' not in e]
 
-        # Separar elementos con/sin coordenadas
+        # Separar elementos con/sin coordenadas completas
         missing_both = [e for e in normal_elements if 'x' not in e and 'y' not in e]
         missing_x = [e for e in normal_elements if 'x' not in e and 'y' in e]
         missing_y = [e for e in normal_elements if 'x' in e and 'y' not in e]
 
-        # Calcular coordenadas parciales primero
+        # NUEVO v2.2: Agrupar elementos sin coordenadas por contenedor
+        if missing_both:
+            groups = self._group_elements_by_container(layout, missing_both)
+            self._position_groups(layout, groups)
+
+        # Calcular coordenadas parciales
         if missing_x:
             self._calculate_x_only(layout, missing_x)
         if missing_y:
             self._calculate_y_only(layout, missing_y)
-
-        # Auto-layout completo para elementos sin coordenadas
-        if missing_both:
-            self._calculate_hybrid_layout(layout, missing_both)
 
         return layout
 
@@ -251,3 +253,138 @@ class AutoLayoutPositioner:
             int: Nivel (0, 1, 2, ...)
         """
         return int(y / 80)
+
+    def _group_elements_by_container(self, layout: Layout, elements: List[dict]) -> dict:
+        """
+        Agrupa elementos por contenedor (v2.2 - Container-Aware Layout).
+
+        Identifica qué elementos pertenecen a cada contenedor para
+        posicionarlos de forma agrupada y compacta.
+
+        Args:
+            layout: Layout con información de contenedores
+            elements: Elementos a agrupar
+
+        Returns:
+            dict: {
+                'container_id': [elem1, elem2, ...],
+                None: [elem_free1, elem_free2, ...]  # elementos sin contenedor
+            }
+        """
+        groups = {}
+        element_to_container = {}
+
+        # Mapear cada elemento a su contenedor (si tiene uno)
+        for elem in layout.elements:
+            if 'contains' in elem:
+                container_id = elem['id']
+                contains = elem.get('contains', [])
+
+                # Soportar formato dict {"id": "..."} o string directo
+                for item in contains:
+                    item_id = item['id'] if isinstance(item, dict) else item
+                    element_to_container[item_id] = container_id
+
+        # Agrupar elementos por contenedor
+        for elem in elements:
+            container_id = element_to_container.get(elem['id'], None)
+
+            if container_id not in groups:
+                groups[container_id] = []
+            groups[container_id].append(elem)
+
+        return groups
+
+    def _position_groups(self, layout: Layout, groups: dict):
+        """
+        Posiciona grupos de contenedores y elementos libres (v2.2).
+
+        Estrategia:
+        1. Posicionar contenedores primero (compactos, en horizontal)
+        2. Posicionar elementos libres al final (estrategia híbrida)
+
+        Args:
+            layout: Layout con canvas info
+            groups: Grupos de elementos por contenedor
+        """
+        # Configuración de espaciado
+        CONTAINER_SPACING = 250  # Espacio entre contenedores
+        ELEMENT_SPACING_IN_CONTAINER = 120  # Espacio entre elementos del mismo contenedor
+
+        # Posición inicial
+        current_x = 100
+        current_y = 150
+
+        # 1. Posicionar grupos de contenedores
+        container_groups = {k: v for k, v in groups.items() if k is not None}
+
+        for container_id in sorted(container_groups.keys()):
+            element_list = container_groups[container_id]
+
+            # Posicionar grupo de contenedor
+            group_width = self._position_container_group(
+                element_list,
+                layout,
+                current_x,
+                current_y,
+                ELEMENT_SPACING_IN_CONTAINER
+            )
+
+            # Mover a la siguiente posición horizontal
+            current_x += group_width + CONTAINER_SPACING
+
+        # 2. Posicionar elementos libres (sin contenedor)
+        free_elements = groups.get(None, [])
+        if free_elements:
+            self._calculate_hybrid_layout(layout, free_elements)
+
+    def _position_container_group(
+        self,
+        elements: List[dict],
+        layout: Layout,
+        start_x: float,
+        start_y: float,
+        spacing: float
+    ) -> float:
+        """
+        Posiciona elementos de un contenedor en grid compacto.
+
+        Args:
+            elements: Elementos del contenedor
+            layout: Layout con información de prioridades
+            start_x: Posición X inicial del grupo
+            start_y: Posición Y inicial del grupo
+            spacing: Espaciado entre elementos
+
+        Returns:
+            float: Ancho total del grupo posicionado
+        """
+        n = len(elements)
+        if n == 0:
+            return 0
+
+        # Determinar configuración de grid según número de elementos
+        if n <= 3:
+            cols = 1
+            rows = n
+        elif n <= 6:
+            cols = 2
+            rows = (n + 1) // 2
+        elif n <= 9:
+            cols = 3
+            rows = (n + 2) // 3
+        else:
+            cols = 4
+            rows = (n + 3) // 4
+
+        # Posicionar elementos en grid
+        for i, elem in enumerate(elements):
+            row = i // cols
+            col = i % cols
+
+            elem['x'] = start_x + (col * spacing)
+            elem['y'] = start_y + (row * spacing)
+
+        # Retornar ancho del grupo
+        group_width = cols * spacing
+        return group_width
