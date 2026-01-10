@@ -12,3 +12,7 @@ __pycache__/
 *$py.class
 *.so
 .Python
+
+# Debug outputs
+debugs/
+*.png

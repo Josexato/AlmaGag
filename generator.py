@@ -4,6 +4,7 @@ from AlmaGag.layout import Layout, AutoLayoutOptimizer
 from AlmaGag.draw.icons import draw_icon_shape, draw_icon_label
 from AlmaGag.draw.connections import draw_connection_line, draw_connection_label
 from AlmaGag.draw.container import draw_container
+from AlmaGag.debug import add_debug_badge, convert_svg_to_png
 
 def setup_arrow_markers(dwg):
     """
@@ -118,6 +119,9 @@ def generate_diagram(json_file):
     # Configurar markers para flechas direccionales
     markers = setup_arrow_markers(dwg)
 
+    # Agregar badge de debug (fecha de generación y versión GAG)
+    add_debug_badge(dwg, canvas_width, canvas_height)
+
     # Obtener resultados optimizados
     elements = optimized_layout.elements
     label_positions = optimized_layout.label_positions
@@ -160,3 +164,6 @@ def generate_diagram(json_file):
 
     dwg.save()
     print(f"[OK] Diagrama generado exitosamente: {output_svg}")
+
+    # Convertir automáticamente a PNG en carpeta debugs/
+    convert_svg_to_png(output_svg)

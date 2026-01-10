@@ -29,6 +29,11 @@ dependencies = [
     "svgwrite>=1.4",
 ]
 
+[project.optional-dependencies]
+debug = [
+    "cairosvg>=2.7.0",
+]
+
 [project.scripts]
 almagag = "AlmaGag.main:main"
 
