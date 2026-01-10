@@ -123,6 +123,18 @@ class ContainerCalculator:
         width = (max_x - min_x) + (2 * padding)
         height = (max_y - min_y) + (2 * padding)
 
+        # NUEVO v2.3: Reservar espacio ARRIBA para la etiqueta del contenedor
+        # Las etiquetas de contenedores se dibujan arriba (y - 10)
+        # Necesitamos expandir el contenedor hacia arriba para incluirlas
+        if container.get('label'):
+            label_text = container['label']
+            num_lines = len(label_text.split('\n'))
+            label_height = num_lines * 18 + 10  # 18px por línea + 10px de separación
+
+            # Expandir hacia arriba
+            y -= label_height
+            height += label_height
+
         # Aplicar aspect_ratio si se especifica
         aspect_ratio = container.get('aspect_ratio')
         if aspect_ratio and height > 0:
@@ -140,7 +152,7 @@ class ContainerCalculator:
 
         return (x, y, width, height)
 
-    def update_container_dimensions(self, layout) -> None:
+    def update_container_dimensions(self, layout, debug=False) -> None:
         """
         Actualiza las dimensiones de todos los contenedores en el layout.
 
@@ -155,7 +167,11 @@ class ContainerCalculator:
 
         Args:
             layout: Layout con elements, elements_by_id y label_positions
+            debug: Si es True, imprime información de debugging
         """
+        import logging
+        logger = logging.getLogger('AlmaGag.ContainerCalculator')
+
         for elem in layout.elements:
             if 'contains' not in elem:
                 continue
@@ -165,6 +181,11 @@ class ContainerCalculator:
                 elem,
                 layout
             )
+
+            if debug:
+                logger.debug(f"\n[CONTAINER] {elem['id']}")
+                logger.debug(f"  contains: {len(elem.get('contains', []))} elementos")
+                logger.debug(f"  dimensiones: ({x:.1f}, {y:.1f}) {width:.1f}x{height:.1f}")
 
             # Actualizar dimensiones del contenedor
             elem['x'] = x
