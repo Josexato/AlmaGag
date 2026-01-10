@@ -370,7 +370,9 @@ Ver [especificación completa](docs/spec/SDJF_v2.1_PROPOSAL.md) y [resumen de im
 
 ## 📄 Licencia
 
-[Especificar licencia aquí]
+MIT License - Ver [LICENSE](LICENSE) para más detalles.
+
+Copyright © 2025 José Cáceres - ALMA (Almas y Sentidos)
 
 ---
 

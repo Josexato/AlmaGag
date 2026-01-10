@@ -28,7 +28,8 @@
       "Bash(dir:*)",
       "Bash(del:*)",
       "Bash(start 05-arquitectura-gag.svg)",
-      "Bash(git mv:*)"
+      "Bash(git mv:*)",
+      "Bash(tree:*)"
     ]
   }
 }
