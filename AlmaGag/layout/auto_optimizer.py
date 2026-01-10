@@ -22,6 +22,7 @@ from AlmaGag.layout.auto_positioner import AutoLayoutPositioner
 from AlmaGag.layout.geometry import GeometryCalculator
 from AlmaGag.layout.collision import CollisionDetector
 from AlmaGag.layout.graph_analysis import GraphAnalyzer
+from AlmaGag.layout.container_calculator import ContainerCalculator
 from AlmaGag.routing.router_manager import ConnectionRouterManager
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 
@@ -59,6 +60,7 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         self.collision_detector = CollisionDetector(self.geometry)
         self.graph_analyzer = GraphAnalyzer()
         self.positioner = AutoLayoutPositioner(self.sizing, self.graph_analyzer)
+        self.container_calculator = ContainerCalculator(self.sizing)
         self.router_manager = ConnectionRouterManager()
 
     def analyze(self, layout: Layout) -> None:
@@ -136,12 +138,18 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         self.analyze(current)  # Análisis preliminar para prioridades
         self.positioner.calculate_missing_positions(current)
 
-        # 0.5. Auto-routing de conexiones (SDJF v2.1)
+        # 0.5. Calcular dimensiones de contenedores (v2.1 FIX)
+        #      Los contenedores deben tener dimensiones ANTES de routing y optimización
+        #      para que se consideren como obstáculos reales
+        self.container_calculator.update_container_dimensions(current)
+        self._log("Dimensiones de contenedores calculadas")
+
+        # 0.6. Auto-routing de conexiones (SDJF v2.1)
         #      Calcula paths para todas las conexiones después de posicionar elementos
         self.router_manager.calculate_all_paths(current)
         self._log("Routing de conexiones calculado")
 
-        # 1. Análisis de grafo (re-analizar después de auto-layout)
+        # 1. Análisis de grafo (re-analizar después de auto-layout y contenedores)
         self.analyze(current)
 
         # 2. Posiciones iniciales
@@ -257,8 +265,12 @@ class AutoLayoutOptimizer(LayoutOptimizer):
                     conn
                 )
 
-        # Filtrar contenedores (elementos con 'contains')
-        normal_elements = [e for e in layout.elements if 'contains' not in e]
+        # Filtrar contenedores SIN dimensiones calculadas
+        # (Contenedores con dimensiones se tratan como elementos normales)
+        normal_elements = [
+            e for e in layout.elements
+            if 'contains' not in e or e.get('_is_container_calculated', False)
+        ]
 
         # Ordenar elementos por prioridad (high primero)
         sorted_elements = sorted(
@@ -373,10 +385,13 @@ class AutoLayoutOptimizer(LayoutOptimizer):
             positions.insert(0, preferred)
 
         # Recolectar bboxes de otros elementos (íconos y etiquetas existentes)
-        # Filtrar contenedores (elementos con 'contains')
+        # Incluir contenedores con dimensiones calculadas
         occupied_bboxes = []
         for elem in layout.elements:
-            if elem['id'] != element['id'] and 'contains' not in elem:
+            if elem['id'] != element['id']:
+                # Incluir contenedores CON dimensiones, excluir sin dimensiones
+                if 'contains' in elem and not elem.get('_is_container_calculated', False):
+                    continue
                 occupied_bboxes.append(self.geometry.get_icon_bbox(elem))
 
         # Añadir etiquetas de conexiones
@@ -511,8 +526,8 @@ class AutoLayoutOptimizer(LayoutOptimizer):
             if not elem:
                 continue
 
-            # Ignorar contenedores
-            if 'contains' in elem:
+            # Ignorar contenedores sin dimensiones calculadas
+            if 'contains' in elem and not elem.get('_is_container_calculated', False):
                 continue
 
             # Ignorar elementos sin coordenadas

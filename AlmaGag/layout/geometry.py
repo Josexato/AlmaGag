@@ -33,10 +33,11 @@ class GeometryCalculator:
 
     def get_icon_bbox(self, element: dict) -> Optional[Tuple[float, float, float, float]]:
         """
-        Calcula bounding box de un ícono.
+        Calcula bounding box de un ícono o contenedor.
 
         Args:
             element: Elemento con 'x' e 'y', opcionalmente 'hp'/'wp' para sizing
+                     o 'width'/'height' para contenedores
 
         Returns:
             Optional[Tuple[float, float, float, float]]: (x1, y1, x2, y2) o None si falta coordenada
@@ -47,8 +48,12 @@ class GeometryCalculator:
         if x is None or y is None:
             return None
 
+        # Si es contenedor con dimensiones calculadas, usar esas dimensiones
+        if 'contains' in element and 'width' in element and 'height' in element:
+            width = element['width']
+            height = element['height']
         # Usar SizingCalculator si está disponible
-        if self.sizing:
+        elif self.sizing:
             width, height = self.sizing.get_element_size(element)
         else:
             width, height = ICON_WIDTH, ICON_HEIGHT

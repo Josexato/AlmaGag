@@ -109,8 +109,9 @@ class CollisionDetector:
         if not elem:
             return 0
 
-        # Ignorar contenedores (elementos con 'contains')
-        if 'contains' in elem:
+        # Ignorar contenedores SIN dimensiones calculadas
+        # (Contenedores con dimensiones calculadas se tratan como elementos normales)
+        if 'contains' in elem and not elem.get('_is_container_calculated', False):
             return 0
 
         count = 0
@@ -168,8 +169,10 @@ class CollisionDetector:
         """
         bboxes = []
 
-        # Filtrar contenedores (elementos con 'contains')
-        normal_elements = [e for e in layout.elements if 'contains' not in e]
+        # Filtrar contenedores SIN dimensiones calculadas
+        # (Contenedores con dimensiones calculadas se tratan como elementos normales)
+        normal_elements = [e for e in layout.elements
+                          if 'contains' not in e or e.get('_is_container_calculated', False)]
 
         # Bboxes de íconos
         for elem in normal_elements:
