@@ -152,8 +152,14 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         # 1. Análisis de grafo (re-analizar después de auto-layout y contenedores)
         self.analyze(current)
 
-        # 2. Posiciones iniciales
+        # 2. Posiciones iniciales de etiquetas
         self._calculate_initial_positions(current)
+
+        # 2.5. CRÍTICO: Recalcular contenedores AHORA que las etiquetas tienen posición
+        #      En línea 144 se calcularon solo con íconos (label_positions vacío)
+        #      Ahora recalculamos incluyendo las etiquetas
+        self.container_calculator.update_container_dimensions(current)
+        self._log("Dimensiones de contenedores recalculadas (incluyendo etiquetas)")
 
         # 3. Evaluación inicial
         initial_collisions = self.evaluate(current)
@@ -690,14 +696,15 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         """
         layout.elements_by_id = {e['id']: e for e in layout.elements}
 
-        # CRÍTICO: Recalcular dimensiones de contenedores después de mover elementos
-        # Los contenedores deben reflejar las nuevas posiciones de sus elementos internos
-        self.container_calculator.update_container_dimensions(layout)
-
         self.analyze(layout)
         layout.label_positions = {}
         layout.connection_labels = {}
         self._calculate_initial_positions(layout)
+
+        # CRÍTICO: Recalcular dimensiones de contenedores DESPUÉS de recalcular etiquetas
+        # Los contenedores deben reflejar TANTO las nuevas posiciones de elementos
+        # COMO las nuevas posiciones de sus etiquetas
+        self.container_calculator.update_container_dimensions(layout)
 
     def _ensure_canvas_fits(
         self,
