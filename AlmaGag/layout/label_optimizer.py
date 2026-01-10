@@ -159,6 +159,46 @@ class LabelPositionOptimizer:
 
         return candidates
 
+    def calculate_local_density(
+        self,
+        position_bbox: Tuple[float, float, float, float],
+        placed_labels: List[Tuple[float, float, float, float]],
+        radius: float = 100.0
+    ) -> int:
+        """
+        Calcula la densidad local de etiquetas alrededor de una posición.
+
+        Cuenta cuántas etiquetas ya colocadas están dentro de un radio
+        desde el centro de la posición candidata.
+
+        Args:
+            position_bbox: Bounding box de la posición candidata (x1, y1, x2, y2)
+            placed_labels: Lista de bboxes de etiquetas ya colocadas
+            radius: Radio de búsqueda en píxeles (default: 100px)
+
+        Returns:
+            int: Número de etiquetas dentro del radio
+        """
+        # Centro de la posición candidata
+        x1, y1, x2, y2 = position_bbox
+        center_x = (x1 + x2) / 2
+        center_y = (y1 + y2) / 2
+
+        count = 0
+        for label_bbox in placed_labels:
+            # Centro de la etiqueta ya colocada
+            lx1, ly1, lx2, ly2 = label_bbox
+            label_center_x = (lx1 + lx2) / 2
+            label_center_y = (ly1 + ly2) / 2
+
+            # Distancia entre centros
+            distance = ((center_x - label_center_x)**2 + (center_y - label_center_y)**2)**0.5
+
+            if distance <= radius:
+                count += 1
+
+        return count
+
     def score_position(
         self,
         position: LabelPosition,
@@ -177,6 +217,7 @@ class LabelPositionOptimizer:
         - Fuera del canvas: +1000 (penalización severa)
         - Distancia al anchor: +1 por cada 10 píxeles
         - Preferencia por "top" para conexiones: -10
+        - Densidad local: +30 por cada etiqueta en radio de 100px (NUEVO v3.1)
 
         Args:
             position: Posición candidata
@@ -214,6 +255,13 @@ class LabelPositionOptimizer:
         # Distancia al anchor (preferir cerca)
         distance = ((position.x - label.anchor_x)**2 + (position.y - label.anchor_y)**2)**0.5
         score += distance / 10
+
+        # Penalización por densidad local (evitar clustering) - NUEVO v3.1
+        density = self.calculate_local_density(label_bbox, placed_labels, radius=100.0)
+        density_penalty = density * 30
+        score += density_penalty
+        if self.debug and density > 0:
+            logger.debug(f"    Densidad local: {density} etiquetas cercanas (+{density_penalty})")
 
         # Preferencia por posición "top" para conexiones
         if label.category == "connection" and position.offset_name == "top":
