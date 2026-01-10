@@ -681,6 +681,7 @@ class AutoLayoutOptimizer(LayoutOptimizer):
 
         Actualiza:
         - elements_by_id
+        - Dimensiones de contenedores (basándose en nuevas posiciones)
         - Análisis de grafo (levels, groups, priorities)
         - Posiciones de etiquetas (recalculadas desde cero)
 
@@ -688,6 +689,11 @@ class AutoLayoutOptimizer(LayoutOptimizer):
             layout: Layout a recalcular
         """
         layout.elements_by_id = {e['id']: e for e in layout.elements}
+
+        # CRÍTICO: Recalcular dimensiones de contenedores después de mover elementos
+        # Los contenedores deben reflejar las nuevas posiciones de sus elementos internos
+        self.container_calculator.update_container_dimensions(layout)
+
         self.analyze(layout)
         layout.label_positions = {}
         layout.connection_labels = {}
