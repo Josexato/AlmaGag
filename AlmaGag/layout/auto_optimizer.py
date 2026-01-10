@@ -60,7 +60,7 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         self.collision_detector = CollisionDetector(self.geometry)
         self.graph_analyzer = GraphAnalyzer()
         self.positioner = AutoLayoutPositioner(self.sizing, self.graph_analyzer)
-        self.container_calculator = ContainerCalculator(self.sizing)
+        self.container_calculator = ContainerCalculator(self.sizing, self.geometry)
         self.router_manager = ConnectionRouterManager()
 
     def analyze(self, layout: Layout) -> None:

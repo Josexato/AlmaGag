@@ -6,9 +6,12 @@ elementos que contienen. Los contenedores deben tener sus dimensiones
 calculadas DESPUÉS de posicionar elementos, pero ANTES de la optimización
 de colisiones, para que se consideren como obstáculos reales.
 
+v2.2: Ahora considera TAMBIÉN las etiquetas de los elementos contenidos,
+      no solo los íconos.
+
 Autor: José + ALMA
-Versión: v2.1
-Fecha: 2026-01-08
+Versión: v2.2
+Fecha: 2026-01-09
 """
 
 from typing import Dict, List, Tuple
@@ -20,29 +23,33 @@ class ContainerCalculator:
     Calcula dimensiones de contenedores basándose en elementos contenidos.
 
     Los contenedores se tratan como elementos grandes cuyo tamaño depende
-    de los elementos que contienen más un padding.
+    de los elementos que contienen (íconos + etiquetas) más un padding.
     """
 
-    def __init__(self, sizing_calculator=None):
+    def __init__(self, sizing_calculator=None, geometry_calculator=None):
         """
         Inicializa el calculador de contenedores.
 
         Args:
             sizing_calculator: SizingCalculator para elementos con hp/wp
+            geometry_calculator: GeometryCalculator para bboxes de etiquetas
         """
         self.sizing = sizing_calculator
+        self.geometry = geometry_calculator
 
     def calculate_container_bounds(
         self,
         container: dict,
-        elements_by_id: Dict[str, dict]
+        layout
     ) -> Tuple[float, float, float, float]:
         """
         Calcula el bounding box de un contenedor basado en sus elementos.
 
+        v2.2: Ahora considera TANTO íconos como etiquetas de elementos contenidos.
+
         Args:
             container: Elemento contenedor con 'contains'
-            elements_by_id: Mapa de id → elemento
+            layout: Layout con elements_by_id y label_positions
 
         Returns:
             Tuple: (x, y, width, height) del contenedor
@@ -57,7 +64,7 @@ class ContainerCalculator:
         # Padding (espacio interno)
         padding = container.get('padding', 40)
 
-        # Encontrar bounds de todos los elementos contenidos
+        # Encontrar bounds de todos los elementos contenidos (íconos + etiquetas)
         min_x = float('inf')
         min_y = float('inf')
         max_x = float('-inf')
@@ -67,10 +74,10 @@ class ContainerCalculator:
             # Soportar formato dict {"id": "...", "scope": "..."} o string directo
             elem_id = item['id'] if isinstance(item, dict) else item
 
-            if elem_id not in elements_by_id:
+            if elem_id not in layout.elements_by_id:
                 continue
 
-            elem = elements_by_id[elem_id]
+            elem = layout.elements_by_id[elem_id]
 
             # Validar que elemento tiene coordenadas
             if elem.get('x') is None or elem.get('y') is None:
@@ -85,10 +92,24 @@ class ContainerCalculator:
             else:
                 elem_w, elem_h = ICON_WIDTH, ICON_HEIGHT
 
+            # Considerar bbox del ícono
             min_x = min(min_x, elem_x)
             min_y = min(min_y, elem_y)
             max_x = max(max_x, elem_x + elem_w)
             max_y = max(max_y, elem_y + elem_h)
+
+            # NUEVO v2.2: Considerar TAMBIÉN bbox de la etiqueta del elemento
+            if elem_id in layout.label_positions and self.geometry:
+                pos_info = layout.label_positions[elem_id]
+                position = pos_info[3]  # (x, y, anchor, position)
+                label_bbox = self.geometry.get_label_bbox(elem, position)
+
+                if label_bbox:
+                    lx1, ly1, lx2, ly2 = label_bbox
+                    min_x = min(min_x, lx1)
+                    min_y = min(min_y, ly1)
+                    max_x = max(max_x, lx2)
+                    max_y = max(max_y, ly2)
 
         # Si no se encontró ningún elemento válido, usar defaults
         if min_x == float('inf'):
@@ -127,20 +148,22 @@ class ContainerCalculator:
         - x, y: Posición superior izquierda
         - width, height: Dimensiones del contenedor
 
+        v2.2: Ahora considera tanto íconos como etiquetas de elementos contenidos.
+
         Esto permite que los contenedores se traten como elementos grandes
         en la detección de colisiones y optimización.
 
         Args:
-            layout: Layout con elements y elements_by_id
+            layout: Layout con elements, elements_by_id y label_positions
         """
         for elem in layout.elements:
             if 'contains' not in elem:
                 continue
 
-            # Calcular bounds del contenedor
+            # Calcular bounds del contenedor (considerando íconos + etiquetas)
             x, y, width, height = self.calculate_container_bounds(
                 elem,
-                layout.elements_by_id
+                layout
             )
 
             # Actualizar dimensiones del contenedor
