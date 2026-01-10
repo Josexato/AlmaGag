@@ -9,7 +9,7 @@
       "type": "building",
       "x": 650,
       "y": 50,
-      "label": "archivo.gag\n(JSON SDJF v2.1)",
+      "label": "archivo.gag\n(JSON SDJF v3.0)",
       "hp": 1.3,
       "color": "lightblue",
       "label_priority": "high"
@@ -44,7 +44,7 @@
     {
       "id": "layout_container",
       "type": "firewall",
-      "label": "Layout Module\n(inmutable)",
+      "label": "Layout Module\n(jerárquico v3.0)",
       "contains": ["layout", "sizing", "positioner"],
       "color": "#E8E8FF"
     },
@@ -59,13 +59,13 @@
     {
       "id": "sizing",
       "type": "building",
-      "label": "SizingCalculator\nhp/wp (v2.0)",
+      "label": "SizingCalculator\nhp/wp (v3.0)",
       "color": "plum"
     },
     {
       "id": "positioner",
       "type": "building",
-      "label": "AutoLayoutPositioner\nCoords opcionales",
+      "label": "AutoLayoutPositioner\nLayout jerárquico",
       "color": "thistle"
     },
     {
@@ -73,7 +73,7 @@
       "type": "server",
       "x": 650,
       "y": 520,
-      "label": "AutoLayoutOptimizer\nv2.1 Modular",
+      "label": "AutoLayoutOptimizer\nv3.0 Jerárquico",
       "hp": 1.8,
       "wp": 1.5,
       "color": "tomato",
@@ -82,7 +82,7 @@
     {
       "id": "routing_container",
       "type": "firewall",
-      "label": "Routing Module\n(v2.1 NEW)",
+      "label": "Routing Module\n(v3.0)",
       "contains": ["router_mgr", "routers"],
       "color": "#FFE8E8"
     },
@@ -117,7 +117,7 @@
     {
       "id": "graph",
       "type": "building",
-      "label": "GraphAnalyzer\nniveles\ngrupos\nprioridades",
+      "label": "GraphAnalyzer\ntopología (v3.0)\nniveles\ngrupos",
       "color": "lightcoral"
     },
     {
@@ -152,7 +152,7 @@
     {
       "id": "connections",
       "type": "building",
-      "label": "connections.py\nFase 2: Lines\nRouting types (v2.1)",
+      "label": "connections.py\nFase 2: Lines\nRouting types (v3.0)",
       "hp": 1.3,
       "color": "orange",
       "label_priority": "high"
@@ -234,7 +234,7 @@
       "from": "optimizer",
       "to": "router_mgr",
       "routing": {"type": "orthogonal"},
-      "label": "calculate_all_paths()\nv2.1",
+      "label": "calculate_all_paths()\nv3.0",
       "direction": "forward"
     },
     {
