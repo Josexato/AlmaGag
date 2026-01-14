@@ -75,7 +75,7 @@ Esta es la guía completa de documentación de AlmaGag, organizada por tipo de d
 
 ### Diagramas de Arquitectura
 
-- **[Arquitectura actual](diagrams/outputs/05-arquitectura-gag.svg)** - Flujo de ejecución v2.1
+- **[Arquitectura actual](diagrams/svgs/05-arquitectura-gag.svg)** - Flujo de ejecución v2.1
 - **[Historia de arquitecturas](architecture/history/)** - Versiones anteriores
 
 ---
@@ -121,23 +121,39 @@ docs/
 │   ├── IMPLEMENTATION_STRATEGY.md
 │   └── history/                  # Diagramas históricos
 │
-├── diagrams/                     # Diagramas visuales
-│   ├── roadmap-versions.gag
-│   ├── roadmap-versions.svg
-│   ├── routing-architecture.gag
-│   └── routing-architecture.svg
-│
-└── examples/                     # Archivos .gag y .svg
-    ├── 01-iconos-registrados.*
-    ├── 02-iconos-no-registrados.*
-    ├── 03-conexiones.*
-    ├── 04-gradientes-colores.*
-    ├── 05-arquitectura-gag.*
-    ├── 06-waypoints.*
-    ├── 07-containers.*
-    ├── 08-auto-layout.*
-    ├── 09-proportional-sizing.*
-    └── 10-hybrid-layout.*
+└── diagrams/                     # Diagramas y ejemplos visuales
+    ├── gags/                     # Archivos fuente .gag
+    │   ├── 01-iconos-registrados.gag
+    │   ├── 02-iconos-no-registrados.gag
+    │   ├── 03-conexiones.gag
+    │   ├── 04-gradientes-colores.gag
+    │   ├── 05-arquitectura-gag.gag
+    │   ├── 06-waypoints.gag
+    │   ├── 07-containers.gag
+    │   ├── 08-auto-layout.gag
+    │   ├── 09-proportional-sizing.gag
+    │   ├── 10-hybrid-layout.gag
+    │   ├── execution-flow.gag
+    │   ├── layout-optimization-flow.gag
+    │   ├── roadmap-versions.gag
+    │   ├── routing-architecture.gag
+    │   └── system-architecture.gag
+    └── svgs/                     # SVG generados
+        ├── 01-iconos-registrados.svg
+        ├── 02-iconos-no-registrados.svg
+        ├── 03-conexiones.svg
+        ├── 04-gradientes-colores.svg
+        ├── 05-arquitectura-gag.svg
+        ├── 06-waypoints.svg
+        ├── 07-containers.svg
+        ├── 08-auto-layout.svg
+        ├── 09-proportional-sizing.svg
+        ├── 10-hybrid-layout.svg
+        ├── execution-flow.svg
+        ├── layout-optimization-flow.svg
+        ├── roadmap-versions.svg
+        ├── routing-architecture.svg
+        └── system-architecture.svg
 ```
 
 ---
@@ -209,7 +225,7 @@ Muestra el diseño propuesto del módulo `routing/` para v2.1.
 
 ### Arquitectura v2.1 (Código Actual)
 
-![Arquitectura GAG](diagrams/outputs/05-arquitectura-gag.svg)
+![Arquitectura GAG](diagrams/svgs/05-arquitectura-gag.svg)
 
 Diagrama auto-documentado del flujo de ejecución actual.
 

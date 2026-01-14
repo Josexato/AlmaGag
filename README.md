@@ -176,7 +176,7 @@ Ver [`examples/README.md`](examples/README.md) para más detalles.
 
 ## 🏗️ Arquitectura
 
-![Arquitectura de GAG](docs/diagrams/outputs/05-arquitectura-gag.svg)
+![Arquitectura de GAG](docs/diagrams/svgs/05-arquitectura-gag.svg)
 
 **Flujo de ejecución:**
 

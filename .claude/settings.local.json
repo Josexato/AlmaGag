@@ -30,7 +30,14 @@
       "Bash(start 05-arquitectura-gag.svg)",
       "Bash(git mv:*)",
       "Bash(tree:*)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(xargs:*)",
+      "Bash(echo:*)",
+      "Bash(git reset:*)",
+      "Bash(wc -l \"D:\\\\10_Dev\\\\pythondev\\\\AlmaGag\\\\AlmaGag\"/**/*.py)",
+      "Bash(git status:*)",
+      "Bash(chmod:*)",
+      "Bash(test:*)"
     ]
   }
 }
