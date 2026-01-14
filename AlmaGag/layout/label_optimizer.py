@@ -117,7 +117,7 @@ class LabelPositionOptimizer:
         x, y = label.anchor_x, label.anchor_y
 
         # Offsets base
-        NEAR_OFFSET = 15  # Offset cerca del anchor
+        NEAR_OFFSET = 35  # Offset cerca del anchor (suficiente para iconos de 50px de alto)
         FAR_OFFSET = 30   # Offset lejos del anchor
 
         if label.category == "connection":
@@ -273,9 +273,9 @@ class LabelPositionOptimizer:
         if label.category == "container" and position.offset_name == "top":
             score -= 20
 
-        # Preferencia por posición "bottom" para elementos (ícono)
+        # Preferencia suave por posición "bottom" para elementos (ícono)
         if label.category == "element" and position.offset_name == "bottom":
-            score -= 70  # Muy fuerte preferencia por debajo (supera incluso colisiones)
+            score -= 15  # Preferencia suave (permite optimización dinámica)
 
         return score
 
