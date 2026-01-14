@@ -13,10 +13,38 @@ Soporta:
 """
 
 import math
-from typing import List
+import logging
+from typing import List, Dict
 from AlmaGag.layout.layout import Layout
 from AlmaGag.layout.sizing import SizingCalculator
 from AlmaGag.layout.graph_analysis import GraphAnalyzer
+from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
+
+logger = logging.getLogger('AlmaGag.AutoPositioner')
+
+
+class ContainerHierarchy:
+    """
+    Representa la jerarquía de contenedores y su orden de resolución.
+    """
+
+    def __init__(self, containers: List[dict], hierarchy: Dict[str, List[str]], order: List[str]):
+        """
+        Args:
+            containers: Lista de elementos contenedores
+            hierarchy: Grafo de contención {container_id: [child_container_ids]}
+            order: Orden de resolución bottom-up (hijos antes que padres)
+        """
+        self.containers = containers
+        self.hierarchy = hierarchy
+        self.order = order
+        self.containers_by_id = {c['id']: c for c in containers}
+
+    def bottom_up_order(self) -> List[dict]:
+        """
+        Retorna contenedores en orden bottom-up para resolución.
+        """
+        return [self.containers_by_id[c_id] for c_id in self.order if c_id in self.containers_by_id]
 
 
 class AutoLayoutPositioner:
@@ -41,12 +69,10 @@ class AutoLayoutPositioner:
         """
         Calcula x, y para elementos que no tienen coordenadas.
 
-        Estrategia (v2.3 - Hierarchical Layout):
-        1. Calcular niveles topológicos del grafo (jerarquía)
-        2. Agrupar elementos por contenedor
-        3. Posicionar cada grupo de contenedor de forma compacta
-        4. Posicionar elementos libres con layout jerárquico
-        5. Calcular coordenadas parciales (x-only, y-only)
+        Estrategia (v3.0 - Layout en 3 Fases):
+        FASE 1: Resolver contenedores (bottom-up)
+        FASE 2: Análisis topológico de elementos primarios
+        FASE 3: Distribución espacial y propagación
 
         Args:
             layout: Layout con algunos elementos sin x/y
@@ -54,45 +80,70 @@ class AutoLayoutPositioner:
         Returns:
             Layout: Mismo layout (modificado in-place) con coordenadas calculadas
         """
-        # Filtrar contenedores (no necesitan auto-layout, se calculan dinámicamente)
-        normal_elements = [e for e in layout.elements if 'contains' not in e]
+        # ============================================
+        # FASE 1: RESOLVER CONTENEDORES (BOTTOM-UP)
+        # ============================================
 
-        # Separar elementos con/sin coordenadas completas
-        missing_both = [e for e in normal_elements if 'x' not in e and 'y' not in e]
-        missing_x = [e for e in normal_elements if 'x' not in e and 'y' in e]
-        missing_y = [e for e in normal_elements if 'x' in e and 'y' not in e]
+        container_hierarchy = self._analyze_container_hierarchy(layout)
 
-        # NUEVO v2.3: Calcular niveles topológicos ANTES de posicionar
+        for container in container_hierarchy.bottom_up_order():
+            self._resolve_container(layout, container)
+
+        # ============================================
+        # FASE 2: ANÁLISIS TOPOLÓGICO GLOBAL
+        # ============================================
+
+        primary_elements = self._get_primary_elements(layout)
+
+        # Separar primarios con/sin coordenadas
+        missing_both = [e for e in primary_elements if 'x' not in e and 'y' not in e]
+        missing_x = [e for e in primary_elements if 'x' not in e and 'y' in e]
+        missing_y = [e for e in primary_elements if 'x' in e and 'y' not in e]
+
+        # Calcular niveles topológicos SOLO para elementos primarios
         if missing_both and layout.connections:
             topological_levels = self.graph_analyzer.calculate_topological_levels(
-                layout.elements,
+                primary_elements,  # Solo primarios
                 layout.connections
             )
-            # Guardar en layout para uso posterior
             layout.topological_levels = topological_levels
+
+            # LOG: Mostrar niveles topológicos
+            logger.debug(f"\n[NIVELES TOPOLOGICOS]")
+            for elem_id, level in topological_levels.items():
+                logger.debug(f"  {elem_id}: nivel {level}")
         else:
             layout.topological_levels = {}
 
-        # v2.2: Agrupar elementos sin coordenadas por contenedor
-        if missing_both:
-            groups = self._group_elements_by_container(layout, missing_both)
-            self._position_groups(layout, groups)
+        # ============================================
+        # FASE 3: DISTRIBUCIÓN ESPACIAL GLOBAL
+        # ============================================
 
-        # Calcular coordenadas parciales
+        # Posicionar elementos primarios
+        if missing_both:
+            if layout.topological_levels:
+                self._calculate_hierarchical_layout(layout, missing_both)
+            else:
+                self._calculate_hybrid_layout(layout, missing_both)
+
+        # Calcular coordenadas parciales para primarios
         if missing_x:
             self._calculate_x_only(layout, missing_x)
         if missing_y:
             self._calculate_y_only(layout, missing_y)
 
+        # Propagar coordenadas globales a elementos internos
+        self._propagate_coordinates_to_contained(layout)
+
         return layout
 
     def _calculate_hierarchical_layout(self, layout: Layout, elements: List[dict]):
         """
-        Auto-layout jerárquico basado en topología del grafo (v2.3).
+        Auto-layout jerárquico basado en topología del grafo (v3.1).
 
         Algoritmo:
         1. Agrupar elementos por nivel topológico
-        2. Calcular posición Y para cada nivel (vertical spacing)
+        2. Calcular posición Y para cada nivel considerando alto real del nivel anterior
         3. Distribuir elementos de cada nivel horizontalmente
         4. Centrar cada nivel respecto al canvas
 
@@ -114,20 +165,31 @@ class AutoLayoutPositioner:
             return
 
         # Configuración de spacing
-        VERTICAL_SPACING = 150  # Espacio entre niveles
+        VERTICAL_SPACING = 100  # Espacio entre niveles
         HORIZONTAL_SPACING = 120  # Espacio entre elementos del mismo nivel
         TOP_MARGIN = 100  # Margen superior
 
         # Calcular centro horizontal del canvas
         center_x = layout.canvas['width'] / 2
 
+        # Rastrear posición Y actual (dónde termina el nivel anterior)
+        current_y = TOP_MARGIN
+
         # Posicionar cada nivel
         for level_num in sorted(by_level.keys()):
             level_elements = by_level[level_num]
             num_elements = len(level_elements)
 
-            # Calcular Y para este nivel
-            y_position = TOP_MARGIN + (level_num * VERTICAL_SPACING)
+            # Calcular altura máxima de los elementos en este nivel
+            max_height = 0
+            for elem in level_elements:
+                elem_height = elem.get('height', ICON_HEIGHT)
+                max_height = max(max_height, elem_height)
+
+            # Posición Y para este nivel (donde termina el nivel anterior + spacing)
+            y_position = current_y
+
+            logger.debug(f"\n[NIVEL {level_num}] Y={y_position:.1f}, Elementos={num_elements}, Max_height={max_height:.1f}")
 
             # Calcular ancho total necesario para este nivel
             total_width = num_elements * HORIZONTAL_SPACING
@@ -139,6 +201,11 @@ class AutoLayoutPositioner:
             for i, elem in enumerate(level_elements):
                 elem['x'] = start_x + (i * HORIZONTAL_SPACING)
                 elem['y'] = y_position
+                logger.debug(f"  {elem['id']}: ({elem['x']:.1f}, {elem['y']:.1f})")
+
+            # Actualizar current_y para el siguiente nivel
+            # current_y = donde termina este nivel + spacing
+            current_y = y_position + max_height + VERTICAL_SPACING
 
     def _calculate_hybrid_layout(self, layout: Layout, elements: List[dict]):
         """
@@ -470,3 +537,321 @@ class AutoLayoutPositioner:
         # Retornar ancho del grupo
         group_width = cols * spacing
         return group_width
+
+    def _analyze_container_hierarchy(self, layout: Layout) -> ContainerHierarchy:
+        """
+        Analiza jerarquía de contenedores y retorna orden de resolución.
+
+        Retorna:
+            ContainerHierarchy con orden bottom-up (hijos antes que padres)
+        """
+        containers = [e for e in layout.elements if 'contains' in e]
+
+        if not containers:
+            return ContainerHierarchy([], {}, [])
+
+        # Construir grafo de contención
+        hierarchy = {}
+        for container in containers:
+            children = []
+            for contained_ref in container['contains']:
+                child_id = contained_ref['id'] if isinstance(contained_ref, dict) else contained_ref
+                child = layout.elements_by_id.get(child_id)
+                if child and 'contains' in child:
+                    # Es un contenedor anidado
+                    children.append(child_id)
+            hierarchy[container['id']] = children
+
+        # Calcular orden bottom-up (DFS post-order)
+        order = self._topological_sort_containers(hierarchy)
+
+        return ContainerHierarchy(containers, hierarchy, order)
+
+    def _topological_sort_containers(self, hierarchy: Dict[str, List[str]]) -> List[str]:
+        """
+        Ordena contenedores en orden bottom-up (hijos antes que padres).
+
+        Usa DFS post-order traversal.
+
+        Args:
+            hierarchy: {container_id: [child_container_ids]}
+
+        Returns:
+            Lista de container_ids en orden bottom-up
+        """
+        visited = set()
+        order = []
+
+        def dfs_postorder(node_id):
+            if node_id in visited:
+                return
+            visited.add(node_id)
+
+            # Visitar hijos primero
+            for child_id in hierarchy.get(node_id, []):
+                dfs_postorder(child_id)
+
+            # Agregar este nodo al orden (post-order)
+            order.append(node_id)
+
+        # Iniciar DFS desde todos los contenedores
+        for container_id in hierarchy.keys():
+            dfs_postorder(container_id)
+
+        return order
+
+    def _resolve_container(self, layout: Layout, container: dict):
+        """
+        Resuelve un contenedor: posiciona elementos internos y calcula dimensiones.
+
+        Asume que contenedores hijos ya están resueltos.
+
+        Args:
+            layout: Layout con elements_by_id
+            container: Contenedor a resolver
+        """
+        # Obtener elementos contenidos
+        contained_ids = [ref['id'] if isinstance(ref, dict) else ref for ref in container['contains']]
+        contained_elements = [layout.elements_by_id[id] for id in contained_ids if id in layout.elements_by_id]
+
+        if not contained_elements:
+            # Contenedor vacío
+            container['width'] = ICON_WIDTH + 40
+            container['height'] = ICON_HEIGHT + 40
+            container['_resolved'] = True
+            return
+
+        # Posicionar elementos internos (layout local)
+        self._layout_contained_elements_locally(container, contained_elements)
+
+        # Calcular envolvente del contenedor (basado en elementos internos + padding + etiqueta)
+        padding = container.get('padding', 20)
+        min_width, min_height = self._calculate_container_bounds(
+            contained_elements,
+            padding,
+            container  # Pasar contenedor para calcular espacio de etiqueta
+        )
+
+        # Asignar dimensiones al contenedor (ahora es un "elemento primario")
+        container['width'] = min_width
+        container['height'] = min_height
+        container['_resolved'] = True
+
+        # LOG: Información del contenedor resuelto
+        logger.debug(f"\n[CONTENEDOR RESUELTO] {container['id']}")
+        logger.debug(f"  Dimensiones: {min_width:.1f} x {min_height:.1f}")
+        if container.get('label'):
+            lines = container['label'].split('\n')
+            label_height = len(lines) * 18 + 10
+            logger.debug(f"  Espacio etiqueta: {label_height}px (arriba)")
+        logger.debug(f"  Elementos internos: {len(contained_elements)}")
+        for elem in contained_elements:
+            logger.debug(f"    - {elem['id']}: local({elem.get('_local_x', 0):.1f}, {elem.get('_local_y', 0):.1f}) "
+                        f"size({elem.get('width', ICON_WIDTH):.1f} x {elem.get('height', ICON_HEIGHT):.1f})")
+
+    def _layout_contained_elements_locally(self, container: dict, elements: List[dict]):
+        """
+        Posiciona elementos DENTRO del contenedor (coordenadas locales).
+
+        Estrategias:
+        - scope: "border" → en el borde del contenedor (se calculará después)
+        - scope: "full" → distribución interna (grid simple)
+
+        Args:
+            container: Contenedor padre
+            elements: Elementos a posicionar
+        """
+        padding = container.get('padding', 20)
+
+        # Filtrar por scope
+        full_elements = []
+        for elem in elements:
+            scope = self._get_scope(elem, container)
+            if scope == 'full':
+                full_elements.append(elem)
+
+        # Layout para elementos "full" (distribución interna simple)
+        if full_elements:
+            # Grid simple basado en número de elementos
+            n = len(full_elements)
+            if n == 1:
+                cols = 1
+            elif n <= 4:
+                cols = 2
+            else:
+                cols = int(n ** 0.5) + 1
+
+            spacing = 20
+
+            for i, elem in enumerate(full_elements):
+                row = i // cols
+                col = i % cols
+                elem['_local_x'] = padding + col * (ICON_WIDTH + spacing)
+                elem['_local_y'] = padding + row * (ICON_HEIGHT + spacing)
+
+    def _get_scope(self, elem: dict, container: dict) -> str:
+        """
+        Obtiene el scope de un elemento dentro de un contenedor.
+
+        Args:
+            elem: Elemento
+            container: Contenedor padre
+
+        Returns:
+            'full' o 'border'
+        """
+        # Buscar en las referencias del contenedor
+        for ref in container.get('contains', []):
+            ref_id = ref['id'] if isinstance(ref, dict) else ref
+            if ref_id == elem['id']:
+                if isinstance(ref, dict):
+                    return ref.get('scope', 'full')
+                return 'full'
+        return 'full'
+
+    def _calculate_container_bounds(self, elements: List[dict], padding: float, container: dict = None) -> tuple:
+        """
+        Calcula dimensiones mínimas del contenedor basándose en elementos internos.
+
+        Args:
+            elements: Elementos contenidos
+            padding: Padding del contenedor
+            container: Contenedor (para calcular espacio de su etiqueta)
+
+        Returns:
+            (width, height): Dimensiones mínimas
+        """
+        if not elements:
+            base_width = ICON_WIDTH + 2 * padding
+            base_height = ICON_HEIGHT + 2 * padding
+        else:
+            # Encontrar bounding box de elementos
+            min_x = float('inf')
+            min_y = float('inf')
+            max_x = float('-inf')
+            max_y = float('-inf')
+
+            for elem in elements:
+                local_x = elem.get('_local_x', 0)
+                local_y = elem.get('_local_y', 0)
+                elem_width = elem.get('width', ICON_WIDTH)
+                elem_height = elem.get('height', ICON_HEIGHT)
+
+                min_x = min(min_x, local_x)
+                min_y = min(min_y, local_y)
+                max_x = max(max_x, local_x + elem_width)
+                max_y = max(max_y, local_y + elem_height)
+
+            # Agregar padding
+            base_width = max_x - min_x + 2 * padding
+            base_height = max_y - min_y + 2 * padding
+
+            # Mínimos razonables
+            base_width = max(base_width, ICON_WIDTH + 2 * padding)
+            base_height = max(base_height, ICON_HEIGHT + 2 * padding)
+
+        # Calcular espacio para la etiqueta del contenedor (se dibuja DENTRO, arriba)
+        label_height_extra = 0
+
+        if container and 'label' in container:
+            label_text = container['label']
+            lines = label_text.split('\n')
+            max_line_len = max(len(line) for line in lines) if lines else 0
+            label_width = max_line_len * 8  # 8px por carácter
+            label_height = len(lines) * 18  # 18px por línea
+
+            # Agregar espacio vertical arriba para la etiqueta
+            label_height_extra = label_height + 10  # 10px de margen
+
+            # Calcular ancho necesario considerando que la etiqueta está a la derecha del ícono
+            # Etiqueta comienza en: 10 (margen) + 80 (ícono) + 10 (margen) = 100
+            label_x_position = 10 + ICON_WIDTH + 10
+            label_required_width = label_x_position + label_width + 10  # posición + ancho + margen derecho
+
+            # Usar el mayor entre base_width y label_required_width
+            width = max(base_width, label_required_width)
+        else:
+            width = base_width
+
+        height = base_height + label_height_extra
+
+        return (width, height)
+
+    def _get_primary_elements(self, layout: Layout) -> List[dict]:
+        """
+        Retorna elementos primarios para análisis topológico.
+
+        Primarios = Contenedores resueltos + Elementos sin padre
+
+        Args:
+            layout: Layout con elementos
+
+        Returns:
+            Lista de elementos primarios
+        """
+        primary = []
+
+        # Todos los IDs contenidos
+        contained_ids = set()
+        for elem in layout.elements:
+            if 'contains' in elem:
+                for ref in elem['contains']:
+                    ref_id = ref['id'] if isinstance(ref, dict) else ref
+                    contained_ids.add(ref_id)
+
+        # Contenedores resueltos + elementos sin padre
+        for elem in layout.elements:
+            if 'contains' in elem and elem.get('_resolved'):
+                # Contenedor resuelto → primario
+                primary.append(elem)
+            elif elem['id'] not in contained_ids:
+                # No está contenido → primario
+                primary.append(elem)
+
+        return primary
+
+    def _propagate_coordinates_to_contained(self, layout: Layout):
+        """
+        Propaga coordenadas globales a elementos internos (FASE 3.2).
+
+        Coordenada_global = Contenedor(x,y) + Espacio_etiqueta + Offset_local
+
+        Args:
+            layout: Layout con contenedores posicionados
+        """
+        for container in layout.elements:
+            if 'contains' in container and container.get('x') is not None:
+                container_x = container['x']
+                container_y = container['y']
+
+                # Calcular espacio reservado para la etiqueta arriba
+                label_space = 0
+                if container.get('label'):
+                    lines = container['label'].split('\n')
+                    label_height = len(lines) * 18  # 18px por línea
+                    label_space = label_height + 10  # 10px de margen
+
+                # LOG: Conversión de coordenadas
+                logger.debug(f"\n[PROPAGACION COORDENADAS] {container['id']}")
+                logger.debug(f"  Contenedor en: ({container_x:.1f}, {container_y:.1f})")
+                logger.debug(f"  Espacio etiqueta: {label_space}px")
+                logger.debug(f"  Conversión local -> global:")
+
+                for ref in container['contains']:
+                    ref_id = ref['id'] if isinstance(ref, dict) else ref
+                    elem = layout.elements_by_id.get(ref_id)
+                    if elem and '_local_x' in elem:
+                        local_x = elem['_local_x']
+                        local_y = elem['_local_y']
+
+                        # Convertir coordenadas locales a globales
+                        # Desplazar hacia abajo para dejar espacio a la etiqueta
+                        elem['x'] = container_x + local_x
+                        elem['y'] = container_y + label_space + local_y
+
+                        logger.debug(f"    {ref_id}: local({local_x:.1f}, {local_y:.1f}) -> "
+                                   f"global({elem['x']:.1f}, {elem['y']:.1f})")
+
+                        # Limpiar campos temporales
+                        del elem['_local_x']
+                        del elem['_local_y']

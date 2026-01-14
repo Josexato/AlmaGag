@@ -50,10 +50,6 @@ class ArcRouter(ConnectionRouter):
         # Get sizing calculator from layout if available
         sizing_calculator = getattr(layout, 'sizing', None)
 
-        # Calculate centers and sizes
-        from_center = self.get_element_center(from_elem, sizing_calculator)
-        to_center = self.get_element_center(to_elem, sizing_calculator)
-
         # Get routing configuration
         routing = connection.get('routing', {})
         radius = routing.get('radius', 50)
@@ -61,7 +57,8 @@ class ArcRouter(ConnectionRouter):
 
         # Check if this is a self-loop
         if from_elem['id'] == to_elem['id']:
-            # Self-loop
+            # Self-loop - use center
+            from_center = self.get_element_center(from_elem, sizing_calculator)
             return self._calculate_self_loop_arc(
                 from_center,
                 from_elem,
@@ -70,7 +67,15 @@ class ArcRouter(ConnectionRouter):
                 sizing_calculator
             )
         else:
-            # Regular connection with arc
+            # Regular connection with arc - use connection points for containers
+            # Need to calculate both centers first to determine the other point
+            from_center_temp = self.get_element_center(from_elem, sizing_calculator)
+            to_center_temp = self.get_element_center(to_elem, sizing_calculator)
+
+            # Now calculate actual connection points (may be on container borders)
+            from_center = self.get_connection_point(from_elem, to_center_temp, layout, sizing_calculator)
+            to_center = self.get_connection_point(to_elem, from_center_temp, layout, sizing_calculator)
+
             return self._calculate_connection_arc(
                 from_center,
                 to_center,

@@ -45,16 +45,26 @@ class ManualRouter(ConnectionRouter):
         # Get sizing calculator from layout if available
         sizing_calculator = getattr(layout, 'sizing', None)
 
-        # Calculate element centers
-        from_center = self.get_element_center(from_elem, sizing_calculator)
-        to_center = self.get_element_center(to_elem, sizing_calculator)
-
         # Get waypoints from routing config
         routing = connection.get('routing', {})
         waypoints_data = routing.get('waypoints', [])
 
         # Convert waypoint dicts to Point objects
         waypoints = [Point.from_dict(wp) for wp in waypoints_data]
+
+        # Calculate connection points (handles containers intelligently)
+        # For manual routing, use the first/last waypoint as reference if available
+        if waypoints:
+            # Use first waypoint as reference for 'from' connection point
+            # Use last waypoint as reference for 'to' connection point
+            from_center = self.get_connection_point(from_elem, waypoints[0], layout, sizing_calculator)
+            to_center = self.get_connection_point(to_elem, waypoints[-1], layout, sizing_calculator)
+        else:
+            # No waypoints - calculate connection points using each other as reference
+            from_center_temp = self.get_element_center(from_elem, sizing_calculator)
+            to_center_temp = self.get_element_center(to_elem, sizing_calculator)
+            from_center = self.get_connection_point(from_elem, to_center_temp, layout, sizing_calculator)
+            to_center = self.get_connection_point(to_elem, from_center_temp, layout, sizing_calculator)
 
         # Build complete path: start -> waypoints -> end
         points = [from_center] + waypoints + [to_center]

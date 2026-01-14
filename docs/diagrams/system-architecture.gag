@@ -1,0 +1,121 @@
+{
+  "canvas": {"width": 1400, "height": 1000},
+  "elements": [
+    {
+      "id": "cli",
+      "type": "server",
+      "label": "CLI Layer\nmain.py",
+      "color": "gold"
+    },
+    {
+      "id": "generator",
+      "type": "building",
+      "label": "Core Layer\ngenerator.py",
+      "color": "orange"
+    },
+    {
+      "id": "layout-obj",
+      "type": "database",
+      "label": "Layout Object\nEstado del diagrama",
+      "color": "lightblue"
+    },
+    {
+      "id": "optimizer",
+      "type": "server",
+      "label": "AutoLayoutOptimizer\nOrquestador Layout",
+      "color": "cyan"
+    },
+    {
+      "id": "positioner",
+      "type": "server",
+      "label": "AutoLayoutPositioner\nCálculo coordenadas",
+      "color": "lightcyan"
+    },
+    {
+      "id": "container-calc",
+      "type": "server",
+      "label": "ContainerCalculator\nDimensiones",
+      "color": "lightcyan"
+    },
+    {
+      "id": "sizing",
+      "type": "cloud",
+      "label": "SizingCalculator\nhp/wp sizing",
+      "color": "lightcyan"
+    },
+    {
+      "id": "geometry",
+      "type": "cloud",
+      "label": "GeometryCalculator\nBounding boxes",
+      "color": "lightcyan"
+    },
+    {
+      "id": "router-manager",
+      "type": "server",
+      "label": "RouterManager\nDispatcher routing",
+      "color": "lightgreen"
+    },
+    {
+      "id": "router-base",
+      "type": "server",
+      "label": "ConnectionRouter\nBase abstracta",
+      "color": "palegreen"
+    },
+    {
+      "id": "routers",
+      "type": "cloud",
+      "label": "Routers\nStraight, Orthogonal\nBezier, Arc",
+      "color": "palegreen"
+    },
+    {
+      "id": "label-opt",
+      "type": "server",
+      "label": "LabelPositionOptimizer\nOptimización etiquetas",
+      "color": "violet"
+    },
+    {
+      "id": "collision-det",
+      "type": "server",
+      "label": "CollisionDetector\nResolución colisiones",
+      "color": "plum"
+    },
+    {
+      "id": "draw-elements",
+      "type": "building",
+      "label": "Rendering Layer\ndraw/elements.py",
+      "color": "tomato"
+    },
+    {
+      "id": "draw-connections",
+      "type": "building",
+      "label": "draw/connections.py\nRender conexiones",
+      "color": "lightsalmon"
+    },
+    {
+      "id": "draw-icons",
+      "type": "cloud",
+      "label": "draw/*.py\nÍconos específicos",
+      "color": "lightsalmon"
+    }
+  ],
+  "connections": [
+    {"from": "cli", "to": "generator", "label": "invoca", "direction": "forward"},
+    {"from": "generator", "to": "layout-obj", "label": "crea", "direction": "forward"},
+    {"from": "generator", "to": "optimizer", "label": "optimiza", "direction": "forward"},
+    {"from": "optimizer", "to": "positioner", "label": "fase 1", "direction": "forward"},
+    {"from": "optimizer", "to": "container-calc", "label": "fase 2", "direction": "forward"},
+    {"from": "optimizer", "to": "router-manager", "label": "fase 3", "direction": "forward"},
+    {"from": "optimizer", "to": "label-opt", "label": "fase 4", "direction": "forward"},
+    {"from": "optimizer", "to": "collision-det", "label": "fase 5", "direction": "forward"},
+    {"from": "positioner", "to": "sizing", "label": "consulta", "direction": "forward"},
+    {"from": "container-calc", "to": "geometry", "label": "consulta", "direction": "forward"},
+    {"from": "router-manager", "to": "router-base", "label": "delega", "direction": "forward"},
+    {"from": "router-base", "to": "routers", "label": "impl", "direction": "forward"},
+    {"from": "label-opt", "to": "geometry", "label": "usa", "direction": "forward"},
+    {"from": "collision-det", "to": "geometry", "label": "usa", "direction": "forward"},
+    {"from": "optimizer", "to": "layout-obj", "label": "actualiza", "direction": "backward"},
+    {"from": "generator", "to": "draw-elements", "label": "render", "direction": "forward"},
+    {"from": "generator", "to": "draw-connections", "label": "render", "direction": "forward"},
+    {"from": "draw-elements", "to": "draw-icons", "label": "usa", "direction": "forward"}
+  ]
+}

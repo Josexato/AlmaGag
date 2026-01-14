@@ -63,18 +63,18 @@ class GraphAnalyzer:
         - Usa BFS desde las raíces
 
         Args:
-            elements: Lista de elementos del diagrama
+            elements: Lista de elementos del diagrama (pueden ser elementos primarios)
             connections: Lista de conexiones direccionales
 
         Returns:
             Dict[str, int]: {element_id: level_number}
         """
-        # Filtrar contenedores
-        normal_elements = [e for e in elements if 'contains' not in e]
+        # NO filtrar contenedores - los elementos ya vienen filtrados como "primarios"
+        # desde auto_positioner (contenedores resueltos + elementos libres)
 
         # Construir grafo direccional (quién apunta a quién)
-        outgoing = {e['id']: [] for e in normal_elements}
-        incoming = {e['id']: [] for e in normal_elements}
+        outgoing = {e['id']: [] for e in elements}
+        incoming = {e['id']: [] for e in elements}
 
         for conn in connections:
             from_id = conn['from']
@@ -109,7 +109,7 @@ class GraphAnalyzer:
                     queue.append((child, level + 1))
 
         # Asignar nivel 0 a elementos no visitados (desconectados)
-        for elem in normal_elements:
+        for elem in elements:
             if elem['id'] not in levels:
                 levels[elem['id']] = 0
 

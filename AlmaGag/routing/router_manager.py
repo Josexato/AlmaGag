@@ -103,7 +103,7 @@ class ConnectionRouterManager:
         """
         Get routing configuration from connection.
 
-        Handles backward compatibility with v1.5 waypoints.
+        Handles backward compatibility with v1.5 waypoints and routing_type.
 
         Args:
             connection: Connection dict
@@ -114,6 +114,10 @@ class ConnectionRouterManager:
         # Check if connection has 'routing' property (v2.1+)
         if 'routing' in connection:
             return connection['routing']
+
+        # Check for 'routing_type' at root level (legacy format)
+        if 'routing_type' in connection:
+            return {'type': connection['routing_type']}
 
         # Check for v1.5 waypoints at root level
         if 'waypoints' in connection:

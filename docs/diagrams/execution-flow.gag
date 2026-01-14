@@ -1,0 +1,122 @@
+{
+  "canvas": {"width": 1400, "height": 1000},
+  "elements": [
+    {
+      "id": "input",
+      "type": "database",
+      "label": "archivo.gag\n(SDJF v3.0)",
+      "color": "lightblue"
+    },
+    {
+      "id": "main",
+      "type": "server",
+      "label": "main.py\nCLI Entry Point",
+      "color": "gold"
+    },
+    {
+      "id": "generator",
+      "type": "building",
+      "label": "generator.py\nOrquestador Principal",
+      "color": "orange"
+    },
+    {
+      "id": "layout-obj",
+      "type": "cloud",
+      "label": "Layout Object\n(Estado del diagrama)",
+      "color": "lightgreen"
+    },
+    {
+      "id": "optimizer",
+      "type": "building",
+      "label": "AutoLayoutOptimizer\n(Fase 0-3)",
+      "color": "tomato"
+    },
+    {
+      "id": "auto-positioner",
+      "type": "server",
+      "label": "AutoLayoutPositioner\n(Coordenadas faltantes)",
+      "color": "cyan"
+    },
+    {
+      "id": "container-calc",
+      "type": "server",
+      "label": "ContainerCalculator\n(Dimensiones)",
+      "color": "violet"
+    },
+    {
+      "id": "router-manager",
+      "type": "server",
+      "label": "RouterManager\n(Rutas de conexiones)",
+      "color": "lightblue"
+    },
+    {
+      "id": "label-optimizer",
+      "type": "server",
+      "label": "LabelPositionOptimizer\n(Posición etiquetas)",
+      "color": "lightgreen"
+    },
+    {
+      "id": "collision-detector",
+      "type": "server",
+      "label": "CollisionDetector\n(Detectar solapamientos)",
+      "color": "orange"
+    },
+    {
+      "id": "draw-elements",
+      "type": "building",
+      "label": "draw_elements()\nRender íconos",
+      "color": "gold"
+    },
+    {
+      "id": "draw-containers",
+      "type": "building",
+      "label": "draw_containers()\nRender contenedores",
+      "color": "gold"
+    },
+    {
+      "id": "draw-connections",
+      "type": "building",
+      "label": "draw_connection_line()\nRender conexiones",
+      "color": "gold"
+    },
+    {
+      "id": "draw-labels",
+      "type": "building",
+      "label": "draw_labels()\nRender etiquetas",
+      "color": "gold"
+    },
+    {
+      "id": "output-svg",
+      "type": "database",
+      "label": "diagrama.svg\n(Output SVG)",
+      "color": "lightgreen"
+    },
+    {
+      "id": "output-png",
+      "type": "database",
+      "label": "diagrama.png\n(Output PNG)",
+      "color": "lightgreen"
+    }
+  ],
+  "connections": [
+    {"from": "input", "to": "main", "label": "parse", "direction": "forward"},
+    {"from": "main", "to": "generator", "label": "generate_diagram()", "direction": "forward"},
+    {"from": "generator", "to": "layout-obj", "label": "create", "direction": "forward"},
+    {"from": "layout-obj", "to": "optimizer", "label": "optimize()", "direction": "forward"},
+    {"from": "optimizer", "to": "auto-positioner", "label": "1. calc positions", "direction": "forward"},
+    {"from": "optimizer", "to": "container-calc", "label": "2. calc dimensions", "direction": "forward"},
+    {"from": "optimizer", "to": "router-manager", "label": "3. calc paths", "direction": "forward"},
+    {"from": "optimizer", "to": "label-optimizer", "label": "4. optimize labels", "direction": "forward"},
+    {"from": "optimizer", "to": "collision-detector", "label": "5. detect/resolve", "direction": "forward"},
+    {"from": "optimizer", "to": "layout-obj", "label": "return optimized", "direction": "backward"},
+    {"from": "layout-obj", "to": "draw-containers", "label": "render", "direction": "forward"},
+    {"from": "layout-obj", "to": "draw-elements", "label": "render", "direction": "forward"},
+    {"from": "layout-obj", "to": "draw-connections", "label": "render", "direction": "forward"},
+    {"from": "layout-obj", "to": "draw-labels", "label": "render", "direction": "forward"},
+    {"from": "draw-containers", "to": "output-svg", "direction": "forward"},
+    {"from": "draw-elements", "to": "output-svg", "direction": "forward"},
+    {"from": "draw-connections", "to": "output-svg", "direction": "forward"},
+    {"from": "draw-labels", "to": "output-svg", "direction": "forward"},
+    {"from": "output-svg", "to": "output-png", "label": "convert", "direction": "forward"}
+  ]
+}

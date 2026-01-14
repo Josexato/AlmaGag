@@ -1,0 +1,112 @@
+{
+  "canvas": {"width": 1800, "height": 1400},
+  "elements": [
+    {
+      "id": "input",
+      "type": "database",
+      "label": "Layout\n(Input)",
+      "color": "lightblue"
+    },
+    {
+      "id": "phase0",
+      "type": "building",
+      "label": "Fase 0: Preparación\n- Calcular posiciones faltantes\n- Calcular dimensiones contenedores\n- Calcular rutas de conexiones",
+      "color": "gold",
+      "hp": 2
+    },
+    {
+      "id": "positioner",
+      "type": "server",
+      "label": "AutoLayoutPositioner\n3 fases:\n1. Resolver contenedores\n2. Análisis topológico\n3. Distribución espacial",
+      "color": "lightyellow",
+      "hp": 2
+    },
+    {
+      "id": "container-calc",
+      "type": "server",
+      "label": "ContainerCalculator\n- Calcular bounds\n- Considerar íconos + etiquetas\n- Aplicar padding",
+      "color": "lightyellow",
+      "hp": 1.5
+    },
+    {
+      "id": "router",
+      "type": "server",
+      "label": "RouterManager\n- Calcular paths\n- Intersección con bordes\n- Extensión para markers",
+      "color": "lightyellow",
+      "hp": 1.5
+    },
+    {
+      "id": "phase1",
+      "type": "building",
+      "label": "Fase 1: Análisis\n- Construir grafo de adyacencia\n- Calcular niveles topológicos\n- Detectar grupos conectados",
+      "color": "orange",
+      "hp": 2
+    },
+    {
+      "id": "phase2",
+      "type": "building",
+      "label": "Fase 2: Optimización Etiquetas\n- Generar posiciones candidatas\n- Evaluar colisiones\n- Minimizar densidad local",
+      "color": "cyan",
+      "hp": 2
+    },
+    {
+      "id": "label-optimizer",
+      "type": "server",
+      "label": "LabelPositionOptimizer\n- Score basado en colisiones\n- Penalización por densidad\n- Preferencias por categoría",
+      "color": "lightcyan",
+      "hp": 2
+    },
+    {
+      "id": "phase3",
+      "type": "building",
+      "label": "Fase 3: Resolución Colisiones\n- Detectar solapamientos\n- Calcular fuerzas de repulsión\n- Aplicar desplazamientos\n- Recalcular routing",
+      "color": "tomato",
+      "hp": 2.5
+    },
+    {
+      "id": "collision-detector",
+      "type": "server",
+      "label": "CollisionDetector\n- Detectar overlaps\n- Calcular vectores\n- Peso por tamaño (hp/wp)",
+      "color": "lightsalmon",
+      "hp": 2
+    },
+    {
+      "id": "iterative",
+      "type": "cloud",
+      "label": "Iteración\nHasta 100 iteraciones\no convergencia",
+      "color": "lightgray",
+      "hp": 1.5
+    },
+    {
+      "id": "validation",
+      "type": "server",
+      "label": "Validación\n- Verificar canvas bounds\n- Expandir si necesario\n- Recalcular estructuras",
+      "color": "violet",
+      "hp": 1.5
+    },
+    {
+      "id": "output",
+      "type": "database",
+      "label": "Layout\n(Optimizado)",
+      "color": "lightgreen"
+    }
+  ],
+  "connections": [
+    {"from": "input", "to": "phase0", "label": "1", "direction": "forward"},
+    {"from": "phase0", "to": "positioner", "label": "calc pos", "direction": "forward"},
+    {"from": "phase0", "to": "container-calc", "label": "calc dims", "direction": "forward"},
+    {"from": "phase0", "to": "router", "label": "calc paths", "direction": "forward"},
+    {"from": "positioner", "to": "phase1", "direction": "forward"},
+    {"from": "container-calc", "to": "phase1", "direction": "forward"},
+    {"from": "router", "to": "phase1", "direction": "forward"},
+    {"from": "phase1", "to": "phase2", "label": "2", "direction": "forward"},
+    {"from": "phase2", "to": "label-optimizer", "label": "optimize", "direction": "forward"},
+    {"from": "label-optimizer", "to": "phase3", "direction": "forward"},
+    {"from": "phase3", "to": "collision-detector", "label": "detect", "direction": "forward"},
+    {"from": "collision-detector", "to": "iterative", "label": "resolve", "direction": "forward"},
+    {"from": "iterative", "to": "phase3", "label": "repeat", "direction": "backward"},
+    {"from": "phase3", "to": "validation", "label": "validate", "direction": "forward"},
+    {"from": "validation", "to": "phase0", "label": "recalc if expanded", "direction": "backward"},
+    {"from": "validation", "to": "output", "label": "done", "direction": "forward"}
+  ]
+}

@@ -48,9 +48,14 @@ class BezierRouter(ConnectionRouter):
         # Get sizing calculator from layout if available
         sizing_calculator = getattr(layout, 'sizing', None)
 
-        # Calculate centers
-        from_center = self.get_element_center(from_elem, sizing_calculator)
-        to_center = self.get_element_center(to_elem, sizing_calculator)
+        # Calculate connection points (handles containers intelligently)
+        # Need to calculate both centers first to determine the other point
+        from_center_temp = self.get_element_center(from_elem, sizing_calculator)
+        to_center_temp = self.get_element_center(to_elem, sizing_calculator)
+
+        # Now calculate actual connection points (may be on container borders)
+        from_center = self.get_connection_point(from_elem, to_center_temp, layout, sizing_calculator)
+        to_center = self.get_connection_point(to_elem, from_center_temp, layout, sizing_calculator)
 
         # Get routing configuration
         routing = connection.get('routing', {})

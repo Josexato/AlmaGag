@@ -140,12 +140,12 @@ class LabelPositionOptimizer:
                 ("top-right", x + 20, y - 10, "start"),
             ]
         else:  # element
-            # 4 posiciones para elementos
+            # 4 posiciones para elementos (bottom primero - preferido)
             offsets = [
+                ("bottom", x, y + NEAR_OFFSET, "middle"),  # Preferido
                 ("top", x, y - NEAR_OFFSET, "middle"),
-                ("bottom", x, y + NEAR_OFFSET, "middle"),
-                ("left", x - FAR_OFFSET, y, "end"),
                 ("right", x + FAR_OFFSET, y, "start"),
+                ("left", x - FAR_OFFSET, y, "end"),
             ]
 
         for offset_name, pos_x, pos_y, anchor in offsets:
@@ -273,6 +273,10 @@ class LabelPositionOptimizer:
         if label.category == "container" and position.offset_name == "top":
             score -= 20
 
+        # Preferencia por posición "bottom" para elementos (ícono)
+        if label.category == "element" and position.offset_name == "bottom":
+            score -= 70  # Muy fuerte preferencia por debajo (supera incluso colisiones)
+
         return score
 
     def optimize_labels(
@@ -351,7 +355,8 @@ class LabelPositionOptimizer:
 
             # Generar candidatos
             candidates = self.generate_candidate_positions(label)
-            logger.debug(f"  Candidatos generados: {len(candidates)}")
+            if self.debug:
+                logger.debug(f"  Candidatos generados: {len(candidates)}")
 
             # Evaluar cada candidato
             best_score = float('inf')
@@ -360,6 +365,9 @@ class LabelPositionOptimizer:
             for candidate in candidates:
                 score = self.score_position(candidate, label, elements, placed_bboxes)
                 candidate.score = score
+
+                if self.debug:
+                    logger.debug(f"    {candidate.offset_name}: score={score:.2f}")
 
                 if score < best_score:
                     best_score = score

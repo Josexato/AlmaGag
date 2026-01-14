@@ -123,17 +123,28 @@ class ContainerCalculator:
         width = (max_x - min_x) + (2 * padding)
         height = (max_y - min_y) + (2 * padding)
 
-        # NUEVO v2.3: Reservar espacio ARRIBA para la etiqueta del contenedor
-        # Las etiquetas de contenedores se dibujan arriba (y - 10)
-        # Necesitamos expandir el contenedor hacia arriba para incluirlas
+        # NUEVO v2.3: Reservar espacio para la etiqueta del contenedor
+        # La etiqueta se dibuja DENTRO del contenedor: arriba y a la derecha del ícono
         if container.get('label'):
             label_text = container['label']
-            num_lines = len(label_text.split('\n'))
+            lines = label_text.split('\n')
+            num_lines = len(lines)
+            max_line_len = max(len(line) for line in lines) if lines else 0
+            label_width = max_line_len * 8  # 8px por carácter
             label_height = num_lines * 18 + 10  # 18px por línea + 10px de separación
 
-            # Expandir hacia arriba
+            # Expandir verticalmente (hacia arriba)
             y -= label_height
             height += label_height
+
+            # Calcular ancho necesario considerando que la etiqueta está a la derecha del ícono
+            # Etiqueta comienza en: 10 (margen) + 80 (ícono) + 10 (margen) = 100
+            label_x_position = 10 + ICON_WIDTH + 10
+            label_required_width = label_x_position + label_width + 10  # posición + ancho + margen derecho
+
+            # Expandir horizontalmente si es necesario
+            if label_required_width > width:
+                width = label_required_width
 
         # Aplicar aspect_ratio si se especifica
         aspect_ratio = container.get('aspect_ratio')

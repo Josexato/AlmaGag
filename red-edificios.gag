@@ -1,0 +1,58 @@
+{
+  "canvas": {
+  },
+  "elements": [
+    {
+      "id": "edificio_central",
+      "label": "Edificio Central\nOficinas Principales",
+      "type": "building",
+      "color": "lightblue",
+      "padding": 40,
+      "contains": [
+        {"id": "pc_central", "scope": "full"}
+      ]
+    },
+    {
+      "id": "pc_central",
+      "label": "PC Central",
+      "type": "computer",
+      "color": "gray"
+    },
+    {
+      "id": "nube",
+      "label": "Internet\nCloud Gateway",
+      "type": "cloud",
+      "color": "lightyellow"
+    },
+    {
+      "id": "edificio_sucursal",
+      "label": "Sucursal Remota\nOficina Regional",
+      "type": "building",
+      "color": "lightgreen",
+      "padding": 40,
+      "contains": [
+        {"id": "pc_sucursal", "scope": "full"}
+      ]
+    },
+    {
+      "id": "pc_sucursal",
+      "label": "PC Sucursal",
+      "type": "computer",
+      "color": "gray"
+    }
+  ],
+  "connections": [
+    {
+      "from": "edificio_central",
+      "to": "nube",
+      "label": "VPN\n100 Mbps",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "nube",
+      "to": "edificio_sucursal",
+      "label": "VPN\n100 Mbps",
+      "direction": "bidirectional"
+    }
+  ]
+}

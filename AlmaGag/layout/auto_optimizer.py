@@ -146,6 +146,8 @@ class AutoLayoutOptimizer(LayoutOptimizer):
 
         # 0.6. Auto-routing de conexiones (SDJF v2.1)
         #      Calcula paths para todas las conexiones después de posicionar elementos
+        #      IMPORTANTE: Asignar sizing al layout para que routers puedan obtener tamaños correctos
+        current.sizing = self.sizing
         self.router_manager.calculate_all_paths(current)
         self._log("Routing de conexiones calculado")
 
@@ -165,6 +167,22 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         #      Los contenedores expandidos cambian los obstáculos → rutas deben actualizarse
         self.router_manager.calculate_all_paths(current)
         self._log("Routing recalculado después de actualizar contenedores")
+
+        # 2.7. NUEVO: Verificar si canvas es suficiente y expandir si es necesario
+        #      Esto debe hacerse DESPUÉS de calcular contenedores finales
+        #      para que el canvas acomode todo desde el inicio
+        recommended_canvas = current.get_recommended_canvas()
+        if (recommended_canvas['width'] > current.canvas['width'] or
+            recommended_canvas['height'] > current.canvas['height']):
+            old_canvas = current.canvas.copy()
+            current.canvas = recommended_canvas
+            self._log(f"Canvas expandido automaticamente: "
+                      f"{old_canvas['width']}x{old_canvas['height']} -> "
+                      f"{recommended_canvas['width']}x{recommended_canvas['height']}")
+
+            # Recalcular routing con el nuevo canvas
+            self.router_manager.calculate_all_paths(current)
+            self._log("Routing recalculado con canvas expandido")
 
         # 3. Evaluación inicial
         initial_collisions = self.evaluate(current)
@@ -704,6 +722,8 @@ class AutoLayoutOptimizer(LayoutOptimizer):
 
         # CRÍTICO: Recalcular routing PRIMERO (antes de contenedores y etiquetas)
         # Las conexiones deben reflejar las nuevas posiciones de elementos
+        # Asegurar que layout tenga sizing disponible para routers
+        layout.sizing = self.sizing
         self.router_manager.calculate_all_paths(layout)
 
         self.analyze(layout)
