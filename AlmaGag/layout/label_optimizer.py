@@ -93,7 +93,9 @@ class LabelPositionOptimizer:
 
     def generate_candidate_positions(
         self,
-        label: Label
+        label: Label,
+        element_width: float = 80.0,
+        element_height: float = 50.0
     ) -> List[LabelPosition]:
         """
         Genera posiciones candidatas para una etiqueta.
@@ -109,6 +111,8 @@ class LabelPositionOptimizer:
 
         Args:
             label: Etiqueta a posicionar
+            element_width: Ancho del elemento (para calcular FAR_OFFSET)
+            element_height: Altura del elemento (para calcular NEAR_OFFSET)
 
         Returns:
             List[LabelPosition]: Lista de posiciones candidatas
@@ -116,9 +120,14 @@ class LabelPositionOptimizer:
         candidates = []
         x, y = label.anchor_x, label.anchor_y
 
-        # Offsets base
-        NEAR_OFFSET = 35  # Offset cerca del anchor (suficiente para iconos de 50px de alto)
-        FAR_OFFSET = 30   # Offset lejos del anchor
+        # Offsets calculados dinámicamente según el tamaño del elemento
+        # Fórmula: OFFSET = (dimension/2) + (1.5 * char_size)
+        # Esto garantiza ~21px de separación desde el borde del elemento
+        char_height = label.font_size
+        char_width = label.font_size * 0.6  # Aproximación ancho de carácter
+
+        NEAR_OFFSET = (element_height / 2) + (1.5 * char_height)
+        FAR_OFFSET = (element_width / 2) + (1.5 * char_width)
 
         if label.category == "connection":
             # 8 posiciones para conexiones
@@ -353,8 +362,16 @@ class LabelPositionOptimizer:
                 logger.debug(f"  Texto: '{label.text[:40]}...' " if len(label.text) > 40 else f"  Texto: '{label.text}'")
                 logger.debug(f"  Categoria: {label.category}, Prioridad: {label.priority}")
 
-            # Generar candidatos
-            candidates = self.generate_candidate_positions(label)
+            # Encontrar el elemento correspondiente para obtener su tamaño
+            element_width, element_height = 80.0, 50.0  # Valores por defecto
+            for elem in elements:
+                if elem.get('id') == label.id:
+                    element_width = elem.get('width', 80.0)
+                    element_height = elem.get('height', 50.0)
+                    break
+
+            # Generar candidatos con el tamaño del elemento
+            candidates = self.generate_candidate_positions(label, element_width, element_height)
             if self.debug:
                 logger.debug(f"  Candidatos generados: {len(candidates)}")
 

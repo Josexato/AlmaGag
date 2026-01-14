@@ -268,6 +268,43 @@ def draw_grid(dwg, width, height, grid_size=20):
 
     dwg.add(grid_group)
 
+def draw_guide_lines(dwg, width, guide_lines):
+    """
+    Dibuja líneas horizontales de guía en posiciones específicas.
+
+    Args:
+        dwg: SVG drawing object
+        width: Ancho del canvas
+        guide_lines: Lista de posiciones Y donde dibujar líneas (ej: [186, 236])
+    """
+    if not guide_lines:
+        return
+
+    # Crear grupo para las líneas de guía
+    guide_group = dwg.g(id='guide_lines', opacity=0.8)
+
+    for y in guide_lines:
+        # Línea horizontal
+        guide_group.add(dwg.line(
+            start=(0, y),
+            end=(width, y),
+            stroke='#FF0000',  # Rojo para destacar
+            stroke_width=1.5,
+            stroke_dasharray='5,5'  # Línea punteada
+        ))
+
+        # Etiqueta con la posición Y
+        guide_group.add(dwg.text(
+            f'Y={y}',
+            insert=(5, y - 3),
+            font_size='10px',
+            font_family='Arial, sans-serif',
+            fill='#FF0000',
+            font_weight='bold'
+        ))
+
+    dwg.add(guide_group)
+
 def setup_arrow_markers(dwg):
     """
     Crea los markers SVG para flechas direccionales.
@@ -310,7 +347,7 @@ def setup_arrow_markers(dwg):
         'bidirectional': (marker_start.get_funciri(), marker_end.get_funciri())
     }
 
-def generate_diagram(json_file, debug=False):
+def generate_diagram(json_file, debug=False, guide_lines=None):
     # Configurar logging si debug está activo
     if debug:
         logging.basicConfig(
@@ -403,6 +440,11 @@ def generate_diagram(json_file, debug=False):
     if debug:
         draw_grid(dwg, canvas_width, canvas_height, grid_size=20)
         logger.debug("Rejilla de guía dibujada (20px)")
+
+        # Dibujar líneas de guía horizontales (si se especifican)
+        if guide_lines:
+            draw_guide_lines(dwg, canvas_width, guide_lines)
+            logger.debug(f"Líneas de guía dibujadas en Y={guide_lines}")
 
     # Configurar markers para flechas direccionales
     markers = setup_arrow_markers(dwg)
