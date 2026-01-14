@@ -9,7 +9,7 @@ AlmaGag es un generador de diagramas SVG que transforma archivos JSON (formato S
 
 ## Diagrama de Arquitectura
 
-![Arquitectura de GAG](../examples/05-arquitectura-gag.svg)
+![Arquitectura de GAG](../diagrams/outputs/05-arquitectura-gag.svg)
 
 ## Flujo de Ejecución
 

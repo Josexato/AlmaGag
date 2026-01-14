@@ -4,11 +4,11 @@ Esta galería muestra las capacidades de AlmaGag con ejemplos prácticos.
 
 ## 01 - Íconos Registrados
 
-**Archivo**: `docs/examples/01-iconos-registrados.gag`
+**Archivo**: `examples/01-iconos-registrados.gag`
 
 Demostración de los tipos de íconos disponibles con gradientes automáticos.
 
-![Íconos registrados](../examples/01-iconos-registrados.svg)
+![Íconos registrados](../diagrams/outputs/01-iconos-registrados.svg)
 
 **Características:**
 - ✅ Tipos disponibles: `server`, `building`, `cloud`, `firewall`
@@ -30,11 +30,11 @@ Demostración de los tipos de íconos disponibles con gradientes automáticos.
 
 ## 02 - Íconos No Registrados (Fallback)
 
-**Archivo**: `docs/examples/02-iconos-no-registrados.gag`
+**Archivo**: `examples/02-iconos-no-registrados.gag`
 
 Cuando un tipo de ícono no existe, se muestra el **Banana With Tape** (BWT) como indicador visual de ambigüedad.
 
-![Íconos no registrados](../examples/02-iconos-no-registrados.svg)
+![Íconos no registrados](../diagrams/outputs/02-iconos-no-registrados.svg)
 
 **Características:**
 - ⚠️ Tipos no existentes: `router`, `database`, `switch`, `laptop`
@@ -49,11 +49,11 @@ Cuando un tipo de ícono no existe, se muestra el **Banana With Tape** (BWT) com
 
 ## 03 - Tipos de Conexiones
 
-**Archivo**: `docs/examples/03-conexiones.gag`
+**Archivo**: `examples/03-conexiones.gag`
 
 Demostración de las cuatro direcciones de flechas disponibles.
 
-![Conexiones](../examples/03-conexiones.svg)
+![Conexiones](../diagrams/outputs/03-conexiones.svg)
 
 **Características:**
 - ✅ `forward`: A → B
@@ -74,11 +74,11 @@ Demostración de las cuatro direcciones de flechas disponibles.
 
 ## 04 - Gradientes y Colores
 
-**Archivo**: `docs/examples/04-gradientes-colores.gag`
+**Archivo**: `examples/04-gradientes-colores.gag`
 
 Variedad de colores CSS y hexadecimales con gradientes automáticos.
 
-![Gradientes de colores](../examples/04-gradientes-colores.svg)
+![Gradientes de colores](../diagrams/outputs/04-gradientes-colores.svg)
 
 **Características:**
 - ✅ Nombres CSS: `lightblue`, `gold`, `tomato`, `cyan`, etc.
@@ -100,11 +100,11 @@ Variedad de colores CSS y hexadecimales con gradientes automáticos.
 
 ## 05 - Arquitectura Compleja
 
-**Archivo**: `docs/examples/05-arquitectura-gag.gag`
+**Archivo**: `examples/05-arquitectura-gag.gag`
 
 Diagrama del propio AlmaGag, mostrando su arquitectura interna.
 
-![Arquitectura de GAG](../examples/05-arquitectura-gag.svg)
+![Arquitectura de GAG](../diagrams/outputs/05-arquitectura-gag.svg)
 
 **Características:**
 - ✅ Diagrama complejo con múltiples elementos
@@ -116,11 +116,11 @@ Diagrama del propio AlmaGag, mostrando su arquitectura interna.
 
 ## 06 - Waypoints (SDJF v1.5)
 
-**Archivo**: `docs/examples/06-waypoints.gag`
+**Archivo**: `examples/06-waypoints.gag`
 
 Routing complejo usando puntos intermedios explícitos.
 
-![Waypoints](../examples/06-waypoints.svg)
+![Waypoints](../diagrams/outputs/06-waypoints.svg)
 
 **Características:**
 - ✅ Waypoints manuales para evitar elementos
@@ -143,11 +143,11 @@ Routing complejo usando puntos intermedios explícitos.
 
 ## 07 - Contenedores (SDJF v2.0)
 
-**Archivo**: `docs/examples/07-containers.gag`
+**Archivo**: `examples/07-containers.gag`
 
 Agrupación visual de elementos relacionados con contenedores.
 
-![Contenedores](../examples/07-containers.svg)
+![Contenedores](../diagrams/outputs/07-containers.svg)
 
 **Características:**
 - ✅ Contenedores con bordes redondeados
@@ -169,11 +169,11 @@ Agrupación visual de elementos relacionados con contenedores.
 
 ## 08 - Auto-Layout Completo (SDJF v2.0)
 
-**Archivo**: `docs/examples/08-auto-layout.gag`
+**Archivo**: `examples/08-auto-layout.gag`
 
 Sin coordenadas: el sistema posiciona automáticamente todos los elementos.
 
-![Auto-layout](../examples/08-auto-layout.svg)
+![Auto-layout](../diagrams/outputs/08-auto-layout.svg)
 
 **Características:**
 - ✅ **Sin x, y** en elementos
@@ -208,11 +208,11 @@ Sin coordenadas: el sistema posiciona automáticamente todos los elementos.
 
 ## 09 - Sizing Proporcional (SDJF v2.0)
 
-**Archivo**: `docs/examples/09-proportional-sizing.gag`
+**Archivo**: `examples/09-proportional-sizing.gag`
 
 Control de tamaños con propiedades `hp` (height) y `wp` (width).
 
-![Proportional sizing](../examples/09-proportional-sizing.svg)
+![Proportional sizing](../diagrams/outputs/09-proportional-sizing.svg)
 
 **Características:**
 - ✅ `hp` y `wp` para escalar elementos
@@ -242,11 +242,11 @@ Control de tamaños con propiedades `hp` (height) y `wp` (width).
 
 ## 10 - Layout Híbrido (SDJF v2.0)
 
-**Archivo**: `docs/examples/10-hybrid-layout.gag`
+**Archivo**: `examples/10-hybrid-layout.gag`
 
 Combinación de auto-layout, sizing proporcional y prioridades.
 
-![Hybrid layout](../examples/10-hybrid-layout.svg)
+![Hybrid layout](../diagrams/outputs/10-hybrid-layout.svg)
 
 **Características:**
 - ✅ Sin coordenadas (auto-layout)

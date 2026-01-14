@@ -75,7 +75,7 @@ Esta es la guía completa de documentación de AlmaGag, organizada por tipo de d
 
 ### Diagramas de Arquitectura
 
-- **[Arquitectura actual](../examples/05-arquitectura-gag.svg)** - Flujo de ejecución v2.1
+- **[Arquitectura actual](diagrams/outputs/05-arquitectura-gag.svg)** - Flujo de ejecución v2.1
 - **[Historia de arquitecturas](architecture/history/)** - Versiones anteriores
 
 ---
@@ -87,8 +87,8 @@ Esta es la guía completa de documentación de AlmaGag, organizada por tipo de d
 | Documento | Descripción |
 |-----------|-------------|
 | [ROADMAP.md](ROADMAP.md) | Plan completo de desarrollo |
-| [Diagrama de Roadmap](diagrams/roadmap-versions.svg) | Visualización de versiones |
-| [Arquitectura v2.1](diagrams/routing-architecture.svg) | Diseño del módulo routing |
+| [Diagrama de Roadmap](diagrams/svgs/roadmap-versions.svg) | Visualización de versiones |
+| [Arquitectura v2.1](diagrams/svgs/routing-architecture.svg) | Diseño del módulo routing |
 
 ### Resumen del Roadmap
 
@@ -197,19 +197,19 @@ docs/
 
 ### Roadmap
 
-![Roadmap de Versiones](diagrams/roadmap-versions.svg)
+![Roadmap de Versiones](diagrams/svgs/roadmap-versions.svg)
 
 Muestra la evolución de SDJF desde v1.0 hasta v3.0 planificado.
 
 ### Arquitectura v2.1
 
-![Arquitectura del Módulo Routing](diagrams/routing-architecture.svg)
+![Arquitectura del Módulo Routing](diagrams/svgs/routing-architecture.svg)
 
 Muestra el diseño propuesto del módulo `routing/` para v2.1.
 
 ### Arquitectura v2.1 (Código Actual)
 
-![Arquitectura GAG](examples/05-arquitectura-gag.svg)
+![Arquitectura GAG](diagrams/outputs/05-arquitectura-gag.svg)
 
 Diagrama auto-documentado del flujo de ejecución actual.
 
