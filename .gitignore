@@ -29,8 +29,8 @@ debug/outputs/*.svg
 *.png
 *.svg
 
-# Keep examples SVG outputs gitignored (regenerate on demand)
-# docs/diagrams/outputs/*.svg
+# Excepción: Permitir SVGs de documentación (generados y versionados)
+!docs/diagrams/svgs/*.svg
 
 # OS
 .DS_Store
