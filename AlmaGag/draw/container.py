@@ -97,7 +97,7 @@ def calculate_container_bounds(container, elements_by_id):
     }
 
 
-def draw_container(dwg, container, elements_by_id):
+def draw_container(dwg, container, elements_by_id, draw_label=True):
     """
     Dibuja un elemento contenedor como un rectángulo con bordes redondeados
     y un ícono en la esquina superior izquierda.
@@ -113,6 +113,8 @@ def draw_container(dwg, container, elements_by_id):
             - 'aspect_ratio' (opcional): proporción width/height
             - 'padding' (opcional): espacio interno (default: 40)
         elements_by_id (dict): Mapa de id → elemento.
+        draw_label (bool): Si es False, no dibuja la etiqueta del contenedor.
+                          Útil cuando la etiqueta se maneja externamente (default: True).
     """
     # IMPORTANTE (v2.2+): Usar dimensiones pre-calculadas si existen.
     # container_calculator ya calculó las dimensiones considerando
@@ -178,21 +180,22 @@ def draw_container(dwg, container, elements_by_id):
             opacity=1.0
         ))
 
-    # Dibujar etiqueta del contenedor (si existe)
-    label = container.get('label', '')
-    if label:
-        # Posicionar etiqueta arriba del contenedor
-        label_x = x + width / 2
-        label_y = y - 10
+    # Dibujar etiqueta del contenedor (si existe y draw_label=True)
+    if draw_label:
+        label = container.get('label', '')
+        if label:
+            # Posicionar etiqueta arriba del contenedor
+            label_x = x + width / 2
+            label_y = y - 10
 
-        lines = label.split('\n')
-        for i, line in enumerate(lines):
-            dwg.add(dwg.text(
-                line,
-                insert=(label_x, label_y - (len(lines) - 1 - i) * 18),
-                text_anchor="middle",
-                font_size="16px",
-                font_family="Arial, sans-serif",
-                font_weight="bold",
-                fill="black"
-            ))
+            lines = label.split('\n')
+            for i, line in enumerate(lines):
+                dwg.add(dwg.text(
+                    line,
+                    insert=(label_x, label_y - (len(lines) - 1 - i) * 18),
+                    text_anchor="middle",
+                    font_size="16px",
+                    font_family="Arial, sans-serif",
+                    font_weight="bold",
+                    fill="black"
+                ))

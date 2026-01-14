@@ -149,6 +149,7 @@ def generate_diagram(json_file, debug=False):
 
     # Obtener resultados optimizados
     elements = optimized_layout.elements
+    connections = optimized_layout.connections  # Conexiones con rutas optimizadas
     label_positions = optimized_layout.label_positions
     conn_labels = optimized_layout.connection_labels
     elements_by_id = {e['id']: e for e in elements}
@@ -158,17 +159,17 @@ def generate_diagram(json_file, debug=False):
     normal_elements = [e for e in elements if 'contains' not in e]
 
     # === Renderizado en orden correcto ===
-    # 0. Dibujar todos los contenedores (fondo)
+    # 0. Dibujar todos los contenedores (fondo, sin labels - se dibujan después optimizadas)
     for container in containers:
-        draw_container(dwg, container, elements_by_id)
+        draw_container(dwg, container, elements_by_id, draw_label=False)
 
     # 1. Dibujar todos los íconos normales (sin etiquetas)
     for elem in normal_elements:
         draw_icon_shape(dwg, elem)
 
-    # 2. Dibujar todas las conexiones (sin etiquetas)
+    # 2. Dibujar todas las conexiones optimizadas (sin etiquetas)
     conn_centers = {}
-    for conn in all_connections:
+    for conn in connections:  # Usar connections optimizadas, no all_connections
         center = draw_connection_line(dwg, elements_by_id, conn, markers)
         key = f"{conn['from']}->{conn['to']}"
         conn_centers[key] = center
@@ -188,8 +189,8 @@ def generate_diagram(json_file, debug=False):
     # Recolectar todas las etiquetas a optimizar
     labels_to_optimize = []
 
-    # Etiquetas de conexiones
-    for conn in all_connections:
+    # Etiquetas de conexiones optimizadas
+    for conn in connections:  # Usar connections optimizadas
         if conn.get('label'):
             key = f"{conn['from']}->{conn['to']}"
             center = conn_centers.get(key)
@@ -227,7 +228,8 @@ def generate_diagram(json_file, debug=False):
     logger.debug(f"  - Contenedores: {sum(1 for l in labels_to_optimize if l.category == 'container')}")
     logger.debug(f"  - Elementos: {sum(1 for l in labels_to_optimize if l.category == 'element')}")
 
-    optimized_label_positions = label_optimizer.optimize_labels(labels_to_optimize, all_elements)
+    # CRÍTICO: Pasar elements optimizados (con coordenadas), NO all_elements (JSON crudo)
+    optimized_label_positions = label_optimizer.optimize_labels(labels_to_optimize, elements)
 
     logger.debug(f"\nPosiciones optimizadas generadas: {len(optimized_label_positions)}")
     logger.debug("="*70 + "\n")
@@ -240,8 +242,8 @@ def generate_diagram(json_file, debug=False):
             position_info = label_positions.get(elem['id'])
             draw_icon_label(dwg, elem, position_info)
 
-    # Dibujar etiquetas de conexiones con posiciones optimizadas
-    for conn in all_connections:
+    # Dibujar etiquetas de conexiones optimizadas con posiciones optimizadas
+    for conn in connections:  # Usar connections optimizadas
         if conn.get('label'):
             key = f"{conn['from']}->{conn['to']}"
             optimized_pos = optimized_label_positions.get(key)
@@ -279,7 +281,6 @@ def generate_diagram(json_file, debug=False):
                         font_weight="bold",
                         fill="black"
                     ))
-
 
     dwg.save()
     print(f"[OK] Diagrama generado exitosamente: {output_svg}")

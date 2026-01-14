@@ -688,6 +688,7 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         Actualiza:
         - elements_by_id
         - Dimensiones de contenedores (basándose en nuevas posiciones)
+        - Rutas de conexiones (routing optimizado para nuevas posiciones)
         - Análisis de grafo (levels, groups, priorities)
         - Posiciones de etiquetas (recalculadas desde cero)
 
@@ -695,6 +696,10 @@ class AutoLayoutOptimizer(LayoutOptimizer):
             layout: Layout a recalcular
         """
         layout.elements_by_id = {e['id']: e for e in layout.elements}
+
+        # CRÍTICO: Recalcular routing PRIMERO (antes de contenedores y etiquetas)
+        # Las conexiones deben reflejar las nuevas posiciones de elementos
+        self.router_manager.calculate_all_paths(layout)
 
         self.analyze(layout)
         layout.label_positions = {}
