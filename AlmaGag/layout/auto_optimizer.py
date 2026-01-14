@@ -161,6 +161,11 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         self.container_calculator.update_container_dimensions(current)
         self._log("Dimensiones de contenedores recalculadas (incluyendo etiquetas)")
 
+        # 2.6. CRÍTICO: Recalcular routing DESPUÉS de actualizar contenedores
+        #      Los contenedores expandidos cambian los obstáculos → rutas deben actualizarse
+        self.router_manager.calculate_all_paths(current)
+        self._log("Routing recalculado después de actualizar contenedores")
+
         # 3. Evaluación inicial
         initial_collisions = self.evaluate(current)
 

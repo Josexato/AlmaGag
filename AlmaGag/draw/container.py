@@ -184,15 +184,19 @@ def draw_container(dwg, container, elements_by_id, draw_label=True):
     if draw_label:
         label = container.get('label', '')
         if label:
-            # Posicionar etiqueta arriba del contenedor
-            label_x = x + width / 2
-            label_y = y - 10
-
+            # CRÍTICO: El contenedor YA tiene espacio reservado arriba (container_calculator expandió y hacia arriba)
+            # Dibujar label DENTRO del header reservado, no fuera
             lines = label.split('\n')
+            label_height = len(lines) * 18 + 10
+
+            label_x = x + width / 2
+            # label_y_base: dentro del header reservado
+            label_y_base = y + label_height - 10
+
             for i, line in enumerate(lines):
                 dwg.add(dwg.text(
                     line,
-                    insert=(label_x, label_y - (len(lines) - 1 - i) * 18),
+                    insert=(label_x, label_y_base - (len(lines) - 1 - i) * 18),
                     text_anchor="middle",
                     font_size="16px",
                     font_family="Arial, sans-serif",
