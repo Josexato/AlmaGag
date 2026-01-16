@@ -67,9 +67,9 @@ def dump_layout_table(optimized_layout, elements_by_id, containers):
                 'height': height
             })
 
-            # ÍCONO DEL CONTENEDOR
-            icon_x_local = 10
-            icon_y_local = 10
+            # ÍCONO DEL CONTENEDOR (pegado al borde superior)
+            icon_x_local = 10  # Padding left
+            icon_y_local = 0   # Sin padding top - pegado arriba
             icon_x_global = x_global + icon_x_local if x_global != 'n/a' else 'n/a'
             icon_y_global = y_global + icon_y_local if y_global != 'n/a' else 'n/a'
 
@@ -90,7 +90,7 @@ def dump_layout_table(optimized_layout, elements_by_id, containers):
             # ETIQUETA DEL CONTENEDOR
             if element.get('label'):
                 label_x_local = 10 + ICON_WIDTH + 10
-                label_y_local = 5 + 16
+                label_y_local = 16  # Alineada con el icono (baseline)
                 label_x_global = x_global + label_x_local if x_global != 'n/a' else 'n/a'
                 label_y_global = y_global + label_y_local if y_global != 'n/a' else 'n/a'
 
@@ -305,6 +305,61 @@ def draw_guide_lines(dwg, width, guide_lines):
 
     dwg.add(guide_group)
 
+def draw_debug_free_ranges(dwg, free_ranges, width):
+    """
+    Dibuja las franjas libres de redistribución en modo debug.
+
+    Args:
+        dwg: SVG drawing object
+        free_ranges: Lista de tuplas (y_start, y_end) representando franjas libres
+        width: Ancho del canvas
+    """
+    if not free_ranges:
+        return
+
+    # Color azul acero claro (light steel blue)
+    light_steel_blue = '#B0C4DE'
+
+    # Crear grupo para las franjas con baja opacidad para que no oculte el contenido
+    ranges_group = dwg.g(id='debug_free_ranges', opacity=0.15)
+
+    for i, (y_start, y_end) in enumerate(free_ranges):
+        height = y_end - y_start
+
+        # Rectángulo de franja
+        ranges_group.add(dwg.rect(
+            insert=(0, y_start),
+            size=(width, height),
+            fill=light_steel_blue,
+            stroke='#4682B4',  # Steel blue más oscuro para el borde
+            stroke_width=2,
+            stroke_dasharray='5,5'
+        ))
+
+        # Fondo blanco semi-transparente para el texto
+        text_bg_width = 250
+        text_bg_height = 20
+        ranges_group.add(dwg.rect(
+            insert=(8, y_start + 2),
+            size=(text_bg_width, text_bg_height),
+            fill='white',
+            opacity=0.8,
+            rx=3,
+            ry=3
+        ))
+
+        # Etiqueta con información de la franja
+        ranges_group.add(dwg.text(
+            f'Franja {i+1}: Y[{y_start:.0f}-{y_end:.0f}] h={height:.0f}px',
+            insert=(10, y_start + 16),
+            font_size='12px',
+            font_family='Arial, sans-serif',
+            fill='#2F4F4F',  # Dark slate gray para mejor contraste
+            font_weight='bold'
+        ))
+
+    dwg.add(ranges_group)
+
 def setup_arrow_markers(dwg):
     """
     Crea los markers SVG para flechas direccionales.
@@ -347,7 +402,7 @@ def setup_arrow_markers(dwg):
         'bidirectional': (marker_start.get_funciri(), marker_end.get_funciri())
     }
 
-def generate_diagram(json_file, debug=False, guide_lines=None):
+def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False, guide_lines=None):
     # Configurar logging si debug está activo
     if debug:
         logging.basicConfig(
@@ -436,23 +491,29 @@ def generate_diagram(json_file, debug=False, guide_lines=None):
     dwg = svgwrite.Drawing(output_svg, size=(canvas_width, canvas_height))
     dwg.viewbox(0, 0, canvas_width, canvas_height)
 
-    # Dibujar rejilla de guía (solo en modo debug)
-    if debug:
+    # Agregar franja de debug PRIMERO (debe estar debajo de todo)
+    if visualdebug:
+        add_debug_badge(dwg, canvas_width, canvas_height)
+        logger.debug("Badge de debug agregado")
+
+    # Dibujar rejilla de guía (solo en modo visualdebug)
+    if visualdebug:
         draw_grid(dwg, canvas_width, canvas_height, grid_size=20)
         logger.debug("Rejilla de guía dibujada (20px)")
 
-        # Dibujar líneas de guía horizontales (si se especifican)
-        if guide_lines:
-            draw_guide_lines(dwg, canvas_width, guide_lines)
-            logger.debug(f"Líneas de guía dibujadas en Y={guide_lines}")
+    # Dibujar líneas de guía horizontales (si se especifican)
+    if guide_lines:
+        draw_guide_lines(dwg, canvas_width, guide_lines)
+        logger.debug(f"Líneas de guía dibujadas en Y={guide_lines}")
 
     # Configurar markers para flechas direccionales
     markers = setup_arrow_markers(dwg)
 
-    # Agregar badge de debug solo en modo debug (fecha de generación y versión GAG)
-    if debug:
-        add_debug_badge(dwg, canvas_width, canvas_height)
-        logger.debug("Badge de debug agregado")
+    # Dibujar franjas libres de redistribución (modo visualdebug)
+    if visualdebug:
+        if hasattr(optimized_layout, 'debug_free_ranges') and optimized_layout.debug_free_ranges:
+            draw_debug_free_ranges(dwg, optimized_layout.debug_free_ranges, canvas_width)
+            logger.debug(f"Franjas libres dibujadas: {len(optimized_layout.debug_free_ranges)}")
 
     # Obtener resultados optimizados
     elements = optimized_layout.elements
@@ -546,7 +607,8 @@ def generate_diagram(json_file, debug=False, guide_lines=None):
     logger.debug(f"  - Elementos: {sum(1 for l in labels_to_optimize if l.category == 'element')}")
 
     # CRÍTICO: Pasar elements optimizados (con coordenadas), NO all_elements (JSON crudo)
-    optimized_label_positions = label_optimizer.optimize_labels(labels_to_optimize, elements)
+    # v3.2: Pasar también connections para detectar colisiones entre etiquetas y líneas
+    optimized_label_positions = label_optimizer.optimize_labels(labels_to_optimize, elements, connections)
 
     logger.debug(f"\nPosiciones optimizadas generadas: {len(optimized_label_positions)}")
     logger.debug("="*70 + "\n")
@@ -608,8 +670,9 @@ def generate_diagram(json_file, debug=False, guide_lines=None):
                 container_y = container['y']
 
                 # 1. Ícono del contenedor (siempre en posición fija)
-                icon_local_x = 10
-                icon_local_y = 10
+                # El icono está pegado al borde superior (sin padding top)
+                icon_local_x = 10  # Padding left
+                icon_local_y = 0   # Sin padding top - pegado arriba
                 logger.debug(f"\n  1) ICONO CONTENEDOR:")
                 logger.debug(f"     Local: ({icon_local_x}, {icon_local_y})")
                 logger.debug(f"     Size: {ICON_WIDTH} x {ICON_HEIGHT}")
@@ -617,7 +680,7 @@ def generate_diagram(json_file, debug=False, guide_lines=None):
 
                 # 2. Etiqueta del contenedor
                 label_local_x = 10 + ICON_WIDTH + 10
-                label_local_y = 10 + 16  # baseline primera línea (alineado con top del ícono)
+                label_local_y = 16  # baseline primera línea (alineado con top del ícono)
                 lines = container['label'].split('\n')
                 label_width = max(len(line) for line in lines) * 8
                 label_height = len(lines) * 18
@@ -674,5 +737,6 @@ def generate_diagram(json_file, debug=False, guide_lines=None):
     dwg.save()
     print(f"[OK] Diagrama generado exitosamente: {output_svg}")
 
-    # Convertir automáticamente a PNG en carpeta debugs/
-    convert_svg_to_png(output_svg)
+    # Convertir automáticamente a PNG si se especifica la opción
+    if exportpng:
+        convert_svg_to_png(output_svg)
