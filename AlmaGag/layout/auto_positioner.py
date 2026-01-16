@@ -261,17 +261,27 @@ class AutoLayoutPositioner:
 
             logger.debug(f"\n[NIVEL {level_num}] Y={y_position:.1f}, Elementos={num_elements}, Max_height={max_height:.1f}")
 
-            # Calcular ancho total necesario para este nivel
-            total_width = num_elements * HORIZONTAL_SPACING
+            # Obtener anchos reales de todos los elementos del nivel
+            widths = []
+            for elem in level_elements:
+                width, height = self.sizing.get_element_size(elem)
+                widths.append(width)
+
+            # Calcular ancho total: suma de anchos reales + spacing entre elementos
+            spacing_between = 40  # Espacio entre elementos (menor que antes para aprovechar espacio)
+            total_width = sum(widths) + (num_elements - 1) * spacing_between
 
             # Calcular X inicial para centrar el nivel
-            start_x = center_x - (total_width / 2) + (HORIZONTAL_SPACING / 2)
+            start_x = center_x - (total_width / 2)
 
-            # Posicionar elementos horizontalmente
+            # Posicionar elementos horizontalmente considerando anchos reales
+            current_x = start_x
             for i, elem in enumerate(level_elements):
-                elem['x'] = start_x + (i * HORIZONTAL_SPACING)
+                elem['x'] = current_x
                 elem['y'] = y_position
-                logger.debug(f"  {elem['id']}: ({elem['x']:.1f}, {elem['y']:.1f})")
+                logger.debug(f"  {elem['id']}: ({elem['x']:.1f}, {elem['y']:.1f}) width={widths[i]:.1f}")
+                # Avanzar X para el siguiente elemento
+                current_x += widths[i] + spacing_between
 
             # Actualizar current_y para el siguiente nivel
             # current_y = donde termina este nivel + spacing
@@ -417,12 +427,22 @@ class AutoLayoutPositioner:
 
         # Distribuir horizontalmente en cada nivel
         for level, elems in by_level.items():
-            spacing = 120
-            total_width = len(elems) * spacing
+            # Obtener anchos reales
+            widths = []
+            for elem in elems:
+                width, height = self.sizing.get_element_size(elem)
+                widths.append(width)
+
+            # Calcular ancho total con spacing entre elementos
+            spacing_between = 40
+            total_width = sum(widths) + (len(elems) - 1) * spacing_between
             start_x = (layout.canvas['width'] - total_width) / 2
 
+            # Posicionar considerando anchos reales
+            current_x = start_x
             for i, elem in enumerate(elems):
-                elem['x'] = start_x + i * spacing + spacing / 2
+                elem['x'] = current_x
+                current_x += widths[i] + spacing_between
 
     def _calculate_y_only(self, layout: Layout, elements: List[dict]):
         """
@@ -1113,12 +1133,23 @@ class AutoLayoutPositioner:
                 level_elements[0]['x'] = center_x
                 level_elements[0]['y'] = y_position
             else:
-                spacing = 120
-                total_width = num_elements * spacing
-                start_x = center_x - (total_width / 2) + (spacing / 2)
+                # Obtener anchos reales
+                widths = []
+                for elem in level_elements:
+                    width, height = self.sizing.get_element_size(elem)
+                    widths.append(width)
+
+                # Calcular ancho total con spacing entre elementos
+                spacing_between = 40
+                total_width = sum(widths) + (num_elements - 1) * spacing_between
+                start_x = center_x - (total_width / 2)
+
+                # Posicionar considerando anchos reales
+                current_x = start_x
                 for i, elem in enumerate(level_elements):
-                    elem['x'] = start_x + (i * spacing)
+                    elem['x'] = current_x
                     elem['y'] = y_position
+                    current_x += widths[i] + spacing_between
 
             logger.debug(f"    Nivel {level_num} → Franja {franja_idx+1}, Y={y_position:.1f}")
 
