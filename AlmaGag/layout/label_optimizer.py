@@ -213,7 +213,8 @@ class LabelPositionOptimizer:
         position: LabelPosition,
         label: Label,
         elements: List[dict],
-        placed_labels: List[Tuple[float, float, float, float]]
+        placed_labels: List[Tuple[float, float, float, float]],
+        connections: List[dict] = None
     ) -> float:
         """
         Evalúa la calidad de una posición para una etiqueta.
@@ -223,6 +224,7 @@ class LabelPositionOptimizer:
         Factores considerados:
         - Colisiones con elementos: +100 por cada colisión
         - Colisiones con otras etiquetas: +50 por cada colisión
+        - Colisiones con líneas de conexión: +75 por cada colisión (v3.2)
         - Fuera del canvas: +1000 (penalización severa)
         - Distancia al anchor: +1 por cada 10 píxeles
         - Preferencia por "top" para conexiones: -10
@@ -233,6 +235,7 @@ class LabelPositionOptimizer:
             label: Etiqueta a evaluar
             elements: Lista de elementos del diagrama
             placed_labels: Lista de bboxes de etiquetas ya colocadas
+            connections: Lista de conexiones con endpoints (opcional, v3.2)
 
         Returns:
             float: Score de la posición (menor es mejor)
@@ -260,6 +263,31 @@ class LabelPositionOptimizer:
         # Colisiones con otras etiquetas
         if self.geometry.label_intersects_labels(label_bbox, placed_labels):
             score += 50
+
+        # Colisiones con líneas de conexión (v3.2)
+        if connections:
+            # Crear lookup de elementos por ID
+            elements_by_id = {elem.get('id'): elem for elem in elements if elem.get('id')}
+
+            for conn in connections:
+                # Obtener endpoints de la conexión
+                from_elem = elements_by_id.get(conn.get('from'))
+                to_elem = elements_by_id.get(conn.get('to'))
+
+                if from_elem and to_elem:
+                    # Calcular centro de cada elemento
+                    from_x = from_elem.get('x', 0) + from_elem.get('width', 80) / 2
+                    from_y = from_elem.get('y', 0) + from_elem.get('height', 50) / 2
+                    to_x = to_elem.get('x', 0) + to_elem.get('width', 80) / 2
+                    to_y = to_elem.get('y', 0) + to_elem.get('height', 50) / 2
+
+                    line_endpoints = (from_x, from_y, to_x, to_y)
+
+                    # Verificar si la línea cruza el bbox de la etiqueta
+                    if self.geometry.line_intersects_rect(line_endpoints, label_bbox):
+                        score += 75
+                        if self.debug:
+                            logger.debug(f"    Colisión con línea {conn.get('from')}->{conn.get('to')} (+75)")
 
         # Distancia al anchor (preferir cerca)
         distance = ((position.x - label.anchor_x)**2 + (position.y - label.anchor_y)**2)**0.5
@@ -291,7 +319,8 @@ class LabelPositionOptimizer:
     def optimize_labels(
         self,
         labels: List[Label],
-        elements: List[dict]
+        elements: List[dict],
+        connections: List[dict] = None
     ) -> Dict[str, LabelPosition]:
         """
         Optimiza posiciones de todas las etiquetas minimizando colisiones.
@@ -306,6 +335,7 @@ class LabelPositionOptimizer:
         Args:
             labels: Lista de etiquetas a posicionar
             elements: Lista de elementos del diagrama
+            connections: Lista de conexiones para detectar colisiones (opcional, v3.2)
 
         Returns:
             Dict[str, LabelPosition]: Mapa de label_id → mejor posición
@@ -380,7 +410,7 @@ class LabelPositionOptimizer:
             best_position = None
 
             for candidate in candidates:
-                score = self.score_position(candidate, label, elements, placed_bboxes)
+                score = self.score_position(candidate, label, elements, placed_bboxes, connections)
                 candidate.score = score
 
                 if self.debug:

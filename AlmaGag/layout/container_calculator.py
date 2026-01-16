@@ -62,7 +62,7 @@ class ContainerCalculator:
             return (x, y, 200, 150)
 
         # Padding (espacio interno)
-        padding = container.get('padding', 40)
+        padding = container.get('padding', 10)
 
         # Encontrar bounds de todos los elementos contenidos (íconos + etiquetas)
         min_x = float('inf')
@@ -117,25 +117,29 @@ class ContainerCalculator:
             y = container.get('y', 0)
             return (x, y, 200, 150)
 
-        # Aplicar padding
-        x = min_x - padding
-        y = min_y - padding
-        width = (max_x - min_x) + (2 * padding)
-        height = (max_y - min_y) + (2 * padding)
+        # Calcular dimensiones del contenido (elementos contenidos)
+        content_width = max_x - min_x
+        content_height = max_y - min_y
 
-        # NUEVO v2.3: Reservar espacio para la etiqueta del contenedor
-        # La etiqueta se dibuja DENTRO del contenedor: arriba y a la derecha del ícono
+        # Aplicar padding horizontal
+        x = min_x - padding
+        width = content_width + (2 * padding)
+
+        # Calcular espacio del header del contenedor (icono + etiqueta)
+        header_height = 0
         if container.get('label'):
             label_text = container['label']
             lines = label_text.split('\n')
             num_lines = len(lines)
             max_line_len = max(len(line) for line in lines) if lines else 0
             label_width = max_line_len * 8  # 8px por carácter
-            label_height = num_lines * 18 + 10  # 18px por línea + 10px de separación
+            label_height = num_lines * 18  # 18px por línea
 
-            # Expandir verticalmente (hacia arriba)
-            y -= label_height
-            height += label_height
+            # El icono del contenedor tiene 50px de altura
+            icon_height = 50
+
+            # El header ocupa el máximo entre icono y etiqueta
+            header_height = max(icon_height, label_height)
 
             # Calcular ancho necesario considerando que la etiqueta está a la derecha del ícono
             # Etiqueta comienza en: 10 (margen) + 80 (ícono) + 10 (margen) = 100
@@ -145,6 +149,14 @@ class ContainerCalculator:
             # Expandir horizontalmente si es necesario
             if label_required_width > width:
                 width = label_required_width
+
+        # Altura total = header + padding_mid + content + padding_bottom
+        # = (2 * padding) + header_height + content_height
+        height = (2 * padding) + header_height + content_height
+
+        # Posición Y del contenedor (arriba de los elementos)
+        # El contenedor empieza en: min_y - (header + padding_mid)
+        y = min_y - padding - header_height
 
         # Aplicar aspect_ratio si se especifica
         aspect_ratio = container.get('aspect_ratio')

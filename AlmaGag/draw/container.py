@@ -39,7 +39,7 @@ def calculate_container_bounds(container, elements_by_id):
         }
 
     # Obtener padding (espacio interno)
-    padding = container.get('padding', 40)
+    padding = container.get('padding', 10)
 
     # Encontrar bounds de todos los elementos contenidos
     min_x = float('inf')
@@ -111,7 +111,7 @@ def draw_container(dwg, container, elements_by_id, draw_label=True):
             - 'label' (opcional): etiqueta del contenedor
             - 'color' (opcional): color del contenedor
             - 'aspect_ratio' (opcional): proporción width/height
-            - 'padding' (opcional): espacio interno (default: 40)
+            - 'padding' (opcional): espacio interno (default: 10)
         elements_by_id (dict): Mapa de id → elemento.
         draw_label (bool): Si es False, no dibuja la etiqueta del contenedor.
                           Útil cuando la etiqueta se maneja externamente (default: True).
@@ -157,10 +157,11 @@ def draw_container(dwg, container, elements_by_id, draw_label=True):
     dwg.add(rect)
 
     # Dibujar ícono en esquina superior izquierda
+    # El icono va pegado al borde superior (sin padding top)
     icon_type = container.get('type', 'building')
     icon_size = min(ICON_WIDTH, ICON_HEIGHT) * 0.6  # Ícono más pequeño
-    icon_x = x + 10
-    icon_y = y + 10
+    icon_x = x + 10  # Padding left
+    icon_y = y  # Sin padding top - pegado arriba
 
     # Intentar cargar módulo del ícono
     try:

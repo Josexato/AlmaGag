@@ -32,6 +32,7 @@ def get_gag_version() -> str:
 def add_debug_badge(dwg, canvas_width: int, canvas_height: int) -> None:
     """
     Agrega un badge de debug en la esquina superior derecha del SVG.
+    También dibuja una franja de fondo azul marino claro para el área de debug.
 
     El badge muestra:
     - Fecha y hora de generación (en rojo)
@@ -48,14 +49,24 @@ def add_debug_badge(dwg, canvas_width: int, canvas_height: int) -> None:
     badge_width = 190
     badge_height = 60
 
-    # Rectángulo de fondo semi-transparente
+    # FRANJA DE DEBUG: Dibuja fondo azul marino claro para toda el área de debug
+    # Altura total: 10px (arriba) + 60px (badge) + 10px (abajo) = 80px
+    debug_area_height = 10 + badge_height + 10
+    dwg.add(dwg.rect(
+        insert=(0, 0),
+        size=(canvas_width, debug_area_height),
+        fill='#E6F2FF',  # Azul marino muy claro
+        opacity=0.3
+    ))
+
+    # Rectángulo de fondo azul acero claro para el badge (light steel blue)
     dwg.add(dwg.rect(
         insert=(badge_x, badge_y),
         size=(badge_width, badge_height),
-        fill='white',
-        fill_opacity=0.85,
-        stroke='#CCCCCC',
-        stroke_width=1,
+        fill='#B0C4DE',  # Light steel blue
+        fill_opacity=0.9,
+        stroke='#4682B4',  # Steel blue
+        stroke_width=2,
         rx=5,
         ry=5
     ))
@@ -67,7 +78,8 @@ def add_debug_badge(dwg, canvas_width: int, canvas_height: int) -> None:
         insert=(badge_x + 10, badge_y + 22),
         font_size="11px",
         font_family="Arial, monospace",
-        fill="#FF0000"  # ROJO
+        fill="#001F3F",  # Navy blue oscuro para contraste con azul acero
+        font_weight="bold"
     ))
 
     # Texto línea 2: Versión de GAG
@@ -77,7 +89,8 @@ def add_debug_badge(dwg, canvas_width: int, canvas_height: int) -> None:
         insert=(badge_x + 10, badge_y + 42),
         font_size="11px",
         font_family="Arial, monospace",
-        fill="#FF0000"  # ROJO
+        fill="#001F3F",  # Navy blue oscuro para contraste con azul acero
+        font_weight="bold"
     ))
 
 
