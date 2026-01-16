@@ -7,8 +7,6 @@
     {
       "id": "input",
       "type": "building",
-      "x": 650,
-      "y": 50,
       "label": "archivo.gag\n(JSON SDJF v3.0)",
       "hp": 1.3,
       "color": "lightblue",
@@ -17,16 +15,12 @@
     {
       "id": "main",
       "type": "server",
-      "x": 650,
-      "y": 160,
       "label": "main.py\n(CLI)",
       "color": "lightgreen"
     },
     {
       "id": "generator",
       "type": "server",
-      "x": 650,
-      "y": 270,
       "label": "generator.py\n(orquestador)",
       "hp": 1.5,
       "wp": 1.3,
@@ -36,8 +30,6 @@
     {
       "id": "svgwrite",
       "type": "cloud",
-      "x": 1050,
-      "y": 270,
       "label": "svgwrite\n(librería externa)",
       "color": "cyan"
     },
@@ -71,8 +63,6 @@
     {
       "id": "optimizer",
       "type": "server",
-      "x": 650,
-      "y": 520,
       "label": "AutoLayoutOptimizer\nv3.0 Jerárquico",
       "hp": 1.8,
       "wp": 1.5,
@@ -129,8 +119,6 @@
     {
       "id": "render",
       "type": "server",
-      "x": 650,
-      "y": 810,
       "label": "Renderizado SVG\n(3 fases secuenciales)",
       "hp": 1.5,
       "color": "purple",
@@ -172,8 +160,6 @@
     {
       "id": "output",
       "type": "building",
-      "x": 650,
-      "y": 1000,
       "label": "archivo.svg\n(Salida vectorial)",
       "hp": 1.3,
       "color": "lightgreen",
