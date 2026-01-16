@@ -245,6 +245,10 @@ class AutoLayoutOptimizer(LayoutOptimizer):
             # Crear candidato (copia)
             candidate = best_layout.copy()
 
+            # Log de inicio de iteración (verbose)
+            if self.verbose:
+                self._log(f"Iteración {iteration + 1}/{max_iterations}: probando mejoras...")
+
             # Estrategia A: Reubicar etiquetas
             improved = self._try_relocate_labels(candidate)
 
@@ -280,19 +284,29 @@ class AutoLayoutOptimizer(LayoutOptimizer):
                         candidate.invalidate_collision_cache()
                         self._recalculate_structures(candidate)
                 else:
-                    # Estrategia C: Expandir canvas
+                    # Estrategia C: Expandir canvas y continuar optimizando
                     candidate.canvas = candidate.get_recommended_canvas()
-                    break
+                    # Recalcular estructuras después de expandir
+                    candidate.invalidate_collision_cache()
+                    self._recalculate_structures(candidate)
+                    # Resetear moved_elements para permitir mover elementos nuevamente
+                    moved_elements = []
+                    if self.verbose:
+                        self._log(f"  Canvas expandido, reseteando elementos movidos")
 
             # Evaluar candidato
             collisions = self.evaluate(candidate)
 
             # Guardar si es mejor
             if collisions < min_collisions:
+                prev_collisions = min_collisions
                 best_layout = candidate
                 min_collisions = collisions
-
-                self._log(f"Iteración {iteration + 1}: {collisions} colisiones")
+                if self.verbose:
+                    self._log(f"  [OK] Mejora: {collisions} colisiones (reduccion: {prev_collisions - collisions})")
+            else:
+                if self.verbose:
+                    self._log(f"  [--] Sin mejora: {collisions} colisiones (mejor: {min_collisions})")
 
         if self.verbose and min_collisions > 0:
             self._log(f"[WARN] {min_collisions} colisiones no resueltas (inicial: {initial_collisions})")
