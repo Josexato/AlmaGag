@@ -47,19 +47,20 @@ class AutoLayoutOptimizer(LayoutOptimizer):
 
     POSITIONS = ['bottom', 'right', 'top', 'left']
 
-    def __init__(self, verbose: bool = False):
+    def __init__(self, verbose: bool = False, visualdebug: bool = False):
         """
         Inicializa el optimizador.
 
         Args:
             verbose: Si True, imprime información de debug
+            visualdebug: Si True, usa TOP_MARGIN grande para área de debug visual
         """
         super().__init__(verbose)
         self.sizing = SizingCalculator()
         self.geometry = GeometryCalculator(self.sizing)
         self.collision_detector = CollisionDetector(self.geometry)
         self.graph_analyzer = GraphAnalyzer()
-        self.positioner = AutoLayoutPositioner(self.sizing, self.graph_analyzer)
+        self.positioner = AutoLayoutPositioner(self.sizing, self.graph_analyzer, visualdebug=visualdebug)
         self.container_calculator = ContainerCalculator(self.sizing, self.geometry)
         self.router_manager = ConnectionRouterManager()
 
@@ -159,14 +160,44 @@ class AutoLayoutOptimizer(LayoutOptimizer):
 
         # 2.5. CRÍTICO: Recalcular contenedores AHORA que las etiquetas tienen posición
         #      En línea 144 se calcularon solo con íconos (label_positions vacío)
-        #      Ahora recalculamos incluyendo las etiquetas
-        self.container_calculator.update_container_dimensions(current)
+        #      Ahora recalculamos incluyendo las etiquetas Y re-aplicando centrado
+
+        # Limpiar flag _resolved para forzar re-cálculo con centrado
+        for elem in current.elements:
+            if 'contains' in elem and elem.get('_resolved'):
+                del elem['_resolved']
+                # También resetear coordenadas locales de elementos contenidos
+                for ref in elem.get('contains', []):
+                    ref_id = ref['id'] if isinstance(ref, dict) else ref
+                    contained = current.elements_by_id.get(ref_id)
+                    if contained:
+                        if '_local_x' in contained:
+                            del contained['_local_x']
+                        if '_local_y' in contained:
+                            del contained['_local_y']
+
+        # Re-resolver contenedores con centrado
+        container_hierarchy = self.positioner._analyze_container_hierarchy(current)
+        for container in container_hierarchy.bottom_up_order():
+            self.positioner._resolve_container(current, container)
+
         self._log("Dimensiones de contenedores recalculadas (incluyendo etiquetas)")
 
-        # 2.6. CRÍTICO: Recalcular routing DESPUÉS de actualizar contenedores
-        #      Los contenedores expandidos cambian los obstáculos → rutas deben actualizarse
+        # 2.5.4. CRÍTICO: Propagar coordenadas locales actualizadas (centrado)
+        #        El recalculo de contenedores actualiza _local_x/_local_y (centrado)
+        #        pero no las propaga a coordenadas globales
+        self.positioner._propagate_coordinates_to_contained(current)
+        self._log("Coordenadas locales propagadas a elementos contenidos")
+
+        # 2.5.5. NUEVO: Redistribuir elementos primarios DESPUÉS de expandir contenedores
+        #        Los contenedores expandidos pueden causar colisiones → redistribuir elementos libres
+        self.positioner.recalculate_positions_with_expanded_containers(current)
+        self._log("Elementos primarios redistribuidos con contenedores expandidos")
+
+        # 2.6. CRÍTICO: Recalcular routing DESPUÉS de redistribuir elementos
+        #      Los elementos reposicionados requieren nuevas rutas
         self.router_manager.calculate_all_paths(current)
-        self._log("Routing recalculado después de actualizar contenedores")
+        self._log("Routing recalculado después de redistribuir elementos")
 
         # 2.7. NUEVO: Verificar si canvas es suficiente y expandir si es necesario
         #      Esto debe hacerse DESPUÉS de calcular contenedores finales

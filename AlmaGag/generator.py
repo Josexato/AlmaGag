@@ -455,8 +455,8 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     )
 
     # 2. Instanciar optimizador
-    optimizer = AutoLayoutOptimizer(verbose=debug)
-    logger.debug(f"AutoLayoutOptimizer instanciado (verbose={debug})")
+    optimizer = AutoLayoutOptimizer(verbose=debug, visualdebug=visualdebug)
+    logger.debug(f"AutoLayoutOptimizer instanciado (verbose={debug}, visualdebug={visualdebug})")
 
     # 3. Optimizar (retorna NUEVO layout)
     #    NOTA: optimize() ahora maneja auto-layout para coordenadas faltantes (SDJF v2.0)

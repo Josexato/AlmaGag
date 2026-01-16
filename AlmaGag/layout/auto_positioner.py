@@ -54,16 +54,18 @@ class AutoLayoutPositioner:
     Implementa estrategia híbrida: prioridad + grid + centralidad.
     """
 
-    def __init__(self, sizing: SizingCalculator, graph_analyzer: GraphAnalyzer):
+    def __init__(self, sizing: SizingCalculator, graph_analyzer: GraphAnalyzer, visualdebug: bool = False):
         """
         Inicializa el posicionador.
 
         Args:
             sizing: Calculadora de tamaños para scoring de centralidad
             graph_analyzer: Analizador de grafos para prioridades
+            visualdebug: Si True, usa TOP_MARGIN=80 para área de debug visual, sino usa 20
         """
         self.sizing = sizing
         self.graph_analyzer = graph_analyzer
+        self.visualdebug = visualdebug
 
     def calculate_missing_positions(self, layout: Layout) -> Layout:
         """
@@ -137,6 +139,73 @@ class AutoLayoutPositioner:
 
         return layout
 
+    def recalculate_positions_with_expanded_containers(self, layout: Layout) -> Layout:
+        """
+        Redistribuye elementos primarios DESPUÉS de que los contenedores se hayan expandido.
+
+        Este método se invoca en la Fase 7 (después de recalcular contenedores con etiquetas)
+        para reposicionar elementos que ahora pueden colisionar con contenedores expandidos.
+
+        Estrategia:
+        1. Identificar elementos primarios que NO son contenedores
+           - Contenedores YA están posicionados y dimensionados → NO mover
+           - Solo redistribuir elementos "libres" (ej: nube en red-edificios.gag)
+
+        2. Resetear coordenadas de elementos libres
+
+        3. Redistribuir usando layout jerárquico o híbrido
+
+        4. Propagar coordenadas a elementos contenidos
+
+        Args:
+            layout: Layout con contenedores YA expandidos y dimensionados
+
+        Returns:
+            Layout: Mismo layout (modificado in-place) con elementos redistribuidos
+        """
+        logger.debug("\n[REDISTRIBUCION POST-EXPANSION DE CONTENEDORES]")
+
+        # 1. Identificar elementos primarios (no contenidos)
+        primary_elements = self._get_primary_elements(layout)
+
+        # 2. Separar contenedores de elementos libres
+        containers = [e for e in primary_elements if 'contains' in e]
+        free_elements = [e for e in primary_elements if 'contains' not in e]
+
+        logger.debug(f"  Contenedores (mantener posiciones): {len(containers)}")
+        logger.debug(f"  Elementos libres (redistribuir): {len(free_elements)}")
+
+        # IMPORTANTE: Solo redistribuir si HAY contenedores que se expandieron
+        # Si no hay contenedores, los elementos ya están bien posicionados
+        if not containers:
+            logger.debug("  Sin contenedores → No redistribuir (elementos ya posicionados)")
+            return layout
+
+        if not free_elements:
+            logger.debug("  Sin elementos libres para redistribuir")
+            return layout
+
+        # 3. Resetear coordenadas de elementos libres
+        for elem in free_elements:
+            if 'x' in elem:
+                del elem['x']
+            if 'y' in elem:
+                del elem['y']
+            logger.debug(f"    Resetear: {elem['id']}")
+
+        # 4. Redistribuir elementos libres EVITANDO contenedores
+        # ESTRATEGIA: Usar niveles topológicos PERO con spacing ajustado para contenedores
+        logger.debug(f"  Redistribuyendo elementos libres (evitando contenedores)")
+        self._redistribute_free_elements_with_containers(layout, free_elements, containers)
+
+        # 5. NO propagar coordenadas aquí - ya fueron propagadas en el optimizer
+        #    Los elementos contenidos NO se mueven durante la redistribución (solo elementos libres)
+        #    Propagar aquí sobrescribiría las coordenadas centradas con valores incorrectos
+
+        logger.debug("[FIN REDISTRIBUCION]\n")
+
+        return layout
+
     def _calculate_hierarchical_layout(self, layout: Layout, elements: List[dict]):
         """
         Auto-layout jerárquico basado en topología del grafo (v3.1).
@@ -167,7 +236,8 @@ class AutoLayoutPositioner:
         # Configuración de spacing
         VERTICAL_SPACING = 100  # Espacio entre niveles
         HORIZONTAL_SPACING = 120  # Espacio entre elementos del mismo nivel
-        TOP_MARGIN = 100  # Margen superior
+        # TOP_MARGIN = 80px si visualdebug (área de debug badge), 20px si no
+        TOP_MARGIN = 80 if self.visualdebug else 20
 
         # Calcular centro horizontal del canvas
         center_x = layout.canvas['width'] / 2
@@ -625,7 +695,7 @@ class AutoLayoutPositioner:
         self._layout_contained_elements_locally(container, contained_elements)
 
         # Calcular envolvente del contenedor (basado en elementos internos + padding + etiqueta)
-        padding = container.get('padding', 20)
+        padding = container.get('padding', 10)
         min_width, min_height = self._calculate_container_bounds(
             contained_elements,
             padding,
@@ -636,6 +706,42 @@ class AutoLayoutPositioner:
         container['width'] = min_width
         container['height'] = min_height
         container['_resolved'] = True
+
+        # NUEVO: Re-centrar elemento si es único (Opción 4 - Post-Cálculo)
+        # Ahora que conocemos las dimensiones finales del contenedor, podemos centrar correctamente
+        if len(contained_elements) == 1:
+            elem = contained_elements[0]
+
+            # Calcular espacio del header del contenedor
+            header_height = 0
+            if container.get('label'):
+                lines = container['label'].split('\n')
+                label_height = len(lines) * 18  # 18px por línea
+                icon_height = 50  # Altura del icono del contenedor
+                header_height = max(icon_height, label_height)
+
+            # Obtener tamaño del elemento
+            elem_width = elem.get('width', ICON_WIDTH)
+            elem_height = elem.get('height', ICON_HEIGHT)
+
+            # Calcular posición centrada
+            # Horizontal: centrado en el ancho total del contenedor
+            centered_x = (min_width - elem_width) / 2
+
+            # Vertical: centrado en el espacio disponible para contenido
+            # min_height = (2*padding) + header_height + content_height
+            # Espacio disponible para contenido = content_height = min_height - (2*padding) - header_height
+            content_area_height = min_height - (2 * padding) - header_height
+
+            # Centrar elemento en el área de contenido (después del header + padding)
+            centered_y = header_height + padding + ((content_area_height - elem_height) / 2)
+
+            # Sobrescribir posición local con centrado
+            elem['_local_x'] = centered_x
+            elem['_local_y'] = centered_y
+
+            logger.debug(f"  [CENTRADO] Elemento único re-centrado: ({centered_x:.1f}, {centered_y:.1f})")
+            logger.debug(f"    header_height={header_height:.1f}, content_area={content_area_height:.1f}")
 
         # LOG: Información del contenedor resuelto
         logger.debug(f"\n[CONTENEDOR RESUELTO] {container['id']}")
@@ -661,7 +767,19 @@ class AutoLayoutPositioner:
             container: Contenedor padre
             elements: Elementos a posicionar
         """
-        padding = container.get('padding', 20)
+        padding = container.get('padding', 10)
+
+        # Calcular espacio del header del contenedor
+        header_height = 0
+        if container.get('label'):
+            label_text = container['label']
+            lines = label_text.split('\n')
+            label_height = len(lines) * 18  # 18px por línea
+            icon_height = 50  # Altura del icono del contenedor
+            header_height = max(icon_height, label_height)
+
+        # Posición Y inicial para elementos = header + padding_mid
+        start_y = header_height + padding
 
         # Filtrar por scope
         full_elements = []
@@ -687,7 +805,7 @@ class AutoLayoutPositioner:
                 row = i // cols
                 col = i % cols
                 elem['_local_x'] = padding + col * (ICON_WIDTH + spacing)
-                elem['_local_y'] = padding + row * (ICON_HEIGHT + spacing)
+                elem['_local_y'] = start_y + row * (ICON_HEIGHT + spacing)
 
     def _get_scope(self, elem: dict, container: dict) -> str:
         """
@@ -722,8 +840,9 @@ class AutoLayoutPositioner:
             (width, height): Dimensiones mínimas
         """
         if not elements:
+            content_width = ICON_WIDTH
+            content_height = ICON_HEIGHT
             base_width = ICON_WIDTH + 2 * padding
-            base_height = ICON_HEIGHT + 2 * padding
         else:
             # Encontrar bounding box de elementos
             min_x = float('inf')
@@ -740,18 +859,29 @@ class AutoLayoutPositioner:
                 min_x = min(min_x, local_x)
                 min_y = min(min_y, local_y)
                 max_x = max(max_x, local_x + elem_width)
-                max_y = max(max_y, local_y + elem_height)
 
-            # Agregar padding
-            base_width = max_x - min_x + 2 * padding
-            base_height = max_y - min_y + 2 * padding
+                # Considerar también el espacio de la etiqueta del elemento (si existe)
+                elem_bottom = local_y + elem_height
+                if elem.get('label'):
+                    # La etiqueta está típicamente 15px debajo del ícono y tiene ~18px de altura
+                    elem_bottom += 15 + 18  # offset + altura de etiqueta
 
-            # Mínimos razonables
-            base_width = max(base_width, ICON_WIDTH + 2 * padding)
-            base_height = max(base_height, ICON_HEIGHT + 2 * padding)
+                max_y = max(max_y, elem_bottom)
 
-        # Calcular espacio para la etiqueta del contenedor (se dibuja DENTRO, arriba)
-        label_height_extra = 0
+            # Calcular dimensiones del contenido (sin padding aún)
+            content_width = max_x - min_x
+            content_height = max_y - min_y
+
+            # Mínimos razonables para contenido
+            content_width = max(content_width, ICON_WIDTH)
+            content_height = max(content_height, ICON_HEIGHT)
+
+            # Agregar padding horizontal (izquierda + derecha)
+            base_width = content_width + 2 * padding
+
+        # Calcular espacio del header del contenedor (icono + etiqueta)
+        # El header comienza después del padding top
+        header_height = 0
 
         if container and 'label' in container:
             label_text = container['label']
@@ -760,8 +890,11 @@ class AutoLayoutPositioner:
             label_width = max_line_len * 8  # 8px por carácter
             label_height = len(lines) * 18  # 18px por línea
 
-            # Agregar espacio vertical arriba para la etiqueta
-            label_height_extra = label_height + 10  # 10px de margen
+            # El icono del contenedor tiene 50px de altura
+            icon_height = 50
+
+            # El header ocupa el máximo entre icono y etiqueta
+            header_height = max(icon_height, label_height)
 
             # Calcular ancho necesario considerando que la etiqueta está a la derecha del ícono
             # Etiqueta comienza en: 10 (margen) + 80 (ícono) + 10 (margen) = 100
@@ -773,7 +906,10 @@ class AutoLayoutPositioner:
         else:
             width = base_width
 
-        height = base_height + label_height_extra
+        # Altura total = header + padding_mid + content + padding_bottom
+        # = header_height + padding + content_height + padding
+        # = (2 * padding) + header_height + content_height
+        height = (2 * padding) + header_height + content_height
 
         return (width, height)
 
@@ -824,17 +960,9 @@ class AutoLayoutPositioner:
                 container_x = container['x']
                 container_y = container['y']
 
-                # Calcular espacio reservado para la etiqueta arriba
-                label_space = 0
-                if container.get('label'):
-                    lines = container['label'].split('\n')
-                    label_height = len(lines) * 18  # 18px por línea
-                    label_space = label_height + 10  # 10px de margen
-
                 # LOG: Conversión de coordenadas
                 logger.debug(f"\n[PROPAGACION COORDENADAS] {container['id']}")
                 logger.debug(f"  Contenedor en: ({container_x:.1f}, {container_y:.1f})")
-                logger.debug(f"  Espacio etiqueta: {label_space}px")
                 logger.debug(f"  Conversión local -> global:")
 
                 for ref in container['contains']:
@@ -845,9 +973,9 @@ class AutoLayoutPositioner:
                         local_y = elem['_local_y']
 
                         # Convertir coordenadas locales a globales
-                        # Desplazar hacia abajo para dejar espacio a la etiqueta
+                        # Las coordenadas locales ya incluyen el espacio del header
                         elem['x'] = container_x + local_x
-                        elem['y'] = container_y + label_space + local_y
+                        elem['y'] = container_y + local_y
 
                         logger.debug(f"    {ref_id}: local({local_x:.1f}, {local_y:.1f}) -> "
                                    f"global({elem['x']:.1f}, {elem['y']:.1f})")
@@ -855,3 +983,172 @@ class AutoLayoutPositioner:
                         # Limpiar campos temporales
                         del elem['_local_x']
                         del elem['_local_y']
+
+    def _redistribute_free_elements_with_containers(
+        self,
+        layout: Layout,
+        free_elements: List[dict],
+        containers: List[dict]
+    ):
+        """
+        Redistribuye elementos libres EVITANDO contenedores existentes.
+
+        Estrategia:
+        1. Identificar franjas verticales ocupadas por contenedores
+        2. Encontrar franjas libres (regiones entre/alrededor de contenedores)
+        3. Posicionar elementos libres en franjas libres usando topología
+
+        Args:
+            layout: Layout con contenedores posicionados
+            free_elements: Elementos libres a reposicionar
+            containers: Contenedores YA posicionados (no mover)
+        """
+        if not free_elements:
+            return
+
+        # 1. Identificar franjas verticales ocupadas por contenedores
+        occupied_ranges = []
+        for container in containers:
+            if 'y' in container and 'height' in container:
+                y_start = container['y']
+                y_end = container['y'] + container['height']
+                occupied_ranges.append((y_start, y_end))
+                logger.debug(f"    Contenedor {container['id']}: Y [{y_start:.1f} - {y_end:.1f}]")
+
+        occupied_ranges.sort()  # Ordenar por y_start
+
+        # 2. Encontrar franjas libres
+        canvas_height = layout.canvas['height']
+        free_ranges = []
+
+        # Añadir franja antes del primer contenedor
+        if occupied_ranges:
+            first_start = occupied_ranges[0][0]
+            if first_start > 150:  # Necesita al menos 150px para tener espacio (100 + 50 de margen)
+                free_ranges.append((100, first_start - 50))  # Dejar 50px de margen
+
+        # Añadir franjas entre contenedores
+        for i in range(len(occupied_ranges) - 1):
+            current_end = occupied_ranges[i][1]
+            next_start = occupied_ranges[i + 1][0]
+            gap = next_start - current_end
+            if gap > 100:  # Si hay espacio suficiente (>100px)
+                free_ranges.append((current_end + 50, next_start - 50))
+
+        # Añadir franja después del último contenedor
+        if occupied_ranges:
+            last_end = occupied_ranges[-1][1]
+            if last_end + 100 < canvas_height:
+                free_ranges.append((last_end + 50, canvas_height - 50))
+
+        # Si no hay contenedores, toda el área está libre
+        if not occupied_ranges:
+            free_ranges.append((100, canvas_height - 50))
+
+        logger.debug(f"    Franjas libres encontradas: {len(free_ranges)}")
+        for i, (start, end) in enumerate(free_ranges):
+            logger.debug(f"      Franja {i+1}: Y [{start:.1f} - {end:.1f}] (altura: {end-start:.1f})")
+
+        # Guardar franjas en el layout para visualización en modo debug
+        layout.debug_free_ranges = free_ranges
+
+        # 3. Posicionar elementos libres en franjas libres
+        if not free_ranges:
+            # No hay espacio libre → usar posición por defecto en centro
+            logger.debug("    WARN: No hay franjas libres, usando centro del canvas")
+            center_x = layout.canvas['width'] / 2
+            center_y = layout.canvas['height'] / 2
+            for elem in free_elements:
+                elem['x'] = center_x
+                elem['y'] = center_y
+            return
+
+        # Usar niveles topológicos si están disponibles
+        if hasattr(layout, 'topological_levels') and layout.topological_levels:
+            self._position_free_elements_by_topology(layout, free_elements, free_ranges)
+        else:
+            # Sin topología, distribuir equiespaciadamente
+            self._position_free_elements_equispaced(layout, free_elements, free_ranges)
+
+    def _position_free_elements_by_topology(
+        self,
+        layout: Layout,
+        elements: List[dict],
+        free_ranges: List[tuple]
+    ):
+        """
+        Posiciona elementos usando niveles topológicos en franjas libres.
+
+        Args:
+            layout: Layout con topological_levels
+            elements: Elementos a posicionar
+            free_ranges: Lista de (y_start, y_end) franjas libres
+        """
+        # Agrupar elementos por nivel
+        by_level = {}
+        for elem in elements:
+            level = layout.topological_levels.get(elem['id'], 0)
+            if level not in by_level:
+                by_level[level] = []
+            by_level[level].append(elem)
+
+        # Asignar cada nivel a una franja libre
+        num_levels = len(by_level)
+        center_x = layout.canvas['width'] / 2
+
+        for level_idx, level_num in enumerate(sorted(by_level.keys())):
+            level_elements = by_level[level_num]
+
+            # Seleccionar franja para este nivel
+            # Distribuir niveles equiespaciadamente en franjas libres
+            franja_idx = min(level_idx, len(free_ranges) - 1)
+            y_start, y_end = free_ranges[franja_idx]
+
+            # Posicionar en el centro de la franja
+            y_position = (y_start + y_end) / 2
+
+            # Distribuir horizontalmente
+            num_elements = len(level_elements)
+            if num_elements == 1:
+                level_elements[0]['x'] = center_x
+                level_elements[0]['y'] = y_position
+            else:
+                spacing = 120
+                total_width = num_elements * spacing
+                start_x = center_x - (total_width / 2) + (spacing / 2)
+                for i, elem in enumerate(level_elements):
+                    elem['x'] = start_x + (i * spacing)
+                    elem['y'] = y_position
+
+            logger.debug(f"    Nivel {level_num} → Franja {franja_idx+1}, Y={y_position:.1f}")
+
+    def _position_free_elements_equispaced(
+        self,
+        layout: Layout,
+        elements: List[dict],
+        free_ranges: List[tuple]
+    ):
+        """
+        Posiciona elementos equiespaciadamente en franjas libres.
+
+        Args:
+            layout: Layout
+            elements: Elementos a posicionar
+            free_ranges: Lista de (y_start, y_end) franjas libres
+        """
+        center_x = layout.canvas['width'] / 2
+        num_elements = len(elements)
+
+        # Distribuir elementos en franjas libres
+        for i, elem in enumerate(elements):
+            # Seleccionar franja para este elemento
+            franja_idx = min(i, len(free_ranges) - 1)
+            y_start, y_end = free_ranges[franja_idx]
+
+            # Posicionar en el centro de la franja
+            y_position = (y_start + y_end) / 2
+
+            elem['x'] = center_x
+            elem['y'] = y_position
+
+            logger.debug(f"    {elem['id']} → Franja {franja_idx+1}, Y={y_position:.1f}")
