@@ -1,0 +1,691 @@
+"""
+LAFOptimizer - Layout Abstracto Primero
+
+Coordinador del sistema LAF que ejecuta las 4 fases:
+1. Análisis de estructura
+2. Layout abstracto (minimización de cruces)
+3. Inflación de elementos (dimensiones reales)
+4. Crecimiento de contenedores
+
+Versión Sprint 4: Sistema LAF completo (Fases 1-4).
+
+Author: José + ALMA
+Version: v1.2 (Sprint 4)
+Date: 2026-01-17
+"""
+
+from typing import List
+from AlmaGag.layout.laf.structure_analyzer import StructureAnalyzer
+from AlmaGag.layout.laf.abstract_placer import AbstractPlacer
+from AlmaGag.layout.laf.inflator import ElementInflator
+from AlmaGag.layout.laf.container_grower import ContainerGrower
+from AlmaGag.layout.laf.visualizer import GrowthVisualizer
+from AlmaGag.layout.sizing import SizingCalculator
+import logging
+
+# Importar la función de dump_layout_table si está en debug
+logger = logging.getLogger('AlmaGag')
+
+
+class LAFOptimizer:
+    """
+    Optimizador LAF (Layout Abstracto Primero).
+
+    Ejecuta layout en 4 fases para minimizar cruces de conectores.
+    """
+
+    def __init__(
+        self,
+        positioner=None,
+        container_calculator=None,
+        router_manager=None,
+        collision_detector=None,
+        label_optimizer=None,
+        geometry=None,
+        visualize_growth: bool = False,
+        debug: bool = False
+    ):
+        """
+        Inicializa el optimizador LAF.
+
+        Args:
+            positioner: AutoLayoutPositioner (no usado en LAF, pero para compatibilidad)
+            container_calculator: ContainerCalculator
+            router_manager: RouterManager
+            collision_detector: CollisionDetector
+            label_optimizer: LabelOptimizer
+            geometry: GeometryCalculator
+            visualize_growth: Si True, genera SVGs de cada fase
+            debug: Si True, imprime logs de debug
+        """
+        self.positioner = positioner
+        self.container_calculator = container_calculator
+        self.router_manager = router_manager
+        self.collision_detector = collision_detector
+        self.label_optimizer = label_optimizer
+        self.geometry = geometry
+        self.visualize_growth = visualize_growth
+        self.debug = debug
+
+        # Obtener visualdebug del positioner si está disponible
+        visualdebug = getattr(positioner, 'visualdebug', False) if positioner else False
+
+        # SizingCalculator para dimensiones reales (hp/wp)
+        self.sizing = SizingCalculator()
+
+        # Módulos LAF
+        self.structure_analyzer = StructureAnalyzer(debug=debug)
+        self.abstract_placer = AbstractPlacer(debug=debug)
+        self.inflator = ElementInflator(label_optimizer=label_optimizer, debug=debug, visualdebug=visualdebug)
+        self.container_grower = ContainerGrower(sizing_calculator=self.sizing, debug=debug)
+        self.visualizer = GrowthVisualizer(debug=debug) if visualize_growth else None
+
+    def _dump_layout(self, layout, phase_name):
+        """Helper para hacer dump del layout en cada fase (solo en modo debug)."""
+        if self.debug:
+            try:
+                from AlmaGag.generator import dump_layout_table
+                containers = [e for e in layout.elements if 'contains' in e]
+                dump_layout_table(layout, layout.elements_by_id, containers, phase=phase_name)
+            except Exception as e:
+                logger.warning(f"[LAF] No se pudo hacer dump de layout: {e}")
+
+    def _write_abstract_positions_to_layout(self, abstract_positions, layout):
+        """
+        Escribe posiciones abstractas temporalmente en los elementos.
+
+        Estas posiciones serán sobrescritas en Fase 3 con las posiciones reales.
+        Solo se hace para que aparezcan en el dump del CSV de Fase 2.
+
+        Args:
+            abstract_positions: {element_id: (abstract_x, abstract_y)}
+            layout: Layout a modificar
+        """
+        for elem_id, (abstract_x, abstract_y) in abstract_positions.items():
+            elem = layout.elements_by_id.get(elem_id)
+            if elem:
+                # Escribir coordenadas abstractas (serán sobrescritas en Fase 3)
+                elem['x'] = abstract_x
+                elem['y'] = abstract_y
+
+                # No asignar dimensiones aún (se hará en Fase 3)
+
+    def _populate_layout_analysis(self, layout, structure_info):
+        """
+        Pobla los atributos de análisis del layout desde structure_info.
+
+        Args:
+            layout: Layout a poblar
+            structure_info: Información estructural del StructureAnalyzer
+        """
+        # 1. Poblar layout.graph desde structure_info.connection_graph
+        layout.graph = structure_info.connection_graph.copy()
+
+        # 2. Poblar layout.levels desde structure_info.topological_levels
+        layout.levels = structure_info.topological_levels.copy()
+
+        # Asignar niveles a elementos contenidos basándose en su contenedor padre
+        for elem in layout.elements:
+            elem_id = elem['id']
+            if elem_id not in layout.levels:
+                # Buscar el elemento primario (contenedor padre)
+                parent = structure_info.element_tree.get(elem_id, {}).get('parent')
+                while parent is not None:
+                    if parent in layout.levels:
+                        layout.levels[elem_id] = layout.levels[parent]
+                        break
+                    parent = structure_info.element_tree.get(parent, {}).get('parent')
+
+                # Si no se encontró padre, asignar nivel 0
+                if elem_id not in layout.levels:
+                    layout.levels[elem_id] = 0
+
+        # 3. Calcular grupos usando DFS sobre el grafo (solo primarios)
+        layout.groups = self._calculate_groups(layout)
+
+        # 3b. Agregar elementos contenidos a los grupos de su contenedor padre
+        self._add_contained_elements_to_groups(layout, structure_info)
+
+        # 4. Calcular prioridades usando GraphAnalyzer
+        if self.positioner and self.positioner.graph_analyzer:
+            layout.priorities = self.positioner.graph_analyzer.calculate_priorities(
+                layout.elements,
+                layout.graph
+            )
+        else:
+            # Prioridad por defecto basada en label_priority
+            layout.priorities = {}
+            for elem in layout.elements:
+                elem_id = elem['id']
+                label_priority = elem.get('label_priority', 'normal')
+                if label_priority == 'high':
+                    layout.priorities[elem_id] = 0
+                elif label_priority == 'low':
+                    layout.priorities[elem_id] = 2
+                else:
+                    layout.priorities[elem_id] = 1
+
+    def _add_contained_elements_to_groups(self, layout, structure_info):
+        """
+        Agrega elementos contenidos a los grupos de su contenedor padre.
+
+        Args:
+            layout: Layout con groups poblado (solo primarios por ahora)
+            structure_info: StructureInfo con element_tree
+        """
+        # Crear mapa de elemento -> grupo para búsqueda rápida
+        elem_to_group = {}
+        for group_idx, group in enumerate(layout.groups):
+            for elem_id in group:
+                elem_to_group[elem_id] = group_idx
+
+        # Agregar elementos contenidos al grupo de su contenedor
+        for elem in layout.elements:
+            elem_id = elem['id']
+
+            # Si ya está en un grupo (es primario), continuar
+            if elem_id in elem_to_group:
+                continue
+
+            # Buscar el contenedor padre
+            parent = structure_info.element_tree.get(elem_id, {}).get('parent')
+            while parent is not None:
+                if parent in elem_to_group:
+                    # Encontramos el contenedor primario, agregarlo al mismo grupo
+                    group_idx = elem_to_group[parent]
+                    layout.groups[group_idx].append(elem_id)
+                    elem_to_group[elem_id] = group_idx
+                    break
+                parent = structure_info.element_tree.get(parent, {}).get('parent')
+
+    def _calculate_groups(self, layout):
+        """
+        Identifica subgrafos conectados usando DFS sobre grafo no dirigido.
+
+        IMPORTANTE: Solo calcula grupos para elementos primarios.
+        Los elementos contenidos se agregarán al grupo de su contenedor padre
+        en _populate_layout_analysis().
+
+        Args:
+            layout: Layout con graph poblado
+
+        Returns:
+            List[List[str]]: [[elem_ids del grupo 1], [elem_ids del grupo 2], ...]
+        """
+        # Primero, construir grafo no dirigido desde el grafo dirigido
+        # NOTA: layout.graph solo contiene elementos primarios
+        undirected_graph = {}
+        for node, neighbors in layout.graph.items():
+            if node not in undirected_graph:
+                undirected_graph[node] = []
+            for neighbor in neighbors:
+                # Agregar conexión bidireccional
+                if neighbor not in undirected_graph:
+                    undirected_graph[neighbor] = []
+                if neighbor not in undirected_graph[node]:
+                    undirected_graph[node].append(neighbor)
+                if node not in undirected_graph[neighbor]:
+                    undirected_graph[neighbor].append(node)
+
+        # Asegurar que todos los nodos del grafo están inicializados
+        for node in layout.graph.keys():
+            if node not in undirected_graph:
+                undirected_graph[node] = []
+
+        visited = set()
+        groups = []
+
+        def dfs(node, group):
+            if node in visited:
+                return
+            visited.add(node)
+            group.append(node)
+
+            # Visitar todos los vecinos (ahora bidireccionales)
+            for neighbor in undirected_graph.get(node, []):
+                dfs(neighbor, group)
+
+        # Explorar solo elementos que están en el grafo (primarios)
+        for node in undirected_graph.keys():
+            if node not in visited:
+                group = []
+                dfs(node, group)
+                if group:
+                    groups.append(group)
+
+        return groups
+
+    def _redistribute_vertical_after_growth(self, structure_info, layout):
+        """
+        Redistribuye elementos verticalmente después del crecimiento de contenedores.
+
+        Problema: En Fase 3 (Inflación), elementos se posicionan con spacing fijo.
+        En Fase 4 (Crecimiento), contenedores se expanden para envolver hijos.
+        Solución: Recalcular posiciones Y respetando alturas reales de contenedores.
+
+        Estrategia:
+        1. Agrupar elementos primarios por nivel topológico
+        2. Calcular posición Y para cada nivel:
+           - Nivel 0: TOP_MARGIN
+           - Nivel N: max(y_final del nivel anterior) + SPACING
+        3. y_final = max(elem.y + elem.height) para todos los elementos del nivel
+
+        Args:
+            structure_info: Información estructural con topological_levels
+            layout: Layout con elementos ya posicionados y contenedores expandidos
+        """
+        from AlmaGag.config import TOP_MARGIN_DEBUG, TOP_MARGIN_NORMAL, ICON_HEIGHT
+
+        # Obtener visualdebug del positioner si está disponible
+        visualdebug = getattr(self.positioner, 'visualdebug', False) if self.positioner else False
+        TOP_MARGIN = TOP_MARGIN_DEBUG if visualdebug else TOP_MARGIN_NORMAL
+
+        # Spacing entre niveles (mismo que en Fase 3)
+        spacing = 480  # Mismo spacing que en inflator
+        vertical_factor = 0.5
+        VERTICAL_SPACING = spacing * vertical_factor  # 240px
+
+        # Agrupar elementos primarios por nivel topológico
+        by_level = {}
+        for elem_id in structure_info.primary_elements:
+            level = structure_info.topological_levels.get(elem_id, 0)
+            if level not in by_level:
+                by_level[level] = []
+            by_level[level].append(elem_id)
+
+        if self.debug:
+            print(f"[REDISTRIBUTE] Redistribuyendo {len(structure_info.primary_elements)} elementos primarios")
+            print(f"               Niveles topológicos: {len(by_level)}")
+
+        # Rastrear posición Y actual (dónde comienza el próximo nivel)
+        current_y = TOP_MARGIN
+
+        # Recorrer niveles en orden topológico
+        for level_num in sorted(by_level.keys()):
+            level_elements = by_level[level_num]
+
+            if self.debug:
+                print(f"\n[REDISTRIBUTE] Nivel {level_num}: {len(level_elements)} elementos")
+                print(f"               Y inicial: {current_y:.1f}")
+
+            # Calcular altura máxima del nivel
+            max_height = 0
+            for elem_id in level_elements:
+                elem = layout.elements_by_id.get(elem_id)
+                if not elem:
+                    continue
+
+                # Obtener altura real (contenedores tienen height, íconos usan ICON_HEIGHT)
+                elem_height = elem.get('height', ICON_HEIGHT)
+                max_height = max(max_height, elem_height)
+
+            # Posicionar elementos del nivel en current_y
+            for elem_id in level_elements:
+                elem = layout.elements_by_id.get(elem_id)
+                if not elem:
+                    continue
+
+                # Guardar posición anterior para debug
+                old_y = elem.get('y', 0)
+
+                # Calcular desplazamiento vertical
+                dy = current_y - old_y
+
+                # Asignar nueva posición Y
+                elem['y'] = current_y
+
+                if self.debug:
+                    elem_height = elem.get('height', ICON_HEIGHT)
+                    print(f"               {elem_id}: Y {old_y:.1f} -> {current_y:.1f} (h={elem_height:.1f})")
+
+                # Actualizar etiqueta también
+                if elem_id in layout.label_positions:
+                    label_x, label_y, anchor, baseline = layout.label_positions[elem_id]
+                    # Calcular offset de la etiqueta respecto al elemento
+                    label_offset_y = label_y - old_y
+                    # Aplicar mismo offset con la nueva posición
+                    new_label_y = current_y + label_offset_y
+                    layout.label_positions[elem_id] = (
+                        label_x,
+                        new_label_y,
+                        anchor,
+                        baseline
+                    )
+
+                # Si es un contenedor, actualizar posiciones de elementos contenidos
+                if 'contains' in elem:
+                    node = structure_info.element_tree.get(elem_id)
+                    if node and node['children']:
+                        for child_id in node['children']:
+                            child = layout.elements_by_id.get(child_id)
+                            if child and 'y' in child:
+                                child['y'] += dy
+                                if self.debug:
+                                    print(f"                 |-- {child_id}: Y += {dy:.1f}")
+
+                                # Actualizar etiqueta del hijo también
+                                if child_id in layout.label_positions:
+                                    child_label_x, child_label_y, child_anchor, child_baseline = layout.label_positions[child_id]
+                                    layout.label_positions[child_id] = (
+                                        child_label_x,
+                                        child_label_y + dy,
+                                        child_anchor,
+                                        child_baseline
+                                    )
+
+            # Actualizar current_y para el siguiente nivel
+            # current_y = donde termina este nivel + spacing
+            current_y += max_height + VERTICAL_SPACING
+
+            if self.debug:
+                print(f"               Y final del nivel: {current_y - VERTICAL_SPACING:.1f}")
+                print(f"               Próximo nivel comenzará en: {current_y:.1f}")
+
+        if self.debug:
+            print(f"\n[REDISTRIBUTE] Redistribución completada")
+            print(f"               Altura total utilizada: {current_y:.1f}")
+
+        # Recalcular dimensiones finales del canvas después de redistribución
+        canvas_width, canvas_height = self.container_grower.calculate_final_canvas(
+            structure_info,
+            layout
+        )
+        layout.canvas['width'] = canvas_width
+        layout.canvas['height'] = canvas_height
+
+        if self.debug:
+            print(f"               Canvas recalculado: {canvas_width:.0f}x{canvas_height:.0f}px")
+
+        # IMPORTANTE: Centrado horizontal DESPUÉS de recalcular canvas final
+        if self.debug:
+            print(f"\n[REDISTRIBUTE] Aplicando centrado horizontal con canvas final")
+
+        # Aplicar centrado a cada nivel
+        for level_num in sorted(by_level.keys()):
+            level_elements = by_level[level_num]
+            self._center_elements_horizontally(level_elements, layout, structure_info, spacing=480)
+
+    def _center_elements_horizontally(
+        self,
+        level_elements: List[str],
+        layout,
+        structure_info,
+        spacing: float = 480.0
+    ) -> None:
+        """
+        Centra elementos de un nivel horizontalmente en el canvas.
+
+        Args:
+            level_elements: IDs de elementos del nivel
+            layout: Layout con elementos posicionados
+            structure_info: Información estructural con element_tree
+            spacing: Spacing horizontal entre elementos
+        """
+        from AlmaGag.config import ICON_WIDTH, CANVAS_MARGIN_LARGE
+
+        if not level_elements:
+            return
+
+        # Caso especial: un solo elemento
+        if len(level_elements) == 1:
+            elem = layout.elements_by_id.get(level_elements[0])
+            if elem:
+                old_x = elem.get('x', 0)
+                elem['x'] = layout.canvas['width'] / 2
+
+                if self.debug:
+                    print(f"    [CENTRADO] Nivel: 1 elemento")
+                    print(f"               Canvas: {layout.canvas['width']:.0f}px")
+                    print(f"               {level_elements[0]}: X {old_x:.1f} -> {elem['x']:.1f} (centrado)")
+            return
+
+        # Calcular ancho total del nivel
+        total_width = 0
+        for i, elem_id in enumerate(level_elements):
+            elem = layout.elements_by_id.get(elem_id)
+            if elem:
+                elem_width = elem.get('width', ICON_WIDTH)
+                total_width += elem_width
+                if i < len(level_elements) - 1:
+                    total_width += spacing
+
+        # Calcular posición inicial para centrar
+        canvas_width = layout.canvas['width']
+        start_x = (canvas_width - total_width) / 2
+
+        # Asegurar margen mínimo
+        start_x = max(start_x, CANVAS_MARGIN_LARGE)
+
+        if self.debug:
+            print(f"    [CENTRADO] Nivel: {len(level_elements)} elementos")
+            print(f"               Ancho total: {total_width:.1f}px")
+            print(f"               Canvas: {canvas_width:.0f}px")
+            print(f"               Start X: {start_x:.1f}px")
+
+        # Distribuir elementos horizontalmente
+        current_x = start_x
+        for elem_id in level_elements:
+            elem = layout.elements_by_id.get(elem_id)
+            if not elem:
+                continue
+
+            old_x = elem.get('x', 0)
+            elem_width = elem.get('width', ICON_WIDTH)
+
+            # Calcular desplazamiento horizontal
+            dx = current_x - old_x
+
+            # Asignar nueva posición X
+            elem['x'] = current_x
+
+            if self.debug:
+                print(f"               {elem_id}: X {old_x:.1f} -> {current_x:.1f} (dx={dx:+.1f})")
+
+            # Actualizar etiqueta X
+            if elem_id in layout.label_positions:
+                label_x, label_y, anchor, baseline = layout.label_positions[elem_id]
+                new_label_x = label_x + dx
+                layout.label_positions[elem_id] = (
+                    new_label_x,
+                    label_y,
+                    anchor,
+                    baseline
+                )
+
+            # Si es contenedor, actualizar X de hijos
+            if 'contains' in elem:
+                node = structure_info.element_tree.get(elem_id)
+                if node and node['children']:
+                    for child_id in node['children']:
+                        child = layout.elements_by_id.get(child_id)
+                        if child and 'x' in child:
+                            child['x'] += dx
+
+                            # Actualizar etiqueta del hijo
+                            if child_id in layout.label_positions:
+                                cx, cy, ca, cb = layout.label_positions[child_id]
+                                layout.label_positions[child_id] = (
+                                    cx + dx,
+                                    cy,
+                                    ca,
+                                    cb
+                                )
+
+            # Avanzar a la siguiente posición
+            current_x += elem_width + spacing
+
+    def optimize(self, layout):
+        """
+        Ejecuta optimización LAF.
+
+        Args:
+            layout: Layout inicial
+
+        Returns:
+            Layout: Layout optimizado con Fases 1-4 aplicadas
+
+        Sprint 4: Sistema LAF completo (Análisis, Abstracto, Inflación, Crecimiento).
+        """
+        if self.debug:
+            print("\n" + "="*60)
+            print("LAF OPTIMIZER - Layout Abstracto Primero")
+            print("="*60)
+
+        # FASE 1: Análisis de estructura
+        if self.debug:
+            print("\n[LAF] FASE 1: Análisis de estructura")
+            print("-" * 60)
+
+        structure_info = self.structure_analyzer.analyze(layout)
+
+        # Capturar snapshot Fase 1
+        if self.visualizer:
+            # Extraer nombre del diagrama del layout si es posible
+            diagram_name = getattr(layout, '_diagram_name', 'diagram')
+            self.visualizer.capture_phase1(structure_info, diagram_name)
+
+        if self.debug:
+            print(f"[LAF] [OK] Analisis completado")
+            print(f"      - Elementos primarios: {len(structure_info.primary_elements)}")
+            print(f"      - Contenedores: {len(structure_info.container_metrics)}")
+            if structure_info.container_metrics:
+                max_contained = max(m['total_icons'] for m in structure_info.container_metrics.values())
+                print(f"      - Max contenido: {max_contained} iconos")
+            print(f"      - Conexiones: {len(structure_info.connection_sequences)}")
+
+        # Poblar atributos de análisis en el layout
+        self._populate_layout_analysis(layout, structure_info)
+
+        # Dump layout después de Fase 1
+        self._dump_layout(layout, "LAF_PHASE_1_STRUCTURE")
+
+        # FASE 2: Layout abstracto
+        if self.debug:
+            print("\n[LAF] FASE 2: Layout abstracto")
+            print("-" * 60)
+
+        abstract_positions = self.abstract_placer.place_elements(structure_info, layout)
+
+        # Calcular cruces
+        crossings = self.abstract_placer.count_crossings(abstract_positions, layout.connections)
+
+        # Capturar snapshot Fase 2
+        if self.visualizer:
+            self.visualizer.capture_phase2(abstract_positions, crossings, layout)
+
+        if self.debug:
+            print(f"[LAF] [OK] Layout abstracto completado")
+            print(f"      - Posiciones calculadas: {len(abstract_positions)}")
+            print(f"      - Cruces de conectores: {crossings}")
+
+        # Escribir posiciones abstractas temporalmente para dump de Fase 2
+        self._write_abstract_positions_to_layout(abstract_positions, layout)
+
+        # Dump layout después de Fase 2
+        self._dump_layout(layout, "LAF_PHASE_2_ABSTRACT")
+
+        # FASE 3: Inflación
+        if self.debug:
+            print("\n[LAF] FASE 3: Inflación de elementos")
+            print("-" * 60)
+
+        spacing = self.inflator.inflate_elements(abstract_positions, structure_info, layout)
+
+        # Capturar snapshot Fase 3
+        if self.visualizer:
+            self.visualizer.capture_phase3(layout, spacing)
+
+        if self.debug:
+            print(f"[LAF] [OK] Inflación completada")
+            print(f"      - Spacing: {spacing:.1f}px")
+            print(f"      - Elementos posicionados: {len(abstract_positions)}")
+            if layout.label_positions:
+                print(f"      - Etiquetas calculadas: {len(layout.label_positions)}")
+
+        # Dump layout después de Fase 3
+        self._dump_layout(layout, "LAF_PHASE_3_INFLATED")
+
+        # FASE 4: Crecimiento
+        if self.debug:
+            print("\n[LAF] FASE 4: Crecimiento de contenedores")
+            print("-" * 60)
+
+        self.container_grower.grow_containers(structure_info, layout)
+
+        # Calcular dimensiones finales del canvas
+        canvas_width, canvas_height = self.container_grower.calculate_final_canvas(
+            structure_info,
+            layout
+        )
+        layout.canvas['width'] = canvas_width
+        layout.canvas['height'] = canvas_height
+
+        # Capturar snapshot Fase 4
+        if self.visualizer:
+            self.visualizer.capture_phase4(layout)
+
+        if self.debug:
+            print(f"[LAF] [OK] Contenedores expandidos")
+            if structure_info.container_metrics:
+                for container_id, metrics in structure_info.container_metrics.items():
+                    container = layout.elements_by_id.get(container_id)
+                    if container and 'width' in container:
+                        print(f"      - {container_id}: {container['width']:.0f}x{container['height']:.0f}px "
+                              f"({metrics['total_icons']} íconos)")
+            print(f"      - Canvas final: {canvas_width:.0f}x{canvas_height:.0f}px")
+
+        # Dump layout después de Fase 4
+        self._dump_layout(layout, "LAF_PHASE_4_GROWN")
+
+        # FASE 4.5: Redistribución vertical post-crecimiento
+        if self.debug:
+            print(f"\n[LAF] FASE 4.5: Redistribución vertical")
+            print("-" * 60)
+
+        self._redistribute_vertical_after_growth(structure_info, layout)
+
+        if self.debug:
+            print(f"[LAF] [OK] Redistribución vertical completada")
+
+        # Dump layout después de Fase 4.5
+        self._dump_layout(layout, "LAF_PHASE_4.5_REDISTRIBUTED")
+
+        # Re-calcular routing con contenedores expandidos
+        if self.router_manager:
+            if self.debug:
+                print(f"\n[LAF] Re-calculando routing con contenedores expandidos...")
+
+            self.router_manager.calculate_all_paths(layout)
+
+            if self.debug:
+                print(f"[LAF] [OK] Routing final calculado: {len(layout.connections)} conexiones")
+
+        # Detección de colisiones finales
+        if self.collision_detector and self.debug:
+            collision_count, _ = self.collision_detector.detect_all_collisions(layout)
+            print(f"\n[LAF] Colisiones finales detectadas: {collision_count}")
+
+        # Generar visualizaciones si está activado
+        if self.visualizer:
+            if self.debug:
+                print(f"\n[LAF] Generando visualizaciones del proceso...")
+
+            self.visualizer.generate_all()
+
+            if self.debug:
+                print(f"[LAF] [OK] Visualizaciones generadas en debug/growth/")
+
+        if self.debug:
+            print("\n" + "="*60)
+            if self.visualize_growth:
+                print("[LAF] Sprint 5 completado: Sistema LAF + Visualización + Redistribución")
+            else:
+                print("[LAF] Sistema LAF completo (Fases 1-4.5)")
+                print("[LAF]   - Fase 1: Análisis de estructura")
+                print("[LAF]   - Fase 2: Layout abstracto")
+                print("[LAF]   - Fase 3: Inflación de elementos")
+                print("[LAF]   - Fase 4: Crecimiento de contenedores")
+                print("[LAF]   - Fase 4.5: Redistribución vertical post-crecimiento")
+            print("="*60 + "\n")
+
+        return layout
