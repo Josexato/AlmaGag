@@ -7,379 +7,338 @@
     {
       "id": "input",
       "type": "building",
-      "label": "archivo.gag\n(JSON SDJF v3.0)"
+      "label": "archivo.gag\n(JSON SDJF v3.0)",
+      "hp": 1.3,
+      "color": "lightblue",
+      "label_priority": "high"
     },
     {
       "id": "main",
       "type": "server",
-      "label": "main.py\n(CLI)"
+      "label": "main.py\n(CLI)",
+      "color": "lightgreen"
     },
     {
       "id": "generator",
       "type": "server",
-      "label": "generator.py\n(orquestador)"
+      "label": "generator.py\n(orquestador)",
+      "hp": 1.5,
+      "wp": 1.3,
+      "color": "gold",
+      "label_priority": "high"
     },
     {
       "id": "svgwrite",
       "type": "cloud",
-      "label": "svgwrite\n(librería externa)"
+      "label": "svgwrite\n(librería externa)",
+      "color": "cyan"
     },
     {
-      "id": "layout_module-stage",
+      "id": "layout_container",
       "type": "firewall",
       "label": "Layout Module\n(jerárquico v3.0)",
-      "contains": ["layout", "sizing", "positioner"]
+      "contains": ["layout", "sizing", "positioner"],
+      "color": "#E8E8FF"
     },
     {
       "id": "layout",
       "type": "server",
-      "label": "Layout\nPatrón Inmutable"
+      "label": "Layout\nPatrón Inmutable",
+      "hp": 1.2,
+      "color": "mediumpurple",
+      "label_priority": "high"
     },
     {
       "id": "sizing",
       "type": "building",
-      "label": "SizingCalculator\nhp/wp (v3.0)"
+      "label": "SizingCalculator\nhp/wp (v3.0)",
+      "color": "plum"
     },
     {
       "id": "positioner",
       "type": "building",
-      "label": "AutoLayoutPositioner\nLayout jerárquico"
+      "label": "AutoLayoutPositioner\nLayout jerárquico",
+      "color": "thistle"
     },
     {
       "id": "optimizer",
       "type": "server",
-      "label": "AutoLayoutOptimizer\nv3.0 Jerárquico\n(algoritmo AUTO)"
+      "label": "AutoLayoutOptimizer\nv3.0 Jerárquico",
+      "hp": 1.8,
+      "wp": 1.5,
+      "color": "tomato",
+      "label_priority": "high"
     },
     {
-      "id": "laf_optimizer",
-      "type": "server",
-      "label": "LAFOptimizer\nv1.3\n(algoritmo LAF - opcional)"
-    },
-    {
-      "id": "label_position_optimizer",
-      "type": "building",
-      "label": "LabelPositionOptimizer\nv3.0\nScoring + Greedy"
-    },
-    {
-      "id": "laf_module-stage",
-      "type": "firewall",
-      "label": "LAF Module\n(--layout-algorithm=laf)",
-      "contains": ["structure_analyzer", "abstract_placer", "inflator", "container_grower"]
-    },
-    {
-      "id": "structure_analyzer",
-      "type": "building",
-      "label": "StructureAnalyzer\nFase 1: Topología"
-    },
-    {
-      "id": "abstract_placer",
-      "type": "building",
-      "label": "AbstractPlacer\nFase 2: Minimiza cruces"
-    },
-    {
-      "id": "inflator",
-      "type": "building",
-      "label": "Inflator\nFase 3: Dimensiones reales"
-    },
-    {
-      "id": "container_grower",
-      "type": "building",
-      "label": "ContainerGrower\nFase 4: Expansión bottom-up"
-    },
-    {
-      "id": "routing_module-stage",
+      "id": "routing_container",
       "type": "firewall",
       "label": "Routing Module\n(v3.0)",
-      "contains": ["router_mgr", "routers"]
+      "contains": ["router_mgr", "routers"],
+      "color": "#FFE8E8"
     },
     {
       "id": "router_mgr",
       "type": "server",
-      "label": "RouterManager\nCoordinador"
+      "label": "RouterManager\nCoordinador",
+      "hp": 1.2,
+      "color": "#FF6B6B",
+      "label_priority": "high"
     },
     {
       "id": "routers",
       "type": "cloud",
-      "label": "5 Routers\nstraight/orthogonal\nbezier/arc/manual"
+      "label": "5 Routers\nstraight/orthogonal\nbezier/arc/manual",
+      "hp": 1.3,
+      "color": "#FFA07A"
     },
     {
-      "id": "analysis_module-stage",
+      "id": "analysis_container",
       "type": "firewall",
       "label": "Analysis Module",
-      "contains": ["geometry", "graph", "collision"]
+      "contains": ["geometry", "graph", "collision"],
+      "color": "#FFF8E8"
     },
     {
       "id": "geometry",
       "type": "building",
-      "label": "GeometryCalculator\nbboxes\nintersecciones"
+      "label": "GeometryCalculator\nbboxes\nintersecciones",
+      "color": "orange"
     },
     {
       "id": "graph",
       "type": "building",
-      "label": "GraphAnalyzer\ntopología (v3.0)\nniveles\ngrupos"
+      "label": "GraphAnalyzer\ntopología (v3.0)\nniveles\ngrupos",
+      "color": "lightcoral"
     },
     {
       "id": "collision",
       "type": "building",
-      "label": "CollisionDetector\ndetect_all()\ncount()"
+      "label": "CollisionDetector\ndetect_all()\ncount()",
+      "color": "salmon"
     },
     {
       "id": "render",
       "type": "server",
-      "label": "Renderizado SVG\n(3 fases secuenciales)"
+      "label": "Renderizado SVG\n(3 fases secuenciales)",
+      "hp": 1.5,
+      "color": "purple",
+      "label_priority": "high"
     },
     {
-      "id": "draw_module-stage",
+      "id": "draw_container",
       "type": "firewall",
       "label": "Draw Module",
-      "contains": ["icons", "connections", "labels", "containers"]
+      "contains": ["icons", "connections", "labels", "containers"],
+      "color": "#F0E8FF"
     },
     {
       "id": "icons",
       "type": "building",
-      "label": "icons.py\nFase 1: Shapes\n4 tipos + BWT"
+      "label": "icons.py\nFase 1: Shapes\n4 tipos + BWT",
+      "color": "purple"
     },
     {
       "id": "connections",
       "type": "building",
-      "label": "connections.py\nFase 2: Lines\nRouting types (v3.0)"
+      "label": "connections.py\nFase 2: Lines\nRouting types (v3.0)",
+      "hp": 1.3,
+      "color": "orange",
+      "label_priority": "high"
     },
     {
       "id": "labels",
       "type": "building",
-      "label": "labels\nFase 3: Text\ndraw_*_label()"
+      "label": "labels\nFase 3: Text\ndraw_*_label()",
+      "color": "pink"
     },
     {
       "id": "containers",
       "type": "building",
-      "label": "container.py\nAgrupación visual\n(v1.5)"
+      "label": "container.py\nAgrupación visual\n(v1.5)",
+      "color": "lavender"
     },
     {
       "id": "output",
       "type": "building",
-      "label": "archivo.svg\n(Salida vectorial)"
+      "label": "archivo.svg\n(Salida vectorial)",
+      "hp": 1.3,
+      "color": "lightgreen",
+      "label_priority": "high"
     }
   ],
   "connections": [
     {
       "from": "input",
       "to": "main",
+      "routing": {"type": "straight"},
       "label": "lee JSON",
       "direction": "forward"
     },
     {
       "from": "main",
       "to": "generator",
+      "routing": {"type": "straight"},
       "label": "generate_diagram()",
       "direction": "forward"
     },
     {
       "from": "generator",
       "to": "svgwrite",
+      "routing": {"type": "bezier", "curvature": 0.4},
       "label": "Drawing()",
       "direction": "forward"
     },
     {
       "from": "generator",
       "to": "layout",
+      "routing": {"type": "orthogonal", "preference": "vertical"},
       "label": "Layout(...)",
       "direction": "forward"
     },
     {
       "from": "layout",
       "to": "sizing",
+      "routing": {"type": "orthogonal"},
       "label": "usa",
       "direction": "forward"
     },
     {
       "from": "layout",
       "to": "positioner",
+      "routing": {"type": "orthogonal"},
       "label": "usa",
       "direction": "forward"
     },
     {
       "from": "layout",
       "to": "optimizer",
-      "label": "if --layout-algorithm=auto\noptimize()",
-      "direction": "forward"
-    },
-    {
-      "from": "layout",
-      "to": "laf_optimizer",
-      "label": "if --layout-algorithm=laf\noptimize()",
+      "routing": {"type": "straight"},
+      "label": "optimize()",
       "direction": "forward"
     },
     {
       "from": "optimizer",
       "to": "router_mgr",
+      "routing": {"type": "orthogonal"},
       "label": "calculate_all_paths()\nv3.0",
       "direction": "forward"
     },
     {
       "from": "router_mgr",
       "to": "routers",
+      "routing": {"type": "orthogonal"},
       "label": "delega",
       "direction": "forward"
     },
     {
       "from": "optimizer",
       "to": "geometry",
+      "routing": {"type": "orthogonal"},
       "label": "usa",
       "direction": "forward"
     },
     {
       "from": "optimizer",
       "to": "graph",
+      "routing": {"type": "bezier", "curvature": 0.5},
       "label": "analyze()",
       "direction": "forward"
     },
     {
       "from": "optimizer",
       "to": "collision",
+      "routing": {"type": "bezier", "curvature": 0.5},
       "label": "evaluate()",
       "direction": "forward"
     },
     {
       "from": "collision",
       "to": "geometry",
+      "routing": {"type": "orthogonal"},
       "label": "usa bboxes",
       "direction": "forward"
     },
     {
       "from": "sizing",
       "to": "geometry",
+      "routing": {"type": "bezier", "curvature": 0.6},
       "label": "calcula tamaños",
       "direction": "forward"
     },
     {
-      "from": "laf_optimizer",
-      "to": "structure_analyzer",
-      "label": "fase 1",
-      "direction": "forward"
-    },
-    {
-      "from": "structure_analyzer",
-      "to": "abstract_placer",
-      "label": "topología",
-      "direction": "forward"
-    },
-    {
-      "from": "abstract_placer",
-      "to": "inflator",
-      "label": "posiciones abstractas",
-      "direction": "forward"
-    },
-    {
-      "from": "inflator",
-      "to": "container_grower",
-      "label": "dimensiones reales",
-      "direction": "forward"
-    },
-    {
-      "from": "laf_optimizer",
-      "to": "router_mgr",
-      "label": "routing DUAL\n(2 pasadas)",
-      "direction": "forward"
-    },
-    {
-      "from": "laf_optimizer",
-      "to": "graph",
-      "label": "analyze()",
-      "direction": "forward"
-    },
-    {
-      "from": "laf_optimizer",
-      "to": "geometry",
-      "label": "usa",
-      "direction": "forward"
-    },
-    {
       "from": "optimizer",
       "to": "render",
-      "label": "layout optimizado\n(AUTO)",
-      "direction": "forward"
-    },
-    {
-      "from": "laf_optimizer",
-      "to": "render",
-      "label": "layout optimizado\n(LAF)",
-      "direction": "forward"
-    },
-    {
-      "from": "optimizer",
-      "to": "label_position_optimizer",
-      "label": "optimiza etiquetas",
-      "direction": "forward"
-    },
-    {
-      "from": "laf_optimizer",
-      "to": "label_position_optimizer",
-      "label": "optimiza etiquetas",
-      "direction": "forward"
-    },
-    {
-      "from": "label_position_optimizer",
-      "to": "render",
-      "label": "posiciones finales",
+      "routing": {"type": "straight"},
+      "label": "layout optimizado",
       "direction": "forward"
     },
     {
       "from": "render",
       "to": "icons",
+      "routing": {"type": "orthogonal", "preference": "vertical"},
       "label": "fase 1",
       "direction": "forward"
     },
     {
       "from": "render",
       "to": "connections",
+      "routing": {"type": "orthogonal"},
       "label": "fase 2",
       "direction": "forward"
     },
     {
       "from": "render",
       "to": "labels",
+      "routing": {"type": "orthogonal", "preference": "vertical"},
       "label": "fase 3",
       "direction": "forward"
     },
     {
       "from": "render",
       "to": "containers",
+      "routing": {"type": "orthogonal"},
       "label": "si usa contains",
       "direction": "forward"
     },
     {
       "from": "connections",
       "to": "router_mgr",
+      "routing": {"type": "bezier", "curvature": 0.7},
       "label": "lee computed_path",
       "direction": "forward"
     },
     {
       "from": "icons",
       "to": "output",
+      "routing": {"type": "orthogonal"},
       "label": "dwg.add()",
       "direction": "forward"
     },
     {
       "from": "connections",
       "to": "output",
+      "routing": {"type": "orthogonal"},
       "label": "dwg.add()",
       "direction": "forward"
     },
     {
       "from": "labels",
       "to": "output",
+      "routing": {"type": "orthogonal"},
       "label": "dwg.add()",
       "direction": "forward"
     },
     {
       "from": "containers",
       "to": "output",
+      "routing": {"type": "orthogonal"},
       "label": "dwg.add()",
       "direction": "forward"
     },
     {
       "from": "output",
       "to": "output",
+      "routing": {"type": "arc", "radius": 70, "side": "right"},
       "label": "dwg.save()",
       "direction": "forward"
     }

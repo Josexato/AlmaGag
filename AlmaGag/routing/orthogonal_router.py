@@ -38,6 +38,9 @@ class OrthogonalRouter(ConnectionRouter):
         """
         Calculate orthogonal path between two elements.
 
+        v3.0: Automatic container boundary detection - when a connection crosses
+        a container border, waypoints are automatically added at the container edges.
+
         Args:
             from_elem: Source element
             to_elem: Target element
@@ -68,12 +71,73 @@ class OrthogonalRouter(ConnectionRouter):
         corner_radius = routing.get('corner_radius', 0)
         # avoid_elements = routing.get('avoid_elements', False)  # Future: Phase 5
 
-        # Calculate orthogonal waypoints
-        waypoints = self._calculate_orthogonal_waypoints(
-            from_center,
-            to_center,
-            preference
-        )
+        # v3.0: Detect if connection crosses container boundaries
+        # Find parent containers for both elements
+        from_container = self._find_parent_container(from_elem.get('id'), layout)
+        to_container = self._find_parent_container(to_elem.get('id'), layout)
+
+        # Check if we need to add container boundary waypoints
+        waypoints = []
+
+        if from_container and not to_container:
+            # from_elem is inside a container, to_elem is outside
+            # Add waypoint at container exit
+            exit_point = self._calculate_container_entry_point(
+                from_container,
+                to_center,
+                from_center,
+                sizing_calculator
+            )
+            # Calculate path: from -> exit -> to
+            waypoints = self._calculate_orthogonal_waypoints_with_intermediate(
+                from_center,
+                exit_point,
+                to_center,
+                preference
+            )
+        elif to_container and not from_container:
+            # to_elem is inside a container, from_elem is outside
+            # Add waypoint at container entry
+            entry_point = self._calculate_container_entry_point(
+                to_container,
+                from_center,
+                to_center,
+                sizing_calculator
+            )
+            # Calculate path: from -> entry -> to
+            waypoints = self._calculate_orthogonal_waypoints_with_intermediate(
+                from_center,
+                entry_point,
+                to_center,
+                preference
+            )
+        elif from_container and to_container and from_container.get('id') != to_container.get('id'):
+            # Both inside different containers
+            # Add waypoints at both container boundaries
+            exit_point = self._calculate_container_entry_point(
+                from_container,
+                to_center,
+                from_center,
+                sizing_calculator
+            )
+            entry_point = self._calculate_container_entry_point(
+                to_container,
+                from_center,
+                to_center,
+                sizing_calculator
+            )
+            # Calculate path: from -> exit -> entry -> to
+            waypoints = self._calculate_orthogonal_waypoints_multi(
+                [from_center, exit_point, entry_point, to_center],
+                preference
+            )
+        else:
+            # Both in same container or both outside - use normal routing
+            waypoints = self._calculate_orthogonal_waypoints(
+                from_center,
+                to_center,
+                preference
+            )
 
         # Create path
         return Path(
@@ -189,3 +253,69 @@ class OrthogonalRouter(ConnectionRouter):
         waypoint2 = Point(to_point.x, mid_y)
 
         return [from_point, waypoint1, waypoint2, to_point]
+
+    def _calculate_orthogonal_waypoints_with_intermediate(
+        self,
+        from_point: Point,
+        intermediate_point: Point,
+        to_point: Point,
+        preference: str
+    ) -> List[Point]:
+        """
+        Calculate orthogonal waypoints through an intermediate point (e.g., container border).
+
+        This creates a path: from -> intermediate -> to with orthogonal segments.
+
+        Args:
+            from_point: Start point
+            intermediate_point: Required waypoint (e.g., container entry/exit)
+            to_point: End point
+            preference: 'auto', 'horizontal', or 'vertical'
+
+        Returns:
+            List[Point]: Waypoints forming orthogonal path through intermediate point
+        """
+        # Calculate path in two segments: from -> intermediate, intermediate -> to
+        segment1 = self._calculate_orthogonal_waypoints(from_point, intermediate_point, preference)
+        segment2 = self._calculate_orthogonal_waypoints(intermediate_point, to_point, preference)
+
+        # Merge segments, avoiding duplicate intermediate point
+        # segment1 ends with intermediate_point, segment2 starts with intermediate_point
+        combined = segment1[:-1] + segment2
+
+        return combined
+
+    def _calculate_orthogonal_waypoints_multi(
+        self,
+        points: List[Point],
+        preference: str
+    ) -> List[Point]:
+        """
+        Calculate orthogonal waypoints through multiple required points.
+
+        This creates a path: point[0] -> point[1] -> ... -> point[n] with orthogonal segments.
+
+        Args:
+            points: List of points to route through (start, intermediates, end)
+            preference: 'auto', 'horizontal', or 'vertical'
+
+        Returns:
+            List[Point]: Waypoints forming orthogonal path through all points
+        """
+        if len(points) < 2:
+            return points
+
+        # Calculate path segments between consecutive points
+        all_waypoints = []
+
+        for i in range(len(points) - 1):
+            segment = self._calculate_orthogonal_waypoints(points[i], points[i + 1], preference)
+
+            if i == 0:
+                # First segment: include all waypoints
+                all_waypoints.extend(segment)
+            else:
+                # Subsequent segments: skip first waypoint (duplicate of previous segment's last)
+                all_waypoints.extend(segment[1:])
+
+        return all_waypoints

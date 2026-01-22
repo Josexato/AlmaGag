@@ -11,7 +11,7 @@ Autor: José + ALMA
 Fecha: 2026-01-07
 """
 
-from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
+from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT, CONTAINER_PADDING
 from AlmaGag.draw.icons import create_gradient
 import importlib
 
@@ -97,7 +97,7 @@ def calculate_container_bounds(container, elements_by_id):
     }
 
 
-def draw_container(dwg, container, elements_by_id, draw_label=True):
+def draw_container(dwg, container, elements_by_id, draw_label=True, layout_algorithm='auto', draw_icon=True):
     """
     Dibuja un elemento contenedor como un rectángulo con bordes redondeados
     y un ícono en la esquina superior izquierda.
@@ -115,6 +115,9 @@ def draw_container(dwg, container, elements_by_id, draw_label=True):
         elements_by_id (dict): Mapa de id → elemento.
         draw_label (bool): Si es False, no dibuja la etiqueta del contenedor.
                           Útil cuando la etiqueta se maneja externamente (default: True).
+        layout_algorithm (str): Algoritmo de layout usado ('auto' o 'laf').
+                               Si es 'laf', NO dibuja el ícono de la esquina porque
+                               LAF maneja el ícono del contenedor como elemento separado.
     """
     # IMPORTANTE (v2.2+): Usar dimensiones pre-calculadas si existen.
     # container_calculator ya calculó las dimensiones considerando
@@ -133,6 +136,7 @@ def draw_container(dwg, container, elements_by_id, draw_label=True):
         y = bounds['y']
         width = bounds['width']
         height = bounds['height']
+        print(f"[CALC_BOUNDS] {container['id']}: calculated=({x:.1f}, {y:.1f}) vs container=({container.get('x', 'N/A')}, {container.get('y', 'N/A')})")
 
     # Calcular radio de bordes redondeados (5% del lado más corto)
     radius = min(width, height) * 0.05
@@ -157,29 +161,29 @@ def draw_container(dwg, container, elements_by_id, draw_label=True):
     dwg.add(rect)
 
     # Dibujar ícono en esquina superior izquierda
-    # El icono va pegado al borde superior (sin padding top)
-    icon_type = container.get('type', 'building')
-    icon_size = min(ICON_WIDTH, ICON_HEIGHT) * 0.6  # Ícono más pequeño
-    icon_x = x + 10  # Padding left
-    icon_y = y  # Sin padding top - pegado arriba
+    if draw_icon:
+        icon_type = container.get('type', 'building')
+        icon_size = min(ICON_WIDTH, ICON_HEIGHT) * 0.6  # Ícono más pequeño
+        icon_x = x + CONTAINER_PADDING  # Padding left
+        icon_y = y + CONTAINER_PADDING  # Padding top
 
-    # Intentar cargar módulo del ícono
-    try:
-        icon_module = importlib.import_module(f'AlmaGag.draw.{icon_type}')
-        # Obtener función específica draw_<type>
-        draw_func = getattr(icon_module, f'draw_{icon_type}')
-        # Dibujar ícono (el módulo crea su propio gradiente)
-        icon_elem_id = f"{container['id']}_icon"
-        draw_func(dwg, icon_x, icon_y, color, icon_elem_id)
-    except (ImportError, AttributeError) as e:
-        # Fallback: dibujar rectángulo simple
-        dwg.add(dwg.rect(
-            insert=(icon_x, icon_y),
-            size=(icon_size, icon_size),
-            fill=gradient_id,  # create_gradient ya retorna url(#...)
-            stroke='black',
-            opacity=1.0
-        ))
+        # Intentar cargar módulo del ícono
+        try:
+            icon_module = importlib.import_module(f'AlmaGag.draw.{icon_type}')
+            # Obtener función específica draw_<type>
+            draw_func = getattr(icon_module, f'draw_{icon_type}')
+            # Dibujar ícono (el módulo crea su propio gradiente)
+            icon_elem_id = f"{container['id']}_icon"
+            draw_func(dwg, icon_x, icon_y, color, icon_elem_id)
+        except (ImportError, AttributeError) as e:
+            # Fallback: dibujar rectángulo simple
+            dwg.add(dwg.rect(
+                insert=(icon_x, icon_y),
+                size=(icon_size, icon_size),
+                fill=gradient_id,  # create_gradient ya retorna url(#...)
+                stroke='black',
+                opacity=1.0
+            ))
 
     # Dibujar etiqueta del contenedor (si existe y draw_label=True)
     if draw_label:

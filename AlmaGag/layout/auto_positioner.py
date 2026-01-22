@@ -18,7 +18,18 @@ from typing import List, Dict
 from AlmaGag.layout.layout import Layout
 from AlmaGag.layout.sizing import SizingCalculator
 from AlmaGag.layout.graph_analysis import GraphAnalyzer
-from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
+from AlmaGag.config import (
+    ICON_WIDTH, ICON_HEIGHT,
+    SPACING_SMALL, SPACING_MEDIUM, SPACING_LARGE, SPACING_XLARGE, SPACING_XXLARGE, SPACING_HUGE,
+    CONTAINER_PADDING, CONTAINER_SPACING, CONTAINER_ELEMENT_SPACING, CONTAINER_ICON_HEIGHT,
+    TEXT_LINE_HEIGHT, TEXT_CHAR_WIDTH,
+    LABEL_OFFSET_VERTICAL,
+    CONTAINER_ICON_X, CONTAINER_ICON_Y, CONTAINER_LABEL_X, CONTAINER_LABEL_Y,
+    CANVAS_MARGIN_XLARGE, CANVAS_MARGIN_LARGE, CANVAS_MARGIN_SMALL,
+    GRID_SPACING_SMALL, GRID_SPACING_LARGE,
+    RADIUS_NORMAL_MAX, RADIUS_LOW_MAX,
+    TOP_MARGIN_DEBUG, TOP_MARGIN_NORMAL
+)
 
 logger = logging.getLogger('AlmaGag.AutoPositioner')
 
@@ -234,10 +245,10 @@ class AutoLayoutPositioner:
             return
 
         # Configuración de spacing
-        VERTICAL_SPACING = 100  # Espacio entre niveles
-        HORIZONTAL_SPACING = 120  # Espacio entre elementos del mismo nivel
-        # TOP_MARGIN = 80px si visualdebug (área de debug badge), 20px si no
-        TOP_MARGIN = 80 if self.visualdebug else 20
+        VERTICAL_SPACING = SPACING_LARGE  # Espacio entre niveles (1.25x ICON_WIDTH)
+        HORIZONTAL_SPACING = SPACING_XLARGE  # Espacio entre elementos del mismo nivel (1.5x ICON_WIDTH)
+        # TOP_MARGIN - área de debug badge si visualdebug activo
+        TOP_MARGIN = TOP_MARGIN_DEBUG if self.visualdebug else TOP_MARGIN_NORMAL
 
         # Calcular centro horizontal del canvas
         center_x = layout.canvas['width'] / 2
@@ -268,7 +279,7 @@ class AutoLayoutPositioner:
                 widths.append(width)
 
             # Calcular ancho total: suma de anchos reales + spacing entre elementos
-            spacing_between = 40  # Espacio entre elementos (menor que antes para aprovechar espacio)
+            spacing_between = SPACING_SMALL  # Espacio entre elementos (0.5x ICON_WIDTH)
             total_width = sum(widths) + (num_elements - 1) * spacing_between
 
             # Calcular X inicial para centrar el nivel
@@ -313,14 +324,14 @@ class AutoLayoutPositioner:
         center_y = layout.canvas['height'] / 2
 
         # Calcular radios máximos seguros (con margen de 100px)
-        max_radius_x = center_x - 100  # Margen desde centro hasta borde
-        max_radius_y = center_y - 100
+        max_radius_x = center_x - CANVAS_MARGIN_LARGE  # Margen desde centro hasta borde (1.25x ICON_WIDTH)
+        max_radius_y = center_y - CANVAS_MARGIN_LARGE
         max_safe_radius = min(max_radius_x, max_radius_y)
 
         # Radios adaptativos basados en espacio disponible
         # Si el canvas es grande, usar radios más grandes; si es pequeño, ajustar
-        radius_normal = min(max_safe_radius * 0.5, 250)  # 50% del radio seguro o 250px
-        radius_low = min(max_safe_radius * 0.8, 350)     # 80% del radio seguro o 350px
+        radius_normal = min(max_safe_radius * 0.5, RADIUS_NORMAL_MAX)  # 50% del radio seguro o 3.125x ICON_WIDTH
+        radius_low = min(max_safe_radius * 0.8, RADIUS_LOW_MAX)     # 80% del radio seguro o 4.375x ICON_WIDTH
 
         # HIGH: grid compacto en centro (sorted by centrality)
         high_elements = sorted(
@@ -328,7 +339,7 @@ class AutoLayoutPositioner:
             key=lambda e: self.sizing.get_centrality_score(e, 0),
             reverse=True
         )
-        self._position_grid_center(high_elements, center_x, center_y, spacing=120)
+        self._position_grid_center(high_elements, center_x, center_y, spacing=SPACING_XLARGE)
 
         # NORMAL: anillo alrededor
         normal_elements = sorted(
@@ -434,7 +445,7 @@ class AutoLayoutPositioner:
                 widths.append(width)
 
             # Calcular ancho total con spacing entre elementos
-            spacing_between = 40
+            spacing_between = SPACING_SMALL
             total_width = sum(widths) + (len(elems) - 1) * spacing_between
             start_x = (layout.canvas['width'] - total_width) / 2
 
@@ -542,12 +553,12 @@ class AutoLayoutPositioner:
             groups: Grupos de elementos por contenedor
         """
         # Configuración de espaciado
-        CONTAINER_SPACING = 250  # Espacio entre contenedores
-        ELEMENT_SPACING_IN_CONTAINER = 120  # Espacio entre elementos del mismo contenedor
+        CONTAINER_SPACING = CONTAINER_SPACING  # Espacio entre contenedores
+        ELEMENT_SPACING_IN_CONTAINER = CONTAINER_ELEMENT_SPACING  # Espacio entre elementos del mismo contenedor
 
         # Posición inicial
-        current_x = 100
-        current_y = 150
+        current_x = CANVAS_MARGIN_LARGE
+        current_y = SPACING_XXLARGE
 
         # 1. Posicionar grupos de contenedores
         container_groups = {k: v for k, v in groups.items() if k is not None}
@@ -715,7 +726,7 @@ class AutoLayoutPositioner:
         self._layout_contained_elements_locally(container, contained_elements)
 
         # Calcular envolvente del contenedor (basado en elementos internos + padding + etiqueta)
-        padding = container.get('padding', 10)
+        padding = container.get('padding', CONTAINER_PADDING)
         min_width, min_height = self._calculate_container_bounds(
             contained_elements,
             padding,
@@ -736,9 +747,9 @@ class AutoLayoutPositioner:
             header_height = 0
             if container.get('label'):
                 lines = container['label'].split('\n')
-                label_height = len(lines) * 18  # 18px por línea
-                icon_height = 50  # Altura del icono del contenedor
-                header_height = max(icon_height, label_height)
+                label_height = len(lines) * TEXT_LINE_HEIGHT  # 18px por línea
+                icon_height = CONTAINER_ICON_HEIGHT  # Altura del icono del contenedor
+                header_height = max(CONTAINER_ICON_HEIGHT, label_height)
 
             # Obtener tamaño del elemento
             elem_width = elem.get('width', ICON_WIDTH)
@@ -768,7 +779,7 @@ class AutoLayoutPositioner:
         logger.debug(f"  Dimensiones: {min_width:.1f} x {min_height:.1f}")
         if container.get('label'):
             lines = container['label'].split('\n')
-            label_height = len(lines) * 18 + 10
+            label_height = len(lines) * TEXT_LINE_HEIGHT + 10
             logger.debug(f"  Espacio etiqueta: {label_height}px (arriba)")
         logger.debug(f"  Elementos internos: {len(contained_elements)}")
         for elem in contained_elements:
@@ -787,16 +798,16 @@ class AutoLayoutPositioner:
             container: Contenedor padre
             elements: Elementos a posicionar
         """
-        padding = container.get('padding', 10)
+        padding = container.get('padding', CONTAINER_PADDING)
 
         # Calcular espacio del header del contenedor
         header_height = 0
         if container.get('label'):
             label_text = container['label']
             lines = label_text.split('\n')
-            label_height = len(lines) * 18  # 18px por línea
-            icon_height = 50  # Altura del icono del contenedor
-            header_height = max(icon_height, label_height)
+            label_height = len(lines) * TEXT_LINE_HEIGHT  # 18px por línea
+            icon_height = CONTAINER_ICON_HEIGHT  # Altura del icono del contenedor
+            header_height = max(CONTAINER_ICON_HEIGHT, label_height)
 
         # Posición Y inicial para elementos = header + padding_mid
         start_y = header_height + padding
@@ -819,7 +830,7 @@ class AutoLayoutPositioner:
             else:
                 cols = int(n ** 0.5) + 1
 
-            spacing = 20
+            spacing = GRID_SPACING_SMALL
 
             for i, elem in enumerate(full_elements):
                 row = i // cols
@@ -883,8 +894,11 @@ class AutoLayoutPositioner:
                 # Considerar también el espacio de la etiqueta del elemento (si existe)
                 elem_bottom = local_y + elem_height
                 if elem.get('label'):
-                    # La etiqueta está típicamente 15px debajo del ícono y tiene ~18px de altura
-                    elem_bottom += 15 + 18  # offset + altura de etiqueta
+                    # Calcular altura real de la etiqueta basándose en número de líneas
+                    label_lines = elem['label'].split('\n')
+                    label_height = len(label_lines) * 18  # 18px por línea
+                    # La etiqueta está típicamente 15px debajo del ícono
+                    elem_bottom += LABEL_OFFSET_VERTICAL + label_height  # offset + altura de etiqueta
 
                 max_y = max(max_y, elem_bottom)
 
@@ -907,19 +921,19 @@ class AutoLayoutPositioner:
             label_text = container['label']
             lines = label_text.split('\n')
             max_line_len = max(len(line) for line in lines) if lines else 0
-            label_width = max_line_len * 8  # 8px por carácter
-            label_height = len(lines) * 18  # 18px por línea
+            label_width = max_line_len * TEXT_CHAR_WIDTH  # 8px por carácter
+            label_height = len(lines) * TEXT_LINE_HEIGHT  # 18px por línea
 
             # El icono del contenedor tiene 50px de altura
-            icon_height = 50
+            icon_height = CONTAINER_ICON_HEIGHT
 
             # El header ocupa el máximo entre icono y etiqueta
-            header_height = max(icon_height, label_height)
+            header_height = max(CONTAINER_ICON_HEIGHT, label_height)
 
             # Calcular ancho necesario considerando que la etiqueta está a la derecha del ícono
             # Etiqueta comienza en: 10 (margen) + 80 (ícono) + 10 (margen) = 100
-            label_x_position = 10 + ICON_WIDTH + 10
-            label_required_width = label_x_position + label_width + 10  # posición + ancho + margen derecho
+            label_x_position = CONTAINER_ICON_X + ICON_WIDTH + CONTAINER_PADDING
+            label_required_width = label_x_position + label_width + CONTAINER_PADDING  # posición + ancho + margen derecho
 
             # Usar el mayor entre base_width y label_required_width
             width = max(base_width, label_required_width)
@@ -1116,6 +1130,24 @@ class AutoLayoutPositioner:
         num_levels = len(by_level)
         center_x = layout.canvas['width'] / 2
 
+        # OPTIMIZACIÓN: Si solo hay 1 franja pero múltiples niveles,
+        # dividir la franja en sub-franjas verticales (una por nivel)
+        if len(free_ranges) == 1 and num_levels > 1:
+            y_start, y_end = free_ranges[0]
+            free_height = y_end - y_start
+            level_height = free_height / num_levels
+
+            # Crear sub-franjas para cada nivel
+            sub_franjas = []
+            for i in range(num_levels):
+                sub_y_start = y_start + (i * level_height)
+                sub_y_end = sub_y_start + level_height
+                sub_franjas.append((sub_y_start, sub_y_end))
+
+            logger.debug(f"    Dividiendo franja libre [{y_start:.1f} - {y_end:.1f}] en {num_levels} sub-franjas verticales")
+            logger.debug(f"    Altura por sub-franja: {level_height:.1f}px")
+            free_ranges = sub_franjas
+
         for level_idx, level_num in enumerate(sorted(by_level.keys())):
             level_elements = by_level[level_num]
 
@@ -1140,7 +1172,7 @@ class AutoLayoutPositioner:
                     widths.append(width)
 
                 # Calcular ancho total con spacing entre elementos
-                spacing_between = 40
+                spacing_between = SPACING_SMALL
                 total_width = sum(widths) + (num_elements - 1) * spacing_between
                 start_x = center_x - (total_width / 2)
 

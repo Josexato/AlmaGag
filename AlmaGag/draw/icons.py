@@ -13,7 +13,11 @@ Fecha: 2025-07-06
 """
 
 import importlib
-from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
+from AlmaGag.config import (
+    ICON_WIDTH, ICON_HEIGHT,
+    LABEL_OFFSET_BOTTOM, LABEL_OFFSET_SIDE,
+    TEXT_LINE_HEIGHT, TEXT_CHAR_WIDTH
+)
 
 # Diccionario de colores CSS nombrados a valores hex
 CSS_COLORS = {

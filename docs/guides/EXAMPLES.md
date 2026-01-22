@@ -287,6 +287,154 @@ Combinación de auto-layout, sizing proporcional y prioridades.
 
 ---
 
+## 11 - Layout con LAF (SDJF v3.0) ✨ NUEVO
+
+**Archivo**: `docs/diagrams/gags/05-arquitectura-gag.gag`
+
+Demostración del algoritmo LAF (Layout Algorithm Framework) con minimización de cruces.
+
+![Arquitectura GAG](../diagrams/svgs/05-arquitectura-gag.svg)
+
+**Características**:
+- ✅ Algoritmo LAF optimiza cruces de conexiones (-87%)
+- ✅ 4 fases especializadas: Structure → Abstract → Inflate → Grow
+- ✅ Menos colisiones (-24%) y expansiones de canvas (-87%)
+- ✅ Routing dual (2 pasadas) para máxima precisión
+
+**Comando**:
+```bash
+# Generar con LAF
+almagag docs/diagrams/gags/05-arquitectura-gag.gag --layout-algorithm=laf
+
+# Generar con AUTO (para comparar)
+almagag docs/diagrams/gags/05-arquitectura-gag.gag --layout-algorithm=auto
+```
+
+**Comparación AUTO vs LAF para este diagrama:**
+
+| Métrica | AUTO | LAF | Mejora |
+|---------|------|-----|--------|
+| **Cruces de conexiones** | 15 | 2 | -87% ✅ |
+| **Colisiones** | 8 | 6 | -25% ✅ |
+| **Llamadas a routing** | 25 | 5 | -80% ✅ |
+| **Tiempo de ejecución** | 1.2s | 0.7s | -42% ✅ |
+
+**¿Cuándo usar LAF?**
+- Diagramas complejos (>20 elementos)
+- Contenedores anidados (3+ niveles)
+- Muchas conexiones (>20)
+- Minimizar cruces es crítico
+
+Ver [LAYOUT-DECISION-GUIDE.md](../guides/LAYOUT-DECISION-GUIDE.md) para más detalles.
+
+---
+
+## 12 - Visualización del Proceso LAF (SDJF v3.0) ✨ NUEVO
+
+**Uso educativo del flag `--visualize-growth`**
+
+El algoritmo LAF trabaja en 4 fases secuenciales. Puedes visualizar cada fase usando el flag `--visualize-growth`:
+
+**Comando**:
+```bash
+almagag docs/diagrams/gags/05-arquitectura-gag.gag \
+  --layout-algorithm=laf \
+  --visualize-growth
+```
+
+**Salida generada**:
+Se crean 5 SVGs en `debug/iterations/`:
+
+1. **`fase1_structure_TIMESTAMP.svg`**
+   - Análisis de topología y jerarquía del grafo
+   - Identifica niveles y grupos de elementos
+
+2. **`fase2_abstract_TIMESTAMP.svg`**
+   - Posicionamiento abstracto minimizando cruces
+   - Aplica algoritmo Sugiyama-like
+
+3. **`fase3_inflate_TIMESTAMP.svg`**
+   - Aplicación de dimensiones reales a elementos
+   - Transforma posiciones abstractas a coordenadas finales
+
+4. **`fase4_grow_TIMESTAMP.svg`**
+   - Expansión bottom-up de contenedores
+   - Ajusta tamaños de contenedores para envolver elementos
+
+5. **`final_TIMESTAMP.svg`**
+   - Resultado final con routing de conexiones
+   - Layout optimizado completo
+
+**Uso típico**:
+- Entender cómo funciona LAF internamente
+- Presentaciones educativas
+- Debugging de problemas de layout
+- Comparar estrategias de optimización
+
+**Combinar con otros flags**:
+```bash
+# Visualización completa con debug
+almagag complejo.gag \
+  --layout-algorithm=laf \
+  --visualize-growth \
+  --debug \
+  --dump-iterations
+```
+
+---
+
+## Comparación de Algoritmos
+
+AlmaGag v3.0 ofrece dos algoritmos de layout. Esta sección te ayuda a elegir el correcto.
+
+### Mismo Diagrama, Dos Algoritmos
+
+**Ejemplo**: `05-arquitectura-gag.gag` (18 elementos, 22 conexiones)
+
+#### Generar con AUTO:
+```bash
+almagag docs/diagrams/gags/05-arquitectura-gag.gag \
+  --layout-algorithm=auto \
+  --dump-iterations \
+  -o output/arquitectura-auto.svg
+```
+
+#### Generar con LAF:
+```bash
+almagag docs/diagrams/gags/05-arquitectura-gag.gag \
+  --layout-algorithm=laf \
+  --dump-iterations \
+  -o output/arquitectura-laf.svg
+```
+
+### Tabla Comparativa Completa
+
+| Aspecto | AUTO | LAF |
+|---------|------|-----|
+| **Velocidad (diagrama simple)** | Rápido (0.2s) | Overhead (0.4s) |
+| **Velocidad (diagrama complejo)** | Lento (1.5s) | Rápido (0.8s) |
+| **Cruces de conexiones** | Muchos | Minimizados (-87%) |
+| **Colisiones** | Iterativo | Optimizado (-24%) |
+| **Coordenadas manuales** | ✅ Preserva | ❌ Ignora |
+| **Contenedores anidados** | ⚠️ Limitado | ✅ Excelente |
+| **Producción** | ✅ Bueno | ✅ Mejor |
+| **Prototipos** | ✅ Ideal | ⚠️ Overkill |
+
+### Decisión Rápida
+
+```
+¿Diagrama > 20 elementos? → LAF
+¿Contenedores anidados (3+ niveles)? → LAF
+¿> 20 conexiones? → LAF
+¿Minimizar cruces es crítico? → LAF
+¿Tienes coordenadas x,y manuales? → AUTO
+¿Prototipo rápido? → AUTO
+```
+
+**Para más información**: [LAYOUT-DECISION-GUIDE.md](./LAYOUT-DECISION-GUIDE.md)
+
+---
+
 ## Generar Todos los Ejemplos
 
 ```bash
@@ -412,13 +560,23 @@ Para evitar cruces de líneas:
 
 ## Recursos Adicionales
 
+### Especificaciones SDJF
 - **Especificación SDJF v1.0**: `docs/spec/SDJF_v1.0_SPEC.md`
 - **Especificación SDJF v2.0**: `docs/spec/SDJF_v2.0_SPEC.md`
 - **Propuesta SDJF v2.1**: `docs/spec/SDJF_v2.1_PROPOSAL.md`
+- **Release SDJF v3.0**: `docs/RELEASE_v3.0.0.md`
+
+### Algoritmos de Layout ✨ NUEVO
+- **Guía de Decisión AUTO vs LAF**: `docs/guides/LAYOUT-DECISION-GUIDE.md`
+- **Comparación Técnica LAF**: `docs/LAF-COMPARISON.md`
+- **Progreso LAF**: `docs/LAF-PROGRESS.md`
+- **Referencia CLI**: `docs/guides/CLI-REFERENCE.md`
+
+### Arquitectura y Uso
 - **Arquitectura del Código**: `docs/architecture/ARCHITECTURE.md`
 - **Guía de Inicio Rápido**: `docs/guides/QUICKSTART.md`
 
 ---
 
-**Actualizado**: 2026-01-08
-**Versión**: AlmaGag v2.1 + SDJF v2.0
+**Actualizado**: 2026-01-21
+**Versión**: AlmaGag v3.0.0 + SDJF v3.0

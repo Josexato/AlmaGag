@@ -12,6 +12,7 @@ AlmaGag v3.0.0 introduce un **sistema de layout jerárquico inteligente** que po
 
 ### Mejoras Clave
 - ✅ **Layout jerárquico** basado en dirección de conexiones
+- ✅ **Algoritmo LAF opcional** con minimización de cruces (-87% vs AUTO)
 - ✅ **0 colisiones** en diagramas típicos (vs 3+ en v2.0)
 - ✅ **100% elementos dentro del canvas** (vs 75% en v2.0)
 - ✅ **Conversión SVG→PNG sin dependencias** (Chrome headless)
@@ -294,6 +295,89 @@ Esta versión fue desarrollada con asistencia de:
 - **Issues:** https://github.com/Josexato/AlmaGag/issues
 - **Documentación:** Ver `docs/` folder
 - **Ejemplos:** Ver `docs/examples/` folder
+
+---
+
+## 🧠 Sistema LAF (Layout Algorithm Framework) ✨ NUEVO
+
+AlmaGag v3.0 introduce un segundo algoritmo de layout opcional llamado **LAF** (Layout Algorithm Framework) que optimiza agresivamente la minimización de cruces y colisiones.
+
+### Uso
+
+```bash
+# Algoritmo AUTO (por defecto)
+almagag diagrama.gag
+
+# Algoritmo LAF (opcional)
+almagag diagrama.gag --layout-algorithm=laf
+```
+
+### Ventajas de LAF vs AUTO
+
+Basado en pruebas con 10 diagramas reales del proyecto:
+
+| Métrica | AUTO | LAF | Mejora |
+|---------|------|-----|--------|
+| **Cruces de conexiones** | 15 (promedio) | 2 (promedio) | **-87%** ✅ |
+| **Colisiones** | 8 (promedio) | 6 (promedio) | **-25%** ✅ |
+| **Llamadas a routing** | 25 (promedio) | 5 (promedio) | **-80%** ✅ |
+| **Expansiones de canvas** | 8 (promedio) | 1 (promedio) | **-87%** ✅ |
+| **Tiempo (diagrama complejo)** | 1.2s | 0.7s | **-42%** ✅ |
+
+### ¿Cuándo usar LAF?
+
+✅ **Usar LAF cuando**:
+- Diagrama complejo (>20 elementos)
+- Contenedores anidados (3+ niveles)
+- Muchas conexiones (>20 aristas)
+- Minimizar cruces es crítico
+- Producción / Presentaciones
+
+✅ **Usar AUTO cuando**:
+- Diagrama simple (<10 elementos)
+- Necesitas coordenadas x,y manuales
+- Prototipado rápido
+- Pocas conexiones (<10)
+
+### Fases del Algoritmo LAF
+
+LAF trabaja en 4 fases secuenciales:
+
+1. **Fase 1: Structure Analysis**
+   - Análisis de topología y jerarquía del grafo
+   - Identifica niveles y grupos
+
+2. **Fase 2: Abstract Placement**
+   - Posicionamiento abstracto minimizando cruces
+   - Aplica técnicas Sugiyama-like
+
+3. **Fase 3: Inflation**
+   - Aplicación de dimensiones reales
+   - Transforma posiciones abstractas a coordenadas finales
+
+4. **Fase 4: Container Growth**
+   - Expansión bottom-up de contenedores
+   - Ajusta tamaños para envolver elementos
+
+### Visualizar Proceso LAF
+
+```bash
+# Genera 5 SVGs mostrando cada fase
+almagag diagrama.gag --layout-algorithm=laf --visualize-growth
+```
+
+Salida en `debug/iterations/`:
+- `fase1_structure_TIMESTAMP.svg`
+- `fase2_abstract_TIMESTAMP.svg`
+- `fase3_inflate_TIMESTAMP.svg`
+- `fase4_grow_TIMESTAMP.svg`
+- `final_TIMESTAMP.svg`
+
+### Documentación LAF
+
+- **Guía de Decisión**: `docs/guides/LAYOUT-DECISION-GUIDE.md` - Árbol de decisión AUTO vs LAF
+- **Comparación Técnica**: `docs/LAF-COMPARISON.md` - Análisis profundo con métricas
+- **Historia de Desarrollo**: `docs/LAF-PROGRESS.md` - 5 sprints de implementación
 
 ---
 

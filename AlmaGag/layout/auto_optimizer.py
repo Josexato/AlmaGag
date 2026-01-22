@@ -24,7 +24,11 @@ from AlmaGag.layout.collision import CollisionDetector
 from AlmaGag.layout.graph_analysis import GraphAnalyzer
 from AlmaGag.layout.container_calculator import ContainerCalculator
 from AlmaGag.routing.router_manager import ConnectionRouterManager
-from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
+from AlmaGag.config import (
+    ICON_WIDTH, ICON_HEIGHT,
+    CANVAS_MARGIN_XLARGE, CANVAS_MARGIN_LARGE, CANVAS_MARGIN_SMALL,
+    MOVEMENT_THRESHOLD, MOVEMENT_MAX_DISTANCE, MOVEMENT_DEFAULT_DY
+)
 
 
 class AutoLayoutOptimizer(LayoutOptimizer):
@@ -106,7 +110,13 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         layout._collision_pairs = pairs
         return count
 
-    def optimize(self, layout: Layout, max_iterations: int = 10) -> Layout:
+    def optimize(
+        self,
+        layout: Layout,
+        max_iterations: int = 10,
+        dump_iterations: bool = False,
+        input_file: Optional[str] = None
+    ) -> Layout:
         """
         Optimiza layout con selección del mejor candidato.
 
@@ -126,12 +136,20 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         Args:
             layout: Layout inicial (NO se modifica)
             max_iterations: Número máximo de iteraciones
+            dump_iterations: Si True, guarda snapshots JSON de cada iteración
+            input_file: Ruta del archivo .gag de entrada (para nombrar dumps)
 
         Returns:
             Layout: Mejor layout encontrado
         """
         # Trabajar sobre una copia inicial
         current = layout.copy()
+
+        # Inicializar dumper de iteraciones si está habilitado
+        dumper = None
+        if dump_iterations:
+            from AlmaGag.iteration_debug.iteration_dumper import IterationDumper
+            dumper = IterationDumper(input_file=input_file or "unknown.gag")
 
         # 0. Auto-layout para elementos sin coordenadas (SDJF v2.0)
         #    NOTA: Debe hacerse ANTES del análisis para que las prioridades
@@ -218,6 +236,10 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         # 3. Evaluación inicial
         initial_collisions = self.evaluate(current)
 
+        # Capturar estado inicial para dump
+        if dumper:
+            dumper.capture_initial_state(current, initial_collisions)
+
         self._log(f"Colisiones iniciales: {initial_collisions}")
         self._log(f"Niveles: {len(set(current.levels.values()))}, "
                   f"Grupos: {len(current.groups)}")
@@ -245,14 +267,27 @@ class AutoLayoutOptimizer(LayoutOptimizer):
             # Crear candidato (copia)
             candidate = best_layout.copy()
 
+            # Guardar estado antes de aplicar estrategia (para dump)
+            layout_before = candidate.copy() if dumper else None
+            collisions_before = min_collisions
+
             # Log de inicio de iteración (verbose)
             if self.verbose:
                 self._log(f"Iteración {iteration + 1}/{max_iterations}: probando mejoras...")
 
+            # Variables para rastrear estrategia aplicada
+            strategy_type = "unknown"
+            strategy_desc = ""
+            victim_id = None
+            dx = dy = 0
+
             # Estrategia A: Reubicar etiquetas
             improved = self._try_relocate_labels(candidate)
 
-            if not improved:
+            if improved:
+                strategy_type = "label_relocation"
+                strategy_desc = "Reubicación de etiquetas a posiciones alternativas"
+            else:
                 # Estrategia B: Mover elementos (con pesos SDJF v2.0)
                 collision_pairs = candidate._collision_pairs or []
                 victim_id = self._select_element_to_move_weighted(candidate, collision_pairs)
@@ -273,19 +308,27 @@ class AutoLayoutOptimizer(LayoutOptimizer):
                         new_y = elem['y'] + scaled_dy
                         self._ensure_canvas_fits(
                             candidate,
-                            new_x + ICON_WIDTH + 150,
-                            new_y + ICON_HEIGHT + 100
+                            new_x + ICON_WIDTH + CANVAS_MARGIN_XLARGE,
+                            new_y + ICON_HEIGHT + CANVAS_MARGIN_LARGE
                         )
 
                         self._shift_element(candidate, victim_id, scaled_dx, scaled_dy)
                         moved_elements.append(victim_id)
+
+                        strategy_type = "element_movement"
+                        strategy_desc = f"Mover elemento {victim_id} por ({scaled_dx}, {scaled_dy})"
 
                         # Recalcular después de mover
                         candidate.invalidate_collision_cache()
                         self._recalculate_structures(candidate)
                 else:
                     # Estrategia C: Expandir canvas y continuar optimizando
+                    old_canvas = candidate.canvas.copy()
                     candidate.canvas = candidate.get_recommended_canvas()
+
+                    strategy_type = "canvas_expansion"
+                    strategy_desc = f"Expandir canvas de {old_canvas['width']}x{old_canvas['height']} a {candidate.canvas['width']}x{candidate.canvas['height']}"
+
                     # Recalcular estructuras después de expandir
                     candidate.invalidate_collision_cache()
                     self._recalculate_structures(candidate)
@@ -296,6 +339,35 @@ class AutoLayoutOptimizer(LayoutOptimizer):
 
             # Evaluar candidato
             collisions = self.evaluate(candidate)
+
+            # Determinar si se acepta y si es el mejor
+            accepted = collisions < min_collisions
+            became_best = accepted
+
+            # Capturar iteración para dump
+            if dumper:
+                strategy_info = self._extract_strategy_info(
+                    layout_before,
+                    candidate,
+                    improved,
+                    victim_id,
+                    dx,
+                    dy,
+                    strategy_type,
+                    strategy_desc
+                )
+                dumper.capture_iteration(
+                    iteration_num=iteration + 1,
+                    layout_before=layout_before,
+                    layout_after=candidate,
+                    strategy_type=strategy_info[0],
+                    strategy_desc=strategy_info[1],
+                    changes=strategy_info[2],
+                    collisions_before=collisions_before,
+                    collisions_after=collisions,
+                    accepted=accepted,
+                    became_best=became_best
+                )
 
             # Guardar si es mejor
             if collisions < min_collisions:
@@ -315,6 +387,13 @@ class AutoLayoutOptimizer(LayoutOptimizer):
             if (best_layout.canvas['width'] > layout.canvas['width'] or
                     best_layout.canvas['height'] > layout.canvas['height']):
                 self._log(f"Canvas expandido a {best_layout.canvas['width']}x{best_layout.canvas['height']}")
+
+        # Guardar dump final si está habilitado
+        if dumper:
+            dump_path = dumper.save(best_layout, min_collisions)
+            print(f"[DUMP] Iteraciones guardadas en: {dump_path}")
+            print(f"       Total iteraciones: {len(dumper.iterations) - 1}")
+            print(f"       Colisiones: {initial_collisions} -> {min_collisions}")
 
         return best_layout
 
@@ -657,8 +736,8 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         preferred_order = ['down', 'right', 'left', 'up']
 
         for direction in preferred_order:
-            if free_space[direction] >= 80:
-                distance = min(free_space[direction], 100)
+            if free_space[direction] >= MOVEMENT_THRESHOLD:
+                distance = min(free_space[direction], MOVEMENT_MAX_DISTANCE)
                 if direction == 'down':
                     return (0, distance)
                 elif direction == 'right':
@@ -669,7 +748,7 @@ class AutoLayoutOptimizer(LayoutOptimizer):
                     return (0, -distance)
 
         # No hay suficiente espacio → mover abajo y expandir canvas
-        return (0, 80)
+        return (0, MOVEMENT_THRESHOLD)
 
     def _find_free_space(
         self,
@@ -719,10 +798,10 @@ class AutoLayoutOptimizer(LayoutOptimizer):
                     free['left'] = min(free['left'], ex1 - ox2)
 
         # Considerar bordes del canvas
-        free['down'] = min(free['down'], layout.canvas['height'] - ey2 - 100)
-        free['right'] = min(free['right'], layout.canvas['width'] - ex2 - 100)
-        free['up'] = min(free['up'], ey1 - 50)
-        free['left'] = min(free['left'], ex1 - 50)
+        free['down'] = min(free['down'], layout.canvas['height'] - ey2 - CANVAS_MARGIN_LARGE)
+        free['right'] = min(free['right'], layout.canvas['width'] - ex2 - CANVAS_MARGIN_LARGE)
+        free['up'] = min(free['up'], ey1 - CANVAS_MARGIN_SMALL)
+        free['left'] = min(free['left'], ex1 - CANVAS_MARGIN_SMALL)
 
         return {k: max(0, v) for k, v in free.items()}
 
@@ -731,7 +810,7 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         layout: Layout,
         element_id: str,
         dx: int = 0,
-        dy: int = 60
+        dy: int = int(MOVEMENT_DEFAULT_DY)
     ) -> None:
         """
         Desplaza un elemento y actualiza índices.
@@ -776,10 +855,28 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         layout.connection_labels = {}
         self._calculate_initial_positions(layout)
 
-        # CRÍTICO: Recalcular dimensiones de contenedores DESPUÉS de recalcular etiquetas
-        # Los contenedores deben reflejar TANTO las nuevas posiciones de elementos
-        # COMO las nuevas posiciones de sus etiquetas
-        self.container_calculator.update_container_dimensions(layout)
+        # CRÍTICO: Recalcular contenedores con centrado (igual que en optimize())
+        # Limpiar flag _resolved para forzar re-cálculo con centrado
+        for elem in layout.elements:
+            if 'contains' in elem and elem.get('_resolved'):
+                del elem['_resolved']
+                # También resetear coordenadas locales de elementos contenidos
+                for ref in elem.get('contains', []):
+                    ref_id = ref['id'] if isinstance(ref, dict) else ref
+                    contained = layout.elements_by_id.get(ref_id)
+                    if contained:
+                        if '_local_x' in contained:
+                            del contained['_local_x']
+                        if '_local_y' in contained:
+                            del contained['_local_y']
+
+        # Re-resolver contenedores con centrado
+        container_hierarchy = self.positioner._analyze_container_hierarchy(layout)
+        for container in container_hierarchy.bottom_up_order():
+            self.positioner._resolve_container(layout, container)
+
+        # Propagar coordenadas locales actualizadas (centrado)
+        self.positioner._propagate_coordinates_to_contained(layout)
 
     def _ensure_canvas_fits(
         self,
@@ -796,6 +893,90 @@ class AutoLayoutOptimizer(LayoutOptimizer):
             needed_y: Coordenada Y mínima necesaria
         """
         if needed_x > layout.canvas['width']:
-            layout.canvas['width'] = int(needed_x + 50)
+            layout.canvas['width'] = int(needed_x + CANVAS_MARGIN_SMALL)
         if needed_y > layout.canvas['height']:
-            layout.canvas['height'] = int(needed_y + 50)
+            layout.canvas['height'] = int(needed_y + CANVAS_MARGIN_SMALL)
+
+    def _extract_strategy_info(
+        self,
+        layout_before: Layout,
+        layout_after: Layout,
+        improved: bool,
+        victim_id: Optional[str],
+        dx: int,
+        dy: int,
+        strategy_type: str,
+        strategy_desc: str
+    ) -> Tuple[str, str, List[dict]]:
+        """
+        Extrae información detallada sobre la estrategia aplicada.
+
+        Analiza las diferencias entre layout_before y layout_after para
+        identificar qué elementos cambiaron y cómo.
+
+        Args:
+            layout_before: Layout antes de aplicar estrategia
+            layout_after: Layout después de aplicar estrategia
+            improved: Si la estrategia mejoró el layout
+            victim_id: ID del elemento afectado (si aplica)
+            dx: Desplazamiento horizontal aplicado
+            dy: Desplazamiento vertical aplicado
+            strategy_type: Tipo de estrategia aplicada
+            strategy_desc: Descripción de la estrategia
+
+        Returns:
+            Tuple[str, str, List[dict]]: (tipo, descripción, lista de cambios)
+        """
+        changes = []
+
+        # Detectar etiquetas reubicadas
+        if strategy_type == "label_relocation":
+            for elem_id in layout_after.label_positions:
+                pos_before = layout_before.label_positions.get(elem_id)
+                pos_after = layout_after.label_positions.get(elem_id)
+
+                if pos_before and pos_after and pos_before != pos_after:
+                    changes.append({
+                        "type": "label_relocated",
+                        "element_id": elem_id,
+                        "position_before": pos_before[3],  # position name
+                        "position_after": pos_after[3],
+                        "coords_before": {"x": round(pos_before[0], 2), "y": round(pos_before[1], 2)},
+                        "coords_after": {"x": round(pos_after[0], 2), "y": round(pos_after[1], 2)}
+                    })
+
+        # Detectar elementos movidos
+        elif strategy_type == "element_movement" and victim_id:
+            elem_before = layout_before.elements_by_id.get(victim_id)
+            elem_after = layout_after.elements_by_id.get(victim_id)
+
+            if elem_before and elem_after:
+                changes.append({
+                    "type": "element_moved",
+                    "element_id": victim_id,
+                    "coords_before": {
+                        "x": round(elem_before.get('x', 0), 2),
+                        "y": round(elem_before.get('y', 0), 2)
+                    },
+                    "coords_after": {
+                        "x": round(elem_after.get('x', 0), 2),
+                        "y": round(elem_after.get('y', 0), 2)
+                    },
+                    "displacement": {"dx": dx, "dy": dy}
+                })
+
+        # Detectar expansión de canvas
+        elif strategy_type == "canvas_expansion":
+            changes.append({
+                "type": "canvas_expanded",
+                "canvas_before": {
+                    "width": layout_before.canvas['width'],
+                    "height": layout_before.canvas['height']
+                },
+                "canvas_after": {
+                    "width": layout_after.canvas['width'],
+                    "height": layout_after.canvas['height']
+                }
+            })
+
+        return (strategy_type, strategy_desc, changes)

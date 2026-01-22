@@ -28,6 +28,46 @@ class CollisionDetector:
         """
         self.geometry = geometry
 
+    def _is_parent_child_relation(
+        self,
+        id1: str,
+        id2: str,
+        layout
+    ) -> bool:
+        """
+        Verifica si id1 contiene a id2 o viceversa.
+
+        Args:
+            id1: ID del primer elemento
+            id2: ID del segundo elemento
+            layout: Layout con elements_by_id
+
+        Returns:
+            True si hay relación padre-hijo directa
+        """
+        elem1 = layout.elements_by_id.get(id1)
+        elem2 = layout.elements_by_id.get(id2)
+
+        # Verificar si elem1 contiene a elem2
+        if elem1 and 'contains' in elem1:
+            contains = [
+                item['id'] if isinstance(item, dict) else item
+                for item in elem1['contains']
+            ]
+            if id2 in contains:
+                return True
+
+        # Verificar si elem2 contiene a elem1
+        if elem2 and 'contains' in elem2:
+            contains = [
+                item['id'] if isinstance(item, dict) else item
+                for item in elem2['contains']
+            ]
+            if id1 in contains:
+                return True
+
+        return False
+
     def detect_all_collisions(
         self,
         layout
@@ -61,6 +101,10 @@ class CollisionDetector:
                 if type1 == 'icon' and type2 == 'icon_label' and id1 == id2:
                     continue
                 if type1 == 'icon_label' and type2 == 'icon' and id1 == id2:
+                    continue
+
+                # No contar colisión contenedor-hijo (FALSO POSITIVO)
+                if self._is_parent_child_relation(id1, id2, layout):
                     continue
 
                 # Verificar intersección

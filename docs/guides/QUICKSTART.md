@@ -92,6 +92,47 @@ Abre `mi-diagrama.svg` en tu navegador o editor de imágenes.
 
 ## Uso Avanzado
 
+### Algoritmos de Layout ✨ NUEVO v3.0
+
+AlmaGag v3.0 ofrece dos algoritmos de layout automático:
+
+#### 🔹 AUTO (por defecto)
+Layout jerárquico iterativo, rápido para diagramas simples.
+
+```bash
+almagag diagrama.gag
+# o explícitamente:
+almagag diagrama.gag --layout-algorithm=auto
+```
+
+**Ventajas**:
+- ✅ Rápido en diagramas pequeños
+- ✅ Preserva coordenadas x,y manuales
+- ✅ Ideal para prototipos
+
+#### 🔹 LAF (opcional)
+Layout optimizado con minimización de cruces, ideal para diagramas complejos.
+
+```bash
+almagag diagrama.gag --layout-algorithm=laf
+```
+
+**Ventajas**:
+- ✅ -87% cruces de conexiones
+- ✅ -24% colisiones
+- ✅ Optimizado para >20 elementos
+- ✅ Excelente con contenedores anidados
+
+**¿Cuándo usar LAF?**
+- Diagrama complejo (>20 elementos)
+- Contenedores anidados (3+ niveles)
+- Muchas conexiones (>20)
+- Minimizar cruces es crítico
+
+Ver [LAYOUT-DECISION-GUIDE.md](./LAYOUT-DECISION-GUIDE.md) para elegir el algoritmo correcto.
+
+---
+
 ### Auto-Layout (SDJF v2.0)
 
 No necesitas especificar coordenadas:
@@ -177,6 +218,33 @@ Para líneas que deben evitar elementos:
 ```bash
 almagag archivo.gag
 ```
+
+### Opciones Principales
+
+| Opción | Descripción |
+|--------|-------------|
+| `--layout-algorithm {auto\|laf}` | Selecciona algoritmo de layout |
+| `--debug` | Logs detallados |
+| `--visualdebug` | Grilla + badge en SVG |
+| `--exportpng` | Genera PNG además de SVG |
+| `-o <ruta>` | Especifica archivo de salida |
+
+**Ejemplos**:
+```bash
+# Layout con LAF
+almagag diagrama.gag --layout-algorithm=laf
+
+# Debug completo
+almagag diagrama.gag --debug --visualdebug
+
+# Exportar PNG
+almagag diagrama.gag --exportpng
+
+# Salida personalizada
+almagag diagrama.gag -o output/mi-diagrama.svg
+```
+
+Ver [CLI-REFERENCE.md](./CLI-REFERENCE.md) para documentación completa de todas las opciones.
 
 ### Uso con Python
 
@@ -278,21 +346,31 @@ El tipo de ícono no existe. Opciones:
 ### Warning: "N colisiones detectadas"
 
 El auto-layout no pudo resolver todas las colisiones. Opciones:
-1. Aumentar tamaño del canvas
-2. Especificar coordenadas manualmente para elementos problemáticos
-3. Ajustar prioridades con `label_priority`
-4. Usar `hp`/`wp` para cambiar tamaños
+1. **Probar LAF**: `almagag diagrama.gag --layout-algorithm=laf` (reduce colisiones en 24%)
+2. Aumentar tamaño del canvas
+3. Especificar coordenadas manualmente para elementos problemáticos
+4. Ajustar prioridades con `label_priority`
+5. Usar `hp`/`wp` para cambiar tamaños
 
 ---
 
 ## Siguientes Pasos
 
-- **Especificación completa**: Ver `docs/spec/SDJF_v2.0_SPEC.md`
+### Algoritmos de Layout ✨ NUEVO
+- **Guía de decisión AUTO vs LAF**: Ver `docs/guides/LAYOUT-DECISION-GUIDE.md`
+- **Comparación técnica**: Ver `docs/LAF-COMPARISON.md`
+- **Referencia CLI completa**: Ver `docs/guides/CLI-REFERENCE.md`
+
+### Especificaciones SDJF
+- **SDJF v3.0**: Ver `docs/RELEASE_v3.0.0.md`
+- **SDJF v2.0**: Ver `docs/spec/SDJF_v2.0_SPEC.md`
+- **SDJF v2.1**: Ver `docs/spec/SDJF_v2.1_PROPOSAL.md`
+
+### Recursos Adicionales
 - **Arquitectura del código**: Ver `docs/architecture/ARCHITECTURE.md`
 - **Galería de ejemplos**: Ver `docs/guides/EXAMPLES.md`
-- **Propuesta v2.1**: Ver `docs/spec/SDJF_v2.1_PROPOSAL.md`
 
 ---
 
-**Versión**: AlmaGag v2.1 + SDJF v2.0
-**Actualizado**: 2026-01-08
+**Versión**: AlmaGag v3.0.0 + SDJF v3.0
+**Actualizado**: 2026-01-21

@@ -147,6 +147,84 @@ class ConnectionRouter(ABC):
             return sizing_calculator.get_element_size(element)
         return (ICON_WIDTH, ICON_HEIGHT)
 
+    def _find_parent_container(self, element_id: str, layout: Any) -> Optional[dict]:
+        """
+        Find the parent container of an element, if any.
+
+        Args:
+            element_id: ID of the element to find container for
+            layout: Layout object with elements_by_id
+
+        Returns:
+            dict: Parent container element or None if element is not contained
+        """
+        if not hasattr(layout, 'elements_by_id'):
+            return None
+
+        for container in layout.elements_by_id.values():
+            if 'contains' in container and container.get('contains'):
+                contains_list = container['contains']
+                for item in contains_list:
+                    # Handle both string IDs and dict format
+                    item_id = item['id'] if isinstance(item, dict) else item
+                    if item_id == element_id:
+                        return container
+        return None
+
+    def _calculate_container_entry_point(
+        self,
+        container: dict,
+        from_point: Point,
+        to_point: Point,
+        sizing_calculator=None
+    ) -> Point:
+        """
+        Calculate the optimal entry/exit point on a container's border.
+
+        Args:
+            container: Container element
+            from_point: Point outside the container
+            to_point: Point inside the container (or vice versa)
+            sizing_calculator: Optional SizingCalculator
+
+        Returns:
+            Point: Entry/exit point on container border
+        """
+        container_x = container.get('x', 0)
+        container_y = container.get('y', 0)
+        container_width = container.get('width', 200)
+        container_height = container.get('height', 150)
+
+        # Container bounds
+        x1 = container_x
+        y1 = container_y
+        x2 = container_x + container_width
+        y2 = container_y + container_height
+
+        # Determine which side of the container is closest to from_point
+        # Calculate distances to each edge
+        dist_left = abs(from_point.x - x1)
+        dist_right = abs(from_point.x - x2)
+        dist_top = abs(from_point.y - y1)
+        dist_bottom = abs(from_point.y - y2)
+
+        # Find minimum distance
+        min_dist = min(dist_left, dist_right, dist_top, dist_bottom)
+
+        # Return point on the closest edge, aligned with to_point
+        if min_dist == dist_left:
+            # Entry from left side
+            return Point(x1, max(y1, min(y2, to_point.y)))
+        elif min_dist == dist_right:
+            # Entry from right side
+            return Point(x2, max(y1, min(y2, to_point.y)))
+        elif min_dist == dist_top:
+            # Entry from top
+            return Point(max(x1, min(x2, to_point.x)), y1)
+        else:
+            # Entry from bottom
+            return Point(max(x1, min(x2, to_point.x)), y2)
+
     def get_connection_point(
         self,
         element: dict,

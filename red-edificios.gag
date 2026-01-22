@@ -7,7 +7,6 @@
       "label": "Edificio Central\nOficinas Principales",
       "type": "building",
       "color": "lightblue",
-      "padding": 40,
       "contains": [
         {"id": "pc_central", "scope": "full"}
       ]
@@ -29,7 +28,6 @@
       "label": "Sucursal Remota\nOficina Regional",
       "type": "building",
       "color": "lightgreen",
-      "padding": 40,
       "contains": [
         {"id": "pc_sucursal", "scope": "full"}
       ]

@@ -84,15 +84,64 @@ almagag ejemplo.gag
 
 ## ✨ Características Principales
 
-### SDJF v3.0 ✨ NUEVO
+### SDJF v3.0 ✨ NUEVO - Opciones de Layout
 
+AlmaGag v3.0 incluye dos algoritmos de layout automático que puedes elegir según la complejidad de tu diagrama:
+
+#### 🔹 Algoritmo AUTO (por defecto)
+
+Sistema AutoLayoutOptimizer v3.0 jerárquico iterativo.
+
+**Características**:
 - **✅ Layout Jerárquico**: Posicionamiento basado en topología de grafos (BFS)
 - **✅ Optimización de Colisiones de Etiquetas**: Sistema inteligente de posicionamiento
   - Generación de posiciones candidatas (8 para conexiones, 3 para contenedores)
   - Scoring basado en colisiones y legibilidad
   - Algoritmo greedy con prioridades
 - **✅ Detección Avanzada de Colisiones**: Etiqueta-elemento y etiqueta-etiqueta
+- **✅ Coordenadas Manuales**: Preserva posiciones x,y si las especificas
+- **✅ Rápido**: Óptimo para diagramas pequeños (<10 elementos)
+
+**Cuándo usar**: Diagramas simples, prototipos rápidos, cuando necesitas coordenadas manuales.
+
+```bash
+almagag diagrama.gag
+# o explícitamente:
+almagag diagrama.gag --layout-algorithm=auto
+```
+
+#### 🔹 Algoritmo LAF (opcional)
+
+Sistema LAFOptimizer v1.3 con minimización agresiva de cruces de conexiones.
+
+**Características**:
+- **✅ Minimización de Cruces**: Reduce cruces de conexiones en 87%
+- **✅ 4 Fases Especializadas**: Structure → Abstract → Inflate → Grow
+- **✅ Optimización Bottom-Up**: Expansión inteligente de contenedores
+- **✅ Menos Iteraciones**: 80% menos llamadas a routing, más rápido en diagramas complejos
+- **✅ Routing Dual**: Calcula rutas 2 veces para máxima precisión
+
+**Mejoras vs AUTO**:
+- 87% menos cruces de conexiones
+- 24% menos colisiones
+- 80% menos llamadas a routing
+- 87% menos expansiones de canvas
+
+**Cuándo usar**: Diagramas complejos (>20 elementos), contenedores anidados, arquitecturas de microservicios.
+
+```bash
+almagag diagrama.gag --layout-algorithm=laf
+```
+
+**📘 Guía de decisión**: ¿No sabes cuál usar? Ver [LAYOUT-DECISION-GUIDE.md](docs/guides/LAYOUT-DECISION-GUIDE.md) con árbol de decisión interactivo.
+
+**📊 Comparación técnica**: Análisis profundo con métricas en [LAF-COMPARISON.md](docs/LAF-COMPARISON.md).
+
+#### 🔹 Debug Automatizado
+
 - **✅ Debug Automatizado**: Conversión SVG→PNG con Chrome headless
+- **✅ Visualización de Fases LAF**: `--visualize-growth` genera SVGs intermedios mostrando cada fase
+- **✅ Métricas de Convergencia**: `--dump-iterations` exporta CSV con evolución del layout
 
 ### SDJF v2.1
 
@@ -134,10 +183,17 @@ almagag ejemplo.gag
 - **[SDJF v2.1](docs/spec/SDJF_v2.1_PROPOSAL.md)** - Routing declarativo + Waypoints automáticos
 - **[SDJF v3.0](docs/RELEASE_v3.0.0.md)** - ✅ Layout jerárquico + Optimización de etiquetas
 
+### Algoritmos de Layout
+
+- **[Guía de Decisión AUTO vs LAF](docs/guides/LAYOUT-DECISION-GUIDE.md)** - ¿Cuál algoritmo usar? Árbol de decisión simple
+- **[Comparación Técnica LAF](docs/LAF-COMPARISON.md)** - Análisis profundo con métricas y benchmarks
+- **[Progreso LAF](docs/LAF-PROGRESS.md)** - Historia de desarrollo del sistema LAF en 5 sprints
+
 ### Guías de Uso
 
 - **[Quickstart](docs/guides/QUICKSTART.md)** - Instalación y primer diagrama
 - **[Galería de Ejemplos](docs/guides/EXAMPLES.md)** - 10 ejemplos con explicaciones
+- **[Referencia CLI](docs/guides/CLI-REFERENCE.md)** - Documentación completa de opciones de línea de comandos
 
 ### Arquitectura del Código
 
@@ -178,30 +234,48 @@ Ver [`examples/README.md`](examples/README.md) para más detalles.
 
 ![Arquitectura de GAG](docs/diagrams/svgs/05-arquitectura-gag.svg)
 
-**Flujo de ejecución:**
+**Flujo de ejecución (Dual Path - AUTO / LAF):**
 
 ```
 archivo.gag (JSON SDJF v3.0)
     ↓
-AlmaGag.main (CLI)
+AlmaGag.main (CLI) --layout-algorithm={auto|laf}
     ↓
 AlmaGag.generator (Orquestador)
     ├─ Layout (patrón inmutable)
-    ├─ AutoLayoutOptimizer v3.0 Jerárquico
-    │   ├─ GraphAnalyzer: topología (niveles, grupos)
-    │   ├─ AutoLayoutPositioner: layout jerárquico
-    │   ├─ RouterManager: rutas de conexiones (v2.1)
-    │   ├─ CollisionDetector: detección de colisiones
-    │   └─ Iterative optimization (10 iteraciones)
+    │
+    ├─────────────────────────────────────────────────────────┐
+    │                                                           │
+    │  PATH 1: ALGORITMO AUTO (default)                        │  PATH 2: ALGORITMO LAF (--layout-algorithm=laf)
+    │                                                           │
+    │  AutoLayoutOptimizer v3.0 Jerárquico                     │  LAFOptimizer v1.3
+    │  ├─ GraphAnalyzer: topología (niveles, grupos)           │  ├─ FASE 1: Structure Analysis
+    │  ├─ AutoLayoutPositioner: layout jerárquico              │  │   └─ Topología y jerarquía del grafo
+    │  ├─ RouterManager: rutas de conexiones (v2.1)            │  ├─ FASE 2: Abstract Placement
+    │  ├─ CollisionDetector: detección de colisiones           │  │   └─ Minimización de cruces (Sugiyama-like)
+    │  └─ Iterative optimization (hasta 10 iteraciones)        │  ├─ FASE 3: Inflation
+    │                                                           │  │   └─ Aplicar dimensiones reales
+    │                                                           │  ├─ FASE 4: Container Growth
+    │                                                           │  │   └─ Expansión bottom-up de contenedores
+    │                                                           │  └─ Routing DUAL (2 pasadas para precisión)
+    │                                                           │
+    └─────────────────────────────────────────────────────────┘
+    │
     ├─ LabelPositionOptimizer v3.0
-    │   ├─ Generación de posiciones candidatas
-    │   ├─ Scoring basado en colisiones
+    │   ├─ Generación de posiciones candidatas (8 conexiones, 3 contenedores)
+    │   ├─ Scoring basado en colisiones y legibilidad
     │   └─ Asignación greedy por prioridad
     ├─ SVG canvas + markers
     └─ Render (contenedores → shapes → lines → labels)
     ↓
-archivo.svg + PNG debug
+archivo.svg + PNG debug (opcional)
 ```
+
+**Selección de algoritmo:**
+- **AUTO**: Rápido para diagramas simples (<10 elementos), preserva coordenadas manuales
+- **LAF**: Optimizado para diagramas complejos (>20 elementos), minimiza cruces (-87%)
+
+Ver [LAYOUT-DECISION-GUIDE.md](docs/guides/LAYOUT-DECISION-GUIDE.md) para elegir el mejor algoritmo.
 
 **Módulos principales:**
 
@@ -210,6 +284,44 @@ archivo.svg + PNG debug
 - `AlmaGag/draw/` - Renderizado SVG (íconos, conexiones, contenedores)
 
 Ver [documentación completa de arquitectura](docs/architecture/ARCHITECTURE.md).
+
+---
+
+## 🖥️ Referencia CLI
+
+AlmaGag ofrece múltiples opciones de línea de comandos para controlar el algoritmo de layout, debug, y exportación.
+
+### Opciones Principales
+
+| Opción | Descripción | Ejemplo |
+|--------|-------------|---------|
+| `--layout-algorithm {auto\|laf}` | Selecciona algoritmo de layout | `almagag arch.gag --layout-algorithm=laf` |
+| `--debug` | Activa logs detallados | `almagag arch.gag --debug` |
+| `--visualdebug` | Añade grilla + badge al SVG | `almagag arch.gag --visualdebug` |
+| `--exportpng` | Genera PNG además de SVG | `almagag arch.gag --exportpng` |
+| `--guide-lines` | Líneas guía de canvas | `almagag arch.gag --guide-lines` |
+| `--dump-iterations` | Exporta métricas a CSV | `almagag arch.gag --dump-iterations` |
+| `--visualize-growth` | SVGs intermedios (solo LAF) | `almagag arch.gag --layout-algorithm=laf --visualize-growth` |
+| `-o, --output <ruta>` | Especifica ruta de salida | `almagag arch.gag -o docs/images/arch.svg` |
+
+### Ejemplos Comunes
+
+```bash
+# Producción: LAF con PNG
+almagag arquitectura.gag --layout-algorithm=laf --exportpng
+
+# Desarrollo: máximo debug
+almagag diagrama.gag --debug --visualdebug --dump-iterations
+
+# Visualizar proceso LAF
+almagag complejo.gag --layout-algorithm=laf --visualize-growth
+
+# Comparar AUTO vs LAF
+almagag arch.gag --layout-algorithm=auto -o output/arch-auto.svg
+almagag arch.gag --layout-algorithm=laf -o output/arch-laf.svg
+```
+
+Ver [CLI-REFERENCE.md](docs/guides/CLI-REFERENCE.md) para documentación completa de todas las opciones.
 
 ---
 

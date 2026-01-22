@@ -10,7 +10,12 @@ Este módulo es stateless y proporciona métodos puros para cálculos geométric
 """
 
 from typing import Tuple, Optional, List
-from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
+from AlmaGag.config import (
+    ICON_WIDTH, ICON_HEIGHT,
+    LABEL_OFFSET_BOTTOM, LABEL_OFFSET_TOP, LABEL_OFFSET_SIDE,
+    TEXT_LINE_HEIGHT, TEXT_CHAR_WIDTH, TEXT_CHAR_WIDTH_NARROW,
+    CONNECTION_BBOX_PADDING
+)
 
 
 class GeometryCalculator:

@@ -1,7 +1,7 @@
 # Índice de Documentación - AlmaGag
 
-**Versión**: v2.1 (código) + SDJF v2.1 (estándar)
-**Actualizado**: 2026-01-08
+**Versión**: v3.0.0 (código) + SDJF v3.0 (estándar)
+**Actualizado**: 2026-01-21
 
 ---
 
@@ -63,6 +63,58 @@ Esta es la guía completa de documentación de AlmaGag, organizada por tipo de d
 
 ---
 
+## 🧠 Algoritmos de Layout
+
+**Para elegir entre AUTO y LAF** ✨ NUEVO v3.0
+
+| Documento | Nivel | Descripción |
+|-----------|-------|-------------|
+| [Guía de Decisión](guides/LAYOUT-DECISION-GUIDE.md) | Todos | ¿Cuándo usar AUTO vs LAF? Árbol de decisión simple |
+| [Comparación Técnica LAF](LAF-COMPARISON.md) | Avanzado | Análisis profundo con métricas y benchmarks |
+| [Progreso LAF](LAF-PROGRESS.md) | Técnico | Historia de desarrollo en 5 sprints |
+| [Referencia CLI](guides/CLI-REFERENCE.md) | Todos | Documentación completa de opciones de línea de comandos |
+
+### ¿Cuándo usar qué?
+
+#### Usa AUTO cuando:
+- Diagrama simple (<10 elementos)
+- Necesitas preservar coordenadas x,y manuales
+- Prototipado rápido
+- Pocas conexiones (<10)
+
+```bash
+almagag diagrama.gag
+# o explícitamente:
+almagag diagrama.gag --layout-algorithm=auto
+```
+
+#### Usa LAF cuando:
+- Diagrama complejo (>20 elementos)
+- Contenedores anidados (3+ niveles)
+- Muchas conexiones (>20)
+- Minimizar cruces es crítico
+- Producción / Presentaciones
+
+```bash
+almagag diagrama.gag --layout-algorithm=laf
+```
+
+**Quick Start LAF**:
+```bash
+# Generar con LAF
+almagag arquitectura.gag --layout-algorithm=laf --exportpng
+
+# Ver proceso LAF paso a paso
+almagag complejo.gag --layout-algorithm=laf --visualize-growth
+
+# Debug LAF completo
+almagag arch.gag --layout-algorithm=laf --debug --dump-iterations
+```
+
+**Mejoras de LAF vs AUTO**: -87% cruces, -24% colisiones, -80% routing calls, -87% expansiones canvas
+
+---
+
 ## 🏗️ Arquitectura del Código
 
 **Para desarrolladores contribuyendo al proyecto**
@@ -104,6 +156,8 @@ Esta es la guía completa de documentación de AlmaGag, organizada por tipo de d
 docs/
 ├── INDEX.md                      # Este archivo
 ├── ROADMAP.md                    # Plan de desarrollo
+├── LAF-COMPARISON.md             # ✨ Comparación técnica LAF vs AUTO
+├── LAF-PROGRESS.md               # ✨ Historia de desarrollo LAF
 │
 ├── spec/                         # Especificaciones SDJF
 │   ├── SDJF_v1.0_SPEC.md
@@ -113,7 +167,9 @@ docs/
 │
 ├── guides/                       # Guías de uso
 │   ├── QUICKSTART.md
-│   └── EXAMPLES.md
+│   ├── EXAMPLES.md
+│   ├── CLI-REFERENCE.md          # ✨ Referencia completa CLI
+│   └── LAYOUT-DECISION-GUIDE.md  # ✨ Guía de decisión AUTO vs LAF
 │
 ├── architecture/                 # Arquitectura del código
 │   ├── ARCHITECTURE.md
@@ -127,7 +183,7 @@ docs/
     │   ├── 02-iconos-no-registrados.gag
     │   ├── 03-conexiones.gag
     │   ├── 04-gradientes-colores.gag
-    │   ├── 05-arquitectura-gag.gag
+    │   ├── 05-arquitectura-gag.gag  # ✨ Actualizado con componentes LAF
     │   ├── 06-waypoints.gag
     │   ├── 07-containers.gag
     │   ├── 08-auto-layout.gag
@@ -143,7 +199,7 @@ docs/
         ├── 02-iconos-no-registrados.svg
         ├── 03-conexiones.svg
         ├── 04-gradientes-colores.svg
-        ├── 05-arquitectura-gag.svg
+        ├── 05-arquitectura-gag.svg   # ✨ Regenerado con LAF
         ├── 06-waypoints.svg
         ├── 07-containers.svg
         ├── 08-auto-layout.svg
@@ -260,5 +316,5 @@ Este proyecto es parte de ALMA. Para reportar bugs o sugerir mejoras, abre un is
 
 ---
 
-**AlmaGag** - Generación automática de diagramas con auto-layout inteligente y routing declarativo
-**Versión**: v2.1 + SDJF v2.1 | **Actualizado**: 2026-01-08
+**AlmaGag** - Generación automática de diagramas con layout jerárquico inteligente (AUTO/LAF) y routing declarativo
+**Versión**: v3.0.0 + SDJF v3.0 | **Actualizado**: 2026-01-21
