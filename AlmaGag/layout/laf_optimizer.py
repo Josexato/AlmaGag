@@ -286,12 +286,38 @@ class LAFOptimizer:
         VERTICAL_SPACING = spacing * vertical_factor  # 240px
 
         # Agrupar elementos primarios por nivel topológico
+        # CRÍTICO: Usar el orden optimizado guardado por abstract_placer en Fase 2
+        # Esto preserva el barycenter bidireccional + hub positioning
         by_level = {}
-        for elem_id in structure_info.primary_elements:
-            level = structure_info.topological_levels.get(elem_id, 0)
-            if level not in by_level:
-                by_level[level] = []
-            by_level[level].append(elem_id)
+
+        if hasattr(layout, 'optimized_layer_order') and layout.optimized_layer_order:
+            # Usar orden optimizado de Fase 2
+            # IMPORTANTE: Los layers están indexados 0,1,2... pero los niveles topológicos
+            # pueden ser 0,1,2,3,4... Necesitamos mapear usando el primer elemento de cada capa
+            for layer_idx, layer_elements in enumerate(layout.optimized_layer_order):
+                if not layer_elements:
+                    continue
+
+                # Obtener nivel topológico del primer elemento de la capa
+                first_elem_id = layer_elements[0]
+                actual_level = structure_info.topological_levels.get(first_elem_id, layer_idx)
+
+                by_level[actual_level] = layer_elements.copy()
+
+            if self.debug:
+                print(f"[REDISTRIBUTE] Usando orden optimizado de Fase 2")
+                for level in sorted(by_level.keys()):
+                    print(f"                Nivel {level}: {' -> '.join(by_level[level])}")
+        else:
+            # Fallback: agrupar por nivel sin orden específico
+            for elem_id in structure_info.primary_elements:
+                level = structure_info.topological_levels.get(elem_id, 0)
+                if level not in by_level:
+                    by_level[level] = []
+                by_level[level].append(elem_id)
+
+            if self.debug:
+                print(f"[REDISTRIBUTE] ADVERTENCIA: No se encontró orden optimizado, usando orden por defecto")
 
         if self.debug:
             print(f"[REDISTRIBUTE] Redistribuyendo {len(structure_info.primary_elements)} elementos primarios")
@@ -405,6 +431,18 @@ class LAFOptimizer:
             level_elements = by_level[level_num]
             self._center_elements_horizontally(level_elements, layout, structure_info, spacing=480)
 
+        # CRÍTICO: Recalcular canvas DESPUÉS del centrado horizontal
+        # El centrado puede mover elementos fuera de los bounds calculados anteriormente
+        canvas_width, canvas_height = self.container_grower.calculate_final_canvas(
+            structure_info,
+            layout
+        )
+        layout.canvas['width'] = canvas_width
+        layout.canvas['height'] = canvas_height
+
+        if self.debug:
+            print(f"\n[REDISTRIBUTE] Canvas final (post-centrado): {canvas_width:.0f}x{canvas_height:.0f}px")
+
     def _center_elements_horizontally(
         self,
         level_elements: List[str],
@@ -415,8 +453,11 @@ class LAFOptimizer:
         """
         Centra elementos de un nivel horizontalmente en el canvas.
 
+        IMPORTANTE: Los elementos ya vienen ordenados por el abstract_placer
+        para minimizar cruces. Este método debe RESPETAR ese orden al centrarlos.
+
         Args:
-            level_elements: IDs de elementos del nivel
+            level_elements: IDs de elementos del nivel (YA ORDENADOS)
             layout: Layout con elementos posicionados
             structure_info: Información estructural con element_tree
             spacing: Spacing horizontal entre elementos
@@ -425,6 +466,9 @@ class LAFOptimizer:
 
         if not level_elements:
             return
+
+        if self.debug:
+            print(f"    [CENTRADO] Orden recibido: {' - '.join(level_elements)}")
 
         # Caso especial: un solo elemento
         if len(level_elements) == 1:

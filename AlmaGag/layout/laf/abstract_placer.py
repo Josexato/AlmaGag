@@ -70,8 +70,23 @@ class AbstractPlacer:
         # Fase 2: Ordering (ordenar dentro de capas)
         self._order_within_layers(layers, structure_info, layout)
 
+        # CRÍTICO: Guardar COPIA PROFUNDA del orden optimizado para usarlo en Fase 4.5
+        # Esto preserva el orden de barycenter bidireccional + hub positioning
+        layout.optimized_layer_order = [layer.copy() for layer in layers]
+
         if self.debug:
             print(f"\n[ABSTRACT] Ordering completado")
+            print(f"           Orden final guardado para Fase 4.5:")
+            for idx, layer in enumerate(layout.optimized_layer_order):
+                if len(layer) > 1:
+                    print(f"             Capa {idx}: {' -> '.join(layer)}")
+
+            # Verificar que coincide con el estado actual de layers
+            for idx in range(len(layers)):
+                if len(layers[idx]) > 1 and layers[idx] != layout.optimized_layer_order[idx]:
+                    print(f"           ⚠️ ADVERTENCIA: Capa {idx} difiere:")
+                    print(f"              layers actual: {' -> '.join(layers[idx])}")
+                    print(f"              guardado:      {' -> '.join(layout.optimized_layer_order[idx])}")
 
         # Fase 3: Positioning (asignar coordenadas abstractas a primarios)
         positions = self._assign_abstract_positions(layers)
@@ -130,14 +145,14 @@ class AbstractPlacer:
         layout
     ) -> None:
         """
-        Ordena elementos dentro de cada capa usando heurísticas.
+        Ordena elementos dentro de cada capa usando barycenter bidireccional.
 
         Modifica layers in-place.
 
-        Heurísticas (en orden de prioridad):
-        1. Tipo de elementos (agrupar similares)
-        2. Barycenter (minimizar cruces con capa anterior)
-        3. Cantidad de conexiones (más conectados al centro)
+        NUEVO: Barycenter bidireccional con múltiples iteraciones.
+        - Forward barycenter: considera capa anterior
+        - Backward barycenter: considera capa siguiente
+        - Iteraciones: repite proceso para refinar orden
 
         Args:
             layers: Lista de capas a ordenar
@@ -148,14 +163,43 @@ class AbstractPlacer:
         if layers:
             self._order_first_layer(layers[0], structure_info)
 
-        # Capas siguientes: aplicar barycenter + tipo
-        for layer_idx in range(1, len(layers)):
-            self._order_layer_barycenter(
-                layers[layer_idx],
-                layers[layer_idx - 1],
-                structure_info,
-                layout
-            )
+        # Aplicar barycenter bidireccional con múltiples iteraciones
+        # para minimizar cruces de conectores
+        iterations = 4  # Número de pasadas de optimización
+
+        for iteration in range(iterations):
+            # Forward pass: considerar capa anterior
+            for layer_idx in range(1, len(layers)):
+                self._order_layer_barycenter_forward(
+                    layers[layer_idx],
+                    layers[layer_idx - 1],
+                    structure_info,
+                    layout
+                )
+
+            # Backward pass: considerar capa siguiente
+            for layer_idx in range(len(layers) - 2, 0, -1):
+                self._order_layer_barycenter_backward(
+                    layers[layer_idx],
+                    layers[layer_idx + 1],
+                    structure_info,
+                    layout
+                )
+
+            # Hub positioning DESPUÉS de ambos passes para que sea el último ajuste
+            for layer_idx in range(len(layers)):
+                if len(layers[layer_idx]) >= 3:
+                    self._position_hub_containers_in_center(
+                        layers[layer_idx],
+                        structure_info,
+                        layout
+                    )
+
+            if self.debug and iteration == iterations - 1:
+                print(f"\n           Orden FINAL después de iteración {iteration + 1}:")
+                for layer_idx, layer in enumerate(layers):
+                    if len(layer) > 1:
+                        print(f"             Capa {layer_idx}: {' -> '.join(layer)}")
 
     def _order_first_layer(
         self,
@@ -185,7 +229,7 @@ class AbstractPlacer:
 
         layer.sort(key=get_sort_key)
 
-    def _order_layer_barycenter(
+    def _order_layer_barycenter_forward(
         self,
         current_layer: List[str],
         previous_layer: List[str],
@@ -193,10 +237,10 @@ class AbstractPlacer:
         layout
     ) -> None:
         """
-        Ordena capa usando barycenter heuristic para minimizar cruces.
+        Ordena capa usando forward barycenter (considera capa anterior).
 
-        El barycenter de un nodo es el promedio de posiciones de sus vecinos
-        en la capa anterior.
+        MEJORADO: Para contenedores, también considera conexiones entrantes
+        a sus hijos desde otros elementos del mismo nivel.
 
         Args:
             current_layer: Capa actual a ordenar (modifica in-place)
@@ -207,7 +251,10 @@ class AbstractPlacer:
         # Crear mapa de posiciones de capa anterior
         prev_positions = {elem_id: idx for idx, elem_id in enumerate(previous_layer)}
 
-        # Calcular barycenter para cada elemento
+        # Crear mapa temporal de posiciones actuales
+        current_positions = {elem_id: idx for idx, elem_id in enumerate(current_layer)}
+
+        # Calcular barycenter para cada elemento (PRIMERA PASADA)
         barycenters = {}
         for elem_id in current_layer:
             barycenter = self._calculate_barycenter(
@@ -219,9 +266,28 @@ class AbstractPlacer:
             )
             barycenters[elem_id] = barycenter
 
-        # Ordenar por barycenter, luego por tipo
-        def get_sort_key(elem_id: str) -> Tuple[float, str]:
+        # SEGUNDA PASADA: Recalcular barycenters de contenedores usando
+        # los barycenters de otros elementos (no sus posiciones)
+        for elem_id in current_layer:
+            container_node = structure_info.element_tree.get(elem_id)
+            if container_node and container_node['is_container'] and container_node['children']:
+                barycenter = self._calculate_container_barycenter(
+                    elem_id,
+                    current_layer,
+                    barycenters,  # Usar barycenters en lugar de posiciones
+                    structure_info,
+                    layout
+                )
+                barycenters[elem_id] = barycenter
+
+        # Ordenar por barycenter, luego por tipo, con tiebreaker para contenedores
+        def get_sort_key(elem_id: str) -> Tuple[float, int, str]:
             barycenter = barycenters.get(elem_id, len(previous_layer) / 2)
+
+            # Tiebreaker: contenedores primero en caso de empate (prioridad 0)
+            # Esto los empuja hacia el medio cuando hay múltiples elementos con mismo barycenter
+            container_node = structure_info.element_tree.get(elem_id)
+            is_container = 1 if (container_node and container_node['is_container']) else 2
 
             # Tipo del elemento
             elem_type = 'unknown'
@@ -230,9 +296,218 @@ class AbstractPlacer:
                     elem_type = etype
                     break
 
-            return (barycenter, elem_type)
+            return (barycenter, is_container, elem_type)
+
+        if self.debug:
+            print(f"           Barycenters antes de ordenar:")
+            for elem_id in current_layer:
+                bc = barycenters.get(elem_id, -1)
+                print(f"             {elem_id}: {bc:.2f}")
 
         current_layer.sort(key=get_sort_key)
+
+        if self.debug:
+            print(f"           Orden después de sort: {' -> '.join(current_layer)}")
+
+    def _position_hub_containers_in_center(
+        self,
+        current_layer: List[str],
+        structure_info: StructureInfo,
+        layout
+    ) -> None:
+        """
+        Post-procesa la capa para mover contenedores "hub" al centro.
+
+        Un contenedor es un "hub" si recibe conexiones desde múltiples
+        elementos del mismo nivel (2 o más fuentes). Estos contenedores
+        deben estar en el centro para minimizar cruces.
+
+        Args:
+            current_layer: Capa ordenada (modifica in-place)
+            structure_info: Información estructural
+            layout: Layout con conexiones
+        """
+        if len(current_layer) < 3:
+            return  # No tiene sentido centrar con menos de 3 elementos
+
+        for elem_id in current_layer:
+            # Verificar si es contenedor
+            container_node = structure_info.element_tree.get(elem_id)
+            if not container_node or not container_node['is_container'] or not container_node['children']:
+                continue
+
+            children = set(container_node['children'])
+
+            # Contar fuentes únicas de conexión desde el mismo nivel
+            sources = set()
+            for conn in layout.connections:
+                from_id = conn['from']
+                to_id = conn['to']
+
+                # Si conecta a un hijo de este contenedor
+                if to_id in children:
+                    # Resolver from a primario
+                    from_primary_id = from_id
+                    if from_id not in structure_info.primary_elements:
+                        from_node = structure_info.element_tree.get(from_id)
+                        while from_node and from_node['parent']:
+                            from_parent = from_node['parent']
+                            if from_parent in structure_info.primary_elements:
+                                from_primary_id = from_parent
+                                break
+                            from_node = structure_info.element_tree.get(from_parent)
+
+                    # Si la fuente está en el mismo nivel
+                    if from_primary_id in current_layer and from_primary_id != elem_id:
+                        sources.add(from_primary_id)
+
+            # Si tiene 2+ fuentes, es un hub: moverlo al centro
+            if len(sources) >= 2:
+                current_idx = current_layer.index(elem_id)
+                center_idx = len(current_layer) // 2
+
+                if current_idx != center_idx:
+                    # Mover al centro
+                    current_layer.pop(current_idx)
+                    current_layer.insert(center_idx, elem_id)
+
+                    if self.debug:
+                        print(f"           [HUB] {elem_id}: {len(sources)} fuentes -> movido a centro (pos {center_idx})")
+
+    def _order_layer_barycenter_backward(
+        self,
+        current_layer: List[str],
+        next_layer: List[str],
+        structure_info: StructureInfo,
+        layout
+    ) -> None:
+        """
+        Ordena capa usando backward barycenter (considera capa siguiente).
+
+        El barycenter de un nodo es el promedio de posiciones de sus vecinos
+        en la capa siguiente. Útil para refinar el orden considerando
+        conexiones hacia adelante.
+
+        Args:
+            current_layer: Capa actual a ordenar (modifica in-place)
+            next_layer: Capa siguiente (ya ordenada)
+            structure_info: Información estructural
+            layout: Layout con connections
+        """
+        # Crear mapa de posiciones de capa siguiente
+        next_positions = {elem_id: idx for idx, elem_id in enumerate(next_layer)}
+
+        # Calcular barycenter backward para cada elemento
+        barycenters = {}
+        for elem_id in current_layer:
+            barycenter = self._calculate_barycenter_backward(
+                elem_id,
+                current_layer,
+                next_positions,
+                structure_info,
+                layout
+            )
+            barycenters[elem_id] = barycenter
+
+        # Ordenar por barycenter
+        def get_sort_key(elem_id: str) -> float:
+            return barycenters.get(elem_id, len(next_layer) / 2)
+
+        current_layer.sort(key=get_sort_key)
+
+    def _get_temp_positions(self, layers: List[List[str]]) -> Dict[str, Tuple[int, int]]:
+        """
+        Calcula posiciones temporales para los layers actuales.
+
+        Útil para calcular cruces durante las iteraciones de optimización.
+
+        Args:
+            layers: Lista de capas con elementos ordenados
+
+        Returns:
+            Dict con posiciones abstractas temporales
+        """
+        positions = {}
+        for layer_idx, layer in enumerate(layers):
+            for elem_idx, elem_id in enumerate(layer):
+                positions[elem_id] = (elem_idx, layer_idx)
+        return positions
+
+    def _calculate_container_barycenter(
+        self,
+        container_id: str,
+        current_layer: List[str],
+        source_barycenters: Dict[str, float],
+        structure_info: StructureInfo,
+        layout
+    ) -> float:
+        """
+        Calcula barycenter especial para contenedores.
+
+        Considera conexiones ENTRANTES a sus hijos desde otros elementos
+        del mismo nivel. Usa los BARYCENTERS de los elementos fuente,
+        no sus posiciones actuales, para mejor convergencia.
+
+        Args:
+            container_id: ID del contenedor
+            current_layer: Elementos del nivel actual
+            source_barycenters: Barycenters de elementos del nivel actual
+            structure_info: Información estructural
+            layout: Layout con conexiones
+
+        Returns:
+            float: Posición óptima del contenedor
+        """
+        # Obtener hijos del contenedor
+        container_node = structure_info.element_tree.get(container_id)
+        if not container_node or not container_node['children']:
+            return len(current_layer) / 2
+
+        children = set(container_node['children'])
+
+        # Encontrar elementos del mismo nivel que se conectan a los hijos
+        source_barycenter_values = []
+
+        for conn in layout.connections:
+            from_id = conn['from']
+            to_id = conn['to']
+
+            # Si la conexión va HACIA un hijo de este contenedor
+            if to_id in children:
+                # Resolver from a primario
+                from_primary_id = from_id
+                if from_id not in structure_info.primary_elements:
+                    from_node = structure_info.element_tree.get(from_id)
+                    while from_node and from_node['parent']:
+                        from_parent = from_node['parent']
+                        if from_parent in structure_info.primary_elements:
+                            from_primary_id = from_parent
+                            break
+                        from_node = structure_info.element_tree.get(from_parent)
+
+                # Si el origen está en el mismo nivel, usar su barycenter
+                if from_primary_id in source_barycenters and from_primary_id != container_id:
+                    source_barycenter_values.append(source_barycenters[from_primary_id])
+
+        # Calcular barycenter basado en los barycenters de las fuentes
+        if source_barycenter_values:
+            avg_barycenter = sum(source_barycenter_values) / len(source_barycenter_values)
+
+            # CRÍTICO: Mezclar con posición central para atraer contenedores hacia el medio
+            # Esto minimiza cruces cuando múltiples elementos se conectan a los hijos del contenedor
+            center_position = (len(current_layer) - 1) / 2.0
+
+            # Peso: 50% barycenter de fuentes, 50% centro
+            # Esto ayuda a posicionar contenedores en el medio de sus "clientes"
+            barycenter = avg_barycenter * 0.5 + center_position * 0.5
+
+            if self.debug:
+                print(f"           [CONTAINER] {container_id}: {len(source_barycenter_values)} conexiones")
+                print(f"                       avg_sources={avg_barycenter:.2f}, center={center_position:.2f} -> barycenter={barycenter:.2f}")
+            return barycenter
+        else:
+            # Sin conexiones entrantes: posición central
+            return (len(current_layer) - 1) / 2.0
 
     def _calculate_barycenter(
         self,
@@ -362,6 +637,96 @@ class AbstractPlacer:
                 return len(prev_positions) / 2
             else:
                 return len(current_layer) / 2
+
+    def _calculate_barycenter_backward(
+        self,
+        elem_id: str,
+        current_layer: List[str],
+        next_positions: Dict[str, int],
+        structure_info: StructureInfo,
+        layout
+    ) -> float:
+        """
+        Calcula barycenter considerando conexiones hacia la capa siguiente.
+
+        IMPORTANTE: Si elem_id es un contenedor, también considera conexiones
+        a sus elementos contenidos.
+
+        Args:
+            elem_id: ID del elemento a posicionar
+            current_layer: Elementos de la capa actual
+            next_positions: {elem_id: posición_x} de capa siguiente
+            structure_info: Información estructural
+            layout: Layout con conexiones
+
+        Returns:
+            float: Posición X óptima (barycenter)
+        """
+        # Resolver elemento a primario
+        elem_primary_id = elem_id
+        if elem_id not in structure_info.primary_elements:
+            node = structure_info.element_tree.get(elem_id)
+            while node and node['parent']:
+                parent = node['parent']
+                if parent in structure_info.primary_elements:
+                    elem_primary_id = parent
+                    break
+                node = structure_info.element_tree.get(parent)
+
+        # Si es un contenedor, obtener sus hijos
+        elem_and_children = [elem_primary_id]
+        container_node = structure_info.element_tree.get(elem_primary_id)
+        if container_node and container_node['children']:
+            elem_and_children.extend(container_node['children'])
+
+        # Buscar conexiones HACIA la capa siguiente
+        next_neighbor_positions = []
+
+        for conn in layout.connections:
+            from_id = conn['from']
+            to_id = conn['to']
+
+            # Resolver from a primario
+            from_primary_id = from_id
+            if from_id not in structure_info.primary_elements:
+                from_node = structure_info.element_tree.get(from_id)
+                while from_node and from_node['parent']:
+                    from_parent = from_node['parent']
+                    if from_parent in structure_info.primary_elements:
+                        from_primary_id = from_parent
+                        break
+                    from_node = structure_info.element_tree.get(from_parent)
+
+            # Resolver to a primario
+            to_primary_id = to_id
+            if to_id not in structure_info.primary_elements:
+                to_node = structure_info.element_tree.get(to_id)
+                while to_node and to_node['parent']:
+                    to_parent = to_node['parent']
+                    if to_parent in structure_info.primary_elements:
+                        to_primary_id = to_parent
+                        break
+                    to_node = structure_info.element_tree.get(to_parent)
+
+            # Si conecta DESDE este elemento (o sus hijos) HACIA capa siguiente
+            if from_primary_id in elem_and_children and to_primary_id in next_positions:
+                next_neighbor_positions.append(next_positions[to_primary_id])
+            # CRÍTICO: También considerar conexiones A elementos contenidos
+            elif to_id in elem_and_children and from_primary_id in current_layer:
+                # Una conexión apunta a un hijo de este contenedor desde otro elemento del mismo nivel
+                # Usar la posición del elemento que está enviando la conexión
+                current_positions = {e_id: idx for idx, e_id in enumerate(current_layer)}
+                if from_primary_id in current_positions:
+                    next_neighbor_positions.append(current_positions[from_primary_id])
+
+        # Calcular barycenter (promedio de posiciones de vecinos)
+        if next_neighbor_positions:
+            barycenter = sum(next_neighbor_positions) / len(next_neighbor_positions)
+        else:
+            # Sin vecinos: posición central
+            barycenter = len(next_positions) / 2
+
+        return barycenter
 
     def _assign_abstract_positions(
         self,

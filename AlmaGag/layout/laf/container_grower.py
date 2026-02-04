@@ -693,6 +693,10 @@ class ContainerGrower:
         """
         Calcula dimensiones finales del canvas después del crecimiento.
 
+        IMPORTANTE: Debe considerar TODOS los elementos (primarios y contenidos)
+        ya que los elementos contenidos tienen coordenadas globales después
+        de la conversión local->global en la Fase 4.
+
         Args:
             structure_info: Información estructural
             layout: Layout con elementos posicionados
@@ -700,13 +704,16 @@ class ContainerGrower:
         Returns:
             Tupla (width, height) del canvas
         """
-        # Encontrar bounds de todos los elementos primarios
+        # Encontrar bounds de TODOS los elementos (primarios y contenidos)
         max_x = 0
         max_y = 0
 
-        for elem_id in structure_info.primary_elements:
-            elem = layout.elements_by_id.get(elem_id)
-            if not elem or 'x' not in elem or 'y' not in elem:
+        # Recorrer todos los elementos del layout
+        for elem in layout.elements:
+            elem_id = elem['id']
+
+            # Skip elementos sin posición
+            if 'x' not in elem or 'y' not in elem:
                 continue
 
             elem_x = elem['x']
@@ -721,14 +728,23 @@ class ContainerGrower:
             if elem_id in layout.label_positions:
                 label_x, label_y, _, _ = layout.label_positions[elem_id]
                 label_text = elem.get('label', '')
-                label_w = len(label_text) * 8
-                label_h = 18
+
+                # Calcular ancho real de la etiqueta considerando múltiples líneas
+                lines = label_text.split('\n')
+                max_line_len = max(len(line) for line in lines) if lines else 0
+                label_w = max_line_len * 8  # 8px por carácter
+                label_h = len(lines) * 18   # 18px por línea
 
                 max_x = max(max_x, label_x + label_w)
                 max_y = max(max_y, label_y + label_h)
 
         # Agregar margen
-        margin = 50
+        # Margen base: 50px
+        # Margen adicional para badge de debug que se dibuja en esquina superior derecha
+        # El badge se posiciona en x=canvas_width-200 con texto de ~232px
+        # Total: se necesita al menos 232px adicionales desde la posición del badge
+        # Margen seguro: 250px para acomodar badge + espacio
+        margin = 250
         canvas_width = max_x + margin
         canvas_height = max_y + margin
 

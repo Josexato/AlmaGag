@@ -164,7 +164,11 @@ class ElementInflator:
 
     def _calculate_label_positions(self, layout) -> None:
         """
-        Calcula posiciones iniciales de etiquetas usando label_optimizer.
+        Calcula posiciones iniciales de etiquetas para contenedores.
+
+        IMPORTANTE: NO calcular para elementos primarios, ya que sus posiciones
+        se ajustarán durante el centrado horizontal en Fase 4.5 y el
+        LabelPositionOptimizer las calculará correctamente después.
 
         Args:
             layout: Layout con elementos ya posicionados
@@ -172,30 +176,28 @@ class ElementInflator:
         if not self.label_optimizer:
             return
 
-        # Calcular posiciones para elementos con etiquetas
+        # Solo calcular posiciones para CONTENEDORES
+        # Los elementos primarios serán calculados por LabelPositionOptimizer
+        # después del centrado horizontal (Fase 4.5)
         for elem in layout.elements:
             if not elem.get('label'):
                 continue
 
             elem_id = elem['id']
 
-            # Skip contenedores sin dimensiones aún
-            if 'contains' in elem and 'width' not in elem:
-                continue
+            # Solo procesar contenedores con dimensiones ya calculadas
+            if 'contains' in elem and 'width' in elem:
+                x = elem.get('x', 0)
+                y = elem.get('y', 0)
+                width = elem.get('width', ICON_WIDTH)
 
-            # TODO: Integrar correctamente con LabelPositionOptimizer
-            # Por ahora, usar posición por defecto (arriba centrada)
-            x = elem.get('x', 0)
-            y = elem.get('y', 0)
-            width = elem.get('width', ICON_WIDTH)
+                # Centrada arriba del contenedor
+                label_x = x + width / 2
+                label_y = y - 5  # 5px arriba del elemento
 
-            # Centrada arriba
-            label_x = x + width / 2
-            label_y = y - 5  # 5px arriba del elemento
-
-            layout.label_positions[elem_id] = (
-                label_x,
-                label_y,
-                'middle',
-                'bottom'
-            )
+                layout.label_positions[elem_id] = (
+                    label_x,
+                    label_y,
+                    'middle',
+                    'bottom'
+                )

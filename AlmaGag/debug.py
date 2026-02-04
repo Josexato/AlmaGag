@@ -44,9 +44,10 @@ def add_debug_badge(dwg, canvas_width: int, canvas_height: int) -> None:
         canvas_height: Alto del canvas en píxeles
     """
     # Posición del badge (esquina superior derecha)
-    badge_x = canvas_width - 200
+    # El texto del badge se extiende ~240px, entonces necesitamos más espacio
+    badge_width = 240  # Aumentado de 190 a 240
+    badge_x = canvas_width - badge_width - 10  # Margen de 10px desde el borde
     badge_y = 10
-    badge_width = 190
     badge_height = 60
 
     # FRANJA DE DEBUG: Dibuja fondo azul marino claro para toda el área de debug
