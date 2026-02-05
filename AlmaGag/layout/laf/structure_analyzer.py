@@ -23,7 +23,9 @@ class StructureInfo:
         primary_elements: Lista de IDs de elementos sin padre
         container_metrics: {id: {total_icons, max_depth, direct_children}}
         connection_graph: Grafo de adyacencia {from: [to_list]}
+        incoming_graph: Grafo inverso de adyacencia {to: [from_list]}
         topological_levels: {id: level} (respetando dependencias)
+        accessibility_scores: {id: score} Score de accesibilidad intra-nivel [0, 0.99]
         element_types: {type: [ids]} (agrupados por tipo)
         connection_sequences: [(from, to, order)] (orden de conexión)
     """
@@ -31,7 +33,9 @@ class StructureInfo:
     primary_elements: List[str] = field(default_factory=list)
     container_metrics: Dict[str, Dict] = field(default_factory=dict)
     connection_graph: Dict[str, List[str]] = field(default_factory=dict)
+    incoming_graph: Dict[str, List[str]] = field(default_factory=dict)
     topological_levels: Dict[str, int] = field(default_factory=dict)
+    accessibility_scores: Dict[str, float] = field(default_factory=dict)
     element_types: Dict[str, List[str]] = field(default_factory=dict)
     connection_sequences: List[Tuple[str, str, int]] = field(default_factory=list)
 
@@ -78,6 +82,12 @@ class StructureAnalyzer:
 
         # Calcular niveles topológicos
         self._calculate_topological_levels(layout, info)
+
+        # Construir grafo inverso (incoming edges)
+        self._build_incoming_graph(info)
+
+        # Calcular scores de accesibilidad intra-nivel
+        self._calculate_accessibility_scores(info)
 
         # Agrupar elementos por tipo
         self._group_elements_by_type(layout, info)
@@ -334,6 +344,101 @@ class StructureAnalyzer:
             for elem_id, level in sorted(info.topological_levels.items(), key=lambda x: (x[1], x[0])):
                 print(f"  Nivel {level}: {elem_id}")
 
+    def _build_incoming_graph(self, info: StructureInfo) -> None:
+        """
+        Construye grafo inverso de adyacencia (incoming edges).
+
+        Para cada nodo, lista los nodos que tienen aristas dirigidas hacia él.
+        Es el reverso de connection_graph: si connection_graph tiene A -> B,
+        incoming_graph tendrá B <- A.
+
+        Args:
+            info: StructureInfo con connection_graph ya poblado
+        """
+        for elem_id in info.primary_elements:
+            info.incoming_graph[elem_id] = []
+
+        for from_id, to_list in info.connection_graph.items():
+            for to_id in to_list:
+                if to_id not in info.incoming_graph:
+                    info.incoming_graph[to_id] = []
+                if from_id not in info.incoming_graph[to_id]:
+                    info.incoming_graph[to_id].append(from_id)
+
+    def _calculate_accessibility_scores(
+        self,
+        info: StructureInfo,
+        alpha: float = 0.03,
+        beta: float = 0.01,
+        gamma: float = 0.0,
+        max_score: float = 0.99
+    ) -> None:
+        """
+        Calcula scores de accesibilidad intra-nivel para cada elemento primario.
+
+        Score[v] es un heurístico [0, max_score] que indica cuán "accesible"
+        debería ser un nodo dentro de su nivel. Nodos con mayor Score se
+        atraen hacia el centro del nivel durante el ordenamiento barycenter.
+
+        Componentes:
+        - W_hijos (hub-ness): más hijos salientes → más Score.
+          Solo cuenta hijos extra más allá del primero.
+        - W_precedence (skip connections): padres directos desde niveles
+          más lejanos que el padre inmediato aportan distancia * alpha.
+        - W_fanin (opcional): fan-in de padres en el mismo nivel máximo.
+          Desactivado por defecto (gamma=0).
+
+        Args:
+            info: StructureInfo con topological_levels, connection_graph e incoming_graph
+            alpha: Peso por unidad de distancia en W_precedence
+            beta: Peso por hijo extra en W_hijos
+            gamma: Peso por padre extra en W_fanin (0.0 = desactivado)
+            max_score: Clamp máximo del score
+        """
+        for elem_id in info.primary_elements:
+            base_v = info.topological_levels.get(elem_id, 0)
+
+            # W_hijos: outdegree - 1 (primer hijo no cuenta)
+            outdeg = len(info.connection_graph.get(elem_id, []))
+            w_hijos = max(0, outdeg - 1) * beta
+
+            # W_precedence: padres directos desde niveles lejanos
+            w_precedence = 0.0
+            parents = info.incoming_graph.get(elem_id, [])
+
+            if parents:
+                parent_bases = [info.topological_levels.get(p, 0) for p in parents]
+                max_base_parent = max(parent_bases)
+
+                for p in parents:
+                    base_p = info.topological_levels.get(p, 0)
+                    if base_p < max_base_parent:
+                        dist = base_v - base_p
+                        w_precedence += dist * alpha
+
+            # W_fanin: fan-in extra en el mismo nivel máximo (opcional)
+            w_fanin = 0.0
+            if gamma > 0 and parents:
+                indeg = len(parents)
+                w_fanin = max(0, indeg - 1) * gamma
+
+            # Combinar y clamp
+            score_raw = w_hijos + w_precedence + w_fanin
+            info.accessibility_scores[elem_id] = min(max_score, score_raw)
+
+        if self.debug:
+            scored = {k: v for k, v in info.accessibility_scores.items() if v > 0}
+            if scored:
+                print(f"\n[ACCESSIBILITY] Scores calculados:")
+                for elem_id in sorted(scored, key=scored.get, reverse=True):
+                    score = scored[elem_id]
+                    base = info.topological_levels.get(elem_id, 0)
+                    outdeg = len(info.connection_graph.get(elem_id, []))
+                    indeg = len(info.incoming_graph.get(elem_id, []))
+                    print(f"  {elem_id}: score={score:.4f} (base={base}, out={outdeg}, in={indeg})")
+            else:
+                print(f"\n[ACCESSIBILITY] Todos los scores son 0 (grafo simple)")
+
     def _group_elements_by_type(self, layout, info: StructureInfo) -> None:
         """
         Agrupa elementos primarios por tipo.
@@ -387,3 +492,10 @@ class StructureAnalyzer:
         if info.topological_levels:
             max_level = max(info.topological_levels.values())
             print(f"  - Niveles topológicos: {max_level + 1}")
+
+        # Accessibility scores
+        if info.accessibility_scores:
+            scored_count = sum(1 for v in info.accessibility_scores.values() if v > 0)
+            if scored_count:
+                max_score = max(info.accessibility_scores.values())
+                print(f"  - Nodos con score > 0: {scored_count}, max score: {max_score:.4f}")
