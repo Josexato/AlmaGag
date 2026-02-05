@@ -32,6 +32,22 @@ debug/outputs/*.svg
 # Excepción: Permitir SVGs de documentación (generados y versionados)
 !docs/diagrams/svgs/*.svg
 
+# Debug temporal files and logs
+debug/*.csv
+debug/*.txt
+debug/iterations/
+debug_*.txt
+graph_output.txt
+nul
+
+# Test files
+test-*.gag
+tests/*.gag
+
+# Office files
+*.pptx
+~$*.pptx
+
 # OS
 .DS_Store
 Thumbs.db
