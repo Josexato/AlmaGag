@@ -26,6 +26,11 @@ class AbstractPlacer:
     4. Minimización de cruces por capas (barycenter)
     """
 
+    # Cuánto influye el Score de accesibilidad en la atracción al centro.
+    # 0.0 = sin efecto, 1.0 = Score domina completamente sobre barycenter.
+    # Valores típicos: 0.2 - 0.4
+    SCORE_CENTER_INFLUENCE = 0.3
+
     def __init__(self, debug: bool = False):
         """
         Inicializa el placer abstracto.
@@ -280,6 +285,17 @@ class AbstractPlacer:
                 )
                 barycenters[elem_id] = barycenter
 
+        # Ajustar barycenters con scores de accesibilidad (atracción al centro)
+        if len(current_layer) > 2:
+            center = (len(current_layer) - 1) / 2.0
+            influence = self.SCORE_CENTER_INFLUENCE
+            for elem_id in current_layer:
+                score = structure_info.accessibility_scores.get(elem_id, 0.0)
+                if score > 0:
+                    bc = barycenters.get(elem_id, center)
+                    adjusted = bc + score * influence * (center - bc)
+                    barycenters[elem_id] = adjusted
+
         # Ordenar por barycenter, luego por tipo, con tiebreaker para contenedores
         def get_sort_key(elem_id: str) -> Tuple[float, int, str]:
             barycenter = barycenters.get(elem_id, len(previous_layer) / 2)
@@ -299,10 +315,12 @@ class AbstractPlacer:
             return (barycenter, is_container, elem_type)
 
         if self.debug:
-            print(f"           Barycenters antes de ordenar:")
+            print(f"           Barycenters antes de ordenar (con score-adjustment):")
             for elem_id in current_layer:
                 bc = barycenters.get(elem_id, -1)
-                print(f"             {elem_id}: {bc:.2f}")
+                score = structure_info.accessibility_scores.get(elem_id, 0.0)
+                score_str = f" [score={score:.3f}]" if score > 0 else ""
+                print(f"             {elem_id}: {bc:.2f}{score_str}")
 
         current_layer.sort(key=get_sort_key)
 
@@ -408,6 +426,16 @@ class AbstractPlacer:
                 layout
             )
             barycenters[elem_id] = barycenter
+
+        # Ajustar barycenters con scores de accesibilidad (atracción al centro)
+        if len(current_layer) > 2:
+            center = (len(current_layer) - 1) / 2.0
+            influence = self.SCORE_CENTER_INFLUENCE
+            for elem_id in current_layer:
+                score = structure_info.accessibility_scores.get(elem_id, 0.0)
+                if score > 0:
+                    bc = barycenters[elem_id]
+                    barycenters[elem_id] = bc + score * influence * (center - bc)
 
         # Ordenar por barycenter
         def get_sort_key(elem_id: str) -> float:

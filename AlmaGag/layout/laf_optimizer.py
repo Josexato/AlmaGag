@@ -596,6 +596,10 @@ class LAFOptimizer:
                 max_contained = max(m['total_icons'] for m in structure_info.container_metrics.values())
                 print(f"      - Max contenido: {max_contained} iconos")
             print(f"      - Conexiones: {len(structure_info.connection_sequences)}")
+            scored_count = sum(1 for v in structure_info.accessibility_scores.values() if v > 0)
+            if scored_count:
+                max_score = max(structure_info.accessibility_scores.values())
+                print(f"      - Nodos con accessibility score > 0: {scored_count} (max: {max_score:.4f})")
 
         # Poblar atributos de análisis en el layout
         self._populate_layout_analysis(layout, structure_info)
