@@ -338,6 +338,34 @@ class StructureAnalyzer:
                         level + 1
                     )
 
+        # Post-processing: leaf nodes stay at parent level (leaf stays in parent level)
+        # Build local reverse graph for parent lookup
+        local_incoming = {}
+        for from_id, to_list in info.connection_graph.items():
+            for to_id in to_list:
+                if to_id not in local_incoming:
+                    local_incoming[to_id] = []
+                if from_id not in local_incoming[to_id]:
+                    local_incoming[to_id].append(from_id)
+
+        # Apply leaf correction: leaves stay at their dominant parent's level
+        for elem_id in info.primary_elements:
+            outdeg = len(info.connection_graph.get(elem_id, []))
+            if outdeg == 0:
+                parents = local_incoming.get(elem_id, [])
+                if parents:
+                    max_base_parent = max(
+                        info.topological_levels[p] for p in parents
+                    )
+                    old_level = info.topological_levels[elem_id]
+                    info.topological_levels[elem_id] = max_base_parent
+                    if self.debug and old_level != max_base_parent:
+                        print(
+                            f"[TOPOLOGICAL] Leaf correction: {elem_id} "
+                            f"level {old_level} -> {max_base_parent} "
+                            f"(stays at parent level)"
+                        )
+
         # Debug: Mostrar niveles finales
         if self.debug:
             print(f"\n[TOPOLOGICAL] Niveles finales:")
