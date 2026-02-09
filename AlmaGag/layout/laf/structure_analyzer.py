@@ -338,6 +338,34 @@ class StructureAnalyzer:
                         level + 1
                     )
 
+        # Post-processing: leaf nodes stay at parent level (leaf stays in parent level)
+        # Build local reverse graph for parent lookup
+        local_incoming = {}
+        for from_id, to_list in info.connection_graph.items():
+            for to_id in to_list:
+                if to_id not in local_incoming:
+                    local_incoming[to_id] = []
+                if from_id not in local_incoming[to_id]:
+                    local_incoming[to_id].append(from_id)
+
+        # Apply leaf correction: leaves stay at their dominant parent's level
+        for elem_id in info.primary_elements:
+            outdeg = len(info.connection_graph.get(elem_id, []))
+            if outdeg == 0:
+                parents = local_incoming.get(elem_id, [])
+                if parents:
+                    max_base_parent = max(
+                        info.topological_levels[p] for p in parents
+                    )
+                    old_level = info.topological_levels[elem_id]
+                    info.topological_levels[elem_id] = max_base_parent
+                    if self.debug and old_level != max_base_parent:
+                        print(
+                            f"[TOPOLOGICAL] Leaf correction: {elem_id} "
+                            f"level {old_level} -> {max_base_parent} "
+                            f"(stays at parent level)"
+                        )
+
         # Debug: Mostrar niveles finales
         if self.debug:
             print(f"\n[TOPOLOGICAL] Niveles finales:")
@@ -493,9 +521,28 @@ class StructureAnalyzer:
             max_level = max(info.topological_levels.values())
             print(f"  - Niveles topológicos: {max_level + 1}")
 
+            # Distribución por nivel
+            by_level = {}
+            for elem_id, level in info.topological_levels.items():
+                if level not in by_level:
+                    by_level[level] = []
+                by_level[level].append(elem_id)
+
+            print(f"  - Distribución por nivel:")
+            for level in sorted(by_level.keys()):
+                count = len(by_level[level])
+                print(f"      Nivel {level}: {count} elementos")
+
         # Accessibility scores
         if info.accessibility_scores:
             scored_count = sum(1 for v in info.accessibility_scores.values() if v > 0)
             if scored_count:
                 max_score = max(info.accessibility_scores.values())
                 print(f"  - Nodos con score > 0: {scored_count}, max score: {max_score:.4f}")
+
+                # Top 3 elementos con mayor score
+                scored = {k: v for k, v in info.accessibility_scores.items() if v > 0}
+                top_3 = sorted(scored.items(), key=lambda x: x[1], reverse=True)[:3]
+                print(f"  - Top 3 elementos por accessibility score:")
+                for elem_id, score in top_3:
+                    print(f"      {elem_id}: {score:.4f}")

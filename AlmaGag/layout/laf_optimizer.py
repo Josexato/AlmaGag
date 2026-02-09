@@ -607,9 +607,46 @@ class LAFOptimizer:
         # Dump layout después de Fase 1
         self._dump_layout(layout, "LAF_PHASE_1_STRUCTURE")
 
-        # FASE 2: Layout abstracto
+        # FASE 2: Análisis topológico
         if self.debug:
-            print("\n[LAF] FASE 2: Layout abstracto")
+            print("\n[LAF] FASE 2: Análisis topológico")
+            print("-" * 60)
+
+            # Mostrar distribución por nivel
+            by_level = {}
+            for elem_id, level in structure_info.topological_levels.items():
+                if level not in by_level:
+                    by_level[level] = []
+                by_level[level].append(elem_id)
+
+            print(f"[LAF] Niveles topológicos:")
+            for level in sorted(by_level.keys()):
+                elements = ', '.join(by_level[level])
+                print(f"      Nivel {level}: {elements}")
+
+            # Mostrar accessibility scores
+            scored = {k: v for k, v in structure_info.accessibility_scores.items() if v > 0}
+            if scored:
+                print(f"\n[LAF] Scores de accesibilidad:")
+                top_5 = sorted(scored.items(), key=lambda x: x[1], reverse=True)[:5]
+                for elem_id, score in top_5:
+                    level = structure_info.topological_levels.get(elem_id, 0)
+                    print(f"      {elem_id}: {score:.4f} (nivel {level})")
+
+            print(f"\n[LAF] [OK] Análisis topológico completado")
+            print(f"      - {len(structure_info.topological_levels)} elementos con niveles")
+            print(f"      - {len(scored)} elementos con accessibility score > 0")
+
+        # Capturar snapshot Fase 2
+        if self.visualizer:
+            self.visualizer.capture_phase2_topology(structure_info)
+
+        # Dump layout después de Fase 2
+        self._dump_layout(layout, "LAF_PHASE_2_TOPOLOGY")
+
+        # FASE 3: Layout abstracto
+        if self.debug:
+            print("\n[LAF] FASE 3: Layout abstracto")
             print("-" * 60)
 
         abstract_positions = self.abstract_placer.place_elements(structure_info, layout)
@@ -617,31 +654,31 @@ class LAFOptimizer:
         # Calcular cruces
         crossings = self.abstract_placer.count_crossings(abstract_positions, layout.connections)
 
-        # Capturar snapshot Fase 2
+        # Capturar snapshot Fase 3
         if self.visualizer:
-            self.visualizer.capture_phase2(abstract_positions, crossings, layout)
+            self.visualizer.capture_phase3_abstract(abstract_positions, crossings, layout)
 
         if self.debug:
             print(f"[LAF] [OK] Layout abstracto completado")
             print(f"      - Posiciones calculadas: {len(abstract_positions)}")
             print(f"      - Cruces de conectores: {crossings}")
 
-        # Escribir posiciones abstractas temporalmente para dump de Fase 2
+        # Escribir posiciones abstractas temporalmente para dump de Fase 3
         self._write_abstract_positions_to_layout(abstract_positions, layout)
 
-        # Dump layout después de Fase 2
-        self._dump_layout(layout, "LAF_PHASE_2_ABSTRACT")
+        # Dump layout después de Fase 3
+        self._dump_layout(layout, "LAF_PHASE_3_ABSTRACT")
 
-        # FASE 3: Inflación
+        # FASE 4: Inflación
         if self.debug:
-            print("\n[LAF] FASE 3: Inflación de elementos")
+            print("\n[LAF] FASE 4: Inflación de elementos")
             print("-" * 60)
 
         spacing = self.inflator.inflate_elements(abstract_positions, structure_info, layout)
 
-        # Capturar snapshot Fase 3
+        # Capturar snapshot Fase 4
         if self.visualizer:
-            self.visualizer.capture_phase3(layout, spacing)
+            self.visualizer.capture_phase4_inflated(layout, spacing)
 
         if self.debug:
             print(f"[LAF] [OK] Inflación completada")
@@ -650,12 +687,12 @@ class LAFOptimizer:
             if layout.label_positions:
                 print(f"      - Etiquetas calculadas: {len(layout.label_positions)}")
 
-        # Dump layout después de Fase 3
-        self._dump_layout(layout, "LAF_PHASE_3_INFLATED")
+        # Dump layout después de Fase 4
+        self._dump_layout(layout, "LAF_PHASE_4_INFLATED")
 
-        # FASE 4: Crecimiento
+        # FASE 5: Crecimiento de contenedores
         if self.debug:
-            print("\n[LAF] FASE 4: Crecimiento de contenedores")
+            print("\n[LAF] FASE 5: Crecimiento de contenedores")
             print("-" * 60)
 
         self.container_grower.grow_containers(structure_info, layout)
@@ -668,9 +705,9 @@ class LAFOptimizer:
         layout.canvas['width'] = canvas_width
         layout.canvas['height'] = canvas_height
 
-        # Capturar snapshot Fase 4
+        # Capturar snapshot Fase 5
         if self.visualizer:
-            self.visualizer.capture_phase4(layout)
+            self.visualizer.capture_phase5_containers(layout)
 
         if self.debug:
             print(f"[LAF] [OK] Contenedores expandidos")
@@ -682,58 +719,92 @@ class LAFOptimizer:
                               f"({metrics['total_icons']} íconos)")
             print(f"      - Canvas final: {canvas_width:.0f}x{canvas_height:.0f}px")
 
-        # Dump layout después de Fase 4
-        self._dump_layout(layout, "LAF_PHASE_4_GROWN")
+        # Dump layout después de Fase 5
+        self._dump_layout(layout, "LAF_PHASE_5_GROWN")
 
-        # FASE 4.5: Redistribución vertical post-crecimiento
+        # FASE 6: Redistribución vertical post-crecimiento
         if self.debug:
-            print(f"\n[LAF] FASE 4.5: Redistribución vertical")
+            print(f"\n[LAF] FASE 6: Redistribución vertical")
             print("-" * 60)
 
         self._redistribute_vertical_after_growth(structure_info, layout)
 
+        # Capturar snapshot Fase 6
+        if self.visualizer:
+            self.visualizer.capture_phase6_redistributed(layout)
+
         if self.debug:
             print(f"[LAF] [OK] Redistribución vertical completada")
 
-        # Dump layout después de Fase 4.5
-        self._dump_layout(layout, "LAF_PHASE_4.5_REDISTRIBUTED")
+        # Dump layout después de Fase 6
+        self._dump_layout(layout, "LAF_PHASE_6_REDISTRIBUTED")
 
-        # Re-calcular routing con contenedores expandidos
+        # FASE 7: Re-calcular routing con contenedores expandidos
         if self.router_manager:
             if self.debug:
-                print(f"\n[LAF] Re-calculando routing con contenedores expandidos...")
+                print(f"\n[LAF] FASE 7: Routing")
+                print("-" * 60)
 
             self.router_manager.calculate_all_paths(layout)
 
+            # Capturar snapshot Fase 7
+            if self.visualizer:
+                self.visualizer.capture_phase7_routed(layout)
+
             if self.debug:
-                print(f"[LAF] [OK] Routing final calculado: {len(layout.connections)} conexiones")
+                print(f"[LAF] [OK] Routing final calculado")
+                print(f"      - Conexiones: {len(layout.connections)}")
+
+                # Calcular longitud total de paths si está disponible
+                total_path_length = 0
+                for conn in layout.connections:
+                    if 'path' in conn:
+                        # Calcular longitud aproximada del path
+                        points = conn['path']
+                        for i in range(len(points) - 1):
+                            x1, y1 = points[i]
+                            x2, y2 = points[i + 1]
+                            total_path_length += ((x2 - x1)**2 + (y2 - y1)**2)**0.5
+
+                if total_path_length > 0:
+                    print(f"      - Longitud total de paths: {total_path_length:.0f}px")
 
         # Detección de colisiones finales
         if self.collision_detector and self.debug:
             collision_count, _ = self.collision_detector.detect_all_collisions(layout)
             print(f"\n[LAF] Colisiones finales detectadas: {collision_count}")
 
-        # Generar visualizaciones si está activado
+        # FASE 8: Generar visualizaciones si está activado
         if self.visualizer:
             if self.debug:
-                print(f"\n[LAF] Generando visualizaciones del proceso...")
+                print(f"\n[LAF] FASE 8: Generación de SVG")
+                print("-" * 60)
 
+            # Capturar snapshot Fase 8 (final) ANTES de generar para incluirlo
+            self.visualizer.capture_phase8_final(layout)
+
+            # Generar todos los SVGs (incluido phase8)
             self.visualizer.generate_all()
 
             if self.debug:
-                print(f"[LAF] [OK] Visualizaciones generadas en debug/growth/")
+                print(f"[LAF] [OK] Visualizaciones generadas")
+                print(f"      - Directorio: debug/growth/")
+                print(f"      - Canvas final: {canvas_width:.0f}x{canvas_height:.0f}px")
 
         if self.debug:
             print("\n" + "="*60)
             if self.visualize_growth:
-                print("[LAF] Sprint 5 completado: Sistema LAF + Visualización + Redistribución")
+                print("[LAF] Sistema LAF completo (Fases 1-8)")
             else:
-                print("[LAF] Sistema LAF completo (Fases 1-4.5)")
-                print("[LAF]   - Fase 1: Análisis de estructura")
-                print("[LAF]   - Fase 2: Layout abstracto")
-                print("[LAF]   - Fase 3: Inflación de elementos")
-                print("[LAF]   - Fase 4: Crecimiento de contenedores")
-                print("[LAF]   - Fase 4.5: Redistribución vertical post-crecimiento")
+                print("[LAF] Sistema LAF completo (Fases 1-8)")
+            print("[LAF]   - Fase 1: Análisis de estructura")
+            print("[LAF]   - Fase 2: Análisis topológico")
+            print("[LAF]   - Fase 3: Layout abstracto")
+            print("[LAF]   - Fase 4: Inflación de elementos")
+            print("[LAF]   - Fase 5: Crecimiento de contenedores")
+            print("[LAF]   - Fase 6: Redistribución vertical")
+            print("[LAF]   - Fase 7: Routing")
+            print("[LAF]   - Fase 8: Generación de SVG")
             print("="*60 + "\n")
 
         return layout

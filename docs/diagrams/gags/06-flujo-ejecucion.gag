@@ -1,0 +1,232 @@
+{
+  "elements": [
+    {
+      "id": "main",
+      "type": "server",
+      "label": "main.py\nEntry Point"
+    },
+    {
+      "id": "args_parser",
+      "type": "function",
+      "label": "Parse Args\n--layout-algorithm\n--debug, --visualdebug"
+    },
+    {
+      "id": "load_gag",
+      "type": "function",
+      "label": "Load .gag File\n(JSON)"
+    },
+    {
+      "id": "layout_obj",
+      "type": "database",
+      "label": "Layout Object\nelements, connections"
+    },
+    {
+      "id": "algorithm_choice",
+      "type": "firewall",
+      "label": "Algorithm?\nauto vs laf"
+    },
+    {
+      "id": "laf_optimizer",
+      "type": "building",
+      "label": "LAF Optimizer\nLayout Abstracto Primero",
+      "contains": [
+        {"id": "phase1"},
+        {"id": "phase2"},
+        {"id": "phase3"},
+        {"id": "phase4"},
+        {"id": "phase45"}
+      ]
+    },
+    {
+      "id": "phase1",
+      "type": "cloud",
+      "label": "Phase 1\nStructure Analysis"
+    },
+    {
+      "id": "phase2",
+      "type": "cloud",
+      "label": "Phase 2\nAbstract Placement"
+    },
+    {
+      "id": "phase3",
+      "type": "cloud",
+      "label": "Phase 3\nInflation"
+    },
+    {
+      "id": "phase4",
+      "type": "cloud",
+      "label": "Phase 4\nContainer Growth"
+    },
+    {
+      "id": "phase45",
+      "type": "cloud",
+      "label": "Phase 4.5\nRedistribution"
+    },
+    {
+      "id": "auto_optimizer",
+      "type": "building",
+      "label": "Auto Optimizer\n(legacy)"
+    },
+    {
+      "id": "routing",
+      "type": "server",
+      "label": "RouterManager\nConnection Paths"
+    },
+    {
+      "id": "generator",
+      "type": "server",
+      "label": "Generator\nCreate SVG"
+    },
+    {
+      "id": "output_svg",
+      "type": "database",
+      "label": "Output SVG\n+ PNG (optional)"
+    },
+    {
+      "id": "structure_analyzer",
+      "type": "function",
+      "label": "StructureAnalyzer\n- Element tree\n- Connection graph\n- Topological levels\n- Accessibility scores"
+    },
+    {
+      "id": "abstract_placer",
+      "type": "function",
+      "label": "AbstractPlacer\n- Layer by level\n- Order (barycenter)\n- Position (abstract)"
+    },
+    {
+      "id": "inflator",
+      "type": "function",
+      "label": "ElementInflator\n- Real dimensions\n- Spacing\n- Label positioning"
+    },
+    {
+      "id": "container_grower",
+      "type": "function",
+      "label": "ContainerGrower\n- Expand containers\n- Fit contents"
+    },
+    {
+      "id": "redistributor",
+      "type": "function",
+      "label": "Redistributor\n- Vertical spacing\n- Horizontal centering"
+    },
+    {
+      "id": "visualizer",
+      "type": "function",
+      "label": "GrowthVisualizer\n(if --visualize-growth)"
+    }
+  ],
+  "connections": [
+    {
+      "from": "main",
+      "to": "args_parser",
+      "label": "start"
+    },
+    {
+      "from": "args_parser",
+      "to": "load_gag",
+      "label": "config"
+    },
+    {
+      "from": "load_gag",
+      "to": "layout_obj",
+      "label": "parse JSON"
+    },
+    {
+      "from": "layout_obj",
+      "to": "algorithm_choice",
+      "label": "ready"
+    },
+    {
+      "from": "algorithm_choice",
+      "to": "laf_optimizer",
+      "label": "if laf"
+    },
+    {
+      "from": "algorithm_choice",
+      "to": "auto_optimizer",
+      "label": "if auto"
+    },
+    {
+      "from": "laf_optimizer",
+      "to": "phase1",
+      "label": "step 1"
+    },
+    {
+      "from": "phase1",
+      "to": "structure_analyzer",
+      "label": "execute"
+    },
+    {
+      "from": "structure_analyzer",
+      "to": "phase2",
+      "label": "structure_info"
+    },
+    {
+      "from": "phase2",
+      "to": "abstract_placer",
+      "label": "execute"
+    },
+    {
+      "from": "abstract_placer",
+      "to": "phase3",
+      "label": "abstract_positions"
+    },
+    {
+      "from": "phase3",
+      "to": "inflator",
+      "label": "execute"
+    },
+    {
+      "from": "inflator",
+      "to": "phase4",
+      "label": "real_positions"
+    },
+    {
+      "from": "phase4",
+      "to": "container_grower",
+      "label": "execute"
+    },
+    {
+      "from": "container_grower",
+      "to": "phase45",
+      "label": "containers_expanded"
+    },
+    {
+      "from": "phase45",
+      "to": "redistributor",
+      "label": "execute"
+    },
+    {
+      "from": "redistributor",
+      "to": "routing",
+      "label": "layout_final"
+    },
+    {
+      "from": "laf_optimizer",
+      "to": "visualizer",
+      "label": "capture phases"
+    },
+    {
+      "from": "visualizer",
+      "to": "routing",
+      "label": "debug/growth/*.svg"
+    },
+    {
+      "from": "auto_optimizer",
+      "to": "routing",
+      "label": "optimized_layout"
+    },
+    {
+      "from": "routing",
+      "to": "generator",
+      "label": "connection_paths"
+    },
+    {
+      "from": "generator",
+      "to": "output_svg",
+      "label": "render"
+    }
+  ],
+  "canvas": {
+    "width": 1400,
+    "height": 1800
+  }
+}

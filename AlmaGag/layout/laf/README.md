@@ -37,7 +37,7 @@ En lugar de posicionar elementos con sus dimensiones reales desde el inicio (lo 
   - Detección de cruces geométrica O(n²)
 
 - **laf_optimizer.py** (~150 líneas)
-  - Coordinador de las 4 fases LAF
+  - Coordinador de las 8 fases LAF
   - Integración con sistema existente
   - Debug logging detallado
 
@@ -96,17 +96,21 @@ Cruces detectados: 2 (vs ~15 sin LAF)
 ```
 AlmaGag/layout/laf/
 ├── __init__.py              # Exports y versión
-├── structure_analyzer.py    # Fase 1: Análisis de estructura
+├── structure_analyzer.py    # Fase 1: Análisis de estructura + niveles + scores
 │   ├── StructureInfo        # Dataclass con metadata
 │   └── StructureAnalyzer    # Analiza árbol + grafo + métricas
-├── abstract_placer.py       # Fase 2: Layout abstracto
+├── (Fase 2: Topological Analysis - visualización en laf_optimizer.py)
+├── abstract_placer.py       # Fase 3: Layout abstracto (antes Fase 2)
 │   └── AbstractPlacer       # Placement + count_crossings
-├── inflator.py             # Fase 3: Inflación (TODO Sprint 3)
-├── container_grower.py     # Fase 4: Crecimiento (TODO Sprint 4)
-└── visualizer.py           # Fase 5: Visualización (TODO Sprint 5)
+├── inflator.py             # Fase 4: Inflación (antes Fase 3)
+├── container_grower.py     # Fase 5: Crecimiento (antes Fase 4)
+├── (Fase 6: Vertical Redistribution - en laf_optimizer.py)
+├── (Fase 7: Routing - integración con router_manager)
+├── (Fase 8: SVG Generation - integración con generator)
+└── visualizer.py           # Visualización de todas las 8 fases
 
 AlmaGag/layout/
-├── laf_optimizer.py        # Coordinador LAF
+├── laf_optimizer.py        # Coordinador LAF (8 fases)
 └── collision.py            # MODIFICADO: Skip parent-child
 ```
 

@@ -341,37 +341,57 @@ Basado en pruebas con 10 diagramas reales del proyecto:
 
 ### Fases del Algoritmo LAF
 
-LAF trabaja en 4 fases secuenciales:
+**Nota v3.0:** LAF fue actualizado de 4 fases a 8 fases en la última versión para mejor visualización del proceso.
+
+LAF trabaja en 8 fases secuenciales:
 
 1. **Fase 1: Structure Analysis**
    - Análisis de topología y jerarquía del grafo
-   - Identifica niveles y grupos
+   - Calcula niveles topológicos y accessibility scores
 
-2. **Fase 2: Abstract Placement**
+2. **Fase 2: Topological Analysis** ⭐ NUEVO
+   - Visualización de niveles y scores
+   - Color coding por importancia
+
+3. **Fase 3: Abstract Placement**
    - Posicionamiento abstracto minimizando cruces
    - Aplica técnicas Sugiyama-like
 
-3. **Fase 3: Inflation**
+4. **Fase 4: Inflation**
    - Aplicación de dimensiones reales
    - Transforma posiciones abstractas a coordenadas finales
 
-4. **Fase 4: Container Growth**
+5. **Fase 5: Container Growth**
    - Expansión bottom-up de contenedores
    - Ajusta tamaños para envolver elementos
+
+6. **Fase 6: Vertical Redistribution**
+   - Redistribución vertical post-crecimiento
+   - Centering horizontal por accessibility score
+
+7. **Fase 7: Routing**
+   - Cálculo de paths de conexiones
+   - Routing orthogonal
+
+8. **Fase 8: SVG Generation**
+   - Renderizado final del diagrama
 
 ### Visualizar Proceso LAF
 
 ```bash
-# Genera 5 SVGs mostrando cada fase
+# Genera 8 SVGs mostrando cada fase
 almagag diagrama.gag --layout-algorithm=laf --visualize-growth
 ```
 
-Salida en `debug/iterations/`:
-- `fase1_structure_TIMESTAMP.svg`
-- `fase2_abstract_TIMESTAMP.svg`
-- `fase3_inflate_TIMESTAMP.svg`
-- `fase4_grow_TIMESTAMP.svg`
-- `final_TIMESTAMP.svg`
+Salida en `debug/growth/{diagram}/`:
+- `phase1_structure.svg`
+- `phase2_topology.svg` ⭐ NUEVO
+- `phase3_abstract.svg`
+- `phase4_inflated.svg`
+- `phase5_containers.svg`
+- `phase6_redistributed.svg` ⭐ NUEVO
+- `phase7_routed.svg` ⭐ NUEVO
+- `phase8_final.svg` ⭐ NUEVO
 
 ### Documentación LAF
 
