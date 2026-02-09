@@ -521,9 +521,28 @@ class StructureAnalyzer:
             max_level = max(info.topological_levels.values())
             print(f"  - Niveles topológicos: {max_level + 1}")
 
+            # Distribución por nivel
+            by_level = {}
+            for elem_id, level in info.topological_levels.items():
+                if level not in by_level:
+                    by_level[level] = []
+                by_level[level].append(elem_id)
+
+            print(f"  - Distribución por nivel:")
+            for level in sorted(by_level.keys()):
+                count = len(by_level[level])
+                print(f"      Nivel {level}: {count} elementos")
+
         # Accessibility scores
         if info.accessibility_scores:
             scored_count = sum(1 for v in info.accessibility_scores.values() if v > 0)
             if scored_count:
                 max_score = max(info.accessibility_scores.values())
                 print(f"  - Nodos con score > 0: {scored_count}, max score: {max_score:.4f}")
+
+                # Top 3 elementos con mayor score
+                scored = {k: v for k, v in info.accessibility_scores.items() if v > 0}
+                top_3 = sorted(scored.items(), key=lambda x: x[1], reverse=True)[:3]
+                print(f"  - Top 3 elementos por accessibility score:")
+                for elem_id, score in top_3:
+                    print(f"      {elem_id}: {score:.4f}")

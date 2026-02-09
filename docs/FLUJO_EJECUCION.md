@@ -91,7 +91,53 @@ for neighbor in successors(current):
 - `W_precedence` (skip connections): Padres de niveles distantes
 - `W_fanin` (opcional): Múltiples padres en mismo nivel
 
-### Phase 2: Abstract Placement
+### Phase 2: Topological Analysis
+
+**Archivo:** Visualización en `laf_optimizer.py` (líneas 610-640)
+
+**Responsabilidades:**
+1. **Mostrar Niveles Topológicos** - Distribución de elementos por nivel
+2. **Mostrar Accessibility Scores** - Top elementos con mayor score
+3. **Visualizar Topología** - SVG con niveles y color-coding por score
+
+**Output:** Debug info + `phase2_topology.svg`
+
+**Visualización SVG:**
+- **Niveles Horizontales:** Elementos organizados en filas por nivel topológico
+- **Color Coding por Score:**
+  - 🔴 **Rojo** (score > 0.05): Elementos muy importantes (hubs principales)
+  - 🟡 **Amarillo** (0.02 - 0.05): Elementos importantes
+  - 🔵 **Azul** (< 0.02): Elementos normales
+- **Labels:** Muestran ID del elemento y score (si > 0)
+- **Leyenda:** Explica el significado de los colores
+
+**Debug Output:**
+```
+[LAF] FASE 2: Análisis topológico
+--------------------------------------------------------------
+[LAF] Niveles topológicos:
+      Nivel 0: input, layout_module-stage, optimizer
+      Nivel 1: main, render, label_position_optimizer
+      Nivel 2: generator
+      Nivel 3: svgwrite
+
+[LAF] Scores de accesibilidad:
+      optimizer: 0.0450 (nivel 0)
+      render: 0.0320 (nivel 1)
+      layout_module-stage: 0.0210 (nivel 0)
+
+[LAF] [OK] Análisis topológico completado
+      - 30 elementos con niveles
+      - 5 elementos con accessibility score > 0
+```
+
+**Propósito:**
+Esta fase hace visibles los cálculos que ya se hacían en Fase 1 pero estaban "ocultos". Permite entender:
+- Cómo se distribuyen los elementos en niveles
+- Qué elementos son más importantes (mayor score)
+- La topología del grafo antes del layout abstracto
+
+### Phase 3: Abstract Placement
 
 **Archivo:** `AlmaGag/layout/laf/abstract_placer.py:AbstractPlacer`
 
@@ -129,7 +175,7 @@ adjusted_x = (
 )
 ```
 
-### Phase 3: Inflation
+### Phase 4: Inflation
 
 **Archivo:** `AlmaGag/layout/laf/inflator.py:ElementInflator`
 
@@ -152,7 +198,7 @@ label_height = len(lines) * LINE_HEIGHT
 total_height = icon_height + LABEL_MARGIN + label_height
 ```
 
-### Phase 4: Container Growth
+### Phase 5: Container Growth
 
 **Archivo:** `AlmaGag/layout/laf/container_grower.py:ContainerGrower`
 
@@ -178,14 +224,14 @@ for container in containers (bottom-up):
     container.height = (max_y - min_y) + 2 * PADDING
 ```
 
-### Phase 4.5: Redistribution
+### Phase 6: Vertical Redistribution
 
 **Archivo:** `AlmaGag/layout/laf_optimizer.py:_redistribute_vertically()`
 
 **Responsabilidades:**
 1. **Vertical Redistribution** - Espaciado uniforme entre niveles
 2. **Horizontal Centering** - Centrar elementos dentro de cada nivel
-3. **Preserve Order** - Mantener orden optimizado de Phase 2
+3. **Preserve Order** - Mantener orden optimizado de Phase 3
 
 **Output:** Layout final con distribución óptima
 
@@ -204,7 +250,7 @@ for level in levels:
         start_x += elem.width + spacing
 ```
 
-### Phase 5: Routing
+### Phase 7: Routing
 
 **Archivo:** `AlmaGag/routing/router_manager.py:RouterManager`
 
@@ -216,7 +262,7 @@ for level in levels:
 
 **Output:** Lista de paths SVG para cada conexión
 
-### Phase 6: Visualization (Opcional)
+### Phase 8: Visualization (Opcional)
 
 **Archivo:** `AlmaGag/layout/laf/visualizer.py:GrowthVisualizer`
 
@@ -224,11 +270,20 @@ for level in levels:
 
 **Genera:**
 - `debug/growth/{diagram}/phase1_structure.svg`
-- `debug/growth/{diagram}/phase2_abstract.svg`
-- `debug/growth/{diagram}/phase3_inflated.svg`
-- `debug/growth/{diagram}/phase4_final.svg`
+- `debug/growth/{diagram}/phase2_topology.svg` ⭐ NUEVO
+- `debug/growth/{diagram}/phase3_abstract.svg`
+- `debug/growth/{diagram}/phase4_inflated.svg`
+- `debug/growth/{diagram}/phase5_containers.svg`
+- `debug/growth/{diagram}/phase6_redistributed.svg` ⭐ NUEVO
+- `debug/growth/{diagram}/phase7_routed.svg` ⭐ NUEVO
+- `debug/growth/{diagram}/phase8_final.svg` ⭐ NUEVO
 
-### Phase 7: SVG Generation
+**Cambios en v3.0:**
+- Se agregó Phase 2 (Topological Analysis) para visualizar niveles y scores
+- Se renumeraron todas las fases (eliminando 4.5)
+- Se agregaron fases 6, 7, 8 para visualizar redistribución, routing y final
+
+### Phase 8 (Alternative): SVG Generation
 
 **Archivo:** `AlmaGag/generator.py:generate_svg()`
 

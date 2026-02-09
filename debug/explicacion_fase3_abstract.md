@@ -1,8 +1,10 @@
-# LAF FASE 2: Layout Abstracto
+# LAF FASE 3: Layout Abstracto
 
 ## ¿Qué es?
 
-La **Fase 2: Layout Abstracto** es la fase donde se calculan las **posiciones relativas** de los elementos como si fueran **puntos de 1 pixel**, ignorando completamente sus tamaños reales. El objetivo es **minimizar los cruces** entre las conexiones.
+La **Fase 3: Layout Abstracto** es la fase donde se calculan las **posiciones relativas** de los elementos como si fueran **puntos de 1 pixel**, ignorando completamente sus tamaños reales. El objetivo es **minimizar los cruces** entre las conexiones.
+
+**Nota:** En v3.0 esta fase fue renumerada de Fase 2 → Fase 3 debido a la adición de la nueva Fase 2: Análisis Topológico.
 
 ## Algoritmo: Sugiyama (3 pasos)
 
