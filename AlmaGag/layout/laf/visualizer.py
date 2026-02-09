@@ -287,10 +287,10 @@ class GrowthVisualizer:
             ))
             y += 25
 
-        # Árbol de elementos (simplificado)
+        # Tabla de nodos primarios
         y += 20
         dwg.add(dwg.text(
-            'Element Tree:',
+            'Primary Nodes:',
             insert=(40, y),
             font_size='16px',
             font_weight='bold',
@@ -298,24 +298,89 @@ class GrowthVisualizer:
         ))
         y += 25
 
-        for elem_id in structure_info.primary_elements:
-            node = structure_info.element_tree.get(elem_id, {})
-            is_container = node.get('is_container', False)
-            children_count = len(node.get('children', []))
+        # Header de tabla
+        dwg.add(dwg.text(
+            'ID         Type              Element',
+            insert=(60, y),
+            font_size='11px',
+            fill='#495057',
+            font_family='monospace',
+            font_weight='bold'
+        ))
+        y += 18
 
-            symbol = '[C]' if is_container else '[E]'
-            text = f"{symbol} {elem_id}"
-            if is_container and children_count > 0:
-                text += f" ({children_count} children)"
+        # Mostrar solo los primeros 15 elementos para que quepan en el SVG
+        displayed_count = 0
+        max_display = 15
+
+        for elem_id in structure_info.primary_elements:
+            if displayed_count >= max_display:
+                dwg.add(dwg.text(
+                    f"... y {len(structure_info.primary_elements) - max_display} más",
+                    insert=(60, y),
+                    font_size='11px',
+                    fill='#6c757d',
+                    font_family='monospace',
+                    font_style='italic'
+                ))
+                break
+
+            node_id = structure_info.primary_node_ids.get(elem_id, "N/A")
+            node_type = structure_info.primary_node_types.get(elem_id, "N/A")
+
+            # Color según tipo
+            if node_type == "Simple":
+                color = '#6c757d'  # Gris
+            elif node_type == "Contenedor":
+                color = '#0d6efd'  # Azul
+            else:  # Contenedor Virtual
+                color = '#dc3545'  # Rojo
+
+            # Truncar elem_id si es muy largo
+            elem_display = elem_id if len(elem_id) <= 20 else elem_id[:17] + "..."
+
+            text = f"{node_id}  {node_type:<16}  {elem_display}"
 
             dwg.add(dwg.text(
                 text,
                 insert=(60, y),
-                font_size='12px',
-                fill='#0d6efd' if is_container else '#6c757d',
+                font_size='11px',
+                fill=color,
                 font_family='monospace'
             ))
-            y += 20
+            y += 16
+            displayed_count += 1
+
+        # Leyenda de colores
+        y += 10
+        dwg.add(dwg.text(
+            'Legend:',
+            insert=(60, y),
+            font_size='11px',
+            fill='#495057',
+            font_weight='bold'
+        ))
+        y += 15
+
+        legend_items = [
+            ('Simple', '#6c757d'),
+            ('Contenedor', '#0d6efd'),
+            ('Contenedor Virtual', '#dc3545')
+        ]
+
+        for label, color in legend_items:
+            dwg.add(dwg.circle(
+                center=(70, y - 3),
+                r=4,
+                fill=color
+            ))
+            dwg.add(dwg.text(
+                label,
+                insert=(80, y),
+                font_size='10px',
+                fill='#495057'
+            ))
+            y += 14
 
         # Badge
         dwg.add(dwg.text(
@@ -330,18 +395,60 @@ class GrowthVisualizer:
         if self.debug:
             print(f"[VISUALIZER] Generado: {filename}")
 
+    def _segments_intersect(self, p1, p2, p3, p4):
+        """
+        Verifica si dos segmentos de línea se intersectan.
+
+        Segmento 1: p1 -> p2
+        Segmento 2: p3 -> p4
+
+        Returns: True si se intersectan, False si no
+        """
+        def ccw(A, B, C):
+            # Counter-clockwise: (C.y - A.y) * (B.x - A.x) > (B.y - A.y) * (C.x - A.x)
+            return (C[1] - A[1]) * (B[0] - A[0]) > (B[1] - A[1]) * (C[0] - A[0])
+
+        # Dos segmentos se intersectan si los endpoints de uno están en lados opuestos del otro
+        return (ccw(p1, p3, p4) != ccw(p2, p3, p4)) and (ccw(p1, p2, p3) != ccw(p1, p2, p4))
+
+    def _are_collinear(self, conn1, conn2, angle_threshold=0.2):
+        """
+        Detecta si dos conexiones son colineales (mismo origen, direcciones similares).
+
+        Args:
+            conn1, conn2: Diccionarios con información de conexión
+            angle_threshold: Diferencia máxima de ángulo (radianes) para considerar colineales
+
+        Returns: True si son colineales, False si no
+        """
+        import math
+
+        # Mismo origen?
+        if conn1['from_id'] != conn2['from_id']:
+            return False
+
+        # Ángulos similares?
+        angle_diff = abs(conn1['angle'] - conn2['angle'])
+
+        # Normalizar diferencia de ángulo (considerar wrap-around en ±π)
+        if angle_diff > math.pi:
+            angle_diff = 2 * math.pi - angle_diff
+
+        return angle_diff < angle_threshold
+
     def _generate_phase2_topology_svg(self, output_path: str) -> None:
         """
         Genera SVG de Fase 2: Análisis topológico.
-        Muestra niveles topológicos y accessibility scores con color coding.
+        Muestra niveles topológicos, IDs de nodos primarios, nombres y conexiones.
+        Detecta y resalta conexiones que se cruzan.
         """
         snapshot = self.snapshots['phase2']
         structure_info = snapshot['structure_info']
 
         filename = os.path.join(output_path, "phase2_topology.svg")
 
-        canvas_width = 1000
-        canvas_height = 800
+        canvas_width = 1200
+        canvas_height = 900
 
         dwg = svgwrite.Drawing(filename, size=(canvas_width, canvas_height))
 
@@ -367,14 +474,224 @@ class GrowthVisualizer:
             max_level = max(max_level, level)
 
         # Calcular espacio vertical por nivel
-        level_height = 80
+        level_height = 100
         start_y = 120
-        node_radius = 20
+        node_radius = 22
 
-        # Dibujar niveles
+        # Diccionario para guardar posiciones de nodos (para dibujar flechas después)
+        node_positions = {}
+
+        # PASO 1: Calcular posiciones de todos los nodos
         for level in sorted(by_level.keys()):
             elements = by_level[level]
             y = start_y + level * level_height
+
+            # Distribuir elementos horizontalmente
+            num_elements = len(elements)
+            spacing = (canvas_width - 240) / max(num_elements, 1)
+            start_x = 140
+
+            for i, elem_id in enumerate(elements):
+                x = start_x + i * spacing
+                node_positions[elem_id] = (x, y)
+
+        # PASO 2: Calcular todas las conexiones y detectar cruces
+        import math
+
+        # Lista de todas las conexiones con sus coordenadas
+        connections = []
+
+        for from_id, to_list in structure_info.connection_graph.items():
+            if from_id not in node_positions:
+                continue
+
+            from_x, from_y = node_positions[from_id]
+
+            for to_id in to_list:
+                if to_id not in node_positions:
+                    continue
+
+                to_x, to_y = node_positions[to_id]
+
+                # Calcular puntos de inicio y fin
+                dx = to_x - from_x
+                dy = to_y - from_y
+                angle = math.atan2(dy, dx)
+
+                start_x = from_x + node_radius * math.cos(angle)
+                start_y = from_y + node_radius * math.sin(angle)
+                end_x = to_x - (node_radius + 8) * math.cos(angle)
+                end_y = to_y - (node_radius + 8) * math.sin(angle)
+
+                connections.append({
+                    'from_id': from_id,
+                    'to_id': to_id,
+                    'start': (start_x, start_y),
+                    'end': (end_x, end_y),
+                    'angle': angle,
+                    'to_pos': (to_x, to_y)
+                })
+
+        # Detectar cruces entre conexiones
+        crossing_indices = set()
+        crossing_count = 0
+
+        for i, conn1 in enumerate(connections):
+            for j, conn2 in enumerate(connections):
+                if i >= j:  # Evitar comparar consigo mismo y duplicados
+                    continue
+
+                # Verificar si los segmentos se cruzan
+                if self._segments_intersect(
+                    conn1['start'], conn1['end'],
+                    conn2['start'], conn2['end']
+                ):
+                    crossing_indices.add(i)
+                    crossing_indices.add(j)
+                    crossing_count += 1
+
+        # Detectar flechas colineales (mismo origen, dirección similar)
+        # Agrupar por origen
+        by_origin = {}
+        for i, conn in enumerate(connections):
+            origin = conn['from_id']
+            if origin not in by_origin:
+                by_origin[origin] = []
+            by_origin[origin].append((i, conn))
+
+        # Detectar grupos colineales dentro de cada origen
+        collinear_groups = []  # Lista de listas de índices
+        collinear_indices = set()  # Todos los índices que son colineales
+
+        for origin, conns in by_origin.items():
+            if len(conns) < 2:
+                continue
+
+            # Encontrar grupos de flechas colineales
+            visited = set()
+            for idx1, (i, conn1) in enumerate(conns):
+                if i in visited:
+                    continue
+
+                group = [i]
+                for idx2, (j, conn2) in enumerate(conns):
+                    if idx1 >= idx2 or j in visited:
+                        continue
+
+                    if self._are_collinear(conn1, conn2):
+                        group.append(j)
+                        visited.add(j)
+
+                if len(group) > 1:  # Solo grupos con 2+ flechas
+                    collinear_groups.append(group)
+                    collinear_indices.update(group)
+                    visited.add(i)
+
+        # Asignar colores muy diferentes a grupos colineales
+        # Usar colores con máximo contraste entre grupos consecutivos
+        collinear_colors = [
+            '#FF1744',  # Rojo brillante
+            '#00E5FF',  # Cyan brillante
+            '#76FF03',  # Verde lima
+            '#FF9100',  # Naranja
+            '#D500F9',  # Púrpura
+            '#FFEA00',  # Amarillo
+            '#00B0FF',  # Azul claro
+            '#FF6E40',  # Naranja rojizo
+            '#69F0AE',  # Verde menta
+            '#E040FB'   # Magenta
+        ]
+        color_assignments = {}  # {index: color}
+
+        for group_idx, group in enumerate(collinear_groups):
+            color = collinear_colors[group_idx % len(collinear_colors)]
+            for conn_idx in group:
+                color_assignments[conn_idx] = color
+
+        # Dibujar conexiones (flechas)
+        for i, conn in enumerate(connections):
+            has_crossing = i in crossing_indices
+            is_collinear = i in collinear_indices
+
+            # Prioridad: colineal > cruce > normal
+            if is_collinear:
+                line_color = color_assignments[i]
+                arrow_color = color_assignments[i]
+                opacity = 0.45  # Baja opacidad para ver superposición
+            elif has_crossing:
+                line_color = '#dc3545'  # Rojo para cruces
+                arrow_color = '#dc3545'
+                opacity = 0.8
+            else:
+                line_color = '#495057'  # Gris normal
+                arrow_color = '#495057'
+                opacity = 0.6
+
+            # Dibujar bolita de origen (pequeña)
+            origin_x, origin_y = conn['start']
+            dwg.add(dwg.circle(
+                center=(origin_x, origin_y),
+                r=3,
+                fill=line_color,
+                opacity=opacity,
+                stroke=line_color,
+                stroke_width=1
+            ))
+
+            # Dibujar línea
+            dwg.add(dwg.line(
+                start=conn['start'],
+                end=conn['end'],
+                stroke=line_color,
+                stroke_width=2,
+                opacity=opacity
+            ))
+
+            # Dibujar punta de flecha
+            arrow_length = 12
+            arrow_width = 0.4
+
+            angle = conn['angle']
+            to_x, to_y = conn['to_pos']
+
+            arrow_tip_x = to_x - node_radius * math.cos(angle)
+            arrow_tip_y = to_y - node_radius * math.sin(angle)
+
+            arrow_base1_x = arrow_tip_x - arrow_length * math.cos(angle + arrow_width)
+            arrow_base1_y = arrow_tip_y - arrow_length * math.sin(angle + arrow_width)
+
+            arrow_base2_x = arrow_tip_x - arrow_length * math.cos(angle - arrow_width)
+            arrow_base2_y = arrow_tip_y - arrow_length * math.sin(angle - arrow_width)
+
+            dwg.add(dwg.polygon(
+                points=[(arrow_tip_x, arrow_tip_y),
+                        (arrow_base1_x, arrow_base1_y),
+                        (arrow_base2_x, arrow_base2_y)],
+                fill=arrow_color,
+                opacity=opacity,
+                stroke=arrow_color,
+                stroke_width=0.5
+            ))
+
+        # PASO 3: Dibujar niveles y nodos
+        for level in sorted(by_level.keys()):
+            elements = by_level[level]
+            y = start_y + level * level_height
+
+            # Barra de fondo para el nivel (alternando colores)
+            bar_height = level_height - 20
+            bar_y = y - 50
+            bar_color = '#e3f2fd' if level % 2 == 0 else '#f1f8e9'  # Azul claro / Verde claro
+
+            dwg.add(dwg.rect(
+                insert=(10, bar_y),
+                size=(canvas_width - 20, bar_height),
+                fill=bar_color,
+                opacity=0.3,
+                stroke='#90caf9' if level % 2 == 0 else '#aed581',
+                stroke_width=1,
+                stroke_dasharray='5,5'
+            ))
 
             # Label del nivel
             dwg.add(dwg.text(
@@ -385,23 +702,20 @@ class GrowthVisualizer:
                 fill='#495057'
             ))
 
-            # Línea horizontal del nivel
+            # Línea horizontal del nivel (más tenue)
             dwg.add(dwg.line(
-                start=(100, y),
+                start=(120, y),
                 end=(canvas_width - 20, y),
                 stroke='#dee2e6',
                 stroke_width=1,
-                stroke_dasharray='5,5'
+                stroke_dasharray='5,5',
+                opacity=0.5
             ))
 
-            # Distribuir elementos horizontalmente
-            num_elements = len(elements)
-            spacing = (canvas_width - 220) / max(num_elements, 1)
-            start_x = 120
-
-            for i, elem_id in enumerate(elements):
-                x = start_x + i * spacing
+            for elem_id in elements:
+                x, y = node_positions[elem_id]
                 score = structure_info.accessibility_scores.get(elem_id, 0)
+                node_id = structure_info.primary_node_ids.get(elem_id, "N/A")
 
                 # Color según score
                 if score > 0.05:
@@ -411,32 +725,43 @@ class GrowthVisualizer:
                 else:
                     color = '#0d6efd'  # Azul - Bajo/Normal
 
-                # Dibujar nodo
+                # Dibujar nodo (círculo)
                 dwg.add(dwg.circle(
                     center=(x, y),
                     r=node_radius,
                     fill=color,
-                    opacity=0.7,
+                    opacity=0.8,
                     stroke='#212529',
                     stroke_width=2
                 ))
 
-                # Label con ID (truncar si es muy largo)
-                label = elem_id if len(elem_id) <= 15 else elem_id[:12] + '...'
+                # ID del nodo primario ARRIBA del círculo
+                dwg.add(dwg.text(
+                    node_id,
+                    insert=(x, y - node_radius - 8),
+                    font_size='11px',
+                    fill='#212529',
+                    text_anchor='middle',
+                    font_family='monospace',
+                    font_weight='bold'
+                ))
+
+                # Nombre del elemento DEBAJO del círculo (en gris)
+                label = elem_id if len(elem_id) <= 18 else elem_id[:15] + '...'
                 dwg.add(dwg.text(
                     label,
-                    insert=(x, y + node_radius + 15),
+                    insert=(x, y + node_radius + 16),
                     font_size='10px',
-                    fill='#212529',
+                    fill='#6c757d',
                     text_anchor='middle',
                     font_family='monospace'
                 ))
 
-                # Mostrar score si > 0
+                # Mostrar score DENTRO del círculo si > 0
                 if score > 0:
                     dwg.add(dwg.text(
-                        f'{score:.4f}',
-                        insert=(x, y + 5),
+                        f'{score:.3f}',
+                        insert=(x, y + 4),
                         font_size='9px',
                         fill='white',
                         text_anchor='middle',
@@ -484,6 +809,89 @@ class GrowthVisualizer:
             insert=(canvas_width - 100, 30),
             font_size='14px',
             fill='#6c757d'
+        ))
+
+        # Contadores
+        crossing_text = f"Crossings: {crossing_count}"
+        crossing_color = '#28a745' if crossing_count == 0 else '#dc3545'  # Verde si 0, rojo si >0
+
+        dwg.add(dwg.text(
+            crossing_text,
+            insert=(20, 60),
+            font_size='16px',
+            font_weight='bold',
+            fill=crossing_color
+        ))
+
+        # Contador de grupos colineales
+        collinear_text = f"Collinear groups: {len(collinear_groups)}"
+        collinear_color = '#28a745' if len(collinear_groups) == 0 else '#f39c12'  # Verde si 0, naranja si >0
+
+        dwg.add(dwg.text(
+            collinear_text,
+            insert=(180, 60),
+            font_size='16px',
+            font_weight='bold',
+            fill=collinear_color
+        ))
+
+        # Leyenda de colores de flechas
+        dwg.add(dwg.text(
+            'Arrows:',
+            insert=(20, 85),
+            font_size='12px',
+            font_weight='bold',
+            fill='#495057'
+        ))
+
+        # Normal arrows
+        dwg.add(dwg.circle(
+            center=(30, 103),
+            r=4,
+            fill='#495057',
+            opacity=0.6
+        ))
+        dwg.add(dwg.text(
+            'Normal',
+            insert=(40, 106),
+            font_size='11px',
+            fill='#495057'
+        ))
+
+        # Crossing arrows
+        dwg.add(dwg.circle(
+            center=(95, 103),
+            r=4,
+            fill='#dc3545',
+            opacity=0.8
+        ))
+        dwg.add(dwg.text(
+            'Crossing',
+            insert=(105, 106),
+            font_size='11px',
+            fill='#dc3545'
+        ))
+
+        # Collinear arrows
+        dwg.add(dwg.circle(
+            center=(175, 103),
+            r=4,
+            fill='#FF1744',
+            opacity=0.45
+        ))
+        dwg.add(dwg.text(
+            'Collinear',
+            insert=(185, 106),
+            font_size='11px',
+            fill='#FF1744'
+        ))
+
+        dwg.add(dwg.text(
+            '(same origin, similar direction - low opacity)',
+            insert=(185, 118),
+            font_size='9px',
+            fill='#6c757d',
+            font_style='italic'
         ))
 
         dwg.save()

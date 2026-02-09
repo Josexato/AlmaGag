@@ -28,6 +28,8 @@ class StructureInfo:
         accessibility_scores: {id: score} Score de accesibilidad intra-nivel [0, 0.99]
         element_types: {type: [ids]} (agrupados por tipo)
         connection_sequences: [(from, to, order)] (orden de conexión)
+        primary_node_ids: {elem_id: "NdPr001"} IDs únicos para nodos primarios
+        primary_node_types: {elem_id: "Simple|Contenedor|Contenedor Virtual"} Tipo de nodo primario
     """
     element_tree: Dict[str, Dict] = field(default_factory=dict)
     primary_elements: List[str] = field(default_factory=list)
@@ -38,6 +40,8 @@ class StructureInfo:
     accessibility_scores: Dict[str, float] = field(default_factory=dict)
     element_types: Dict[str, List[str]] = field(default_factory=dict)
     connection_sequences: List[Tuple[str, str, int]] = field(default_factory=list)
+    primary_node_ids: Dict[str, str] = field(default_factory=dict)
+    primary_node_types: Dict[str, str] = field(default_factory=dict)
 
 
 class StructureAnalyzer:
@@ -82,6 +86,9 @@ class StructureAnalyzer:
 
         # Calcular niveles topológicos
         self._calculate_topological_levels(layout, info)
+
+        # Clasificar y asignar IDs a nodos primarios
+        self._classify_primary_nodes(layout, info)
 
         # Construir grafo inverso (incoming edges)
         self._build_incoming_graph(info)
@@ -371,6 +378,55 @@ class StructureAnalyzer:
             print(f"\n[TOPOLOGICAL] Niveles finales:")
             for elem_id, level in sorted(info.topological_levels.items(), key=lambda x: (x[1], x[0])):
                 print(f"  Nivel {level}: {elem_id}")
+
+    def _classify_primary_nodes(self, layout, info: StructureInfo) -> None:
+        """
+        Asigna IDs únicos y clasifica cada nodo primario.
+
+        Tipos:
+        - Simple: Nodo sin hijos (no es contenedor)
+        - Contenedor: Nodo que contiene otros elementos
+        - Contenedor Virtual: Nodo parte de un ciclo detectado
+
+        Args:
+            layout: Layout con elements
+            info: StructureInfo a poblar
+        """
+        # Detectar nodos sin nivel topológico (posibles ciclos)
+        nodes_without_level = set()
+        for elem_id in info.primary_elements:
+            if elem_id not in info.topological_levels:
+                nodes_without_level.add(elem_id)
+
+        # Asignar IDs secuenciales y clasificar
+        node_counter = 1
+        for elem_id in info.primary_elements:
+            # Asignar ID único
+            node_id = f"NdPr{node_counter:03d}"
+            info.primary_node_ids[elem_id] = node_id
+
+            # Clasificar por tipo
+            if elem_id in nodes_without_level:
+                # Parte de un ciclo
+                node_type = "Contenedor Virtual"
+            elif info.element_tree[elem_id]['is_container']:
+                # Es un contenedor real
+                node_type = "Contenedor"
+            else:
+                # Nodo simple
+                node_type = "Simple"
+
+            info.primary_node_types[elem_id] = node_type
+            node_counter += 1
+
+        if self.debug:
+            print(f"\n[CLASIFICACION] Nodos primarios clasificados:")
+            for elem_id in info.primary_elements:
+                node_id = info.primary_node_ids[elem_id]
+                node_type = info.primary_node_types[elem_id]
+                level = info.topological_levels.get(elem_id, "N/A")
+                children_count = len(info.element_tree[elem_id]['children'])
+                print(f"  {node_id} | {node_type:18} | {elem_id:30} | Nivel {level} | {children_count} hijos")
 
     def _build_incoming_graph(self, info: StructureInfo) -> None:
         """

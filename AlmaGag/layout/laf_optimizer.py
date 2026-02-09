@@ -601,6 +601,20 @@ class LAFOptimizer:
                 max_score = max(structure_info.accessibility_scores.values())
                 print(f"      - Nodos con accessibility score > 0: {scored_count} (max: {max_score:.4f})")
 
+            # Tabla de nodos primarios
+            print(f"\n[LAF] Nodos primarios clasificados ({len(structure_info.primary_elements)}):")
+            print(f"      {'ID':<10} | {'Tipo':<18} | {'Elemento':<30} | {'Nivel':<6} | Hijos")
+            print(f"      {'-'*10}-+-{'-'*18}-+-{'-'*30}-+-{'-'*6}-+-------")
+            for elem_id in structure_info.primary_elements:
+                node_id = structure_info.primary_node_ids.get(elem_id, "N/A")
+                node_type = structure_info.primary_node_types.get(elem_id, "N/A")
+                level = structure_info.topological_levels.get(elem_id, "N/A")
+                level_str = str(level) if level != "N/A" else "N/A"
+                children_count = len(structure_info.element_tree.get(elem_id, {}).get('children', []))
+                # Truncar elemento ID si es muy largo
+                elem_display = elem_id if len(elem_id) <= 30 else elem_id[:27] + "..."
+                print(f"      {node_id:<10} | {node_type:<18} | {elem_display:<30} | {level_str:<6} | {children_count}")
+
         # Poblar atributos de análisis en el layout
         self._populate_layout_analysis(layout, structure_info)
 
