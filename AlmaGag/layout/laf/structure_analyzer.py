@@ -88,17 +88,17 @@ class StructureAnalyzer:
         # Analizar grafo de conexiones
         self._build_connection_graph(layout, info)
 
-        # Calcular niveles topológicos
-        self._calculate_topological_levels(layout, info)
-
-        # Clasificar y asignar IDs a nodos primarios
-        self._classify_primary_nodes(layout, info)
-
         # Construir grafo inverso (incoming edges)
         self._build_incoming_graph(info)
 
         # Detectar hojas y hojas terminales
         self._identify_leaf_and_terminal_nodes(info)
+
+        # Calcular niveles topológicos
+        self._calculate_topological_levels(layout, info)
+
+        # Clasificar y asignar IDs a nodos primarios
+        self._classify_primary_nodes(layout, info)
 
         # Calcular scores de accesibilidad intra-nivel
         self._calculate_accessibility_scores(info)
@@ -306,6 +306,10 @@ class StructureAnalyzer:
         """
         Calcula niveles topológicos usando BFS en el grafo de conexiones.
 
+        Reglas de post-procesamiento:
+        1) Hojas normales se alinean al nivel del padre dominante.
+        2) Hojas terminales suben un nivel sobre su padre dominante.
+
         Args:
             layout: Layout con connections
             info: StructureInfo a poblar
@@ -379,6 +383,21 @@ class StructureAnalyzer:
                             f"level {old_level} -> {max_base_parent} "
                             f"(stays at parent level)"
                         )
+
+        # Corrección para hojas terminales: suben un nivel sobre su padre dominante
+        # (se aplica después de la corrección de hojas normales)
+        for elem_id in info.terminal_leaf_nodes:
+            parents = local_incoming.get(elem_id, [])
+            if parents:
+                max_parent_level = max(info.topological_levels[p] for p in parents)
+                old_level = info.topological_levels.get(elem_id, 0)
+                info.topological_levels[elem_id] = max_parent_level + 1
+                if self.debug and old_level != max_parent_level + 1:
+                    print(
+                        f"[TOPOLOGICAL] Terminal leaf correction: {elem_id} "
+                        f"level {old_level} -> {max_parent_level + 1} "
+                        f"(moves above parent level)"
+                    )
 
         # Debug: Mostrar niveles finales
         if self.debug:
