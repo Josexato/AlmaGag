@@ -658,9 +658,39 @@ class LAFOptimizer:
         # Dump layout después de Fase 2
         self._dump_layout(layout, "LAF_PHASE_2_TOPOLOGY")
 
-        # FASE 3: Layout abstracto
+        # FASE 3: Ordenamiento por centralidad
         if self.debug:
-            print("\n[LAF] FASE 3: Layout abstracto")
+            print("\n[LAF] FASE 3: Ordenamiento por centralidad")
+            print("-" * 60)
+
+        # Organizar elementos por nivel y score de centralidad
+        centrality_order = self._order_by_centrality(structure_info)
+
+        if self.debug:
+            print(f"[LAF] Orden de centralidad por nivel:")
+            for level in sorted(centrality_order.keys()):
+                elements = centrality_order[level]
+                print(f"      Nivel {level}: {len(elements)} elementos")
+                for idx, (elem_id, score) in enumerate(elements[:5]):  # Mostrar top 5
+                    node_id = structure_info.primary_node_ids.get(elem_id, "N/A")
+                    position = "centro" if idx == len(elements) // 2 else ("izq" if idx < len(elements) // 2 else "der")
+                    print(f"        {node_id} ({elem_id}): score={score:.4f} → {position}")
+                if len(elements) > 5:
+                    print(f"        ... y {len(elements) - 5} más")
+
+            print(f"\n[LAF] [OK] Ordenamiento por centralidad completado")
+            print(f"      - {len(centrality_order)} niveles organizados")
+
+        # Capturar snapshot Fase 3
+        if self.visualizer:
+            self.visualizer.capture_phase3_centrality(structure_info, centrality_order)
+
+        # Dump layout después de Fase 3
+        self._dump_layout(layout, "LAF_PHASE_3_CENTRALITY")
+
+        # FASE 4: Layout abstracto
+        if self.debug:
+            print("\n[LAF] FASE 4: Layout abstracto")
             print("-" * 60)
 
         abstract_positions = self.abstract_placer.place_elements(structure_info, layout)
@@ -668,31 +698,31 @@ class LAFOptimizer:
         # Calcular cruces
         crossings = self.abstract_placer.count_crossings(abstract_positions, layout.connections)
 
-        # Capturar snapshot Fase 3
+        # Capturar snapshot Fase 4
         if self.visualizer:
-            self.visualizer.capture_phase3_abstract(abstract_positions, crossings, layout)
+            self.visualizer.capture_phase4_abstract(abstract_positions, crossings, layout)
 
         if self.debug:
             print(f"[LAF] [OK] Layout abstracto completado")
             print(f"      - Posiciones calculadas: {len(abstract_positions)}")
             print(f"      - Cruces de conectores: {crossings}")
 
-        # Escribir posiciones abstractas temporalmente para dump de Fase 3
+        # Escribir posiciones abstractas temporalmente para dump de Fase 4
         self._write_abstract_positions_to_layout(abstract_positions, layout)
 
-        # Dump layout después de Fase 3
-        self._dump_layout(layout, "LAF_PHASE_3_ABSTRACT")
+        # Dump layout después de Fase 4
+        self._dump_layout(layout, "LAF_PHASE_4_ABSTRACT")
 
-        # FASE 4: Inflación
+        # FASE 5: Inflación
         if self.debug:
-            print("\n[LAF] FASE 4: Inflación de elementos")
+            print("\n[LAF] FASE 5: Inflación de elementos")
             print("-" * 60)
 
         spacing = self.inflator.inflate_elements(abstract_positions, structure_info, layout)
 
-        # Capturar snapshot Fase 4
+        # Capturar snapshot Fase 5
         if self.visualizer:
-            self.visualizer.capture_phase4_inflated(layout, spacing)
+            self.visualizer.capture_phase5_inflated(layout, spacing)
 
         if self.debug:
             print(f"[LAF] [OK] Inflación completada")
@@ -701,12 +731,12 @@ class LAFOptimizer:
             if layout.label_positions:
                 print(f"      - Etiquetas calculadas: {len(layout.label_positions)}")
 
-        # Dump layout después de Fase 4
-        self._dump_layout(layout, "LAF_PHASE_4_INFLATED")
+        # Dump layout después de Fase 5
+        self._dump_layout(layout, "LAF_PHASE_5_INFLATED")
 
-        # FASE 5: Crecimiento de contenedores
+        # FASE 6: Crecimiento de contenedores
         if self.debug:
-            print("\n[LAF] FASE 5: Crecimiento de contenedores")
+            print("\n[LAF] FASE 6: Crecimiento de contenedores")
             print("-" * 60)
 
         self.container_grower.grow_containers(structure_info, layout)
@@ -719,9 +749,9 @@ class LAFOptimizer:
         layout.canvas['width'] = canvas_width
         layout.canvas['height'] = canvas_height
 
-        # Capturar snapshot Fase 5
+        # Capturar snapshot Fase 6
         if self.visualizer:
-            self.visualizer.capture_phase5_containers(layout)
+            self.visualizer.capture_phase6_containers(layout)
 
         if self.debug:
             print(f"[LAF] [OK] Contenedores expandidos")
@@ -733,37 +763,37 @@ class LAFOptimizer:
                               f"({metrics['total_icons']} íconos)")
             print(f"      - Canvas final: {canvas_width:.0f}x{canvas_height:.0f}px")
 
-        # Dump layout después de Fase 5
-        self._dump_layout(layout, "LAF_PHASE_5_GROWN")
+        # Dump layout después de Fase 6
+        self._dump_layout(layout, "LAF_PHASE_6_GROWN")
 
-        # FASE 6: Redistribución vertical post-crecimiento
+        # FASE 7: Redistribución vertical post-crecimiento
         if self.debug:
-            print(f"\n[LAF] FASE 6: Redistribución vertical")
+            print(f"\n[LAF] FASE 7: Redistribución vertical")
             print("-" * 60)
 
         self._redistribute_vertical_after_growth(structure_info, layout)
 
-        # Capturar snapshot Fase 6
+        # Capturar snapshot Fase 7
         if self.visualizer:
-            self.visualizer.capture_phase6_redistributed(layout)
+            self.visualizer.capture_phase7_redistributed(layout)
 
         if self.debug:
             print(f"[LAF] [OK] Redistribución vertical completada")
 
-        # Dump layout después de Fase 6
-        self._dump_layout(layout, "LAF_PHASE_6_REDISTRIBUTED")
+        # Dump layout después de Fase 7
+        self._dump_layout(layout, "LAF_PHASE_7_REDISTRIBUTED")
 
-        # FASE 7: Re-calcular routing con contenedores expandidos
+        # FASE 8: Re-calcular routing con contenedores expandidos
         if self.router_manager:
             if self.debug:
-                print(f"\n[LAF] FASE 7: Routing")
+                print(f"\n[LAF] FASE 8: Routing")
                 print("-" * 60)
 
             self.router_manager.calculate_all_paths(layout)
 
-            # Capturar snapshot Fase 7
+            # Capturar snapshot Fase 8
             if self.visualizer:
-                self.visualizer.capture_phase7_routed(layout)
+                self.visualizer.capture_phase8_routed(layout)
 
             if self.debug:
                 print(f"[LAF] [OK] Routing final calculado")
@@ -788,16 +818,16 @@ class LAFOptimizer:
             collision_count, _ = self.collision_detector.detect_all_collisions(layout)
             print(f"\n[LAF] Colisiones finales detectadas: {collision_count}")
 
-        # FASE 8: Generar visualizaciones si está activado
+        # FASE 9: Generar visualizaciones si está activado
         if self.visualizer:
             if self.debug:
-                print(f"\n[LAF] FASE 8: Generación de SVG")
+                print(f"\n[LAF] FASE 9: Generación de SVG")
                 print("-" * 60)
 
-            # Capturar snapshot Fase 8 (final) ANTES de generar para incluirlo
-            self.visualizer.capture_phase8_final(layout)
+            # Capturar snapshot Fase 9 (final) ANTES de generar para incluirlo
+            self.visualizer.capture_phase9_final(layout)
 
-            # Generar todos los SVGs (incluido phase8)
+            # Generar todos los SVGs (incluido phase9)
             self.visualizer.generate_all()
 
             if self.debug:
@@ -808,17 +838,68 @@ class LAFOptimizer:
         if self.debug:
             print("\n" + "="*60)
             if self.visualize_growth:
-                print("[LAF] Sistema LAF completo (Fases 1-8)")
+                print("[LAF] Sistema LAF completo (Fases 1-9)")
             else:
-                print("[LAF] Sistema LAF completo (Fases 1-8)")
+                print("[LAF] Sistema LAF completo (Fases 1-9)")
             print("[LAF]   - Fase 1: Análisis de estructura")
             print("[LAF]   - Fase 2: Análisis topológico")
-            print("[LAF]   - Fase 3: Layout abstracto")
-            print("[LAF]   - Fase 4: Inflación de elementos")
-            print("[LAF]   - Fase 5: Crecimiento de contenedores")
-            print("[LAF]   - Fase 6: Redistribución vertical")
-            print("[LAF]   - Fase 7: Routing")
-            print("[LAF]   - Fase 8: Generación de SVG")
+            print("[LAF]   - Fase 3: Ordenamiento por centralidad")
+            print("[LAF]   - Fase 4: Layout abstracto")
+            print("[LAF]   - Fase 5: Inflación de elementos")
+            print("[LAF]   - Fase 6: Crecimiento de contenedores")
+            print("[LAF]   - Fase 7: Redistribución vertical")
+            print("[LAF]   - Fase 8: Routing")
+            print("[LAF]   - Fase 9: Generación de SVG")
             print("="*60 + "\n")
 
         return layout
+
+    def _order_by_centrality(self, structure_info):
+        """
+        Ordena elementos dentro de cada nivel topológico por accessibility score.
+
+        Los elementos con mayor score se colocan hacia el centro (mejor accesibilidad visual).
+
+        Args:
+            structure_info: StructureInfo con accessibility_scores y topological_levels
+
+        Returns:
+            Dict[int, List[Tuple[str, float]]]: {level: [(elem_id, score), ...]} ordenado
+        """
+        # Agrupar elementos por nivel
+        by_level = {}
+        for elem_id in structure_info.primary_elements:
+            level = structure_info.topological_levels.get(elem_id, 0)
+            if level not in by_level:
+                by_level[level] = []
+
+            score = structure_info.accessibility_scores.get(elem_id, 0.0)
+            by_level[level].append((elem_id, score))
+
+        # Ordenar cada nivel por score (mayor score = más central)
+        # Estrategia: mayor score en el centro, menores en los extremos
+        centrality_order = {}
+        for level, elements in by_level.items():
+            # Ordenar por score descendente
+            sorted_elements = sorted(elements, key=lambda x: x[1], reverse=True)
+
+            # Reorganizar para centrar: mayor score al centro, menores a los lados
+            reordered = []
+            left = []
+            right = []
+
+            for i, elem in enumerate(sorted_elements):
+                if i % 2 == 0:
+                    right.append(elem)
+                else:
+                    left.append(elem)
+
+            # Invertir left para que los más importantes estén más cerca del centro
+            left.reverse()
+
+            # Combinar: left + right (centro en la mitad)
+            reordered = left + right
+
+            centrality_order[level] = reordered
+
+        return centrality_order

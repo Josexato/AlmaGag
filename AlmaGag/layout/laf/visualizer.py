@@ -82,75 +82,79 @@ class GrowthVisualizer:
         if self.debug:
             print(f"[VISUALIZER] Phase 2 capturada (topología)")
 
-    def capture_phase3_abstract(
+    def capture_phase3_centrality(
+        self,
+        structure_info,
+        centrality_order: Dict[int, List[Tuple[str, float]]]
+    ) -> None:
+        """
+        Captura snapshot de Fase 3 (Ordenamiento por centralidad).
+
+        Args:
+            structure_info: StructureInfo con información estructural
+            centrality_order: Dict con elementos ordenados por nivel y score
+        """
+        # Guardar sin deepcopy para evitar problemas de serialización
+        self.snapshots['phase3'] = {
+            'structure_info': structure_info,
+            'centrality_order': dict(centrality_order)  # Convertir a dict simple
+        }
+
+        if self.debug:
+            print(f"[VISUALIZER] Phase 3 capturada (centralidad)")
+
+    def capture_phase4_abstract(
         self,
         abstract_positions: Dict[str, Tuple[int, int]],
         crossings: int,
         layout
     ) -> None:
         """
-        Captura snapshot de Fase 3 (Layout abstracto).
+        Captura snapshot de Fase 4 (Layout abstracto).
 
         Args:
             abstract_positions: {elem_id: (x, y)} en coordenadas abstractas
             crossings: Número de cruces detectados
             layout: Layout con conexiones
         """
-        self.snapshots['phase3'] = {
+        self.snapshots['phase4'] = {
             'abstract_positions': deepcopy(abstract_positions),
             'crossings': crossings,
             'connections': deepcopy(layout.connections)
         }
 
         if self.debug:
-            print(f"[VISUALIZER] Phase 3 capturada ({crossings} cruces)")
+            print(f"[VISUALIZER] Phase 4 capturada ({crossings} cruces)")
 
-    def capture_phase4_inflated(
+    def capture_phase5_inflated(
         self,
         layout,
         spacing: float
     ) -> None:
         """
-        Captura snapshot de Fase 4 (Inflación).
+        Captura snapshot de Fase 5 (Inflación).
 
         Args:
             layout: Layout con elementos inflados
             spacing: Spacing calculado
         """
-        self.snapshots['phase4'] = {
+        self.snapshots['phase5'] = {
             'layout': deepcopy(layout),
             'spacing': spacing
         }
 
         if self.debug:
-            print(f"[VISUALIZER] Phase 4 capturada (spacing={spacing:.1f}px)")
+            print(f"[VISUALIZER] Phase 5 capturada (spacing={spacing:.1f}px)")
 
-    def capture_phase5_containers(
+    def capture_phase6_containers(
         self,
         layout
     ) -> None:
         """
-        Captura snapshot de Fase 5 (Crecimiento de contenedores).
+        Captura snapshot de Fase 6 (Crecimiento de contenedores).
 
         Args:
             layout: Layout con contenedores expandidos
-        """
-        self.snapshots['phase5'] = {
-            'layout': deepcopy(layout)
-        }
-
-        if self.debug:
-            print(f"[VISUALIZER] Phase 5 capturada")
-
-    def capture_phase6_redistributed(
-        self,
-        layout
-    ) -> None:
-        """
-        Captura snapshot de Fase 6 (Redistribución vertical).
-
-        Args:
-            layout: Layout después de redistribución vertical
         """
         self.snapshots['phase6'] = {
             'layout': deepcopy(layout)
@@ -159,15 +163,15 @@ class GrowthVisualizer:
         if self.debug:
             print(f"[VISUALIZER] Phase 6 capturada")
 
-    def capture_phase7_routed(
+    def capture_phase7_redistributed(
         self,
         layout
     ) -> None:
         """
-        Captura snapshot de Fase 7 (Routing).
+        Captura snapshot de Fase 7 (Redistribución vertical).
 
         Args:
-            layout: Layout con paths de conexiones calculados
+            layout: Layout después de redistribución vertical
         """
         self.snapshots['phase7'] = {
             'layout': deepcopy(layout)
@@ -176,15 +180,15 @@ class GrowthVisualizer:
         if self.debug:
             print(f"[VISUALIZER] Phase 7 capturada")
 
-    def capture_phase8_final(
+    def capture_phase8_routed(
         self,
         layout
     ) -> None:
         """
-        Captura snapshot de Fase 8 (Generación SVG final).
+        Captura snapshot de Fase 8 (Routing).
 
         Args:
-            layout: Layout final completo
+            layout: Layout con paths de conexiones calculados
         """
         self.snapshots['phase8'] = {
             'layout': deepcopy(layout)
@@ -192,6 +196,23 @@ class GrowthVisualizer:
 
         if self.debug:
             print(f"[VISUALIZER] Phase 8 capturada")
+
+    def capture_phase9_final(
+        self,
+        layout
+    ) -> None:
+        """
+        Captura snapshot de Fase 9 (Generación SVG final).
+
+        Args:
+            layout: Layout final completo
+        """
+        self.snapshots['phase9'] = {
+            'layout': deepcopy(layout)
+        }
+
+        if self.debug:
+            print(f"[VISUALIZER] Phase 9 capturada")
 
     def generate_all(self) -> None:
         """
@@ -218,22 +239,25 @@ class GrowthVisualizer:
             self._generate_phase2_topology_svg(output_path)
 
         if 'phase3' in self.snapshots:
-            self._generate_phase3_abstract_svg(output_path)
+            self._generate_phase3_centrality_svg(output_path)
 
         if 'phase4' in self.snapshots:
-            self._generate_phase4_inflated_svg(output_path)
+            self._generate_phase4_abstract_svg(output_path)
 
         if 'phase5' in self.snapshots:
-            self._generate_phase5_containers_svg(output_path)
+            self._generate_phase5_inflated_svg(output_path)
 
         if 'phase6' in self.snapshots:
-            self._generate_phase6_redistributed_svg(output_path)
+            self._generate_phase6_containers_svg(output_path)
 
         if 'phase7' in self.snapshots:
-            self._generate_phase7_routed_svg(output_path)
+            self._generate_phase7_redistributed_svg(output_path)
 
         if 'phase8' in self.snapshots:
-            self._generate_phase8_final_svg(output_path)
+            self._generate_phase8_routed_svg(output_path)
+
+        if 'phase9' in self.snapshots:
+            self._generate_phase9_final_svg(output_path)
 
         if self.debug:
             print(f"[VISUALIZER] Generación completada: {len(self.snapshots)} fases")
@@ -384,7 +408,7 @@ class GrowthVisualizer:
 
         # Badge
         dwg.add(dwg.text(
-            'Phase 1/8',
+            'Phase 1/9',
             insert=(canvas_width - 100, 30),
             font_size='14px',
             fill='#6c757d'
@@ -805,7 +829,7 @@ class GrowthVisualizer:
 
         # Badge
         dwg.add(dwg.text(
-            'Phase 2/8',
+            'Phase 2/9',
             insert=(canvas_width - 100, 30),
             font_size='14px',
             fill='#6c757d'
@@ -899,16 +923,210 @@ class GrowthVisualizer:
         if self.debug:
             print(f"[VISUALIZER] Generado: {filename}")
 
-    def _generate_phase3_abstract_svg(self, output_path: str) -> None:
+    def _generate_phase3_centrality_svg(self, output_path: str) -> None:
         """
-        Genera SVG de Fase 3: Layout abstracto (puntos).
+        Genera SVG de Fase 3: Ordenamiento por centralidad.
+
+        Muestra cómo los nodos se ordenan dentro de cada nivel según su accessibility score.
         """
-        snapshot = self.snapshots['phase3']
+        if 'phase3' not in self.snapshots:
+            if self.debug:
+                print(f"[VISUALIZER] No hay datos de Phase 3 para generar")
+            return
+
+        phase3_data = self.snapshots.get('phase3', {})
+        structure_info = phase3_data.get('structure_info')
+        centrality_order = phase3_data.get('centrality_order', {})
+
+        if not structure_info or not centrality_order:
+            if self.debug:
+                print(f"[VISUALIZER] Datos incompletos para Phase 3")
+            return
+
+        filename = os.path.join(output_path, 'phase3_centrality.svg')
+        canvas_width = 1200
+        canvas_height = 900
+
+        dwg = svgwrite.Drawing(filename, size=(canvas_width, canvas_height))
+
+        # Fondo
+        dwg.add(dwg.rect(insert=(0, 0), size=(canvas_width, canvas_height), fill='#f8f9fa'))
+
+        # Título
+        dwg.add(dwg.text(
+            'LAF Phase 3: Centrality Ordering',
+            insert=(20, 30),
+            font_size='20px',
+            font_weight='bold',
+            fill='#212529'
+        ))
+
+        # Descripción
+        dwg.add(dwg.text(
+            f'Elements ordered by accessibility score within each level',
+            insert=(20, 55),
+            font_size='14px',
+            fill='#6c757d'
+        ))
+
+        # Dibujar cada nivel con sus elementos ordenados
+        start_y = 120
+        level_height = 100
+
+        for level in sorted(centrality_order.keys()):
+            elements = centrality_order[level]
+            y = start_y + level * level_height
+
+            # Barra de fondo para el nivel
+            bar_color = '#e3f2fd' if level % 2 == 0 else '#f1f8e9'
+            dwg.add(dwg.rect(
+                insert=(10, y - 40),
+                size=(canvas_width - 20, 80),
+                fill=bar_color,
+                opacity=0.3,
+                stroke='#90caf9' if level % 2 == 0 else '#aed581',
+                stroke_width=1,
+                stroke_dasharray='5,5'
+            ))
+
+            # Label del nivel
+            dwg.add(dwg.text(
+                f'Level {level}',
+                insert=(20, y - 15),
+                font_size='14px',
+                font_weight='bold',
+                fill='#495057'
+            ))
+
+            # Calcular posiciones para los elementos (distribución horizontal)
+            num_elements = len(elements)
+            if num_elements > 0:
+                spacing = min(80, (canvas_width - 100) / num_elements)
+                start_x = (canvas_width - (num_elements - 1) * spacing) / 2
+
+                for idx, (elem_id, score) in enumerate(elements):
+                    x = start_x + idx * spacing
+                    node_id = structure_info.primary_node_ids.get(elem_id, "N/A")
+
+                    # Color según score
+                    if score > 0.05:
+                        color = '#dc3545'  # Rojo - Alto
+                    elif score > 0.02:
+                        color = '#ffc107'  # Amarillo - Medio
+                    else:
+                        color = '#0d6efd'  # Azul - Bajo/Normal
+
+                    # Dibujar nodo (círculo)
+                    radius = 15 if score > 0.02 else 12  # Nodos importantes más grandes
+                    dwg.add(dwg.circle(
+                        center=(x, y),
+                        r=radius,
+                        fill=color,
+                        opacity=0.8,
+                        stroke='#212529',
+                        stroke_width=2
+                    ))
+
+                    # ID del nodo
+                    dwg.add(dwg.text(
+                        node_id,
+                        insert=(x, y - radius - 5),
+                        font_size='10px',
+                        fill='#212529',
+                        text_anchor='middle',
+                        font_family='monospace',
+                        font_weight='bold'
+                    ))
+
+                    # Score (si > 0)
+                    if score > 0:
+                        dwg.add(dwg.text(
+                            f'{score:.3f}',
+                            insert=(x, y + 4),
+                            font_size='8px',
+                            fill='white',
+                            text_anchor='middle',
+                            font_family='monospace',
+                            font_weight='bold'
+                        ))
+
+                    # Nombre del elemento (debajo)
+                    label = elem_id if len(elem_id) <= 12 else elem_id[:9] + '...'
+                    dwg.add(dwg.text(
+                        label,
+                        insert=(x, y + radius + 15),
+                        font_size='9px',
+                        fill='#6c757d',
+                        text_anchor='middle',
+                        font_family='monospace'
+                    ))
+
+        # Leyenda
+        legend_y = canvas_height - 100
+        dwg.add(dwg.text(
+            'Accessibility Score:',
+            insert=(20, legend_y),
+            font_size='14px',
+            font_weight='bold',
+            fill='#212529'
+        ))
+
+        legend_items = [
+            ('High (>0.05)', '#dc3545'),
+            ('Medium (0.02-0.05)', '#ffc107'),
+            ('Low (<0.02)', '#0d6efd')
+        ]
+
+        for i, (label, color) in enumerate(legend_items):
+            x = 20
+            y = legend_y + 25 + i * 20
+
+            dwg.add(dwg.circle(
+                center=(x + 10, y - 3),
+                r=8,
+                fill=color,
+                opacity=0.7
+            ))
+
+            dwg.add(dwg.text(
+                label,
+                insert=(x + 25, y),
+                font_size='12px',
+                fill='#495057'
+            ))
+
+        # Nota sobre ordenamiento
+        dwg.add(dwg.text(
+            'Elements ordered: Higher scores toward center, lower scores toward edges',
+            insert=(20, legend_y + 80),
+            font_size='11px',
+            fill='#6c757d',
+            font_style='italic'
+        ))
+
+        # Badge
+        dwg.add(dwg.text(
+            'Phase 3/9',
+            insert=(canvas_width - 100, 30),
+            font_size='14px',
+            fill='#6c757d'
+        ))
+
+        dwg.save()
+
+        if self.debug:
+            print(f"[VISUALIZER] Generado: {filename}")
+
+    def _generate_phase4_abstract_svg(self, output_path: str) -> None:
+        """
+        Genera SVG de Fase 4: Layout abstracto (puntos).
+        """
+        snapshot = self.snapshots['phase4']
         abstract_positions = snapshot['abstract_positions']
         crossings = snapshot['crossings']
         connections = snapshot['connections']
 
-        filename = os.path.join(output_path, "phase3_abstract.svg")
+        filename = os.path.join(output_path, "phase4_abstract.svg")
 
         # Calcular bounds del layout abstracto
         if not abstract_positions:
@@ -997,7 +1215,7 @@ class GrowthVisualizer:
 
         # Badge
         dwg.add(dwg.text(
-            'Phase 3/8',
+            'Phase 4/9',
             insert=(canvas_width - 100, 30),
             font_size='14px',
             fill='#6c757d'
@@ -1008,15 +1226,15 @@ class GrowthVisualizer:
         if self.debug:
             print(f"[VISUALIZER] Generado: {filename}")
 
-    def _generate_phase4_inflated_svg(self, output_path: str) -> None:
+    def _generate_phase5_inflated_svg(self, output_path: str) -> None:
         """
-        Genera SVG de Fase 4: Elementos inflados.
+        Genera SVG de Fase 5: Elementos inflados.
         """
-        snapshot = self.snapshots['phase4']
+        snapshot = self.snapshots['phase5']
         layout = snapshot['layout']
         spacing = snapshot['spacing']
 
-        filename = os.path.join(output_path, "phase4_inflated.svg")
+        filename = os.path.join(output_path, "phase5_inflated.svg")
 
         # Canvas basado en elementos
         canvas_width = layout.canvas.get('width', 2000)
@@ -1089,7 +1307,7 @@ class GrowthVisualizer:
 
         # Badge
         dwg.add(dwg.text(
-            'Phase 4/8',
+            'Phase 5/9',
             insert=(canvas_width - 100, 30),
             font_size='14px',
             fill='#6c757d'
@@ -1100,16 +1318,16 @@ class GrowthVisualizer:
         if self.debug:
             print(f"[VISUALIZER] Generado: {filename}")
 
-    def _generate_phase5_containers_svg(self, output_path: str) -> None:
+    def _generate_phase6_containers_svg(self, output_path: str) -> None:
         """
-        Genera SVG de Fase 5: Contenedores expandidos.
+        Genera SVG de Fase 6: Contenedores expandidos.
 
         Similar al output final pero con anotaciones de debug.
         """
-        snapshot = self.snapshots['phase5']
+        snapshot = self.snapshots['phase6']
         layout = snapshot['layout']
 
-        filename = os.path.join(output_path, "phase5_containers.svg")
+        filename = os.path.join(output_path, "phase6_containers.svg")
 
         canvas_width = layout.canvas.get('width', 2000)
         canvas_height = layout.canvas.get('height', 2000)
@@ -1187,7 +1405,7 @@ class GrowthVisualizer:
 
         # Badge
         dwg.add(dwg.text(
-            'Phase 5/8',
+            'Phase 6/9',
             insert=(canvas_width - 100, 30),
             font_size='14px',
             fill='#6c757d'
@@ -1198,14 +1416,14 @@ class GrowthVisualizer:
         if self.debug:
             print(f"[VISUALIZER] Generado: {filename}")
 
-    def _generate_phase6_redistributed_svg(self, output_path: str) -> None:
+    def _generate_phase7_redistributed_svg(self, output_path: str) -> None:
         """
-        Genera SVG de Fase 6: Redistribución vertical.
+        Genera SVG de Fase 7: Redistribución vertical.
         """
-        snapshot = self.snapshots['phase6']
+        snapshot = self.snapshots['phase7']
         layout = snapshot['layout']
 
-        filename = os.path.join(output_path, "phase6_redistributed.svg")
+        filename = os.path.join(output_path, "phase7_redistributed.svg")
 
         canvas_width = layout.canvas.get('width', 2000)
         canvas_height = layout.canvas.get('height', 2000)
@@ -1281,7 +1499,7 @@ class GrowthVisualizer:
 
         # Badge
         dwg.add(dwg.text(
-            'Phase 6/8',
+            'Phase 7/9',
             insert=(canvas_width - 100, 30),
             font_size='14px',
             fill='#6c757d'
@@ -1292,14 +1510,14 @@ class GrowthVisualizer:
         if self.debug:
             print(f"[VISUALIZER] Generado: {filename}")
 
-    def _generate_phase7_routed_svg(self, output_path: str) -> None:
+    def _generate_phase8_routed_svg(self, output_path: str) -> None:
         """
-        Genera SVG de Fase 7: Routing de conexiones.
+        Genera SVG de Fase 8: Routing de conexiones.
         """
-        snapshot = self.snapshots['phase7']
+        snapshot = self.snapshots['phase8']
         layout = snapshot['layout']
 
-        filename = os.path.join(output_path, "phase7_routed.svg")
+        filename = os.path.join(output_path, "phase8_routed.svg")
 
         canvas_width = layout.canvas.get('width', 2000)
         canvas_height = layout.canvas.get('height', 2000)
@@ -1380,7 +1598,7 @@ class GrowthVisualizer:
 
         # Badge
         dwg.add(dwg.text(
-            'Phase 7/8',
+            'Phase 8/9',
             insert=(canvas_width - 100, 30),
             font_size='14px',
             fill='#6c757d'
@@ -1391,14 +1609,14 @@ class GrowthVisualizer:
         if self.debug:
             print(f"[VISUALIZER] Generado: {filename}")
 
-    def _generate_phase8_final_svg(self, output_path: str) -> None:
+    def _generate_phase9_final_svg(self, output_path: str) -> None:
         """
-        Genera SVG de Fase 8: Generación SVG final.
+        Genera SVG de Fase 9: Generación SVG final.
         """
-        snapshot = self.snapshots['phase8']
+        snapshot = self.snapshots['phase9']
         layout = snapshot['layout']
 
-        filename = os.path.join(output_path, "phase8_final.svg")
+        filename = os.path.join(output_path, "phase9_final.svg")
 
         canvas_width = layout.canvas.get('width', 2000)
         canvas_height = layout.canvas.get('height', 2000)
@@ -1410,7 +1628,7 @@ class GrowthVisualizer:
 
         # Título
         dwg.add(dwg.text(
-            'LAF Phase 8: SVG Generation (COMPLETE)',
+            'LAF Phase 9: SVG Generation (COMPLETE)',
             insert=(20, 30),
             font_size='20px',
             font_weight='bold',
@@ -1479,8 +1697,8 @@ class GrowthVisualizer:
 
         # Badge
         dwg.add(dwg.text(
-            'Phase 8/8 - COMPLETE',
-            insert=(canvas_width - 200, 30),
+            'Phase 9/9 - COMPLETE',
+            insert=(canvas_width - 240, 30),
             font_size='14px',
             fill='#28a745',
             font_weight='bold'
