@@ -2,8 +2,9 @@
 """
 test_topological_levels.py - Tests for topological level calculation
 
-Validates the "leaf stays in parent level" rule:
-- Leaf nodes (outdegree=0) stay at their dominant parent's Base level
+Validates topological level rules with leaf post-processing:
+- Normal leaves stay at their dominant parent level
+- Terminal leaves move one level above their dominant parent
 - Non-leaf nodes get Base = maxBaseParent + 1 (standard rule)
 - Source nodes (no parents) get Base = 0
 """
@@ -28,7 +29,7 @@ class MockLayout:
 def test_case_a_simple_leaf():
     """
     Case A: A -> B, B is a leaf.
-    Expected: Base[A]=0, Base[B]=0 (B stays at parent level, does not go to 1)
+    Expected: Base[A]=0, Base[B]=1 (B is terminal leaf and moves above parent level)
     """
     layout = MockLayout(
         elements=[
@@ -46,16 +47,16 @@ def test_case_a_simple_leaf():
     assert info.topological_levels['A'] == 0, (
         f"A should be level 0, got {info.topological_levels['A']}"
     )
-    assert info.topological_levels['B'] == 0, (
-        f"B (leaf) should stay at parent level 0, got {info.topological_levels['B']}"
+    assert info.topological_levels['B'] == 1, (
+        f"B (terminal leaf) should move to level 1, got {info.topological_levels['B']}"
     )
-    print("[PASS] Case A: simple leaf stays at parent level")
+    print("[PASS] Case A: simple terminal leaf moves above parent level")
 
 
 def test_case_b_chain_with_leaf():
     """
     Case B: A -> B -> C, C is a leaf.
-    Expected: Base[A]=0, Base[B]=1, Base[C]=1 (C stays at B's level)
+    Expected: Base[A]=0, Base[B]=1, Base[C]=2 (C terminal leaf moves above B)
     """
     layout = MockLayout(
         elements=[
@@ -78,16 +79,16 @@ def test_case_b_chain_with_leaf():
     assert info.topological_levels['B'] == 1, (
         f"B (non-leaf) should be level 1, got {info.topological_levels['B']}"
     )
-    assert info.topological_levels['C'] == 1, (
-        f"C (leaf) should stay at parent level 1, got {info.topological_levels['C']}"
+    assert info.topological_levels['C'] == 2, (
+        f"C (terminal leaf) should move to level 2, got {info.topological_levels['C']}"
     )
-    print("[PASS] Case B: chain leaf stays at parent level")
+    print("[PASS] Case B: chain terminal leaf moves above parent")
 
 
 def test_case_c_merge_with_leaf():
     """
     Case C: P3 -> V, P4 -> V, V is a leaf.
-    P3 and P4 at different levels, V stays at the max parent level.
+    P3 and P4 at same level, V is terminal and moves one level above max parent.
     """
     # P3 is a source, P4 comes after P3 via an intermediate node
     # P3 -> X -> P4 -> V, P3 -> V
@@ -113,7 +114,7 @@ def test_case_c_merge_with_leaf():
     analyzer = StructureAnalyzer(debug=False)
     info = analyzer.analyze(layout)
 
-    # Source=0, P3=1 (non-leaf), P4=1 (non-leaf), V should be max(1,1)=1
+    # Source=0, P3=1, P4=1; V terminal leaf => max(1,1)+1=2
     assert info.topological_levels['Source'] == 0, (
         f"Source should be level 0, got {info.topological_levels['Source']}"
     )
@@ -123,18 +124,18 @@ def test_case_c_merge_with_leaf():
     assert info.topological_levels['P4'] == 1, (
         f"P4 (non-leaf) should be level 1, got {info.topological_levels['P4']}"
     )
-    assert info.topological_levels['V'] == 1, (
-        f"V (leaf) should stay at max parent level 1, got {info.topological_levels['V']}"
+    assert info.topological_levels['V'] == 2, (
+        f"V (terminal leaf) should be level 2, got {info.topological_levels['V']}"
     )
-    print("[PASS] Case C: merge leaf stays at max parent level")
+    print("[PASS] Case C: merge terminal leaf moves above parents")
 
 
 def test_case_c_merge_different_depths():
     """
-    Case C variant: parents at different depths, leaf stays at max parent level.
+    Case C variant: parents at different depths, terminal leaf moves above max parent level.
     P3 -> V (P3 at level 1)
     P4 -> V (P4 at level 2)
-    V is a leaf -> Base[V] = max(1, 2) = 2
+    V is terminal leaf -> Base[V] = max(1, 2) + 1 = 3
     """
     layout = MockLayout(
         elements=[
@@ -157,18 +158,18 @@ def test_case_c_merge_different_depths():
     analyzer = StructureAnalyzer(debug=False)
     info = analyzer.analyze(layout)
 
-    # S1=0, S2=0, P3=1 (non-leaf), X=1 (non-leaf), P4=2 (non-leaf), V=max(1,2)=2
-    assert info.topological_levels['V'] == 2, (
-        f"V (leaf) should stay at max parent level 2, got {info.topological_levels['V']}"
+    # S1=0, S2=0, P3=1, X=1, P4=2; V terminal leaf => 3
+    assert info.topological_levels['V'] == 3, (
+        f"V (terminal leaf) should be level 3, got {info.topological_levels['V']}"
     )
-    print("[PASS] Case C variant: merge leaf stays at max parent level (different depths)")
+    print("[PASS] Case C variant: terminal leaf moves above max parent")
 
 
 def test_non_leaf_still_increments():
     """
     Non-leaf nodes should still increment normally.
     A -> B -> C -> D (D is leaf)
-    Expected: A=0, B=1, C=2, D=2
+    Expected: A=0, B=1, C=2, D=3 (D terminal leaf)
     """
     layout = MockLayout(
         elements=[
@@ -190,8 +191,8 @@ def test_non_leaf_still_increments():
     assert info.topological_levels['A'] == 0
     assert info.topological_levels['B'] == 1
     assert info.topological_levels['C'] == 2
-    assert info.topological_levels['D'] == 2, (
-        f"D (leaf) should stay at parent level 2, got {info.topological_levels['D']}"
+    assert info.topological_levels['D'] == 3, (
+        f"D (terminal leaf) should move to level 3, got {info.topological_levels['D']}"
     )
     print("[PASS] Non-leaf nodes still increment normally")
 
@@ -218,8 +219,8 @@ def test_source_node_is_leaf():
 
 def test_fan_out_multiple_leaves():
     """
-    Fan-out: A -> B, A -> C, A -> D (all leaves)
-    Expected: A=0, B=0, C=0, D=0 (all leaves stay at parent level)
+    Fan-out: A -> B, A -> C, A -> D (all terminal leaves)
+    Expected: A=0, B=1, C=1, D=1 (all terminal leaves move above parent)
     """
     layout = MockLayout(
         elements=[
@@ -239,16 +240,16 @@ def test_fan_out_multiple_leaves():
     info = analyzer.analyze(layout)
 
     assert info.topological_levels['A'] == 0
-    assert info.topological_levels['B'] == 0
-    assert info.topological_levels['C'] == 0
-    assert info.topological_levels['D'] == 0
-    print("[PASS] Fan-out: all leaves stay at parent level")
+    assert info.topological_levels['B'] == 1
+    assert info.topological_levels['C'] == 1
+    assert info.topological_levels['D'] == 1
+    print("[PASS] Fan-out: all terminal leaves move above parent")
 
 
 def test_mixed_leaf_and_non_leaf_children():
     """
     A -> B (leaf), A -> C -> D (leaf)
-    Expected: A=0, B=0 (leaf), C=1 (non-leaf), D=1 (leaf stays at C's level)
+    Expected: A=0, B=0 (non-terminal leaf), C=1 (non-leaf), D=2 (terminal leaf)
     """
     layout = MockLayout(
         elements=[
@@ -269,11 +270,11 @@ def test_mixed_leaf_and_non_leaf_children():
 
     assert info.topological_levels['A'] == 0
     assert info.topological_levels['B'] == 0, (
-        f"B (leaf) should stay at parent level 0, got {info.topological_levels['B']}"
+        f"B (non-terminal leaf) should stay at level 0, got {info.topological_levels['B']}"
     )
     assert info.topological_levels['C'] == 1
-    assert info.topological_levels['D'] == 1, (
-        f"D (leaf) should stay at parent level 1, got {info.topological_levels['D']}"
+    assert info.topological_levels['D'] == 2, (
+        f"D (terminal leaf) should move to level 2, got {info.topological_levels['D']}"
     )
     print("[PASS] Mixed leaf and non-leaf children")
 
@@ -281,7 +282,7 @@ def test_mixed_leaf_and_non_leaf_children():
 def main():
     """Run all topological level tests."""
     print("=" * 70)
-    print("TESTS: TOPOLOGICAL LEVELS - LEAF STAYS IN PARENT LEVEL")
+    print("TESTS: TOPOLOGICAL LEVELS - NORMAL VS TERMINAL LEAVES")
     print("=" * 70)
     print()
 
