@@ -30,6 +30,8 @@ class StructureInfo:
         connection_sequences: [(from, to, order)] (orden de conexión)
         primary_node_ids: {elem_id: "NdPr001"} IDs únicos para nodos primarios
         primary_node_types: {elem_id: "Simple|Contenedor|Contenedor Virtual"} Tipo de nodo primario
+        leaf_nodes: {elem_id} Nodos hoja (outdegree=0) en el grafo de conexiones
+        terminal_leaf_nodes: {elem_id} Hojas terminales (sin hermanos con ramas activas)
     """
     element_tree: Dict[str, Dict] = field(default_factory=dict)
     primary_elements: List[str] = field(default_factory=list)
@@ -42,6 +44,8 @@ class StructureInfo:
     connection_sequences: List[Tuple[str, str, int]] = field(default_factory=list)
     primary_node_ids: Dict[str, str] = field(default_factory=dict)
     primary_node_types: Dict[str, str] = field(default_factory=dict)
+    leaf_nodes: Set[str] = field(default_factory=set)
+    terminal_leaf_nodes: Set[str] = field(default_factory=set)
 
 
 class StructureAnalyzer:
@@ -92,6 +96,9 @@ class StructureAnalyzer:
 
         # Construir grafo inverso (incoming edges)
         self._build_incoming_graph(info)
+
+        # Detectar hojas y hojas terminales
+        self._identify_leaf_and_terminal_nodes(info)
 
         # Calcular scores de accesibilidad intra-nivel
         self._calculate_accessibility_scores(info)
@@ -449,6 +456,72 @@ class StructureAnalyzer:
                 if from_id not in info.incoming_graph[to_id]:
                     info.incoming_graph[to_id].append(from_id)
 
+    def _identify_leaf_and_terminal_nodes(self, info: StructureInfo) -> None:
+        """
+        Identifica nodos hoja y nodos hoja terminal.
+
+        Definiciones:
+        - leaf node: nodo primario con outdegree = 0.
+        - terminal leaf: hoja L tal que para cada predecesor directo P de L,
+          todos los demás sucesores de P (distintos de L) también son hoja.
+
+        Esta métrica permite distinguir hojas "realmente terminales" de hojas
+        que conviven con ramas activas en sus nodos predecesores.
+
+        Args:
+            info: StructureInfo con connection_graph e incoming_graph poblados
+        """
+        leaf_nodes = set()
+
+        # Paso 1: identificar hojas por outdegree
+        for elem_id in info.primary_elements:
+            outdeg = len(info.connection_graph.get(elem_id, []))
+            if outdeg == 0:
+                leaf_nodes.add(elem_id)
+
+        # Paso 2: identificar hojas terminales
+        terminal_leaf_nodes = set()
+        for leaf_id in leaf_nodes:
+            predecessors = info.incoming_graph.get(leaf_id, [])
+
+            # Hoja aislada/sin predecesores: se considera terminal por definición
+            if not predecessors:
+                terminal_leaf_nodes.add(leaf_id)
+                continue
+
+            is_terminal = True
+            for pred_id in predecessors:
+                successors = info.connection_graph.get(pred_id, [])
+
+                # Revisar "hermanos" en el grafo dirigido (otros sucesores del mismo predecesor)
+                for sibling_id in successors:
+                    if sibling_id == leaf_id:
+                        continue
+
+                    sibling_outdeg = len(info.connection_graph.get(sibling_id, []))
+                    if sibling_outdeg > 0:
+                        # Existe un hermano con rama activa -> leaf_id no es terminal
+                        is_terminal = False
+                        break
+
+                if not is_terminal:
+                    break
+
+            if is_terminal:
+                terminal_leaf_nodes.add(leaf_id)
+
+        info.leaf_nodes = leaf_nodes
+        info.terminal_leaf_nodes = terminal_leaf_nodes
+
+        if self.debug:
+            print(f"\n[LEAF] Nodos hoja: {len(info.leaf_nodes)}")
+            if info.leaf_nodes:
+                print(f"  - {sorted(info.leaf_nodes)}")
+
+            print(f"[LEAF] Hojas terminales: {len(info.terminal_leaf_nodes)}")
+            if info.terminal_leaf_nodes:
+                print(f"  - {sorted(info.terminal_leaf_nodes)}")
+
     def _calculate_accessibility_scores(
         self,
         info: StructureInfo,
@@ -571,6 +644,8 @@ class StructureAnalyzer:
 
         print(f"  - Conexiones: {len(info.connection_sequences)}")
         print(f"  - Tipos de elementos: {list(info.element_types.keys())}")
+        print(f"  - Hojas detectadas: {len(info.leaf_nodes)}")
+        print(f"  - Hojas terminales: {len(info.terminal_leaf_nodes)}")
 
         # Niveles topológicos
         if info.topological_levels:
