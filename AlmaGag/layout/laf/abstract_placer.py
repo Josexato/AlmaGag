@@ -43,11 +43,12 @@ class AbstractPlacer:
         """
         Calcula el peso de centralidad (alpha) basado en el accessibility score.
 
-        Formula gradual:
+        Formula ajustada para dar más peso a scores bajos:
         - score = 0      → alpha = 0.0  (100% barycenter conexiones)
-        - score = 0.02   → alpha = 0.3  (70% conexiones, 30% centro)
-        - score = 0.04   → alpha = 0.6  (40% conexiones, 60% centro)
-        - score = 0.10+  → alpha = 0.9  (10% conexiones, 90% centro)
+        - score = 0.01   → alpha = 0.4  (60% conexiones, 40% centro)
+        - score = 0.02   → alpha = 0.5  (50% conexiones, 50% centro)
+        - score = 0.04   → alpha = 0.7  (30% conexiones, 70% centro)
+        - score = 0.10+  → alpha = 0.95 (5% conexiones, 95% centro)
 
         Args:
             accessibility_score: Score de accesibilidad del elemento
@@ -58,12 +59,12 @@ class AbstractPlacer:
         if accessibility_score <= 0:
             return 0.0
         elif accessibility_score >= 0.10:
-            return 0.9
+            return 0.95
         else:
-            # Interpolación lineal entre 0 y 0.10
-            # f(0) = 0, f(0.02) = 0.3, f(0.04) = 0.6, f(0.10) = 0.9
-            # Aproximación: alpha = score * 9.0
-            return min(0.9, accessibility_score * 9.0)
+            # Función no-lineal: muy agresiva en scores bajos
+            # alpha = min(0.95, 0.6 + score * 3.5)
+            # Esto da: 0.01→0.635, 0.02→0.67, 0.04→0.74, 0.10→0.95
+            return min(0.95, 0.6 + accessibility_score * 3.5)
 
     def place_elements(
         self,
@@ -351,6 +352,7 @@ class AbstractPlacer:
         # ALGORITMO HÍBRIDO: Mezclar barycenter de conexiones con atracción al centro
         # según accessibility score
         center = (len(current_layer) - 1) / 2.0
+
         for elem_id in current_layer:
             score = structure_info.accessibility_scores.get(elem_id, 0.0)
             barycenter_conn = barycenters.get(elem_id, center)
@@ -496,20 +498,11 @@ class AbstractPlacer:
             )
             barycenters[elem_id] = barycenter
 
-        # ALGORITMO HÍBRIDO: Mezclar barycenter de conexiones con atracción al centro
-        center = (len(current_layer) - 1) / 2.0
-        for elem_id in current_layer:
-            score = structure_info.accessibility_scores.get(elem_id, 0.0)
-            barycenter_conn = barycenters[elem_id]
+        # BACKWARD PASS: NO aplicar algoritmo híbrido
+        # El forward pass ya estableció el orden basado en centralidad
+        # El backward solo refina para conexiones hacia adelante
 
-            # Calcular peso de centralidad (alpha) basado en score
-            alpha = self._calculate_centrality_weight(score)
-
-            # Mezclar: barycenter_final = (1-alpha)*barycenter_conn + alpha*center
-            barycenter_final = (1.0 - alpha) * barycenter_conn + alpha * center
-            barycenters[elem_id] = barycenter_final
-
-        # Ordenar por barycenter
+        # Ordenar por barycenter puro (sin modificar con centralidad)
         def get_sort_key(elem_id: str) -> float:
             return barycenters.get(elem_id, len(next_layer) / 2)
 
@@ -710,7 +703,14 @@ class AbstractPlacer:
             if (to_primary_id == elem_primary_id and
                 from_primary_id in current_positions and
                 from_primary_id != elem_primary_id):
-                same_level_neighbor_positions.append(current_positions[from_primary_id])
+
+                # FILTRO: Ignorar conexiones a hojas (elementos sin hijos)
+                # Las hojas suelen estar en extremos y sesgan el barycenter
+                from_node = structure_info.element_tree.get(from_primary_id, {})
+                has_children = bool(from_node.get('children', []))
+
+                if has_children:  # Solo considerar elementos con hijos
+                    same_level_neighbor_positions.append(current_positions[from_primary_id])
 
         # 4. Calcular barycenter combinado con pesos
         total_weight = 0
@@ -732,11 +732,17 @@ class AbstractPlacer:
         if total_weight > 0:
             return weighted_sum / total_weight
         else:
-            # Sin conexiones: centrar en la capa
-            if prev_positions:
-                return len(prev_positions) / 2
+            # Sin conexiones: verificar si tiene score de centralidad
+            score = structure_info.accessibility_scores.get(elem_id, 0.0)
+
+            if score > 0.0001:  # Tiene score significativo -> centrar
+                if prev_positions:
+                    return len(prev_positions) / 2
+                else:
+                    return len(current_layer) / 2
             else:
-                return len(current_layer) / 2
+                # Sin score (hoja o elemento sin importancia) -> izquierda
+                return 0.0
 
     def _calculate_barycenter_backward(
         self,
@@ -815,16 +821,28 @@ class AbstractPlacer:
             elif to_id in elem_and_children and from_primary_id in current_layer:
                 # Una conexión apunta a un hijo de este contenedor desde otro elemento del mismo nivel
                 # Usar la posición del elemento que está enviando la conexión
-                current_positions = {e_id: idx for idx, e_id in enumerate(current_layer)}
-                if from_primary_id in current_positions:
-                    next_neighbor_positions.append(current_positions[from_primary_id])
+
+                # FILTRO: Ignorar conexiones desde hojas (elementos sin hijos)
+                from_node = structure_info.element_tree.get(from_primary_id, {})
+                has_children = bool(from_node.get('children', []))
+
+                if has_children:  # Solo considerar elementos con hijos
+                    current_positions = {e_id: idx for idx, e_id in enumerate(current_layer)}
+                    if from_primary_id in current_positions:
+                        next_neighbor_positions.append(current_positions[from_primary_id])
 
         # Calcular barycenter (promedio de posiciones de vecinos)
         if next_neighbor_positions:
             barycenter = sum(next_neighbor_positions) / len(next_neighbor_positions)
         else:
-            # Sin vecinos: posición central
-            barycenter = len(next_positions) / 2
+            # Sin vecinos: verificar si tiene score de centralidad
+            score = structure_info.accessibility_scores.get(elem_id, 0.0)
+
+            if score > 0.0001:  # Tiene score significativo -> centrar
+                barycenter = len(next_positions) / 2
+            else:
+                # Sin score (hoja o elemento sin importancia) -> izquierda
+                barycenter = 0.0
 
         return barycenter
 

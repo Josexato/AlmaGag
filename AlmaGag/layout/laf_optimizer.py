@@ -906,12 +906,20 @@ class LAFOptimizer:
                 node = structure_info.element_tree.get(elem_id)
                 has_children = node and node.get('children', [])
 
-                if score > 0:
+                # Asignar score mínimo a hojas para que tengan algo de centralidad en Fase 4
+                is_leaf = not has_children
+                if is_leaf and score == 0:
+                    score = 0.0001
+                    # Actualizar en structure_info para que Fase 4 vea el score modificado
+                    structure_info.accessibility_scores[elem_id] = score
+
+                # Clasificar: las hojas con score 0.0001 van al grupo hojas, no centrales
+                if score > 0.0001:  # Cambio: > 0.0001 en lugar de > 0
                     centrales.append((elem_id, score))
                 elif has_children:
                     normales.append((elem_id, score))
                 else:
-                    # Es hoja: no tiene hijos
+                    # Es hoja: no tiene hijos (score=0 o score=0.0001)
                     hojas.append((elem_id, score))
 
             # Ordenar centrales por score descendente

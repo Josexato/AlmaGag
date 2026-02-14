@@ -1297,11 +1297,11 @@ class GrowthVisualizer:
             if is_container:
                 fill_color = '#ffc107'  # Amarillo para contenedores
                 stroke_color = '#ff9800'
-                radius = 7
+                radius = 10
             else:
                 fill_color = '#0d6efd'  # Azul para elementos simples
                 stroke_color = '#084298'
-                radius = 5
+                radius = 8
 
             # Punto
             dwg.add(dwg.circle(
@@ -1312,13 +1312,15 @@ class GrowthVisualizer:
                 stroke_width=2
             ))
 
-            # Label del elemento
+            # Label: NdPrXXX en lugar de elem_id
+            node_id = structure_info.primary_node_ids.get(elem_id, elem_id)
             dwg.add(dwg.text(
-                elem_id,
-                insert=(cx + 10, cy + 5),
-                font_size='10px',
+                node_id,
+                insert=(cx + radius + 5, cy + 5),
+                font_size='12px',
                 fill='#212529',
-                font_family='monospace'
+                font_family='monospace',
+                font_weight='bold'
             ))
 
             # Badge "TBG" para contenedores
