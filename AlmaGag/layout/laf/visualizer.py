@@ -1248,22 +1248,42 @@ class GrowthVisualizer:
             font_weight='bold'
         ))
 
-        # Dibujar conexiones (líneas) - solo entre elementos primarios
+        # Crear mapa de elemento contenido -> contenedor padre
+        contained_to_parent = {}
+        for elem_id in structure_info.primary_elements:
+            node = structure_info.element_tree.get(elem_id, {})
+            children = node.get('children', [])
+            for child_id in children:
+                contained_to_parent[child_id] = elem_id
+
+        # Dibujar conexiones (líneas) - mapear a elementos primarios
+        drawn_connections = set()  # Evitar duplicados
         for conn in connections:
             from_id = conn['from']
             to_id = conn['to']
 
-            if from_id in primary_positions and to_id in primary_positions:
-                from_x, from_y = to_canvas(*primary_positions[from_id])
-                to_x, to_y = to_canvas(*primary_positions[to_id])
+            # Mapear a elementos primarios si son contenidos
+            if from_id not in primary_positions and from_id in contained_to_parent:
+                from_id = contained_to_parent[from_id]
+            if to_id not in primary_positions and to_id in contained_to_parent:
+                to_id = contained_to_parent[to_id]
 
-                dwg.add(dwg.line(
-                    start=(from_x, from_y),
-                    end=(to_x, to_y),
-                    stroke='#adb5bd',
-                    stroke_width=1,
-                    opacity=0.6
-                ))
+            # Dibujar si ambos son primarios y no duplicado
+            if from_id in primary_positions and to_id in primary_positions:
+                conn_key = (from_id, to_id)
+                if conn_key not in drawn_connections:
+                    drawn_connections.add(conn_key)
+
+                    from_x, from_y = to_canvas(*primary_positions[from_id])
+                    to_x, to_y = to_canvas(*primary_positions[to_id])
+
+                    dwg.add(dwg.line(
+                        start=(from_x, from_y),
+                        end=(to_x, to_y),
+                        stroke='#adb5bd',
+                        stroke_width=1,
+                        opacity=0.6
+                    ))
 
         # Dibujar elementos primarios (puntos)
         for elem_id, (ax, ay) in primary_positions.items():

@@ -26,10 +26,9 @@ class AbstractPlacer:
     4. Minimización de cruces por capas (barycenter)
     """
 
-    # Cuánto influye el Score de accesibilidad en la atracción al centro.
-    # 0.0 = sin efecto, 1.0 = Score domina completamente sobre barycenter.
-    # Valores típicos: 0.2 - 0.4
-    SCORE_CENTER_INFLUENCE = 0.3
+    # DESCONTINUADO: Ahora usamos algoritmo híbrido que mezcla barycenter + centralidad
+    # Ver _calculate_centrality_weight() para la nueva implementación
+    # SCORE_CENTER_INFLUENCE = 20.0
 
     def __init__(self, debug: bool = False):
         """
@@ -39,6 +38,32 @@ class AbstractPlacer:
             debug: Si True, imprime logs de debug
         """
         self.debug = debug
+
+    def _calculate_centrality_weight(self, accessibility_score: float) -> float:
+        """
+        Calcula el peso de centralidad (alpha) basado en el accessibility score.
+
+        Formula gradual:
+        - score = 0      → alpha = 0.0  (100% barycenter conexiones)
+        - score = 0.02   → alpha = 0.3  (70% conexiones, 30% centro)
+        - score = 0.04   → alpha = 0.6  (40% conexiones, 60% centro)
+        - score = 0.10+  → alpha = 0.9  (10% conexiones, 90% centro)
+
+        Args:
+            accessibility_score: Score de accesibilidad del elemento
+
+        Returns:
+            float: Peso alpha entre 0.0 y 1.0
+        """
+        if accessibility_score <= 0:
+            return 0.0
+        elif accessibility_score >= 0.10:
+            return 0.9
+        else:
+            # Interpolación lineal entre 0 y 0.10
+            # f(0) = 0, f(0.02) = 0.3, f(0.04) = 0.6, f(0.10) = 0.9
+            # Aproximación: alpha = score * 9.0
+            return min(0.9, accessibility_score * 9.0)
 
     def place_elements(
         self,
@@ -221,20 +246,22 @@ class AbstractPlacer:
                         layout
                     )
 
-            # NUEVO: Aplicar reglas de distribución óptima (centrales/normales/hojas)
-            # Solo en la última iteración para no interferir con convergencia del barycenter
-            if iteration == iterations - 1:
-                # Calcular posiciones temporales para evaluar distancias
-                temp_positions = self._get_temp_positions(layers)
-
-                for layer_idx in range(1, len(layers)):  # Skip primera capa
-                    if len(layers[layer_idx]) >= 3:
-                        self._apply_optimal_distribution(
-                            layers[layer_idx],
-                            temp_positions,
-                            structure_info,
-                            layout
-                        )
+            # DESHABILITADO: Aplicar optimal_distribution después del barycenter
+            # crea conflicto entre dos optimizaciones diferentes.
+            # El barycenter YA usa el orden de Fase 3 (centrality_order) como
+            # punto de partida, por lo que respeta la centralidad mientras
+            # minimiza cruces. Aplicar optimal_distribution después rompe ese balance.
+            #
+            # if iteration == iterations - 1:
+            #     temp_positions = self._get_temp_positions(layers)
+            #     for layer_idx in range(1, len(layers)):
+            #         if len(layers[layer_idx]) >= 3:
+            #             self._apply_optimal_distribution(
+            #                 layers[layer_idx],
+            #                 temp_positions,
+            #                 structure_info,
+            #                 layout
+            #             )
 
             if self.debug and iteration == iterations - 1:
                 print(f"\n           Orden FINAL después de iteración {iteration + 1}:")
@@ -321,23 +348,29 @@ class AbstractPlacer:
                 )
                 barycenters[elem_id] = barycenter
 
-        # Ajustar barycenters con scores de accesibilidad (atracción al centro)
-        if len(current_layer) > 2:
-            center = (len(current_layer) - 1) / 2.0
-            influence = self.SCORE_CENTER_INFLUENCE
-            for elem_id in current_layer:
-                score = structure_info.accessibility_scores.get(elem_id, 0.0)
-                if score > 0:
-                    bc = barycenters.get(elem_id, center)
-                    adjusted = bc + score * influence * (center - bc)
-                    barycenters[elem_id] = adjusted
+        # ALGORITMO HÍBRIDO: Mezclar barycenter de conexiones con atracción al centro
+        # según accessibility score
+        center = (len(current_layer) - 1) / 2.0
+        for elem_id in current_layer:
+            score = structure_info.accessibility_scores.get(elem_id, 0.0)
+            barycenter_conn = barycenters.get(elem_id, center)
 
-        # Ordenar por barycenter, luego por tipo, con tiebreaker para contenedores
+            # Calcular peso de centralidad (alpha) basado en score
+            alpha = self._calculate_centrality_weight(score)
+
+            # Mezclar: barycenter_final = (1-alpha)*barycenter_conn + alpha*center
+            barycenter_final = (1.0 - alpha) * barycenter_conn + alpha * center
+            barycenters[elem_id] = barycenter_final
+
+            if self.debug and score > 0:
+                print(f"           {elem_id}: score={score:.3f}, alpha={alpha:.2f}, " +
+                      f"bc_conn={barycenter_conn:.2f} -> bc_final={barycenter_final:.2f}")
+
+        # Ordenar por barycenter híbrido (ya incluye centralidad)
         def get_sort_key(elem_id: str) -> Tuple[float, int, str]:
             barycenter = barycenters.get(elem_id, len(previous_layer) / 2)
 
             # Tiebreaker: contenedores primero en caso de empate (prioridad 0)
-            # Esto los empuja hacia el medio cuando hay múltiples elementos con mismo barycenter
             container_node = structure_info.element_tree.get(elem_id)
             is_container = 1 if (container_node and container_node['is_container']) else 2
 
@@ -463,15 +496,18 @@ class AbstractPlacer:
             )
             barycenters[elem_id] = barycenter
 
-        # Ajustar barycenters con scores de accesibilidad (atracción al centro)
-        if len(current_layer) > 2:
-            center = (len(current_layer) - 1) / 2.0
-            influence = self.SCORE_CENTER_INFLUENCE
-            for elem_id in current_layer:
-                score = structure_info.accessibility_scores.get(elem_id, 0.0)
-                if score > 0:
-                    bc = barycenters[elem_id]
-                    barycenters[elem_id] = bc + score * influence * (center - bc)
+        # ALGORITMO HÍBRIDO: Mezclar barycenter de conexiones con atracción al centro
+        center = (len(current_layer) - 1) / 2.0
+        for elem_id in current_layer:
+            score = structure_info.accessibility_scores.get(elem_id, 0.0)
+            barycenter_conn = barycenters[elem_id]
+
+            # Calcular peso de centralidad (alpha) basado en score
+            alpha = self._calculate_centrality_weight(score)
+
+            # Mezclar: barycenter_final = (1-alpha)*barycenter_conn + alpha*center
+            barycenter_final = (1.0 - alpha) * barycenter_conn + alpha * center
+            barycenters[elem_id] = barycenter_final
 
         # Ordenar por barycenter
         def get_sort_key(elem_id: str) -> float:
