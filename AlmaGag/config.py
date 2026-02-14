@@ -71,3 +71,9 @@ CONNECTION_BBOX_PADDING = ICON_WIDTH * 0.1  # 8px - padding around connection li
 # Top margin for debug visual area
 TOP_MARGIN_DEBUG = ICON_WIDTH              # 80px - area for debug badges
 TOP_MARGIN_NORMAL = ICON_WIDTH * 0.25      # 20px - normal top margin
+
+# === LAF (Layout Abstracto Primero) System ===
+# LAF spacing configuration
+LAF_SPACING_BASE = ICON_WIDTH * 6.0        # 480px - base spacing for LAF layout
+LAF_VERTICAL_FACTOR = 0.5                  # Vertical spacing factor (0.5 = 50%)
+LAF_VERTICAL_SPACING = LAF_SPACING_BASE * LAF_VERTICAL_FACTOR  # 240px - vertical spacing between levels

@@ -200,6 +200,21 @@ class AbstractPlacer:
                         layout
                     )
 
+            # NUEVO: Aplicar reglas de distribución óptima (centrales/normales/hojas)
+            # Solo en la última iteración para no interferir con convergencia del barycenter
+            if iteration == iterations - 1:
+                # Calcular posiciones temporales para evaluar distancias
+                temp_positions = self._get_temp_positions(layers)
+
+                for layer_idx in range(1, len(layers)):  # Skip primera capa
+                    if len(layers[layer_idx]) >= 3:
+                        self._apply_optimal_distribution(
+                            layers[layer_idx],
+                            temp_positions,
+                            structure_info,
+                            layout
+                        )
+
             if self.debug and iteration == iterations - 1:
                 print(f"\n           Orden FINAL después de iteración {iteration + 1}:")
                 for layer_idx, layer in enumerate(layers):
@@ -954,3 +969,197 @@ class AbstractPlacer:
             return True
 
         return False
+
+    def _apply_optimal_distribution(
+        self,
+        current_layer: List[str],
+        positions: Dict[str, Tuple[int, int]],
+        structure_info: StructureInfo,
+        layout
+    ) -> None:
+        """
+        Aplica distribución óptima basada en centralidad y distancia a padres.
+
+        Algoritmo:
+        1. Clasificar elementos en centrales (score > 0), normales (score = 0 con hijos),
+           y hojas (score = 0 sin hijos)
+        2. Centrales: ordenar por score y colocar en el centro
+        3. Normales: colocar a izq/der minimizando distancia euclidiana a padres
+        4. Hojas: colocar en extremos, al lado opuesto del centro respecto a padres
+
+        Args:
+            current_layer: Capa a reorganizar (modifica in-place)
+            positions: Posiciones temporales actuales de todos los elementos
+            structure_info: Información estructural
+            layout: Layout con conexiones
+        """
+        if len(current_layer) < 3:
+            return  # No tiene sentido reorganizar con menos de 3 elementos
+
+        # Clasificar elementos
+        centrales = []  # (elem_id, score, avg_parent_distance)
+        normales = []   # (elem_id, avg_parent_x, has_left_parents, has_right_parents)
+        hojas = []      # (elem_id, avg_parent_x)
+
+        center_x = (len(current_layer) - 1) / 2.0
+
+        for elem_id in current_layer:
+            score = structure_info.accessibility_scores.get(elem_id, 0.0)
+            node = structure_info.element_tree.get(elem_id)
+            has_children = node and node.get('children', [])
+
+            # Calcular padres y su posición promedio
+            parents = self._get_parents(elem_id, structure_info, layout)
+            if parents:
+                avg_parent_x = sum(positions[p][0] for p in parents if p in positions) / len(parents)
+                avg_parent_dist = self._calculate_avg_parent_distance(
+                    elem_id, parents, positions
+                )
+            else:
+                avg_parent_x = center_x
+                avg_parent_dist = 0
+
+            if score > 0:
+                centrales.append((elem_id, score, avg_parent_dist))
+            elif has_children:
+                # Normal: clasificar por lado de padres
+                has_left = any(positions.get(p, (center_x, 0))[0] < center_x for p in parents)
+                has_right = any(positions.get(p, (center_x, 0))[0] > center_x for p in parents)
+                normales.append((elem_id, avg_parent_x, has_left, has_right))
+            else:
+                # Hoja
+                hojas.append((elem_id, avg_parent_x))
+
+        # Ordenar centrales por score (descendente), desempate por cercanía a padres
+        centrales.sort(key=lambda x: (-x[1], x[2]))
+
+        # Ordenar normales por distancia a padres (más cerca = más cerca del centro)
+        normales.sort(key=lambda x: abs(x[1] - center_x))
+
+        # Ordenar hojas por distancia a padres (más lejos = más en extremos)
+        hojas.sort(key=lambda x: abs(x[1] - center_x), reverse=True)
+
+        # Distribuir elementos
+        left_side = []
+        center_side = []
+        right_side = []
+
+        # Centrales: distribuir alrededor del centro (mayor score más cerca)
+        for i, (elem_id, score, _) in enumerate(centrales):
+            if i == 0:
+                center_side.append(elem_id)  # El más importante al centro
+            elif i % 2 == 1:
+                left_side.insert(0, elem_id)
+            else:
+                right_side.append(elem_id)
+
+        # Normales: distribuir a izq/der según posición de padres
+        for elem_id, avg_parent_x, has_left, has_right in normales:
+            if avg_parent_x < center_x or (has_left and not has_right):
+                left_side.insert(0, elem_id)
+            else:
+                right_side.append(elem_id)
+
+        # Hojas: extremos opuestos al centro respecto a padres
+        for elem_id, avg_parent_x in hojas:
+            if avg_parent_x < center_x:
+                # Padres a la izquierda → hoja al extremo izquierdo (más lejos del centro)
+                left_side.insert(0, elem_id)
+            else:
+                # Padres a la derecha → hoja al extremo derecho
+                right_side.append(elem_id)
+
+        # Reconstruir capa
+        new_order = left_side + center_side + right_side
+
+        # Actualizar current_layer in-place
+        current_layer[:] = new_order
+
+        if self.debug:
+            print(f"\n           [OPTIMAL DIST] Capa reorganizada:")
+            print(f"             Centrales: {len(centrales)}, Normales: {len(normales)}, Hojas: {len(hojas)}")
+            print(f"             Nuevo orden: {' -> '.join(new_order)}")
+
+    def _get_parents(
+        self,
+        elem_id: str,
+        structure_info: StructureInfo,
+        layout
+    ) -> List[str]:
+        """
+        Obtiene lista de elementos padres (que conectan hacia elem_id).
+
+        Args:
+            elem_id: ID del elemento
+            structure_info: Información estructural
+            layout: Layout con conexiones
+
+        Returns:
+            Lista de elem_ids de padres
+        """
+        parents = set()
+
+        for conn in layout.connections:
+            to_id = conn['to']
+
+            # Resolver to_id a primario
+            to_primary = to_id
+            if to_id not in structure_info.primary_elements:
+                node = structure_info.element_tree.get(to_id)
+                while node and node.get('parent'):
+                    parent = node['parent']
+                    if parent in structure_info.primary_elements:
+                        to_primary = parent
+                        break
+                    node = structure_info.element_tree.get(parent)
+
+            if to_primary == elem_id:
+                from_id = conn['from']
+
+                # Resolver from_id a primario
+                from_primary = from_id
+                if from_id not in structure_info.primary_elements:
+                    node = structure_info.element_tree.get(from_id)
+                    while node and node.get('parent'):
+                        parent = node['parent']
+                        if parent in structure_info.primary_elements:
+                            from_primary = parent
+                            break
+                        node = structure_info.element_tree.get(parent)
+
+                parents.add(from_primary)
+
+        return list(parents)
+
+    def _calculate_avg_parent_distance(
+        self,
+        elem_id: str,
+        parents: List[str],
+        positions: Dict[str, Tuple[int, int]]
+    ) -> float:
+        """
+        Calcula distancia euclidiana promedio a todos los padres.
+
+        Args:
+            elem_id: ID del elemento
+            parents: Lista de IDs de padres
+            positions: Posiciones actuales
+
+        Returns:
+            float: Distancia promedio (0 si no hay padres o posiciones)
+        """
+        if not parents or elem_id not in positions:
+            return 0.0
+
+        elem_pos = positions[elem_id]
+        distances = []
+
+        for parent_id in parents:
+            if parent_id in positions:
+                parent_pos = positions[parent_id]
+                # Distancia euclidiana
+                dist = ((elem_pos[0] - parent_pos[0])**2 +
+                       (elem_pos[1] - parent_pos[1])**2)**0.5
+                distances.append(dist)
+
+        return sum(distances) / len(distances) if distances else 0.0

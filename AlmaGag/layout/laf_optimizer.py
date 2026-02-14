@@ -21,6 +21,7 @@ from AlmaGag.layout.laf.inflator import ElementInflator
 from AlmaGag.layout.laf.container_grower import ContainerGrower
 from AlmaGag.layout.laf.visualizer import GrowthVisualizer
 from AlmaGag.layout.sizing import SizingCalculator
+from AlmaGag.config import LAF_SPACING_BASE
 import logging
 
 # Importar la función de dump_layout_table si está en debug
@@ -274,16 +275,18 @@ class LAFOptimizer:
             structure_info: Información estructural con topological_levels
             layout: Layout con elementos ya posicionados y contenedores expandidos
         """
-        from AlmaGag.config import TOP_MARGIN_DEBUG, TOP_MARGIN_NORMAL, ICON_HEIGHT
+        from AlmaGag.config import (
+            TOP_MARGIN_DEBUG, TOP_MARGIN_NORMAL, ICON_HEIGHT,
+            LAF_SPACING_BASE, LAF_VERTICAL_SPACING
+        )
 
         # Obtener visualdebug del positioner si está disponible
         visualdebug = getattr(self.positioner, 'visualdebug', False) if self.positioner else False
         TOP_MARGIN = TOP_MARGIN_DEBUG if visualdebug else TOP_MARGIN_NORMAL
 
-        # Spacing entre niveles (mismo que en Fase 3)
-        spacing = 480  # Mismo spacing que en inflator
-        vertical_factor = 0.5
-        VERTICAL_SPACING = spacing * vertical_factor  # 240px
+        # Spacing entre niveles (mismo que en Fase 5 - Inflación)
+        spacing = LAF_SPACING_BASE  # 480px
+        VERTICAL_SPACING = LAF_VERTICAL_SPACING  # 240px
 
         # Agrupar elementos primarios por nivel topológico
         # CRÍTICO: Usar el orden optimizado guardado por abstract_placer en Fase 2
@@ -429,7 +432,7 @@ class LAFOptimizer:
         # Aplicar centrado a cada nivel
         for level_num in sorted(by_level.keys()):
             level_elements = by_level[level_num]
-            self._center_elements_horizontally(level_elements, layout, structure_info, spacing=480)
+            self._center_elements_horizontally(level_elements, layout, structure_info, spacing=spacing)
 
         # CRÍTICO: Recalcular canvas DESPUÉS del centrado horizontal
         # El centrado puede mover elementos fuera de los bounds calculados anteriormente
@@ -448,7 +451,7 @@ class LAFOptimizer:
         level_elements: List[str],
         layout,
         structure_info,
-        spacing: float = 480.0
+        spacing: float = LAF_SPACING_BASE
     ) -> None:
         """
         Centra elementos de un nivel horizontalmente en el canvas.
@@ -674,7 +677,7 @@ class LAFOptimizer:
                 for idx, (elem_id, score) in enumerate(elements[:5]):  # Mostrar top 5
                     node_id = structure_info.primary_node_ids.get(elem_id, "N/A")
                     position = "centro" if idx == len(elements) // 2 else ("izq" if idx < len(elements) // 2 else "der")
-                    print(f"        {node_id} ({elem_id}): score={score:.4f} → {position}")
+                    print(f"        {node_id} ({elem_id}): score={score:.4f} -> {position}")
                 if len(elements) > 5:
                     print(f"        ... y {len(elements) - 5} más")
 
@@ -858,10 +861,20 @@ class LAFOptimizer:
         """
         Ordena elementos dentro de cada nivel topológico por accessibility score.
 
-        Los elementos con mayor score se colocan hacia el centro (mejor accesibilidad visual).
+        Algoritmo optimizado:
+        1. Clasificar elementos en 3 grupos:
+           - Centrales: score > 0 (mayor accesibilidad)
+           - Normales: score = 0 con hijos
+           - Hojas: score = 0 sin hijos (terminales)
+
+        2. Distribuir en el nivel:
+           - Centro: elementos centrales ordenados por score (mayor al medio)
+           - Lados: elementos normales
+           - Extremos: hojas (más alejadas del centro)
 
         Args:
-            structure_info: StructureInfo con accessibility_scores y topological_levels
+            structure_info: StructureInfo con accessibility_scores, topological_levels,
+                           connection_graph y element_tree
 
         Returns:
             Dict[int, List[Tuple[str, float]]]: {level: [(elem_id, score), ...]} ordenado
@@ -876,30 +889,130 @@ class LAFOptimizer:
             score = structure_info.accessibility_scores.get(elem_id, 0.0)
             by_level[level].append((elem_id, score))
 
-        # Ordenar cada nivel por score (mayor score = más central)
-        # Estrategia: mayor score en el centro, menores en los extremos
+        # Ordenar cada nivel usando el nuevo algoritmo
         centrality_order = {}
         for level, elements in by_level.items():
-            # Ordenar por score descendente
-            sorted_elements = sorted(elements, key=lambda x: x[1], reverse=True)
+            # Clasificar elementos en grupos
+            centrales = []  # score > 0
+            normales = []   # score = 0 con hijos
+            hojas = []      # score = 0 sin hijos
 
-            # Reorganizar para centrar: mayor score al centro, menores a los lados
-            reordered = []
-            left = []
-            right = []
+            for elem_id, score in elements:
+                node = structure_info.element_tree.get(elem_id)
+                has_children = node and node.get('children', [])
 
-            for i, elem in enumerate(sorted_elements):
-                if i % 2 == 0:
-                    right.append(elem)
+                if score > 0:
+                    centrales.append((elem_id, score))
+                elif has_children:
+                    normales.append((elem_id, score))
                 else:
-                    left.append(elem)
+                    # Es hoja: no tiene hijos
+                    hojas.append((elem_id, score))
 
-            # Invertir left para que los más importantes estén más cerca del centro
-            left.reverse()
+            # Ordenar centrales por score descendente
+            centrales.sort(key=lambda x: x[1], reverse=True)
 
-            # Combinar: left + right (centro en la mitad)
-            reordered = left + right
+            # Distribuir elementos centrales alrededor del centro
+            # Los de mayor score en el medio exacto
+            central_distributed = self._distribute_around_center(centrales)
+
+            # Para normales y hojas: ordenar por número de conexiones
+            # (más conexiones = más importante, va más cerca del centro)
+            def connection_count(elem_id):
+                in_count = sum(1 for targets in structure_info.connection_graph.values()
+                              if elem_id in targets)
+                out_count = len(structure_info.connection_graph.get(elem_id, []))
+                return in_count + out_count
+
+            normales.sort(key=lambda x: connection_count(x[0]), reverse=True)
+            hojas.sort(key=lambda x: connection_count(x[0]), reverse=True)
+
+            # Distribuir normales a los lados de centrales
+            normales_distributed = self._distribute_sides(normales)
+
+            # Distribuir hojas en extremos
+            hojas_distributed = self._distribute_extremes(hojas)
+
+            # Combinar: hojas_izq + normales_izq + centrales + normales_der + hojas_der
+            left_hojas = hojas_distributed[0]
+            right_hojas = hojas_distributed[1]
+            left_normales = normales_distributed[0]
+            right_normales = normales_distributed[1]
+
+            reordered = (left_hojas + left_normales +
+                        central_distributed +
+                        right_normales + right_hojas)
 
             centrality_order[level] = reordered
 
         return centrality_order
+
+    def _distribute_around_center(self, elements):
+        """
+        Distribuye elementos alrededor del centro, con los más importantes en el medio.
+
+        Args:
+            elements: Lista de (elem_id, score) ordenada por score descendente
+
+        Returns:
+            Lista de (elem_id, score) distribuida centro -> lados
+        """
+        if not elements:
+            return []
+
+        # Distribuir alternando: el primero al centro, luego a izq/der
+        result = []
+        left = []
+        right = []
+
+        for i, elem in enumerate(elements):
+            if i == 0:
+                result.append(elem)  # Primero (mayor score) al centro
+            elif i % 2 == 1:
+                left.insert(0, elem)  # Insertar al inicio (más cerca del centro)
+            else:
+                right.append(elem)
+
+        return left + result + right
+
+    def _distribute_sides(self, elements):
+        """
+        Distribuye elementos en lados izquierdo y derecho.
+
+        Args:
+            elements: Lista de (elem_id, score)
+
+        Returns:
+            Tupla ([izquierda], [derecha])
+        """
+        left = []
+        right = []
+
+        for i, elem in enumerate(elements):
+            if i % 2 == 0:
+                left.insert(0, elem)
+            else:
+                right.append(elem)
+
+        return (left, right)
+
+    def _distribute_extremes(self, elements):
+        """
+        Distribuye hojas en extremos (más alejadas del centro).
+
+        Args:
+            elements: Lista de (elem_id, score) de hojas
+
+        Returns:
+            Tupla ([extremo_izq], [extremo_der])
+        """
+        left = []
+        right = []
+
+        for i, elem in enumerate(elements):
+            if i % 2 == 0:
+                left.insert(0, elem)  # Más lejanas primero
+            else:
+                right.append(elem)
+
+        return (left, right)
