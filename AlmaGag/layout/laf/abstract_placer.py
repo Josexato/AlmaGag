@@ -43,13 +43,15 @@ class AbstractPlacer:
     def place_elements(
         self,
         structure_info: StructureInfo,
-        layout
+        layout,
+        centrality_order: Dict[int, List[Tuple[str, float]]] = None
     ) -> Dict[str, Tuple[int, int]]:
         """
         Calcula posiciones abstractas (x, y) para TODOS los elementos.
 
         Algoritmo:
         1. Agrupar elementos primarios por nivel topológico (capas horizontales)
+           - Si centrality_order está disponible (Fase 3), usar ese orden inicial
         2. Dentro de cada capa, ordenar por tipo + barycenter
         3. Aplicar barycenter heuristic para minimizar cruces
         4. Distribuir simétricamente dentro de cada capa
@@ -58,6 +60,7 @@ class AbstractPlacer:
         Args:
             structure_info: Información estructural del diagrama
             layout: Layout con connections
+            centrality_order: Orden de Fase 3 {level: [(elem_id, score), ...]}
 
         Returns:
             {element_id: (abstract_x, abstract_y)}
@@ -65,7 +68,7 @@ class AbstractPlacer:
             - Incluye TODOS los elementos (primarios y contenidos)
         """
         # Fase 1: Layering (asignar elementos primarios a capas)
-        layers = self._assign_layers(structure_info)
+        layers = self._assign_layers(structure_info, centrality_order)
 
         if self.debug:
             print(f"\n[ABSTRACT] Layering completado: {len(layers)} capas")
@@ -114,12 +117,21 @@ class AbstractPlacer:
 
         return positions
 
-    def _assign_layers(self, structure_info: StructureInfo) -> List[List[str]]:
+    def _assign_layers(
+        self,
+        structure_info: StructureInfo,
+        centrality_order: Dict[int, List[Tuple[str, float]]] = None
+    ) -> List[List[str]]:
         """
         Asigna elementos a capas según nivel topológico.
 
+        Si centrality_order está disponible (de Fase 3), usa ese orden inicial.
+        Esto proporciona un punto de partida basado en accessibility scores,
+        que luego será refinado por el algoritmo de barycenter.
+
         Args:
             structure_info: Información estructural
+            centrality_order: Orden de Fase 3 {level: [(elem_id, score), ...]}
 
         Returns:
             Lista de capas, cada capa es lista de element_ids
@@ -136,10 +148,19 @@ class AbstractPlacer:
         # Inicializar capas
         layers = [[] for _ in range(max_level + 1)]
 
-        # Asignar elementos a capas
-        for elem_id in structure_info.primary_elements:
-            level = structure_info.topological_levels.get(elem_id, 0)
-            layers[level].append(elem_id)
+        # Si tenemos centrality_order de Fase 3, usar ese orden inicial
+        if centrality_order:
+            for level in range(max_level + 1):
+                if level in centrality_order:
+                    # Extraer solo los elem_ids (sin scores)
+                    layers[level] = [elem_id for elem_id, score in centrality_order[level]]
+                else:
+                    layers[level] = []
+        else:
+            # Fallback: orden por aparición en primary_elements
+            for elem_id in structure_info.primary_elements:
+                level = structure_info.topological_levels.get(elem_id, 0)
+                layers[level].append(elem_id)
 
         return layers
 

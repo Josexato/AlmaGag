@@ -696,7 +696,10 @@ class LAFOptimizer:
             print("\n[LAF] FASE 4: Layout abstracto")
             print("-" * 60)
 
-        abstract_positions = self.abstract_placer.place_elements(structure_info, layout)
+        # Pasar centrality_order de Fase 3 como orden inicial
+        abstract_positions = self.abstract_placer.place_elements(
+            structure_info, layout, centrality_order=centrality_order
+        )
 
         # Calcular cruces
         crossings = self.abstract_placer.count_crossings(abstract_positions, layout.connections)
