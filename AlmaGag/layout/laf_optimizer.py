@@ -706,7 +706,9 @@ class LAFOptimizer:
 
         # Capturar snapshot Fase 4
         if self.visualizer:
-            self.visualizer.capture_phase4_abstract(abstract_positions, crossings, layout)
+            self.visualizer.capture_phase4_abstract(
+                abstract_positions, crossings, layout, structure_info
+            )
 
         if self.debug:
             print(f"[LAF] [OK] Layout abstracto completado")

@@ -108,7 +108,8 @@ class GrowthVisualizer:
         self,
         abstract_positions: Dict[str, Tuple[int, int]],
         crossings: int,
-        layout
+        layout,
+        structure_info
     ) -> None:
         """
         Captura snapshot de Fase 4 (Layout abstracto).
@@ -117,11 +118,13 @@ class GrowthVisualizer:
             abstract_positions: {elem_id: (x, y)} en coordenadas abstractas
             crossings: Número de cruces detectados
             layout: Layout con conexiones
+            structure_info: Información estructural para filtrar primarios
         """
         self.snapshots['phase4'] = {
             'abstract_positions': deepcopy(abstract_positions),
             'crossings': crossings,
-            'connections': deepcopy(layout.connections)
+            'connections': deepcopy(layout.connections),
+            'structure_info': structure_info
         }
 
         if self.debug:
@@ -1181,22 +1184,32 @@ class GrowthVisualizer:
     def _generate_phase4_abstract_svg(self, output_path: str) -> None:
         """
         Genera SVG de Fase 4: Layout abstracto (puntos).
+
+        Muestra solo elementos PRIMARIOS. Los contenedores se marcan con "TBG"
+        (To Be Grown) para indicar que crecerán en fases posteriores.
         """
         snapshot = self.snapshots['phase4']
         abstract_positions = snapshot['abstract_positions']
         crossings = snapshot['crossings']
         connections = snapshot['connections']
+        structure_info = snapshot['structure_info']
 
         filename = os.path.join(output_path, "phase4_abstract.svg")
 
+        # Filtrar solo elementos PRIMARIOS
+        primary_positions = {
+            elem_id: pos for elem_id, pos in abstract_positions.items()
+            if elem_id in structure_info.primary_elements
+        }
+
         # Calcular bounds del layout abstracto
-        if not abstract_positions:
+        if not primary_positions:
             return
 
-        min_x = min(x for x, y in abstract_positions.values())
-        max_x = max(x for x, y in abstract_positions.values())
-        min_y = min(y for x, y in abstract_positions.values())
-        max_y = max(y for x, y in abstract_positions.values())
+        min_x = min(x for x, y in primary_positions.values())
+        max_x = max(x for x, y in primary_positions.values())
+        min_y = min(y for x, y in primary_positions.values())
+        max_y = max(y for x, y in primary_positions.values())
 
         # Escalar al canvas
         padding = 100
@@ -1235,14 +1248,14 @@ class GrowthVisualizer:
             font_weight='bold'
         ))
 
-        # Dibujar conexiones (líneas)
+        # Dibujar conexiones (líneas) - solo entre elementos primarios
         for conn in connections:
             from_id = conn['from']
             to_id = conn['to']
 
-            if from_id in abstract_positions and to_id in abstract_positions:
-                from_x, from_y = to_canvas(*abstract_positions[from_id])
-                to_x, to_y = to_canvas(*abstract_positions[to_id])
+            if from_id in primary_positions and to_id in primary_positions:
+                from_x, from_y = to_canvas(*primary_positions[from_id])
+                to_x, to_y = to_canvas(*primary_positions[to_id])
 
                 dwg.add(dwg.line(
                     start=(from_x, from_y),
@@ -1252,20 +1265,34 @@ class GrowthVisualizer:
                     opacity=0.6
                 ))
 
-        # Dibujar elementos (puntos)
-        for elem_id, (ax, ay) in abstract_positions.items():
+        # Dibujar elementos primarios (puntos)
+        for elem_id, (ax, ay) in primary_positions.items():
             cx, cy = to_canvas(ax, ay)
+
+            # Verificar si es contenedor (tiene elementos dentro)
+            node = structure_info.element_tree.get(elem_id, {})
+            is_container = bool(node.get('children', []))
+
+            # Color según tipo
+            if is_container:
+                fill_color = '#ffc107'  # Amarillo para contenedores
+                stroke_color = '#ff9800'
+                radius = 7
+            else:
+                fill_color = '#0d6efd'  # Azul para elementos simples
+                stroke_color = '#084298'
+                radius = 5
 
             # Punto
             dwg.add(dwg.circle(
                 center=(cx, cy),
-                r=5,
-                fill='#0d6efd',
-                stroke='#084298',
+                r=radius,
+                fill=fill_color,
+                stroke=stroke_color,
                 stroke_width=2
             ))
 
-            # Label
+            # Label del elemento
             dwg.add(dwg.text(
                 elem_id,
                 insert=(cx + 10, cy + 5),
@@ -1273,6 +1300,18 @@ class GrowthVisualizer:
                 fill='#212529',
                 font_family='monospace'
             ))
+
+            # Badge "TBG" para contenedores
+            if is_container:
+                dwg.add(dwg.text(
+                    'TBG',
+                    insert=(cx - 3, cy + 3),
+                    font_size='8px',
+                    fill='white',
+                    text_anchor='middle',
+                    font_family='monospace',
+                    font_weight='bold'
+                ))
 
         # Badge
         dwg.add(dwg.text(
