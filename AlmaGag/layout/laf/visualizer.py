@@ -1015,10 +1015,56 @@ class GrowthVisualizer:
             num_elements = len(elements)
             if num_elements > 0:
                 spacing = min(80, (canvas_width - 100) / num_elements)
-                start_x = (canvas_width - (num_elements - 1) * spacing) / 2
+                canvas_center_x = canvas_width / 2  # 600
+
+                # Identificar elementos centrales (score máximo)
+                max_score = max(score for _, score in elements) if elements else 0
+                central_elements = [(idx, elem_id, score) for idx, (elem_id, score)
+                                   in enumerate(elements) if score == max_score and score > 0]
+
+                # Si hay elementos centrales, centrarlos en el canvas
+                if central_elements:
+                    # Calcular posiciones centradas para elementos centrales
+                    num_centrals = len(central_elements)
+                    central_start_x = canvas_center_x - ((num_centrals - 1) * spacing) / 2
+
+                    # Mapear índices a posiciones
+                    positions = {}
+
+                    # Colocar elementos centrales
+                    for i, (idx, _, _) in enumerate(central_elements):
+                        positions[idx] = central_start_x + i * spacing
+
+                    # Colocar elementos no-centrales a los lados
+                    non_central_indices = [idx for idx in range(num_elements)
+                                          if idx not in positions]
+
+                    if non_central_indices:
+                        # Elementos a la izquierda de centrales
+                        left_count = sum(1 for idx in non_central_indices
+                                        if idx < min(positions.keys()))
+                        # Elementos a la derecha de centrales
+                        right_count = len(non_central_indices) - left_count
+
+                        left_side_x = min(positions.values()) - spacing
+                        right_side_x = max(positions.values()) + spacing
+
+                        for idx in non_central_indices:
+                            if idx < min(positions.keys()):
+                                # A la izquierda
+                                positions[idx] = left_side_x
+                                left_side_x -= spacing
+                            else:
+                                # A la derecha
+                                positions[idx] = right_side_x
+                                right_side_x += spacing
+                else:
+                    # Sin elementos centrales (todos score=0): distribución uniforme
+                    start_x = (canvas_width - (num_elements - 1) * spacing) / 2
+                    positions = {idx: start_x + idx * spacing for idx in range(num_elements)}
 
                 for idx, (elem_id, score) in enumerate(elements):
-                    x = start_x + idx * spacing
+                    x = positions[idx]
                     node_id = structure_info.primary_node_ids.get(elem_id, "N/A")
                     elem_level = structure_info.topological_levels.get(elem_id, level)
 
