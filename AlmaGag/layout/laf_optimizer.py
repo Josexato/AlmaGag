@@ -951,6 +951,9 @@ class LAFOptimizer:
         """
         Distribuye elementos alrededor del centro, con los más importantes en el medio.
 
+        Si hay múltiples elementos con el score máximo (>= 2), todos se agrupan al centro
+        de modo que su punto medio esté centrado.
+
         Args:
             elements: Lista de (elem_id, score) ordenada por score descendente
 
@@ -960,20 +963,32 @@ class LAFOptimizer:
         if not elements:
             return []
 
-        # Distribuir alternando: el primero al centro, luego a izq/der
-        result = []
+        # Encontrar todos los elementos con score máximo
+        max_score = elements[0][1]
+        center_group = []
+        remaining = []
+
+        for elem_id, score in elements:
+            if score == max_score:
+                center_group.append((elem_id, score))
+            else:
+                remaining.append((elem_id, score))
+
+        # Si solo hay 1 elemento con score máximo, va al centro exacto
+        # Si hay >= 2, se agrupan de modo que su punto medio esté centrado
+        center = center_group
+
+        # Distribuir elementos restantes a los lados (alternando)
         left = []
         right = []
 
-        for i, elem in enumerate(elements):
-            if i == 0:
-                result.append(elem)  # Primero (mayor score) al centro
-            elif i % 2 == 1:
+        for i, elem in enumerate(remaining):
+            if i % 2 == 0:
                 left.insert(0, elem)  # Insertar al inicio (más cerca del centro)
             else:
                 right.append(elem)
 
-        return left + result + right
+        return left + center + right
 
     def _distribute_sides(self, elements):
         """
