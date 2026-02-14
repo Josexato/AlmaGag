@@ -20,15 +20,16 @@ class GrowthVisualizer:
     """
     Genera visualizaciones SVG del proceso de crecimiento LAF.
 
-    Crea 8 archivos SVG mostrando cada fase:
+    Crea 9 archivos SVG mostrando cada fase:
     1. phase1_structure.svg: Árbol de elementos con métricas
     2. phase2_topology.svg: Niveles topológicos y accessibility scores
-    3. phase3_abstract.svg: Posiciones abstractas (puntos)
-    4. phase4_inflated.svg: Elementos con dimensiones reales
-    5. phase5_containers.svg: Contenedores expandidos
-    6. phase6_redistributed.svg: Redistribución vertical
-    7. phase7_routed.svg: Routing de conexiones
-    8. phase8_final.svg: Layout final completo
+    3. phase3_centrality.svg: Ordenamiento por centralidad
+    4. phase4_abstract.svg: Posiciones abstractas (puntos)
+    5. phase5_inflated.svg: Elementos con dimensiones reales
+    6. phase6_containers.svg: Contenedores expandidos
+    7. phase7_redistributed.svg: Redistribución vertical
+    8. phase8_routed.svg: Routing de conexiones
+    9. phase9_final.svg: Layout final completo
     """
 
     def __init__(self, output_dir: str = "debug/growth", debug: bool = False):
@@ -471,8 +472,23 @@ class GrowthVisualizer:
 
         filename = os.path.join(output_path, "phase2_topology.svg")
 
+        # Organizar elementos por nivel primero para calcular dimensiones
+        by_level = {}
+        max_level = 0
+        for elem_id, level in structure_info.topological_levels.items():
+            if level not in by_level:
+                by_level[level] = []
+            by_level[level].append(elem_id)
+            max_level = max(max_level, level)
+
+        # Calcular espacio vertical por nivel
+        level_height = 100
+        start_y = 120
+        bottom_margin = 200  # Espacio para leyenda
+
+        # Calcular dimensiones del canvas dinámicamente
         canvas_width = 1200
-        canvas_height = 900
+        canvas_height = start_y + (max_level + 1) * level_height + bottom_margin
 
         dwg = svgwrite.Drawing(filename, size=(canvas_width, canvas_height))
 
@@ -488,18 +504,7 @@ class GrowthVisualizer:
             fill='#212529'
         ))
 
-        # Organizar elementos por nivel
-        by_level = {}
-        max_level = 0
-        for elem_id, level in structure_info.topological_levels.items():
-            if level not in by_level:
-                by_level[level] = []
-            by_level[level].append(elem_id)
-            max_level = max(max_level, level)
-
-        # Calcular espacio vertical por nivel
-        level_height = 100
-        start_y = 120
+        # Radio de nodos
         node_radius = 22
 
         # Diccionario para guardar posiciones de nodos (para dibujar flechas después)
@@ -508,7 +513,7 @@ class GrowthVisualizer:
         # PASO 1: Calcular posiciones de todos los nodos
         for level in sorted(by_level.keys()):
             elements = by_level[level]
-            y = start_y + level * level_height
+            level_y = start_y + level * level_height
 
             # Distribuir elementos horizontalmente
             num_elements = len(elements)
@@ -516,8 +521,8 @@ class GrowthVisualizer:
             start_x = 140
 
             for i, elem_id in enumerate(elements):
-                x = start_x + i * spacing
-                node_positions[elem_id] = (x, y)
+                node_x = start_x + i * spacing
+                node_positions[elem_id] = (node_x, level_y)
 
         # PASO 2: Calcular todas las conexiones y detectar cruces
         import math
@@ -542,16 +547,16 @@ class GrowthVisualizer:
                 dy = to_y - from_y
                 angle = math.atan2(dy, dx)
 
-                start_x = from_x + node_radius * math.cos(angle)
-                start_y = from_y + node_radius * math.sin(angle)
-                end_x = to_x - (node_radius + 8) * math.cos(angle)
-                end_y = to_y - (node_radius + 8) * math.sin(angle)
+                conn_start_x = from_x + node_radius * math.cos(angle)
+                conn_start_y = from_y + node_radius * math.sin(angle)
+                conn_end_x = to_x - (node_radius + 8) * math.cos(angle)
+                conn_end_y = to_y - (node_radius + 8) * math.sin(angle)
 
                 connections.append({
                     'from_id': from_id,
                     'to_id': to_id,
-                    'start': (start_x, start_y),
-                    'end': (end_x, end_y),
+                    'start': (conn_start_x, conn_start_y),
+                    'end': (conn_end_x, conn_end_y),
                     'angle': angle,
                     'to_pos': (to_x, to_y)
                 })
@@ -700,11 +705,11 @@ class GrowthVisualizer:
         # PASO 3: Dibujar niveles y nodos
         for level in sorted(by_level.keys()):
             elements = by_level[level]
-            y = start_y + level * level_height
+            level_y = start_y + level * level_height
 
             # Barra de fondo para el nivel (alternando colores)
             bar_height = level_height - 20
-            bar_y = y - 50
+            bar_y = level_y - 50
             bar_color = '#e3f2fd' if level % 2 == 0 else '#f1f8e9'  # Azul claro / Verde claro
 
             dwg.add(dwg.rect(
@@ -720,7 +725,7 @@ class GrowthVisualizer:
             # Label del nivel
             dwg.add(dwg.text(
                 f'Level {level}',
-                insert=(20, y - 10),
+                insert=(20, level_y - 10),
                 font_size='14px',
                 font_weight='bold',
                 fill='#495057'
@@ -728,8 +733,8 @@ class GrowthVisualizer:
 
             # Línea horizontal del nivel (más tenue)
             dwg.add(dwg.line(
-                start=(120, y),
-                end=(canvas_width - 20, y),
+                start=(120, level_y),
+                end=(canvas_width - 20, level_y),
                 stroke='#dee2e6',
                 stroke_width=1,
                 stroke_dasharray='5,5',
@@ -737,9 +742,10 @@ class GrowthVisualizer:
             ))
 
             for elem_id in elements:
-                x, y = node_positions[elem_id]
+                node_x, node_y = node_positions[elem_id]
                 score = structure_info.accessibility_scores.get(elem_id, 0)
                 node_id = structure_info.primary_node_ids.get(elem_id, "N/A")
+                elem_level = structure_info.topological_levels.get(elem_id, 0)
 
                 # Color según score
                 if score > 0.05:
@@ -751,7 +757,7 @@ class GrowthVisualizer:
 
                 # Dibujar nodo (círculo)
                 dwg.add(dwg.circle(
-                    center=(x, y),
+                    center=(node_x, node_y),
                     r=node_radius,
                     fill=color,
                     opacity=0.8,
@@ -759,10 +765,11 @@ class GrowthVisualizer:
                     stroke_width=2
                 ))
 
-                # ID del nodo primario ARRIBA del círculo
+                # ID del nodo primario ARRIBA del círculo con nivel
+                node_label = f"{node_id} [L{elem_level}]"
                 dwg.add(dwg.text(
-                    node_id,
-                    insert=(x, y - node_radius - 8),
+                    node_label,
+                    insert=(node_x, node_y - node_radius - 8),
                     font_size='11px',
                     fill='#212529',
                     text_anchor='middle',
@@ -774,7 +781,7 @@ class GrowthVisualizer:
                 label = elem_id if len(elem_id) <= 18 else elem_id[:15] + '...'
                 dwg.add(dwg.text(
                     label,
-                    insert=(x, y + node_radius + 16),
+                    insert=(node_x, node_y + node_radius + 16),
                     font_size='10px',
                     fill='#6c757d',
                     text_anchor='middle',
@@ -785,7 +792,7 @@ class GrowthVisualizer:
                 if score > 0:
                     dwg.add(dwg.text(
                         f'{score:.3f}',
-                        insert=(x, y + 4),
+                        insert=(node_x, node_y + 4),
                         font_size='9px',
                         fill='white',
                         text_anchor='middle',
@@ -944,8 +951,18 @@ class GrowthVisualizer:
             return
 
         filename = os.path.join(output_path, 'phase3_centrality.svg')
+
+        # Calcular espacio vertical por nivel
+        start_y = 120
+        level_height = 100
+        bottom_margin = 200  # Espacio para leyenda
+
+        # Calcular número de niveles
+        max_level = max(centrality_order.keys()) if centrality_order else 0
+
+        # Calcular dimensiones del canvas dinámicamente
         canvas_width = 1200
-        canvas_height = 900
+        canvas_height = start_y + (max_level + 1) * level_height + bottom_margin
 
         dwg = svgwrite.Drawing(filename, size=(canvas_width, canvas_height))
 
@@ -968,10 +985,6 @@ class GrowthVisualizer:
             font_size='14px',
             fill='#6c757d'
         ))
-
-        # Dibujar cada nivel con sus elementos ordenados
-        start_y = 120
-        level_height = 100
 
         for level in sorted(centrality_order.keys()):
             elements = centrality_order[level]
@@ -1007,6 +1020,7 @@ class GrowthVisualizer:
                 for idx, (elem_id, score) in enumerate(elements):
                     x = start_x + idx * spacing
                     node_id = structure_info.primary_node_ids.get(elem_id, "N/A")
+                    elem_level = structure_info.topological_levels.get(elem_id, level)
 
                     # Color según score
                     if score > 0.05:
@@ -1027,9 +1041,10 @@ class GrowthVisualizer:
                         stroke_width=2
                     ))
 
-                    # ID del nodo
+                    # ID del nodo con nivel
+                    node_label = f"{node_id} [L{elem_level}]"
                     dwg.add(dwg.text(
-                        node_id,
+                        node_label,
                         insert=(x, y - radius - 5),
                         font_size='10px',
                         fill='#212529',
@@ -1158,7 +1173,7 @@ class GrowthVisualizer:
 
         # Título
         dwg.add(dwg.text(
-            'LAF Phase 3: Abstract Layout',
+            'LAF Phase 4: Abstract Layout',
             insert=(20, 30),
             font_size='20px',
             font_weight='bold',
@@ -1247,7 +1262,7 @@ class GrowthVisualizer:
 
         # Título
         dwg.add(dwg.text(
-            'LAF Phase 4: Inflated Elements',
+            'LAF Phase 5: Inflated Elements',
             insert=(20, 30),
             font_size='20px',
             font_weight='bold',
@@ -1339,7 +1354,7 @@ class GrowthVisualizer:
 
         # Título
         dwg.add(dwg.text(
-            'LAF Phase 5: Container Growth',
+            'LAF Phase 6: Container Growth',
             insert=(20, 30),
             font_size='20px',
             font_weight='bold',
@@ -1435,7 +1450,7 @@ class GrowthVisualizer:
 
         # Título
         dwg.add(dwg.text(
-            'LAF Phase 6: Vertical Redistribution',
+            'LAF Phase 7: Vertical Redistribution',
             insert=(20, 30),
             font_size='20px',
             font_weight='bold',
@@ -1529,7 +1544,7 @@ class GrowthVisualizer:
 
         # Título
         dwg.add(dwg.text(
-            'LAF Phase 7: Routing',
+            'LAF Phase 8: Routing',
             insert=(20, 30),
             font_size='20px',
             font_weight='bold',
