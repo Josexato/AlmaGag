@@ -1211,14 +1211,14 @@ class GrowthVisualizer:
         min_y = min(y for x, y in primary_positions.values())
         max_y = max(y for x, y in primary_positions.values())
 
-        # Escalar al canvas
-        padding = 100
-        canvas_width = 1000
-        canvas_height = 800
+        # Escalar al canvas con más espacio horizontal
+        padding = 150
+        canvas_width = 1600  # Aumentado de 1000 a 1600
+        canvas_height = 1000  # Aumentado de 800 a 1000
 
         scale_x = (canvas_width - 2 * padding) / max(1, max_x - min_x)
         scale_y = (canvas_height - 2 * padding) / max(1, max_y - min_y)
-        scale = min(scale_x, scale_y, 50)  # Máximo 50px por unidad
+        scale = min(scale_x, scale_y, 120)  # Aumentado de 50 a 120px por unidad
 
         def to_canvas(ax, ay):
             cx = padding + (ax - min_x) * scale
@@ -1285,7 +1285,7 @@ class GrowthVisualizer:
                         opacity=0.6
                     ))
 
-        # Dibujar elementos primarios (puntos)
+        # Dibujar elementos primarios (puntos con información detallada)
         for elem_id, (ax, ay) in primary_positions.items():
             cx, cy = to_canvas(ax, ay)
 
@@ -1293,47 +1293,94 @@ class GrowthVisualizer:
             node = structure_info.element_tree.get(elem_id, {})
             is_container = bool(node.get('children', []))
 
-            # Color según tipo
+            # Obtener scores
+            accessibility_score = structure_info.accessibility_scores.get(elem_id, 0.0)
+
+            # Color según tipo y score
             if is_container:
                 fill_color = '#ffc107'  # Amarillo para contenedores
                 stroke_color = '#ff9800'
-                radius = 10
+                radius = 14
+            elif accessibility_score > 0.02:
+                fill_color = '#dc3545'  # Rojo para alta centralidad
+                stroke_color = '#b02a37'
+                radius = 12
+            elif accessibility_score > 0:
+                fill_color = '#fd7e14'  # Naranja para centralidad media
+                stroke_color = '#dc6a00'
+                radius = 11
             else:
                 fill_color = '#0d6efd'  # Azul para elementos simples
                 stroke_color = '#084298'
-                radius = 8
+                radius = 10
 
-            # Punto
+            # Punto (círculo más grande)
             dwg.add(dwg.circle(
                 center=(cx, cy),
                 r=radius,
                 fill=fill_color,
                 stroke=stroke_color,
-                stroke_width=2
+                stroke_width=2.5,
+                opacity=0.9
             ))
 
-            # Label: NdPrXXX en lugar de elem_id
+            # Obtener información del nodo
             node_id = structure_info.primary_node_ids.get(elem_id, elem_id)
+            elem_name = elem_id if len(elem_id) <= 15 else elem_id[:12] + '...'
+
+            # ARRIBA: NdPrXXX
             dwg.add(dwg.text(
                 node_id,
-                insert=(cx + radius + 5, cy + 5),
-                font_size='12px',
+                insert=(cx, cy - radius - 8),
+                font_size='11px',
                 fill='#212529',
                 font_family='monospace',
-                font_weight='bold'
+                font_weight='bold',
+                text_anchor='middle'
             ))
 
-            # Badge "TBG" para contenedores
+            # CENTRO: Badge "TBG" para contenedores o score para otros
             if is_container:
                 dwg.add(dwg.text(
                     'TBG',
-                    insert=(cx - 3, cy + 3),
+                    insert=(cx, cy + 4),
+                    font_size='9px',
+                    fill='white',
+                    text_anchor='middle',
+                    font_family='monospace',
+                    font_weight='bold'
+                ))
+            elif accessibility_score > 0:
+                dwg.add(dwg.text(
+                    f'{accessibility_score:.3f}',
+                    insert=(cx, cy + 4),
                     font_size='8px',
                     fill='white',
                     text_anchor='middle',
                     font_family='monospace',
                     font_weight='bold'
                 ))
+
+            # ABAJO: Nombre del elemento
+            dwg.add(dwg.text(
+                elem_name,
+                insert=(cx, cy + radius + 18),
+                font_size='10px',
+                fill='#495057',
+                font_family='monospace',
+                text_anchor='middle'
+            ))
+
+            # MÁS ABAJO: Posición abstracta (x, y)
+            dwg.add(dwg.text(
+                f'({ax:.1f}, {ay})',
+                insert=(cx, cy + radius + 30),
+                font_size='9px',
+                fill='#6c757d',
+                font_family='monospace',
+                text_anchor='middle',
+                font_style='italic'
+            ))
 
         # Badge
         dwg.add(dwg.text(
@@ -1342,6 +1389,67 @@ class GrowthVisualizer:
             font_size='14px',
             fill='#6c757d'
         ))
+
+        # Leyenda de información mostrada
+        legend_y = canvas_height - 120
+        dwg.add(dwg.text(
+            'Node Information:',
+            insert=(20, legend_y),
+            font_size='14px',
+            font_weight='bold',
+            fill='#212529'
+        ))
+
+        legend_items = [
+            ('Top: NdPrXXX (Primary Node ID)', '#212529'),
+            ('Center: Accessibility Score or TBG badge', '#495057'),
+            ('Below: Element Name', '#495057'),
+            ('Bottom: (x, y) Abstract Position', '#6c757d')
+        ]
+
+        for i, (label, color) in enumerate(legend_items):
+            y = legend_y + 20 + i * 18
+            dwg.add(dwg.text(
+                f'• {label}',
+                insert=(30, y),
+                font_size='11px',
+                fill=color,
+                font_family='sans-serif'
+            ))
+
+        # Leyenda de colores
+        color_legend_x = 400
+        dwg.add(dwg.text(
+            'Node Colors:',
+            insert=(color_legend_x, legend_y),
+            font_size='14px',
+            font_weight='bold',
+            fill='#212529'
+        ))
+
+        color_items = [
+            ('High centrality (>0.02)', '#dc3545'),
+            ('Medium centrality (>0)', '#fd7e14'),
+            ('Simple element', '#0d6efd'),
+            ('Container (TBG)', '#ffc107')
+        ]
+
+        for i, (label, color) in enumerate(color_items):
+            y = legend_y + 20 + i * 18
+            dwg.add(dwg.circle(
+                center=(color_legend_x + 10, y - 4),
+                r=5,
+                fill=color,
+                stroke='#212529',
+                stroke_width=1
+            ))
+            dwg.add(dwg.text(
+                label,
+                insert=(color_legend_x + 25, y),
+                font_size='11px',
+                fill='#495057',
+                font_family='sans-serif'
+            ))
 
         dwg.save()
 
