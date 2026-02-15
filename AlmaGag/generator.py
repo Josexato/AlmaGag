@@ -552,7 +552,7 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
 
     if not os.path.exists(json_file):
         print(f"[ERROR] Archivo no encontrado: {json_file}")
-        return
+        return False
 
     logger.debug(f"Leyendo archivo: {json_file}")
 
@@ -561,7 +561,7 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
             data = json.load(f)
     except Exception as e:
         print(f"[ERROR] Error al leer el JSON: {e}")
-        return
+        return False
 
     # Determinar ruta de salida
     if output_file:
@@ -1089,3 +1089,5 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     # Convertir automáticamente a PNG si se especifica la opción
     if exportpng:
         convert_svg_to_png(output_svg)
+
+    return True

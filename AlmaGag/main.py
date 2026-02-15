@@ -74,7 +74,7 @@ Ejemplos:
     )
 
     args = parser.parse_args()
-    generate_diagram(
+    ok = generate_diagram(
         args.input_file,
         debug=args.debug,
         visualdebug=args.visualdebug,
@@ -85,6 +85,8 @@ Ejemplos:
         layout_algorithm=args.layout_algorithm,
         visualize_growth=args.visualize_growth
     )
+    if not ok:
+        sys.exit(1)
 
 
 if __name__ == "__main__":
