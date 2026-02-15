@@ -51,3 +51,5 @@ tests/*.gag
 # OS
 .DS_Store
 Thumbs.db
+# Ignore all local debug workspace
+/debug/
