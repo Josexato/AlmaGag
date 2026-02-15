@@ -33,6 +33,8 @@ debug/outputs/*.svg
 !docs/diagrams/svgs/*.svg
 
 # Debug temporal files and logs
+debug/*
+!debug/*.py
 debug/*.csv
 debug/*.txt
 debug/iterations/
@@ -51,5 +53,3 @@ tests/*.gag
 # OS
 .DS_Store
 Thumbs.db
-# Ignore all local debug workspace
-/debug/
