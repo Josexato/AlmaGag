@@ -1,22 +1,29 @@
 """
 LAFOptimizer - Layout Abstracto Primero
 
-Coordinador del sistema LAF que ejecuta las 4 fases:
+Coordinador del sistema LAF que ejecuta las 10 fases:
 1. Análisis de estructura
-2. Layout abstracto (minimización de cruces)
-3. Inflación de elementos (dimensiones reales)
-4. Crecimiento de contenedores
+2. Análisis topológico
+3. Ordenamiento por centralidad
+4. Layout abstracto (minimización de cruces)
+5. Optimización de posiciones (Claude-SolFase5) - minimiza distancia de conectores
+6. Inflación de elementos (dimensiones reales)
+7. Crecimiento de contenedores
+8. Redistribución vertical
+9. Routing
+10. Generación de SVG
 
-Versión Sprint 4: Sistema LAF completo (Fases 1-4).
+Versión Sprint 5: Claude-SolFase5 - Optimización de posiciones de nodos primarios.
 
-Author: José + ALMA
-Version: v1.2 (Sprint 4)
-Date: 2026-01-17
+Author: José + ALMA + Claude (Claude-SolFase5)
+Version: v1.3 (Sprint 5)
+Date: 2026-02-15
 """
 
 from typing import List
 from AlmaGag.layout.laf.structure_analyzer import StructureAnalyzer
 from AlmaGag.layout.laf.abstract_placer import AbstractPlacer
+from AlmaGag.layout.laf.position_optimizer import PositionOptimizer
 from AlmaGag.layout.laf.inflator import ElementInflator
 from AlmaGag.layout.laf.container_grower import ContainerGrower
 from AlmaGag.layout.laf.visualizer import GrowthVisualizer
@@ -32,7 +39,9 @@ class LAFOptimizer:
     """
     Optimizador LAF (Layout Abstracto Primero).
 
-    Ejecuta layout en 4 fases para minimizar cruces de conectores.
+    Ejecuta layout en 10 fases para minimizar cruces y distancias de conectores.
+    Fase 5 (Claude-SolFase5): Optimiza posiciones de nodos primarios para
+    minimizar la distancia total de conectores, sin realizar inflación.
     """
 
     def __init__(
@@ -77,6 +86,7 @@ class LAFOptimizer:
         # Módulos LAF
         self.structure_analyzer = StructureAnalyzer(debug=debug)
         self.abstract_placer = AbstractPlacer(debug=debug)
+        self.position_optimizer = PositionOptimizer(debug=debug)
         self.inflator = ElementInflator(label_optimizer=label_optimizer, debug=debug, visualdebug=visualdebug)
         self.container_grower = ContainerGrower(sizing_calculator=self.sizing, debug=debug)
         self.visualizer = GrowthVisualizer(debug=debug) if visualize_growth else None
@@ -95,8 +105,8 @@ class LAFOptimizer:
         """
         Escribe posiciones abstractas temporalmente en los elementos.
 
-        Estas posiciones serán sobrescritas en Fase 3 con las posiciones reales.
-        Solo se hace para que aparezcan en el dump del CSV de Fase 2.
+        Estas posiciones serán sobrescritas en Fase 6 con las posiciones reales.
+        Solo se hace para que aparezcan en el dump del CSV de fases anteriores.
 
         Args:
             abstract_positions: {element_id: (abstract_x, abstract_y)}
@@ -105,11 +115,11 @@ class LAFOptimizer:
         for elem_id, (abstract_x, abstract_y) in abstract_positions.items():
             elem = layout.elements_by_id.get(elem_id)
             if elem:
-                # Escribir coordenadas abstractas (serán sobrescritas en Fase 3)
+                # Escribir coordenadas abstractas (serán sobrescritas en Fase 6)
                 elem['x'] = abstract_x
                 elem['y'] = abstract_y
 
-                # No asignar dimensiones aún (se hará en Fase 3)
+                # No asignar dimensiones aún (se hará en Fase 6)
 
     def _populate_layout_analysis(self, layout, structure_info):
         """
@@ -260,8 +270,8 @@ class LAFOptimizer:
         """
         Redistribuye elementos verticalmente después del crecimiento de contenedores.
 
-        Problema: En Fase 3 (Inflación), elementos se posicionan con spacing fijo.
-        En Fase 4 (Crecimiento), contenedores se expanden para envolver hijos.
+        Problema: En Fase 6 (Inflación), elementos se posicionan con spacing fijo.
+        En Fase 7 (Crecimiento), contenedores se expanden para envolver hijos.
         Solución: Recalcular posiciones Y respetando alturas reales de contenedores.
 
         Estrategia:
@@ -284,7 +294,7 @@ class LAFOptimizer:
         visualdebug = getattr(self.positioner, 'visualdebug', False) if self.positioner else False
         TOP_MARGIN = TOP_MARGIN_DEBUG if visualdebug else TOP_MARGIN_NORMAL
 
-        # Spacing entre niveles (mismo que en Fase 5 - Inflación)
+        # Spacing entre niveles (mismo que en Fase 6 - Inflación)
         spacing = LAF_SPACING_BASE  # 480px
         VERTICAL_SPACING = LAF_VERTICAL_SPACING  # 240px
 
@@ -569,9 +579,11 @@ class LAFOptimizer:
             layout: Layout inicial
 
         Returns:
-            Layout: Layout optimizado con Fases 1-4 aplicadas
+            Layout: Layout optimizado con Fases 1-10 aplicadas
 
-        Sprint 4: Sistema LAF completo (Análisis, Abstracto, Inflación, Crecimiento).
+        Sprint 5: Claude-SolFase5 - Optimización de posiciones de nodos primarios.
+        La Fase 5 optimiza posiciones para minimizar distancia de conectores.
+        La inflación se desplaza a Fase 6.
         """
         if self.debug:
             print("\n" + "="*60)
@@ -721,30 +733,68 @@ class LAFOptimizer:
         # Dump layout después de Fase 4
         self._dump_layout(layout, "LAF_PHASE_4_ABSTRACT")
 
-        # FASE 5: Inflación
+        # FASE 5: Optimización de posiciones (Claude-SolFase5)
+        # Calcula la mejor posición para cada nodo primario minimizando
+        # la distancia total de conectores. NO realiza inflación.
         if self.debug:
-            print("\n[LAF] FASE 5: Inflación de elementos")
+            print("\n[LAF] FASE 5: Optimización de posiciones (Claude-SolFase5)")
             print("-" * 60)
 
-        spacing = self.inflator.inflate_elements(abstract_positions, structure_info, layout)
+        optimized_positions = self.position_optimizer.optimize_positions(
+            abstract_positions, structure_info, layout
+        )
+
+        # Recalcular cruces con posiciones optimizadas
+        optimized_crossings = self.abstract_placer.count_crossings(
+            optimized_positions, layout.connections
+        )
+
+        # Actualizar posiciones abstractas en layout
+        self._write_abstract_positions_to_layout(optimized_positions, layout)
+
+        # Actualizar optimized_layer_order si el orden cambió
+        self._update_optimized_layer_order(optimized_positions, structure_info, layout)
 
         # Capturar snapshot Fase 5
         if self.visualizer:
-            self.visualizer.capture_phase5_inflated(layout, spacing)
+            self.visualizer.capture_phase5_optimized(
+                optimized_positions, optimized_crossings, layout, structure_info
+            )
+
+        if self.debug:
+            print(f"[LAF] [OK] Optimización de posiciones completada")
+            print(f"      - Posiciones optimizadas: {len(optimized_positions)}")
+            print(f"      - Cruces post-optimización: {optimized_crossings}")
+            if crossings != optimized_crossings:
+                print(f"      - Cambio en cruces: {crossings} -> {optimized_crossings}")
+
+        # Dump layout después de Fase 5
+        self._dump_layout(layout, "LAF_PHASE_5_OPTIMIZED")
+
+        # FASE 6: Inflación
+        if self.debug:
+            print("\n[LAF] FASE 6: Inflación de elementos")
+            print("-" * 60)
+
+        spacing = self.inflator.inflate_elements(optimized_positions, structure_info, layout)
+
+        # Capturar snapshot Fase 6
+        if self.visualizer:
+            self.visualizer.capture_phase6_inflated(layout, spacing)
 
         if self.debug:
             print(f"[LAF] [OK] Inflación completada")
             print(f"      - Spacing: {spacing:.1f}px")
-            print(f"      - Elementos posicionados: {len(abstract_positions)}")
+            print(f"      - Elementos posicionados: {len(optimized_positions)}")
             if layout.label_positions:
                 print(f"      - Etiquetas calculadas: {len(layout.label_positions)}")
 
-        # Dump layout después de Fase 5
-        self._dump_layout(layout, "LAF_PHASE_5_INFLATED")
+        # Dump layout después de Fase 6
+        self._dump_layout(layout, "LAF_PHASE_6_INFLATED")
 
-        # FASE 6: Crecimiento de contenedores
+        # FASE 7: Crecimiento de contenedores
         if self.debug:
-            print("\n[LAF] FASE 6: Crecimiento de contenedores")
+            print("\n[LAF] FASE 7: Crecimiento de contenedores")
             print("-" * 60)
 
         self.container_grower.grow_containers(structure_info, layout)
@@ -757,9 +807,9 @@ class LAFOptimizer:
         layout.canvas['width'] = canvas_width
         layout.canvas['height'] = canvas_height
 
-        # Capturar snapshot Fase 6
+        # Capturar snapshot Fase 7
         if self.visualizer:
-            self.visualizer.capture_phase6_containers(layout)
+            self.visualizer.capture_phase7_containers(layout)
 
         if self.debug:
             print(f"[LAF] [OK] Contenedores expandidos")
@@ -771,37 +821,37 @@ class LAFOptimizer:
                               f"({metrics['total_icons']} íconos)")
             print(f"      - Canvas final: {canvas_width:.0f}x{canvas_height:.0f}px")
 
-        # Dump layout después de Fase 6
-        self._dump_layout(layout, "LAF_PHASE_6_GROWN")
+        # Dump layout después de Fase 7
+        self._dump_layout(layout, "LAF_PHASE_7_GROWN")
 
-        # FASE 7: Redistribución vertical post-crecimiento
+        # FASE 8: Redistribución vertical post-crecimiento
         if self.debug:
-            print(f"\n[LAF] FASE 7: Redistribución vertical")
+            print(f"\n[LAF] FASE 8: Redistribución vertical")
             print("-" * 60)
 
         self._redistribute_vertical_after_growth(structure_info, layout)
 
-        # Capturar snapshot Fase 7
+        # Capturar snapshot Fase 8
         if self.visualizer:
-            self.visualizer.capture_phase7_redistributed(layout)
+            self.visualizer.capture_phase8_redistributed(layout)
 
         if self.debug:
             print(f"[LAF] [OK] Redistribución vertical completada")
 
-        # Dump layout después de Fase 7
-        self._dump_layout(layout, "LAF_PHASE_7_REDISTRIBUTED")
+        # Dump layout después de Fase 8
+        self._dump_layout(layout, "LAF_PHASE_8_REDISTRIBUTED")
 
-        # FASE 8: Re-calcular routing con contenedores expandidos
+        # FASE 9: Re-calcular routing con contenedores expandidos
         if self.router_manager:
             if self.debug:
-                print(f"\n[LAF] FASE 8: Routing")
+                print(f"\n[LAF] FASE 9: Routing")
                 print("-" * 60)
 
             self.router_manager.calculate_all_paths(layout)
 
-            # Capturar snapshot Fase 8
+            # Capturar snapshot Fase 9
             if self.visualizer:
-                self.visualizer.capture_phase8_routed(layout)
+                self.visualizer.capture_phase9_routed(layout)
 
             if self.debug:
                 print(f"[LAF] [OK] Routing final calculado")
@@ -826,16 +876,16 @@ class LAFOptimizer:
             collision_count, _ = self.collision_detector.detect_all_collisions(layout)
             print(f"\n[LAF] Colisiones finales detectadas: {collision_count}")
 
-        # FASE 9: Generar visualizaciones si está activado
+        # FASE 10: Generar visualizaciones si está activado
         if self.visualizer:
             if self.debug:
-                print(f"\n[LAF] FASE 9: Generación de SVG")
+                print(f"\n[LAF] FASE 10: Generación de SVG")
                 print("-" * 60)
 
-            # Capturar snapshot Fase 9 (final) ANTES de generar para incluirlo
-            self.visualizer.capture_phase9_final(layout)
+            # Capturar snapshot Fase 10 (final) ANTES de generar para incluirlo
+            self.visualizer.capture_phase10_final(layout)
 
-            # Generar todos los SVGs (incluido phase9)
+            # Generar todos los SVGs (incluido phase10)
             self.visualizer.generate_all()
 
             if self.debug:
@@ -845,22 +895,54 @@ class LAFOptimizer:
 
         if self.debug:
             print("\n" + "="*60)
-            if self.visualize_growth:
-                print("[LAF] Sistema LAF completo (Fases 1-9)")
-            else:
-                print("[LAF] Sistema LAF completo (Fases 1-9)")
+            print("[LAF] Sistema LAF completo (Fases 1-10)")
             print("[LAF]   - Fase 1: Análisis de estructura")
             print("[LAF]   - Fase 2: Análisis topológico")
             print("[LAF]   - Fase 3: Ordenamiento por centralidad")
             print("[LAF]   - Fase 4: Layout abstracto")
-            print("[LAF]   - Fase 5: Inflación de elementos")
-            print("[LAF]   - Fase 6: Crecimiento de contenedores")
-            print("[LAF]   - Fase 7: Redistribución vertical")
-            print("[LAF]   - Fase 8: Routing")
-            print("[LAF]   - Fase 9: Generación de SVG")
+            print("[LAF]   - Fase 5: Optimización de posiciones (Claude-SolFase5)")
+            print("[LAF]   - Fase 6: Inflación de elementos")
+            print("[LAF]   - Fase 7: Crecimiento de contenedores")
+            print("[LAF]   - Fase 8: Redistribución vertical")
+            print("[LAF]   - Fase 9: Routing")
+            print("[LAF]   - Fase 10: Generación de SVG")
             print("="*60 + "\n")
 
         return layout
+
+    def _update_optimized_layer_order(self, optimized_positions, structure_info, layout):
+        """
+        Actualiza optimized_layer_order según las posiciones optimizadas por Claude-SolFase5.
+
+        Después de la optimización de posiciones, el orden dentro de cada capa
+        puede haber cambiado. Este método actualiza layout.optimized_layer_order
+        para reflejar el nuevo orden, que será usado en Fase 8 (Redistribución).
+
+        Args:
+            optimized_positions: {elem_id: (x, y)} posiciones optimizadas
+            structure_info: Información estructural
+            layout: Layout con optimized_layer_order
+        """
+        if not hasattr(layout, 'optimized_layer_order') or not layout.optimized_layer_order:
+            return
+
+        # Reconstruir optimized_layer_order con el nuevo orden X
+        new_order = []
+        for layer in layout.optimized_layer_order:
+            # Filtrar elementos que estén en las posiciones optimizadas
+            layer_with_pos = [
+                (elem_id, optimized_positions.get(elem_id, (0, 0))[0])
+                for elem_id in layer
+                if elem_id in optimized_positions
+            ]
+            # Ordenar por posición X optimizada
+            layer_with_pos.sort(key=lambda x: x[1])
+            new_order.append([elem_id for elem_id, _ in layer_with_pos])
+
+        layout.optimized_layer_order = new_order
+
+        if self.debug:
+            print(f"[LAF] optimized_layer_order actualizado con orden de Claude-SolFase5")
 
     def _order_by_centrality(self, structure_info):
         """

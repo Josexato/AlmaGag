@@ -55,14 +55,14 @@ class ElementInflator:
         Returns:
             float: Spacing calculado (para debug/logging)
         """
-        # Fase 3.1: Calcular spacing proporcional
+        # Fase 6.1: Calcular spacing proporcional
         spacing = self.calculate_spacing(structure_info)
 
         if self.debug:
             print(f"[INFLATOR] Spacing calculado: {spacing:.1f}px")
             print(f"           Formula: MAX(20*{ICON_WIDTH}, 3*max_contained*{ICON_WIDTH})")
 
-        # Fase 3.2: Asignar posiciones reales
+        # Fase 6.2: Asignar posiciones reales
         self._assign_real_positions(
             abstract_positions,
             spacing,
@@ -72,7 +72,7 @@ class ElementInflator:
         if self.debug:
             print(f"[INFLATOR] Posiciones reales asignadas: {len(abstract_positions)} elementos")
 
-        # Fase 3.3: Calcular posiciones de etiquetas
+        # Fase 6.3: Calcular posiciones de etiquetas
         if self.label_optimizer:
             self._calculate_label_positions(layout)
 
@@ -156,18 +156,18 @@ class ElementInflator:
                 # Asignar dimensiones reales si aún no las tiene
                 if 'width' not in elem or 'height' not in elem:
                     # Elementos normales: ICON_WIDTH x ICON_HEIGHT
-                    # Contenedores: Mantener 1x1 hasta Fase 4
+                    # Contenedores: Mantener 1x1 hasta Fase 7
                     if 'contains' not in elem:
                         elem['width'] = ICON_WIDTH
                         elem['height'] = ICON_HEIGHT
-                    # else: Contenedores se expanden en Fase 4
+                    # else: Contenedores se expanden en Fase 7
 
     def _calculate_label_positions(self, layout) -> None:
         """
         Calcula posiciones iniciales de etiquetas para contenedores.
 
         IMPORTANTE: NO calcular para elementos primarios, ya que sus posiciones
-        se ajustarán durante el centrado horizontal en Fase 4.5 y el
+        se ajustarán durante el centrado horizontal en Fase 8.5 y el
         LabelPositionOptimizer las calculará correctamente después.
 
         Args:
@@ -178,7 +178,7 @@ class ElementInflator:
 
         # Solo calcular posiciones para CONTENEDORES
         # Los elementos primarios serán calculados por LabelPositionOptimizer
-        # después del centrado horizontal (Fase 4.5)
+        # después del centrado horizontal (Fase 8.5)
         for elem in layout.elements:
             if not elem.get('label'):
                 continue

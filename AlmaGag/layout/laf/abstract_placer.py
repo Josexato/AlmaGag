@@ -104,13 +104,13 @@ class AbstractPlacer:
         # Step 2: Ordering (ordenar dentro de capas)
         self._order_within_layers(layers, structure_info, layout)
 
-        # CRÍTICO: Guardar COPIA PROFUNDA del orden optimizado para usarlo en Fase 6 (Redistribución)
+        # CRÍTICO: Guardar COPIA PROFUNDA del orden optimizado para usarlo en Fase 8 (Redistribución)
         # Esto preserva el orden de barycenter bidireccional + hub positioning
         layout.optimized_layer_order = [layer.copy() for layer in layers]
 
         if self.debug:
             print(f"\n[ABSTRACT] Ordering completado")
-            print(f"           Orden final guardado para Fase 6 (Redistribución):")
+            print(f"           Orden final guardado para Fase 8 (Redistribución):")
             for idx, layer in enumerate(layout.optimized_layer_order):
                 if len(layer) > 1:
                     print(f"             Capa {idx}: {' -> '.join(layer)}")

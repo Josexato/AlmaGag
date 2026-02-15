@@ -1,5 +1,5 @@
 """
-ContainerGrower - Fase 4 de LAF (Crecimiento de Contenedores)
+ContainerGrower - Fase 7 de LAF (Crecimiento de Contenedores)
 
 Expande contenedores a sus dimensiones finales basándose en elementos
 contenidos, siguiendo un enfoque bottom-up.
@@ -695,7 +695,7 @@ class ContainerGrower:
 
         IMPORTANTE: Debe considerar TODOS los elementos (primarios y contenidos)
         ya que los elementos contenidos tienen coordenadas globales después
-        de la conversión local->global en la Fase 4.
+        de la conversión local->global en la Fase 7.
 
         Args:
             structure_info: Información estructural
