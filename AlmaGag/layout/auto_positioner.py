@@ -28,7 +28,8 @@ from AlmaGag.config import (
     CANVAS_MARGIN_XLARGE, CANVAS_MARGIN_LARGE, CANVAS_MARGIN_SMALL,
     GRID_SPACING_SMALL, GRID_SPACING_LARGE,
     RADIUS_NORMAL_MAX, RADIUS_LOW_MAX,
-    TOP_MARGIN_DEBUG, TOP_MARGIN_NORMAL
+    TOP_MARGIN_DEBUG, TOP_MARGIN_NORMAL,
+    LAF_VERTICAL_SPACING
 )
 
 logger = logging.getLogger('AlmaGag.AutoPositioner')
@@ -113,20 +114,27 @@ class AutoLayoutPositioner:
         missing_x = [e for e in primary_elements if 'x' not in e and 'y' in e]
         missing_y = [e for e in primary_elements if 'x' in e and 'y' not in e]
 
-        # Calcular niveles topológicos SOLO para elementos primarios
+        # Resolver conexiones a primarios (contained → container padre)
+        primary_ids = {e['id'] for e in primary_elements}
         if missing_both and layout.connections:
+            resolved_connections = self.graph_analyzer.resolve_connections_to_primary(
+                layout.elements, primary_ids, layout.connections
+            )
+            # Store resolved connections for use in hierarchical layout
+            layout._resolved_primary_connections = resolved_connections
+
             topological_levels = self.graph_analyzer.calculate_topological_levels(
-                primary_elements,  # Solo primarios
-                layout.connections
+                primary_elements,
+                resolved_connections
             )
             layout.topological_levels = topological_levels
 
-            # LOG: Mostrar niveles topológicos
-            logger.debug(f"\n[NIVELES TOPOLOGICOS]")
+            logger.debug(f"\n[NIVELES TOPOLOGICOS] ({len(resolved_connections)} edges resueltas)")
             for elem_id, level in topological_levels.items():
                 logger.debug(f"  {elem_id}: nivel {level}")
         else:
             layout.topological_levels = {}
+            layout._resolved_primary_connections = []
 
         # ============================================
         # FASE 3: DISTRIBUCIÓN ESPACIAL GLOBAL
@@ -152,86 +160,95 @@ class AutoLayoutPositioner:
 
     def recalculate_positions_with_expanded_containers(self, layout: Layout) -> Layout:
         """
-        Redistribuye elementos primarios DESPUÉS de que los contenedores se hayan expandido.
+        Ajusta elementos primarios DESPUÉS de que los contenedores se hayan expandido.
 
-        Este método se invoca en la Fase 7 (después de recalcular contenedores con etiquetas)
-        para reposicionar elementos que ahora pueden colisionar con contenedores expandidos.
+        IMPORTANTE: NO borra posiciones del layout jerárquico. Solo desplaza
+        elementos libres que colisionan con contenedores expandidos.
 
         Estrategia:
-        1. Identificar elementos primarios que NO son contenedores
-           - Contenedores YA están posicionados y dimensionados → NO mover
-           - Solo redistribuir elementos "libres" (ej: nube en red-edificios.gag)
-
-        2. Resetear coordenadas de elementos libres
-
-        3. Redistribuir usando layout jerárquico o híbrido
-
-        4. Propagar coordenadas a elementos contenidos
+        1. Identificar contenedores y elementos libres
+        2. Para cada elemento libre, verificar si colisiona con algún contenedor
+        3. Si colisiona, desplazarlo hacia abajo hasta quedar libre
 
         Args:
             layout: Layout con contenedores YA expandidos y dimensionados
 
         Returns:
-            Layout: Mismo layout (modificado in-place) con elementos redistribuidos
+            Layout: Mismo layout (modificado in-place) con ajustes mínimos
         """
-        logger.debug("\n[REDISTRIBUCION POST-EXPANSION DE CONTENEDORES]")
+        logger.debug("\n[AJUSTE POST-EXPANSION DE CONTENEDORES]")
 
-        # 1. Identificar elementos primarios (no contenidos)
         primary_elements = self._get_primary_elements(layout)
-
-        # 2. Separar contenedores de elementos libres
         containers = [e for e in primary_elements if 'contains' in e]
         free_elements = [e for e in primary_elements if 'contains' not in e]
 
-        logger.debug(f"  Contenedores (mantener posiciones): {len(containers)}")
-        logger.debug(f"  Elementos libres (redistribuir): {len(free_elements)}")
+        logger.debug(f"  Contenedores: {len(containers)}")
+        logger.debug(f"  Elementos libres: {len(free_elements)}")
 
-        # IMPORTANTE: Solo redistribuir si HAY contenedores que se expandieron
-        # Si no hay contenedores, los elementos ya están bien posicionados
-        if not containers:
-            logger.debug("  Sin contenedores → No redistribuir (elementos ya posicionados)")
+        if not containers or not free_elements:
+            logger.debug("  Nada que ajustar")
             return layout
 
-        if not free_elements:
-            logger.debug("  Sin elementos libres para redistribuir")
+        # Build list of container bounding boxes
+        container_bboxes = []
+        for c in containers:
+            if 'x' in c and 'y' in c:
+                cx = c['x']
+                cy = c['y']
+                cw = c.get('width', ICON_WIDTH)
+                ch = c.get('height', ICON_HEIGHT)
+                container_bboxes.append((cx, cy, cx + cw, cy + ch, c['id']))
+
+        if not container_bboxes:
             return layout
 
-        # 3. Resetear coordenadas de elementos libres
+        MARGIN = SPACING_SMALL  # 40px margin around containers
+
+        # For each free element, check overlap with containers and shift if needed
+        adjustments = 0
         for elem in free_elements:
-            if 'x' in elem:
-                del elem['x']
-            if 'y' in elem:
-                del elem['y']
-            logger.debug(f"    Resetear: {elem['id']}")
+            if 'x' not in elem or 'y' not in elem:
+                continue
 
-        # 4. Redistribuir elementos libres EVITANDO contenedores
-        # ESTRATEGIA: Usar niveles topológicos PERO con spacing ajustado para contenedores
-        logger.debug(f"  Redistribuyendo elementos libres (evitando contenedores)")
-        self._redistribute_free_elements_with_containers(layout, free_elements, containers)
+            ex = elem['x']
+            ey = elem['y']
+            ew, eh = self.sizing.get_element_size(elem)
 
-        # 5. NO propagar coordenadas aquí - ya fueron propagadas en el optimizer
-        #    Los elementos contenidos NO se mueven durante la redistribución (solo elementos libres)
-        #    Propagar aquí sobrescribiría las coordenadas centradas con valores incorrectos
+            for (cx1, cy1, cx2, cy2, cid) in container_bboxes:
+                # Check overlap (with margin)
+                if (ex < cx2 + MARGIN and ex + ew > cx1 - MARGIN and
+                        ey < cy2 + MARGIN and ey + eh > cy1 - MARGIN):
+                    # Shift element below the container
+                    old_y = elem['y']
+                    elem['y'] = cy2 + MARGIN
+                    adjustments += 1
+                    logger.debug(f"    {elem['id']}: Y {old_y:.1f} → {elem['y']:.1f} (evitar {cid})")
+                    # Re-check with updated position
+                    ey = elem['y']
 
-        logger.debug("[FIN REDISTRIBUCION]\n")
+        logger.debug(f"  Ajustes realizados: {adjustments}")
+        logger.debug("[FIN AJUSTE]\n")
+
+        # Mark that hierarchical layout positions are authoritative
+        layout._hierarchical_layout_applied = True
 
         return layout
 
     def _calculate_hierarchical_layout(self, layout: Layout, elements: List[dict]):
         """
-        Auto-layout jerárquico basado en topología del grafo (v3.1).
+        Auto-layout jerárquico basado en topología del grafo (v4.0).
 
         Algoritmo:
         1. Agrupar elementos por nivel topológico
-        2. Calcular posición Y para cada nivel considerando alto real del nivel anterior
-        3. Distribuir elementos de cada nivel horizontalmente
-        4. Centrar cada nivel respecto al canvas
+        2. Barycenter ordering (minimizar cruces)
+        3. Optimizar posiciones abstractas (minimizar distancia de conectores)
+        4. Calcular escala X global, asignar Y por nivel, centrar globalmente
 
         Args:
             layout: Layout con topological_levels calculados
             elements: Elementos sin coordenadas a posicionar
         """
-        # Agrupar por nivel topológico
+        # 1. Agrupar por nivel topológico (element dicts, not IDs)
         by_level = {}
         for elem in elements:
             level = layout.topological_levels.get(elem['id'], 0)
@@ -239,64 +256,337 @@ class AutoLayoutPositioner:
                 by_level[level] = []
             by_level[level].append(elem)
 
-        # Calcular número de niveles
-        num_levels = len(by_level)
-        if num_levels == 0:
+        if not by_level:
             return
 
-        # Configuración de spacing
-        VERTICAL_SPACING = SPACING_LARGE  # Espacio entre niveles (1.25x ICON_WIDTH)
-        HORIZONTAL_SPACING = SPACING_XLARGE  # Espacio entre elementos del mismo nivel (1.5x ICON_WIDTH)
-        # TOP_MARGIN - área de debug badge si visualdebug activo
-        TOP_MARGIN = TOP_MARGIN_DEBUG if self.visualdebug else TOP_MARGIN_NORMAL
+        # Build directed graphs for barycenter (use resolved connections)
+        resolved_conns = getattr(layout, '_resolved_primary_connections', None) or layout.connections
+        elem_ids = {e['id'] for e in elements}
+        outgoing = {e['id']: [] for e in elements}
+        incoming = {e['id']: [] for e in elements}
+        for conn in resolved_conns:
+            f, t = conn['from'], conn['to']
+            if f in elem_ids and t in elem_ids:
+                outgoing[f].append(t)
+                incoming[t].append(f)
 
-        # Calcular centro horizontal del canvas
-        center_x = layout.canvas['width'] / 2
+        # Centrality scores (use resolved connections)
+        centrality = self.graph_analyzer.calculate_centrality_scores(
+            elements, resolved_conns, layout.topological_levels
+        )
 
-        # Rastrear posición Y actual (dónde termina el nivel anterior)
-        current_y = TOP_MARGIN
+        # 2. Barycenter ordering (reorder elements within each level)
+        self._reorder_by_barycenter(by_level, outgoing, incoming, centrality)
 
-        # Posicionar cada nivel
+        # 3. Assign abstract positions (index within level)
+        abstract_positions = {}
         for level_num in sorted(by_level.keys()):
-            level_elements = by_level[level_num]
-            num_elements = len(level_elements)
+            for idx, elem in enumerate(by_level[level_num]):
+                abstract_positions[elem['id']] = (float(idx), float(level_num))
 
-            # Calcular altura máxima de los elementos en este nivel
-            max_height = 0
-            for elem in level_elements:
-                elem_height = elem.get('height', ICON_HEIGHT)
-                max_height = max(max_height, elem_height)
+        # 4. Optimize abstract positions (layer-offset bisection)
+        abstract_positions = self._optimize_abstract_positions(
+            abstract_positions, by_level, outgoing, incoming
+        )
 
-            # Posición Y para este nivel (donde termina el nivel anterior + spacing)
-            y_position = current_y
+        # 5. Compute real coordinates with global X scale
+        TOP_MARGIN = TOP_MARGIN_DEBUG if self.visualdebug else TOP_MARGIN_NORMAL
+        VERTICAL_SPACING = LAF_VERTICAL_SPACING  # 240px (same as LAF)
+        MIN_GAP = SPACING_SMALL  # 40px minimum gap between elements
+        LEFT_MARGIN = CANVAS_MARGIN_LARGE  # 100px
 
-            logger.debug(f"\n[NIVEL {level_num}] Y={y_position:.1f}, Elementos={num_elements}, Max_height={max_height:.1f}")
+        # Get real widths
+        widths = {}
+        for elem in elements:
+            w, h = self.sizing.get_element_size(elem)
+            widths[elem['id']] = w
 
-            # Obtener anchos reales de todos los elementos del nivel
-            widths = []
-            for elem in level_elements:
-                width, height = self.sizing.get_element_size(elem)
-                widths.append(width)
+        # Compute global X scale
+        global_x_scale = SPACING_XLARGE  # 120px minimum
+        for level_num in sorted(by_level.keys()):
+            level_elems = by_level[level_num]
+            if len(level_elems) < 2:
+                continue
+            items = sorted(
+                [(abstract_positions[e['id']][0], widths[e['id']], e['id']) for e in level_elems],
+                key=lambda t: t[0]
+            )
+            for i in range(len(items) - 1):
+                gap = items[i + 1][0] - items[i][0]
+                if gap <= 0:
+                    continue
+                required = items[i][1] + MIN_GAP
+                global_x_scale = max(global_x_scale, required / gap)
 
-            # Calcular ancho total: suma de anchos reales + spacing entre elementos
-            spacing_between = SPACING_SMALL  # Espacio entre elementos (0.5x ICON_WIDTH)
-            total_width = sum(widths) + (num_elements - 1) * spacing_between
+        # Normalize abstract X to start at 0
+        all_abs_x = [abstract_positions[e['id']][0] for e in elements]
+        abs_x_shift = -min(all_abs_x) if all_abs_x else 0
 
-            # Calcular X inicial para centrar el nivel
-            start_x = center_x - (total_width / 2)
+        # Assign Y positions per level
+        current_y = TOP_MARGIN
+        level_y = {}
+        for level_num in sorted(by_level.keys()):
+            level_y[level_num] = current_y
+            max_h = max((e.get('height', ICON_HEIGHT) for e in by_level[level_num]), default=ICON_HEIGHT)
+            current_y += max_h + VERTICAL_SPACING
 
-            # Posicionar elementos horizontalmente considerando anchos reales
-            current_x = start_x
-            for i, elem in enumerate(level_elements):
-                elem['x'] = current_x
-                elem['y'] = y_position
-                logger.debug(f"  {elem['id']}: ({elem['x']:.1f}, {elem['y']:.1f}) width={widths[i]:.1f}")
-                # Avanzar X para el siguiente elemento
-                current_x += widths[i] + spacing_between
+        # Assign real X, Y
+        for elem in elements:
+            eid = elem['id']
+            ax = abstract_positions[eid][0]
+            level_num = layout.topological_levels.get(eid, 0)
+            elem['x'] = (ax + abs_x_shift) * global_x_scale + LEFT_MARGIN
+            elem['y'] = level_y.get(level_num, TOP_MARGIN)
 
-            # Actualizar current_y para el siguiente nivel
-            # current_y = donde termina este nivel + spacing
-            current_y = y_position + max_height + VERTICAL_SPACING
+        # Global centering: shift so x_min = LEFT_MARGIN
+        x_min = min(e.get('x', 0) for e in elements) if elements else 0
+        correction = LEFT_MARGIN - x_min
+        if abs(correction) > 0.5:
+            for elem in elements:
+                elem['x'] += correction
+
+        # Mark hierarchical layout as applied (prevents overwriting by redistribution)
+        layout._hierarchical_layout_applied = True
+
+    def _reorder_by_barycenter(
+        self,
+        by_level: Dict[int, List[dict]],
+        outgoing: Dict[str, List[str]],
+        incoming: Dict[str, List[str]],
+        centrality: Dict[str, float]
+    ) -> None:
+        """
+        Reorder elements within each level using barycenter heuristic
+        to minimize edge crossings. Modifies by_level in-place.
+
+        2 iterations of forward + backward passes with centrality blending.
+        """
+        sorted_levels = sorted(by_level.keys())
+        if len(sorted_levels) < 2:
+            return
+
+        # Track positions (index within level)
+        positions = {}
+        for level_num in sorted_levels:
+            for idx, elem in enumerate(by_level[level_num]):
+                positions[elem['id']] = idx
+
+        for _iteration in range(2):
+            # Forward pass (top to bottom)
+            for i in range(1, len(sorted_levels)):
+                level_num = sorted_levels[i]
+                prev_level_num = sorted_levels[i - 1]
+                prev_ids = {e['id'] for e in by_level[prev_level_num]}
+                level_elems = by_level[level_num]
+
+                if len(level_elems) < 2:
+                    continue
+
+                center = (len(level_elems) - 1) / 2.0
+                barycenters = {}
+                for elem in level_elems:
+                    eid = elem['id']
+                    # Parents in previous level
+                    parents = [p for p in incoming.get(eid, []) if p in prev_ids]
+                    if parents:
+                        bc_conn = sum(positions[p] for p in parents) / len(parents)
+                    else:
+                        bc_conn = center
+
+                    # Blend with centrality
+                    score = centrality.get(eid, 0.0)
+                    alpha = min(0.6, score * 3.5) if score > 0 else 0.0
+                    barycenters[eid] = (1.0 - alpha) * bc_conn + alpha * center
+
+                level_elems.sort(key=lambda e: barycenters[e['id']])
+                for idx, elem in enumerate(level_elems):
+                    positions[elem['id']] = idx
+
+            # Backward pass (bottom to top)
+            for i in range(len(sorted_levels) - 2, -1, -1):
+                level_num = sorted_levels[i]
+                next_level_num = sorted_levels[i + 1]
+                next_ids = {e['id'] for e in by_level[next_level_num]}
+                level_elems = by_level[level_num]
+
+                if len(level_elems) < 2:
+                    continue
+
+                center = (len(level_elems) - 1) / 2.0
+                barycenters = {}
+                for elem in level_elems:
+                    eid = elem['id']
+                    # Children in next level
+                    children = [c for c in outgoing.get(eid, []) if c in next_ids]
+                    if children:
+                        bc_conn = sum(positions[c] for c in children) / len(children)
+                    else:
+                        bc_conn = center
+
+                    score = centrality.get(eid, 0.0)
+                    alpha = min(0.6, score * 3.5) if score > 0 else 0.0
+                    barycenters[eid] = (1.0 - alpha) * bc_conn + alpha * center
+
+                level_elems.sort(key=lambda e: barycenters[e['id']])
+                for idx, elem in enumerate(level_elems):
+                    positions[elem['id']] = idx
+
+    def _optimize_abstract_positions(
+        self,
+        positions: Dict[str, tuple],
+        by_level: Dict[int, List[dict]],
+        outgoing: Dict[str, List[str]],
+        incoming: Dict[str, List[str]],
+        max_iterations: int = 10,
+        convergence_threshold: float = 0.001
+    ) -> Dict[str, tuple]:
+        """
+        Optimize abstract X positions using layer-offset bisection to minimize
+        total connector distance. Preserves intra-layer order from barycenter.
+        """
+        # Build adjacency with weights (count of edges between pair)
+        elem_ids = set(positions.keys())
+        edge_counts: Dict[tuple, int] = {}
+        for eid in elem_ids:
+            for child in outgoing.get(eid, []):
+                if child in elem_ids:
+                    key = tuple(sorted([eid, child]))
+                    edge_counts[key] = edge_counts.get(key, 0) + 1
+
+        adjacency: Dict[str, list] = {eid: [] for eid in elem_ids}
+        for (a, b), weight in edge_counts.items():
+            adjacency[a].append((b, weight))
+            adjacency[b].append((a, weight))
+
+        # Organize by layer
+        layers: Dict[int, List[str]] = {}
+        for level_num in sorted(by_level.keys()):
+            layers[level_num] = [e['id'] for e in by_level[level_num]]
+
+        # Layer offsets
+        base_positions = dict(positions)
+        layer_offsets = {level: 0.0 for level in layers}
+
+        def apply_offsets():
+            result = dict(base_positions)
+            for level, nodes in layers.items():
+                off = layer_offsets.get(level, 0.0)
+                for nid in nodes:
+                    x, y = result[nid]
+                    result[nid] = (x + off, y)
+            return result
+
+        def total_distance(pos):
+            total = 0.0
+            for eid in elem_ids:
+                for neighbor, weight in adjacency.get(eid, []):
+                    if eid < neighbor:
+                        dx = pos[eid][0] - pos[neighbor][0]
+                        dy = pos[eid][1] - pos[neighbor][1]
+                        total += weight * math.sqrt(dx * dx + dy * dy)
+            return total
+
+        optimized = apply_offsets()
+        prev_dist = total_distance(optimized)
+
+        for _iteration in range(max_iterations):
+            moved = False
+
+            # Forward pass
+            for level in sorted(layers.keys()):
+                if self._optimize_layer_offset(level, layers, base_positions, optimized, adjacency, layer_offsets):
+                    moved = True
+                    optimized = apply_offsets()
+
+            # Backward pass
+            for level in sorted(layers.keys(), reverse=True):
+                if self._optimize_layer_offset(level, layers, base_positions, optimized, adjacency, layer_offsets):
+                    moved = True
+                    optimized = apply_offsets()
+
+            new_dist = total_distance(optimized)
+            if (prev_dist - new_dist) < convergence_threshold or not moved:
+                break
+            prev_dist = new_dist
+
+        return optimized
+
+    def _optimize_layer_offset(
+        self,
+        level: int,
+        layers: Dict[int, List[str]],
+        base_positions: Dict[str, tuple],
+        current_positions: Dict[str, tuple],
+        adjacency: Dict[str, list],
+        layer_offsets: Dict[int, float]
+    ) -> bool:
+        """
+        Optimize the X offset of a layer using bisection on the derivative
+        of total distance (convex function).
+        """
+        layer_nodes = layers.get(level, [])
+        if not layer_nodes:
+            return False
+
+        # Collect derivative terms (only cross-layer edges)
+        layer_set = set(layer_nodes)
+        terms = []  # (a, dy, weight)
+        for nid in layer_nodes:
+            if nid not in base_positions:
+                continue
+            bx, y1 = base_positions[nid]
+            for neighbor, weight in adjacency.get(nid, []):
+                if neighbor in layer_set:
+                    continue
+                if neighbor not in current_positions:
+                    continue
+                x_other, y2 = current_positions[neighbor]
+                terms.append((bx - x_other, y1 - y2, float(weight)))
+
+        if not terms:
+            return False
+
+        current_offset = layer_offsets.get(level, 0.0)
+
+        def derivative(offset):
+            d = 0.0
+            for a, dy, w in terms:
+                dx = a + offset
+                denom = math.sqrt(dx * dx + dy * dy)
+                if denom == 0:
+                    continue
+                d += w * (dx / denom)
+            return d
+
+        # Find bracket
+        low = current_offset - 20.0
+        high = current_offset + 20.0
+        for _ in range(8):
+            if derivative(low) <= 0:
+                break
+            low -= (high - low)
+        for _ in range(8):
+            if derivative(high) >= 0:
+                break
+            high += (high - low)
+
+        if derivative(low) > 0 or derivative(high) < 0:
+            return False
+
+        # Bisection
+        for _ in range(48):
+            mid = (low + high) / 2.0
+            if derivative(mid) < 0:
+                low = mid
+            else:
+                high = mid
+
+        optimal = (low + high) / 2.0
+        if abs(optimal - current_offset) <= 0.001:
+            return False
+
+        layer_offsets[level] = optimal
+        return True
 
     def _calculate_hybrid_layout(self, layout: Layout, elements: List[dict]):
         """

@@ -163,12 +163,9 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         self.container_calculator.update_container_dimensions(current)
         self._log("Dimensiones de contenedores calculadas")
 
-        # 0.6. Auto-routing de conexiones (SDJF v2.1)
-        #      Calcula paths para todas las conexiones después de posicionar elementos
-        #      IMPORTANTE: Asignar sizing al layout para que routers puedan obtener tamaños correctos
+        # 0.6. Auto-routing de conexiones (necesario antes de calcular label positions)
         current.sizing = self.sizing
         self.router_manager.calculate_all_paths(current)
-        self._log("Routing de conexiones calculado")
 
         # 1. Análisis de grafo (re-analizar después de auto-layout y contenedores)
         self.analyze(current)
@@ -212,26 +209,12 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         self.positioner.recalculate_positions_with_expanded_containers(current)
         self._log("Elementos primarios redistribuidos con contenedores expandidos")
 
-        # 2.6. CRÍTICO: Recalcular routing DESPUÉS de redistribuir elementos
-        #      Los elementos reposicionados requieren nuevas rutas
+        # 2.6. Calcular canvas desde bounds de todos los elementos posicionados
+        self._calculate_canvas_from_bounds(current)
+
+        # 2.7. Routing único: calcular paths con canvas y posiciones finales
         self.router_manager.calculate_all_paths(current)
-        self._log("Routing recalculado después de redistribuir elementos")
-
-        # 2.7. NUEVO: Verificar si canvas es suficiente y expandir si es necesario
-        #      Esto debe hacerse DESPUÉS de calcular contenedores finales
-        #      para que el canvas acomode todo desde el inicio
-        recommended_canvas = current.get_recommended_canvas()
-        if (recommended_canvas['width'] > current.canvas['width'] or
-            recommended_canvas['height'] > current.canvas['height']):
-            old_canvas = current.canvas.copy()
-            current.canvas = recommended_canvas
-            self._log(f"Canvas expandido automaticamente: "
-                      f"{old_canvas['width']}x{old_canvas['height']} -> "
-                      f"{recommended_canvas['width']}x{recommended_canvas['height']}")
-
-            # Recalcular routing con el nuevo canvas
-            self.router_manager.calculate_all_paths(current)
-            self._log("Routing recalculado con canvas expandido")
+        self._log("Routing calculado")
 
         # 3. Evaluación inicial
         initial_collisions = self.evaluate(current)
@@ -287,6 +270,8 @@ class AutoLayoutOptimizer(LayoutOptimizer):
             if improved:
                 strategy_type = "label_relocation"
                 strategy_desc = "Reubicación de etiquetas a posiciones alternativas"
+                # Only invalidate collision cache - no need for full recalculation
+                candidate.invalidate_collision_cache()
             else:
                 # Estrategia B: Mover elementos (con pesos SDJF v2.0)
                 collision_pairs = candidate._collision_pairs or []
@@ -329,13 +314,13 @@ class AutoLayoutOptimizer(LayoutOptimizer):
                     strategy_type = "canvas_expansion"
                     strategy_desc = f"Expandir canvas de {old_canvas['width']}x{old_canvas['height']} a {candidate.canvas['width']}x{candidate.canvas['height']}"
 
-                    # Recalcular estructuras después de expandir
+                    # Only re-route (positions unchanged) and invalidate cache
                     candidate.invalidate_collision_cache()
-                    self._recalculate_structures(candidate)
-                    # Resetear moved_elements para permitir mover elementos nuevamente
-                    moved_elements = []
+                    candidate.sizing = self.sizing
+                    self.router_manager.calculate_all_paths(candidate)
+                    # Do NOT reset moved_elements - keep tracking to avoid re-moving
                     if self.verbose:
-                        self._log(f"  Canvas expandido, reseteando elementos movidos")
+                        self._log(f"  Canvas expandido")
 
             # Evaluar candidato
             collisions = self.evaluate(candidate)
@@ -877,6 +862,33 @@ class AutoLayoutOptimizer(LayoutOptimizer):
 
         # Propagar coordenadas locales actualizadas (centrado)
         self.positioner._propagate_coordinates_to_contained(layout)
+
+    def _calculate_canvas_from_bounds(self, layout: Layout) -> None:
+        """
+        Calculate canvas size from actual bounds of all positioned elements.
+        Replaces incremental canvas expansion with a single calculation.
+        """
+        x_max = 0.0
+        y_max = 0.0
+
+        for elem in layout.elements:
+            if 'x' not in elem or 'y' not in elem:
+                continue
+            ex = elem['x'] + elem.get('width', ICON_WIDTH)
+            ey = elem['y'] + elem.get('height', ICON_HEIGHT)
+            # Account for labels below elements
+            ey += ICON_HEIGHT  # Approximate label space
+            x_max = max(x_max, ex)
+            y_max = max(y_max, ey)
+
+        needed_width = int(x_max + CANVAS_MARGIN_LARGE)
+        needed_height = int(y_max + CANVAS_MARGIN_LARGE)
+
+        if needed_width > layout.canvas['width'] or needed_height > layout.canvas['height']:
+            old_w, old_h = layout.canvas['width'], layout.canvas['height']
+            layout.canvas['width'] = max(layout.canvas['width'], needed_width)
+            layout.canvas['height'] = max(layout.canvas['height'], needed_height)
+            self._log(f"Canvas ajustado: {old_w}x{old_h} -> {layout.canvas['width']}x{layout.canvas['height']}")
 
     def _ensure_canvas_fits(
         self,

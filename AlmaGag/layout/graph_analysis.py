@@ -57,10 +57,9 @@ class GraphAnalyzer:
         """
         Calcula niveles basándose en la topología del grafo (jerarquía).
 
-        Usa las direcciones de las conexiones para determinar niveles:
-        - Elementos sin incoming edges → nivel 0 (raíces)
-        - Elementos que reciben de nivel N → nivel N+1
-        - Usa BFS desde las raíces
+        Usa longest-path BFS: cada nodo se asigna al máximo nivel alcanzable
+        desde cualquier raíz. Incluye correcciones para hojas y fixpoint
+        para nodos no-hoja.
 
         Args:
             elements: Lista de elementos del diagrama (pueden ser elementos primarios)
@@ -69,51 +68,171 @@ class GraphAnalyzer:
         Returns:
             Dict[str, int]: {element_id: level_number}
         """
-        # NO filtrar contenedores - los elementos ya vienen filtrados como "primarios"
-        # desde auto_positioner (contenedores resueltos + elementos libres)
+        elem_ids = {e['id'] for e in elements}
 
-        # Construir grafo direccional (quién apunta a quién)
+        # Construir grafo direccional
         outgoing = {e['id']: [] for e in elements}
         incoming = {e['id']: [] for e in elements}
 
         for conn in connections:
             from_id = conn['from']
             to_id = conn['to']
-            if from_id in outgoing and to_id in incoming:
+            if from_id in elem_ids and to_id in elem_ids:
                 outgoing[from_id].append(to_id)
                 incoming[to_id].append(from_id)
 
-        # Encontrar raíces (elementos sin incoming edges)
-        roots = [e_id for e_id in incoming if len(incoming[e_id]) == 0]
+        # Encontrar raíces (sin incoming edges)
+        roots = [e_id for e_id in elem_ids if len(incoming[e_id]) == 0]
 
-        # Si no hay raíces (ciclo o grafo vacío), usar elementos con más outgoing
         if not roots:
             roots = [max(outgoing, key=lambda k: len(outgoing[k]))] if outgoing else []
 
-        # BFS para asignar niveles
-        levels = {}
-        queue = [(root, 0) for root in roots]
-        visited = set()
+        # Longest-path assignment: propagate levels iteratively
+        # This handles cycles safely by capping at N iterations (Bellman-Ford style)
+        levels = {e_id: 0 for e_id in elem_ids}
+        for root in roots:
+            levels[root] = 0
 
-        while queue:
-            node, level = queue.pop(0)
-            if node in visited:
+        n = len(elem_ids)
+        for _round in range(n):
+            changed = False
+            for parent in elem_ids:
+                for child in outgoing.get(parent, []):
+                    if child == parent:
+                        continue  # skip self-loops
+                    new_level = levels[parent] + 1
+                    if new_level > levels[child]:
+                        levels[child] = new_level
+                        changed = True
+            if not changed:
+                break
+
+        # Leaf correction: leaves align to dominant parent's level
+        for e_id in elem_ids:
+            if outgoing.get(e_id):
+                continue  # not a leaf
+            parents = incoming.get(e_id, [])
+            if not parents:
                 continue
+            # Check if terminal leaf (all siblings of parent are also leaves)
+            is_terminal = True
+            for parent in parents:
+                for sibling in outgoing.get(parent, []):
+                    if sibling != e_id and outgoing.get(sibling):
+                        is_terminal = False
+                        break
+                if not is_terminal:
+                    break
 
-            visited.add(node)
-            levels[node] = level
-
-            # Agregar hijos al siguiente nivel
-            for child in outgoing.get(node, []):
-                if child not in visited:
-                    queue.append((child, level + 1))
-
-        # Asignar nivel 0 a elementos no visitados (desconectados)
-        for elem in elements:
-            if elem['id'] not in levels:
-                levels[elem['id']] = 0
+            max_parent = max(levels[p] for p in parents)
+            if is_terminal:
+                levels[e_id] = max_parent + 1
+            else:
+                levels[e_id] = max_parent
 
         return levels
+
+    def calculate_centrality_scores(
+        self,
+        elements: List[dict],
+        connections: List[dict],
+        levels: Dict[str, int]
+    ) -> Dict[str, float]:
+        """
+        Calcula scores de centralidad basados en grado de conexiones.
+
+        Nodos con más conexiones reciben scores más altos y se posicionan
+        al centro de su nivel durante el barycenter ordering.
+
+        Args:
+            elements: Lista de elementos
+            connections: Lista de conexiones
+            levels: Niveles topológicos calculados
+
+        Returns:
+            Dict[str, float]: {element_id: centrality_score}
+        """
+        elem_ids = {e['id'] for e in elements}
+
+        # Count directed edges
+        outdegree = {e_id: 0 for e_id in elem_ids}
+        indegree = {e_id: 0 for e_id in elem_ids}
+
+        for conn in connections:
+            from_id = conn['from']
+            to_id = conn['to']
+            if from_id in elem_ids and to_id in elem_ids:
+                outdegree[from_id] += 1
+                indegree[to_id] += 1
+
+        scores = {}
+        for e_id in elem_ids:
+            w_hijos = max(0, outdegree[e_id] - 1) * 0.10
+            w_fanin = max(0, indegree[e_id] - 1) * 0.15
+            scores[e_id] = w_hijos + w_fanin
+
+        return scores
+
+    def resolve_connections_to_primary(
+        self,
+        all_elements: List[dict],
+        primary_ids: set,
+        connections: List[dict]
+    ) -> List[dict]:
+        """
+        Resolve connections so both endpoints map to primary elements.
+
+        When a connection endpoint is a contained element, it gets resolved
+        to its primary parent container. Self-loops and duplicates are removed.
+
+        Args:
+            all_elements: All elements (including contained)
+            primary_ids: Set of primary element IDs
+            connections: Original connections list
+
+        Returns:
+            List of resolved connection dicts with 'from', 'to', and 'weight'
+        """
+        # Build child -> parent container map
+        child_to_parent = {}
+        for elem in all_elements:
+            if 'contains' not in elem:
+                continue
+            container_id = elem['id']
+            for ref in elem.get('contains', []):
+                child_id = ref['id'] if isinstance(ref, dict) else ref
+                child_to_parent[child_id] = container_id
+
+        def resolve(elem_id):
+            """Walk up containment tree until we find a primary element."""
+            visited = set()
+            current = elem_id
+            while current not in primary_ids and current in child_to_parent:
+                if current in visited:
+                    break  # cycle protection
+                visited.add(current)
+                current = child_to_parent[current]
+            return current if current in primary_ids else None
+
+        # Resolve all connections
+        edge_counts = {}
+        for conn in connections:
+            from_primary = resolve(conn['from'])
+            to_primary = resolve(conn['to'])
+
+            if from_primary is None or to_primary is None:
+                continue
+            if from_primary == to_primary:
+                continue  # self-loop after resolution
+
+            key = (from_primary, to_primary)
+            edge_counts[key] = edge_counts.get(key, 0) + 1
+
+        resolved = []
+        for (f, t), weight in edge_counts.items():
+            resolved.append({'from': f, 'to': t, 'weight': weight})
+
+        return resolved
 
     def calculate_levels(self, elements: List[dict]) -> Dict[str, int]:
         """
