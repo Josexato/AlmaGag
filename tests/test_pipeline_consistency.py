@@ -13,6 +13,8 @@ import sys
 import re
 from pathlib import Path
 
+import pytest
+
 # Agregar AlmaGag al path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -24,8 +26,7 @@ def test_no_duplicate_container_labels():
     test_file = "examples/05-arquitectura-gag.gag"
 
     if not os.path.exists(test_file):
-        print(f"[SKIP] {test_file} no encontrado")
-        return True
+        pytest.skip(f"{test_file} no encontrado")
 
     # Generar SVG
     generate_diagram(test_file, debug=False)
@@ -43,20 +44,12 @@ def test_no_duplicate_container_labels():
         'Draw Module'
     ]
 
-    passed = True
     for label in container_labels:
         # Buscar patrón >{label}< (texto dentro de tags SVG)
         pattern = f'>{re.escape(label)}<'
         matches = re.findall(pattern, content)
         count = len(matches)
-
-        if count != 1:
-            print(f"[FAIL] '{label}' aparece {count} veces (esperado: 1)")
-            passed = False
-        else:
-            print(f"[PASS] '{label}' aparece 1 vez")
-
-    return passed
+        assert count == 1, f"'{label}' aparece {count} veces (esperado: 1)"
 
 
 def test_container_labels_inside_header():
@@ -64,8 +57,7 @@ def test_container_labels_inside_header():
     test_file = "examples/05-arquitectura-gag.gag"
 
     if not os.path.exists(test_file):
-        print(f"[SKIP] {test_file} no encontrado")
-        return True
+        pytest.skip(f"{test_file} no encontrado")
 
     # Generar SVG
     generate_diagram(test_file, debug=False)
@@ -76,18 +68,12 @@ def test_container_labels_inside_header():
         content = f.read()
 
     # Extraer rectángulos de contenedores y sus labels
-    # Buscar: <rect fill="url(#gradient-XXX_container)" ... y="YYY" />
-    # Y luego: <text ...>LABEL</text>
-
-    # Patrón para contenedores
     container_pattern = r'<rect fill="url\(#gradient-(\w+)_container\)" height="([\d.]+)".*?y="([\d.]+)"'
     containers = re.findall(container_pattern, content)
 
     # Patrón para texto (simplificado)
     text_pattern = r'<text[^>]*insert="\(([\d.]+),\s*([\d.]+)\)"[^>]*>(.*?)</text>'
     texts = re.findall(text_pattern, content)
-
-    passed = True
 
     # Verificar que labels de contenedores conocidos están dentro de sus bounds
     expected_labels = {
@@ -100,25 +86,18 @@ def test_container_labels_inside_header():
     for container_id, height, y_str in containers:
         container_y = float(y_str)
 
-        # Buscar label correspondiente
         label_key = container_id.replace('_container', '')
         if label_key in expected_labels:
             expected_label = expected_labels[label_key]
 
-            # Buscar este label en los textos
             for x_str, y_str, text_content in texts:
                 if expected_label in text_content:
                     label_y = float(y_str)
-
-                    # Verificar que label_y >= container_y
-                    if label_y >= container_y:
-                        print(f"[PASS] '{expected_label}' está dentro del header (label_y={label_y:.1f} >= container_y={container_y:.1f})")
-                    else:
-                        print(f"[FAIL] '{expected_label}' está FUERA del header (label_y={label_y:.1f} < container_y={container_y:.1f})")
-                        passed = False
+                    assert label_y >= container_y, (
+                        f"'{expected_label}' está FUERA del header "
+                        f"(label_y={label_y:.1f} < container_y={container_y:.1f})"
+                    )
                     break
-
-    return passed
 
 
 def main():
