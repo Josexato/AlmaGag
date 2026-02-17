@@ -136,7 +136,7 @@
     {
       "id": "render",
       "type": "server",
-      "label": "Renderizado SVG\n(3 fases secuenciales)"
+      "label": "Renderizado SVG\n(6 fases secuenciales)"
     },
     {
       "id": "draw_module-stage",
@@ -147,22 +147,22 @@
     {
       "id": "icons",
       "type": "building",
-      "label": "icons.py\nFase 1: Shapes\n4 tipos + BWT"
+      "label": "icons.py\nFases 1-1.5: Shapes\n4 tipos + BWT"
     },
     {
       "id": "connections",
       "type": "building",
-      "label": "connections.py\nFase 2: Lines\nRouting types"
+      "label": "connections.py\nFase 2: Lines + Paths\nRouting types"
     },
     {
       "id": "labels",
       "type": "building",
-      "label": "labels\nFase 3: Text\ndraw_*_label()"
+      "label": "labels\nFase 2.5-3: Text\nOptimización + Render"
     },
     {
       "id": "containers",
       "type": "building",
-      "label": "container.py\nAgrupación visual\n(v1.5)"
+      "label": "container.py\nFase 0: Fondo\nAgrupación visual"
     },
     {
       "id": "output",
@@ -347,26 +347,26 @@
     },
     {
       "from": "render",
+      "to": "containers",
+      "label": "fase 0: fondo",
+      "direction": "forward"
+    },
+    {
+      "from": "render",
       "to": "icons",
-      "label": "fase 1",
+      "label": "fase 1-1.5: shapes",
       "direction": "forward"
     },
     {
       "from": "render",
       "to": "connections",
-      "label": "fase 2",
+      "label": "fase 2: líneas",
       "direction": "forward"
     },
     {
       "from": "render",
       "to": "labels",
-      "label": "fase 3",
-      "direction": "forward"
-    },
-    {
-      "from": "render",
-      "to": "containers",
-      "label": "si usa contains",
+      "label": "fase 2.5-3: texto",
       "direction": "forward"
     },
     {
