@@ -53,7 +53,11 @@ class LAFOptimizer:
         label_optimizer=None,
         geometry=None,
         visualize_growth: bool = False,
-        debug: bool = False
+        debug: bool = False,
+        centrality_alpha: float = 0.15,
+        centrality_beta: float = 0.10,
+        centrality_gamma: float = 0.15,
+        centrality_max_score: float = 100.0,
     ):
         """
         Inicializa el optimizador LAF.
@@ -67,6 +71,10 @@ class LAFOptimizer:
             geometry: GeometryCalculator
             visualize_growth: Si True, genera SVGs de cada fase
             debug: Si True, imprime logs de debug
+            centrality_alpha: Peso por distancia en skip connections (Fase 3)
+            centrality_beta: Peso por hijo extra / hub-ness (Fase 3)
+            centrality_gamma: Peso por fan-in extra (Fase 3, 0=desactivado)
+            centrality_max_score: Clamp máximo del score de accesibilidad (Fase 3)
         """
         self.positioner = positioner
         self.container_calculator = container_calculator
@@ -84,7 +92,10 @@ class LAFOptimizer:
         self.sizing = SizingCalculator()
 
         # Módulos LAF
-        self.structure_analyzer = StructureAnalyzer(debug=debug)
+        self.structure_analyzer = StructureAnalyzer(debug=debug, centrality_alpha=centrality_alpha,
+                                                    centrality_beta=centrality_beta,
+                                                    centrality_gamma=centrality_gamma,
+                                                    centrality_max_score=centrality_max_score)
         self.abstract_placer = AbstractPlacer(debug=debug)
         self.position_optimizer = PositionOptimizer(debug=debug)
         self.inflator = ElementInflator(label_optimizer=label_optimizer, debug=debug, visualdebug=visualdebug)
@@ -92,8 +103,8 @@ class LAFOptimizer:
         self.visualizer = GrowthVisualizer(debug=debug) if visualize_growth else None
 
     def _dump_layout(self, layout, phase_name):
-        """Helper para hacer dump del layout en cada fase (solo en modo debug)."""
-        if self.debug:
+        """Helper para hacer dump del layout en cada fase (solo con --dump-iterations)."""
+        if getattr(layout, '_dump_iterations', False):
             try:
                 from AlmaGag.generator import dump_layout_table
                 containers = [e for e in layout.elements if 'contains' in e]
@@ -268,61 +279,49 @@ class LAFOptimizer:
 
     def _redistribute_vertical_after_growth(self, structure_info, layout):
         """
-        Redistribuye elementos verticalmente después del crecimiento de contenedores.
+        Redistribuye elementos después del crecimiento de contenedores,
+        preservando los ángulos de conectores de Fase 5.
 
-        Problema: En Fase 6 (Inflación), elementos se posicionan con spacing fijo.
-        En Fase 7 (Crecimiento), contenedores se expanden para envolver hijos.
-        Solución: Recalcular posiciones Y respetando alturas reales de contenedores.
-
-        Estrategia:
-        1. Agrupar elementos primarios por nivel topológico
-        2. Calcular posición Y para cada nivel:
-           - Nivel 0: TOP_MARGIN
-           - Nivel N: max(y_final del nivel anterior) + SPACING
-        3. y_final = max(elem.y + elem.height) para todos los elementos del nivel
+        Estrategia: Escala X global única
+        - En vez de centrar cada nivel independientemente, calcula un único
+          factor de escala X global que acomode el nivel más ancho.
+        - dx entre elementos conectados es proporcional a su diferencia
+          abstract_x de Fase 5 por un factor constante.
+        - Solo dy varía (inevitable: containers altos necesitan más espacio).
+        - El diagrama se centra una sola vez globalmente, no por nivel.
 
         Args:
             structure_info: Información estructural con topological_levels
             layout: Layout con elementos ya posicionados y contenedores expandidos
         """
         from AlmaGag.config import (
-            TOP_MARGIN_DEBUG, TOP_MARGIN_NORMAL, ICON_HEIGHT,
-            LAF_SPACING_BASE, LAF_VERTICAL_SPACING
+            TOP_MARGIN_DEBUG, TOP_MARGIN_NORMAL, ICON_HEIGHT, ICON_WIDTH,
+            LAF_SPACING_BASE, LAF_VERTICAL_SPACING, CANVAS_MARGIN_LARGE,
+            SPACING_SMALL
         )
 
         # Obtener visualdebug del positioner si está disponible
         visualdebug = getattr(self.positioner, 'visualdebug', False) if self.positioner else False
         TOP_MARGIN = TOP_MARGIN_DEBUG if visualdebug else TOP_MARGIN_NORMAL
 
-        # Spacing entre niveles (mismo que en Fase 6 - Inflación)
-        spacing = LAF_SPACING_BASE  # 480px
         VERTICAL_SPACING = LAF_VERTICAL_SPACING  # 240px
+        MIN_HORIZONTAL_GAP = SPACING_SMALL  # 40px
+        LEFT_MARGIN = CANVAS_MARGIN_LARGE  # 100px
 
-        # Agrupar elementos primarios por nivel topológico
-        # CRÍTICO: Usar el orden optimizado guardado por abstract_placer en Fase 2
-        # Esto preserva el barycenter bidireccional + hub positioning
+        # --- Paso 1: Construir by_level ---
         by_level = {}
 
         if hasattr(layout, 'optimized_layer_order') and layout.optimized_layer_order:
-            # Usar orden optimizado de Fase 2
-            # IMPORTANTE: Los layers están indexados 0,1,2... pero los niveles topológicos
-            # pueden ser 0,1,2,3,4... Necesitamos mapear usando el primer elemento de cada capa
             for layer_idx, layer_elements in enumerate(layout.optimized_layer_order):
                 if not layer_elements:
                     continue
-
-                # Obtener nivel topológico del primer elemento de la capa
                 first_elem_id = layer_elements[0]
                 actual_level = structure_info.topological_levels.get(first_elem_id, layer_idx)
-
                 by_level[actual_level] = layer_elements.copy()
 
             if self.debug:
-                print(f"[REDISTRIBUTE] Usando orden optimizado de Fase 2")
-                for level in sorted(by_level.keys()):
-                    print(f"                Nivel {level}: {' -> '.join(by_level[level])}")
+                print(f"[REDISTRIBUTE] Orden Fase 2: {len(by_level)} niveles")
         else:
-            # Fallback: agrupar por nivel sin orden específico
             for elem_id in structure_info.primary_elements:
                 level = structure_info.topological_levels.get(elem_id, 0)
                 if level not in by_level:
@@ -332,66 +331,221 @@ class LAFOptimizer:
             if self.debug:
                 print(f"[REDISTRIBUTE] ADVERTENCIA: No se encontró orden optimizado, usando orden por defecto")
 
-        if self.debug:
-            print(f"[REDISTRIBUTE] Redistribuyendo {len(structure_info.primary_elements)} elementos primarios")
-            print(f"               Niveles topológicos: {len(by_level)}")
+        # --- Check if we have Phase 5 positions ---
+        phase5 = getattr(layout, '_phase5_positions', None)
+        if not phase5:
+            # Fallback: use old per-level centering approach
+            self._redistribute_vertical_fallback(structure_info, layout, by_level, TOP_MARGIN, VERTICAL_SPACING)
+            return
 
-        # Rastrear posición Y actual (dónde comienza el próximo nivel)
-        current_y = TOP_MARGIN
+        # --- Paso 2: Calcular escala X global ---
+        global_x_scale = LAF_SPACING_BASE  # 480px minimum
 
-        # Recorrer niveles en orden topológico
         for level_num in sorted(by_level.keys()):
             level_elements = by_level[level_num]
+            if len(level_elements) < 2:
+                continue
 
-            if self.debug:
-                print(f"\n[REDISTRIBUTE] Nivel {level_num}: {len(level_elements)} elementos")
-                print(f"               Y inicial: {current_y:.1f}")
+            # Collect (abstract_x, real_width) for each element, sorted by abstract_x
+            items = []
+            for elem_id in level_elements:
+                abs_x = phase5.get(elem_id, (0, 0))[0]
+                elem = layout.elements_by_id.get(elem_id)
+                width = elem.get('width', ICON_WIDTH) if elem else ICON_WIDTH
+                items.append((abs_x, width, elem_id))
 
-            # Calcular altura máxima del nivel
+            items.sort(key=lambda t: t[0])
+
+            # For each adjacent pair, compute required scale
+            for i in range(len(items) - 1):
+                abs_x_i = items[i][0]
+                abs_x_next = items[i + 1][0]
+                abstract_gap = abs_x_next - abs_x_i
+
+                if abstract_gap <= 0:
+                    continue  # Same position, skip
+
+                width_i = items[i][1]
+                required_gap = width_i + MIN_HORIZONTAL_GAP
+                required_scale = required_gap / abstract_gap
+                global_x_scale = max(global_x_scale, required_scale)
+
+        if self.debug:
+            print(f"[REDISTRIBUTE] Global X scale: {global_x_scale:.1f}px/unit")
+
+        # --- Paso 3: Asignar Y secuencialmente ---
+        current_y = TOP_MARGIN
+        level_y_positions = {}
+
+        for level_num in sorted(by_level.keys()):
+            level_elements = by_level[level_num]
+            level_y_positions[level_num] = current_y
+
+            # Compute max height for this level
             max_height = 0
             for elem_id in level_elements:
                 elem = layout.elements_by_id.get(elem_id)
                 if not elem:
                     continue
-
-                # Obtener altura real (contenedores tienen height, íconos usan ICON_HEIGHT)
                 elem_height = elem.get('height', ICON_HEIGHT)
                 max_height = max(max_height, elem_height)
 
-            # Posicionar elementos del nivel en current_y
+            current_y += max_height + VERTICAL_SPACING
+
+        # --- Paso 4: Asignar X con escala global ---
+        # Normalize abstract_x so minimum is 0
+        all_abs_x = [phase5.get(eid, (0, 0))[0]
+                     for level_elems in by_level.values()
+                     for eid in level_elems
+                     if eid in phase5]
+        abs_x_shift = -min(all_abs_x) if all_abs_x else 0
+
+        for level_num in sorted(by_level.keys()):
+            level_elements = by_level[level_num]
+            new_y = level_y_positions[level_num]
+
             for elem_id in level_elements:
                 elem = layout.elements_by_id.get(elem_id)
                 if not elem:
                     continue
 
-                # Guardar posición anterior para debug
+                abs_x = phase5.get(elem_id, (0, 0))[0]
+                new_x = (abs_x + abs_x_shift) * global_x_scale + LEFT_MARGIN
+
+                old_x = elem.get('x', 0)
                 old_y = elem.get('y', 0)
+                dx = new_x - old_x
+                dy = new_y - old_y
 
-                # Calcular desplazamiento vertical
-                dy = current_y - old_y
+                elem['x'] = new_x
+                elem['y'] = new_y
 
-                # Asignar nueva posición Y
-                elem['y'] = current_y
-
-                if self.debug:
-                    elem_height = elem.get('height', ICON_HEIGHT)
-                    print(f"               {elem_id}: Y {old_y:.1f} -> {current_y:.1f} (h={elem_height:.1f})")
-
-                # Actualizar etiqueta también
+                # Update label
                 if elem_id in layout.label_positions:
                     label_x, label_y, anchor, baseline = layout.label_positions[elem_id]
-                    # Calcular offset de la etiqueta respecto al elemento
-                    label_offset_y = label_y - old_y
-                    # Aplicar mismo offset con la nueva posición
-                    new_label_y = current_y + label_offset_y
                     layout.label_positions[elem_id] = (
-                        label_x,
-                        new_label_y,
+                        label_x + dx,
+                        label_y + dy,
                         anchor,
                         baseline
                     )
 
-                # Si es un contenedor, actualizar posiciones de elementos contenidos
+                # If container, update contained children
+                if 'contains' in elem:
+                    node = structure_info.element_tree.get(elem_id)
+                    if node and node['children']:
+                        for child_id in node['children']:
+                            child = layout.elements_by_id.get(child_id)
+                            if child:
+                                if 'x' in child:
+                                    child['x'] += dx
+                                if 'y' in child:
+                                    child['y'] += dy
+
+                                if child_id in layout.label_positions:
+                                    cx, cy, ca, cb = layout.label_positions[child_id]
+                                    layout.label_positions[child_id] = (
+                                        cx + dx,
+                                        cy + dy,
+                                        ca,
+                                        cb
+                                    )
+
+        # --- Paso 5: Centrado global único ---
+        # Find x_min across ALL elements (primary only, children follow)
+        x_min = float('inf')
+        x_max = float('-inf')
+        for level_elems in by_level.values():
+            for elem_id in level_elems:
+                elem = layout.elements_by_id.get(elem_id)
+                if not elem:
+                    continue
+                ex = elem.get('x', 0)
+                ew = elem.get('width', ICON_WIDTH)
+                x_min = min(x_min, ex)
+                x_max = max(x_max, ex + ew)
+
+        if x_min != float('inf'):
+            correction_dx = LEFT_MARGIN - x_min
+            if abs(correction_dx) > 0.5:  # Only apply if meaningful
+                self._apply_global_dx(correction_dx, by_level, layout, structure_info)
+
+        if self.debug:
+            print(f"[REDISTRIBUTE] OK: {len(by_level)} niveles, altura={current_y:.0f}px")
+
+        # --- Paso 6: Recalcular canvas ---
+        canvas_width, canvas_height = self.container_grower.calculate_final_canvas(
+            structure_info,
+            layout
+        )
+        layout.canvas['width'] = canvas_width
+        layout.canvas['height'] = canvas_height
+
+        if self.debug:
+            print(f"[REDISTRIBUTE] Canvas final: {canvas_width:.0f}x{canvas_height:.0f}px")
+
+    def _apply_global_dx(self, dx, by_level, layout, structure_info):
+        """Apply a uniform horizontal shift to ALL elements."""
+        from AlmaGag.config import ICON_WIDTH
+
+        for level_elems in by_level.values():
+            for elem_id in level_elems:
+                elem = layout.elements_by_id.get(elem_id)
+                if not elem:
+                    continue
+
+                elem['x'] = elem.get('x', 0) + dx
+
+                if elem_id in layout.label_positions:
+                    lx, ly, la, lb = layout.label_positions[elem_id]
+                    layout.label_positions[elem_id] = (lx + dx, ly, la, lb)
+
+                if 'contains' in elem:
+                    node = structure_info.element_tree.get(elem_id)
+                    if node and node['children']:
+                        for child_id in node['children']:
+                            child = layout.elements_by_id.get(child_id)
+                            if child and 'x' in child:
+                                child['x'] += dx
+                                if child_id in layout.label_positions:
+                                    cx, cy, ca, cb = layout.label_positions[child_id]
+                                    layout.label_positions[child_id] = (cx + dx, cy, ca, cb)
+
+    def _redistribute_vertical_fallback(self, structure_info, layout, by_level, top_margin, vertical_spacing):
+        """
+        Fallback redistribution when Phase 5 positions are not available.
+        Uses the old per-level centering approach.
+        """
+        from AlmaGag.config import ICON_HEIGHT, LAF_SPACING_BASE
+
+        current_y = top_margin
+
+        for level_num in sorted(by_level.keys()):
+            level_elements = by_level[level_num]
+
+            max_height = 0
+            for elem_id in level_elements:
+                elem = layout.elements_by_id.get(elem_id)
+                if not elem:
+                    continue
+                elem_height = elem.get('height', ICON_HEIGHT)
+                max_height = max(max_height, elem_height)
+
+            for elem_id in level_elements:
+                elem = layout.elements_by_id.get(elem_id)
+                if not elem:
+                    continue
+
+                old_y = elem.get('y', 0)
+                dy = current_y - old_y
+                elem['y'] = current_y
+
+                if elem_id in layout.label_positions:
+                    label_x, label_y, anchor, baseline = layout.label_positions[elem_id]
+                    label_offset_y = label_y - old_y
+                    new_label_y = current_y + label_offset_y
+                    layout.label_positions[elem_id] = (label_x, new_label_y, anchor, baseline)
+
                 if 'contains' in elem:
                     node = structure_info.element_tree.get(elem_id)
                     if node and node['children']:
@@ -399,62 +553,24 @@ class LAFOptimizer:
                             child = layout.elements_by_id.get(child_id)
                             if child and 'y' in child:
                                 child['y'] += dy
-                                if self.debug:
-                                    print(f"                 |-- {child_id}: Y += {dy:.1f}")
-
-                                # Actualizar etiqueta del hijo también
                                 if child_id in layout.label_positions:
-                                    child_label_x, child_label_y, child_anchor, child_baseline = layout.label_positions[child_id]
-                                    layout.label_positions[child_id] = (
-                                        child_label_x,
-                                        child_label_y + dy,
-                                        child_anchor,
-                                        child_baseline
-                                    )
+                                    clx, cly, ca, cb = layout.label_positions[child_id]
+                                    layout.label_positions[child_id] = (clx, cly + dy, ca, cb)
 
-            # Actualizar current_y para el siguiente nivel
-            # current_y = donde termina este nivel + spacing
-            current_y += max_height + VERTICAL_SPACING
+            current_y += max_height + vertical_spacing
 
-            if self.debug:
-                print(f"               Y final del nivel: {current_y - VERTICAL_SPACING:.1f}")
-                print(f"               Próximo nivel comenzará en: {current_y:.1f}")
-
-        if self.debug:
-            print(f"\n[REDISTRIBUTE] Redistribución completada")
-            print(f"               Altura total utilizada: {current_y:.1f}")
-
-        # Recalcular dimensiones finales del canvas después de redistribución
-        canvas_width, canvas_height = self.container_grower.calculate_final_canvas(
-            structure_info,
-            layout
-        )
+        # Recalculate canvas and center per-level
+        canvas_width, canvas_height = self.container_grower.calculate_final_canvas(structure_info, layout)
         layout.canvas['width'] = canvas_width
         layout.canvas['height'] = canvas_height
 
-        if self.debug:
-            print(f"               Canvas recalculado: {canvas_width:.0f}x{canvas_height:.0f}px")
-
-        # IMPORTANTE: Centrado horizontal DESPUÉS de recalcular canvas final
-        if self.debug:
-            print(f"\n[REDISTRIBUTE] Aplicando centrado horizontal con canvas final")
-
-        # Aplicar centrado a cada nivel
         for level_num in sorted(by_level.keys()):
             level_elements = by_level[level_num]
-            self._center_elements_horizontally(level_elements, layout, structure_info, spacing=spacing)
+            self._center_elements_horizontally(level_elements, layout, structure_info, spacing=LAF_SPACING_BASE)
 
-        # CRÍTICO: Recalcular canvas DESPUÉS del centrado horizontal
-        # El centrado puede mover elementos fuera de los bounds calculados anteriormente
-        canvas_width, canvas_height = self.container_grower.calculate_final_canvas(
-            structure_info,
-            layout
-        )
+        canvas_width, canvas_height = self.container_grower.calculate_final_canvas(structure_info, layout)
         layout.canvas['width'] = canvas_width
         layout.canvas['height'] = canvas_height
-
-        if self.debug:
-            print(f"\n[REDISTRIBUTE] Canvas final (post-centrado): {canvas_width:.0f}x{canvas_height:.0f}px")
 
     def _center_elements_horizontally(
         self,
@@ -480,20 +596,11 @@ class LAFOptimizer:
         if not level_elements:
             return
 
-        if self.debug:
-            print(f"    [CENTRADO] Orden recibido: {' - '.join(level_elements)}")
-
         # Caso especial: un solo elemento
         if len(level_elements) == 1:
             elem = layout.elements_by_id.get(level_elements[0])
             if elem:
-                old_x = elem.get('x', 0)
                 elem['x'] = layout.canvas['width'] / 2
-
-                if self.debug:
-                    print(f"    [CENTRADO] Nivel: 1 elemento")
-                    print(f"               Canvas: {layout.canvas['width']:.0f}px")
-                    print(f"               {level_elements[0]}: X {old_x:.1f} -> {elem['x']:.1f} (centrado)")
             return
 
         # Calcular ancho total del nivel
@@ -513,12 +620,6 @@ class LAFOptimizer:
         # Asegurar margen mínimo
         start_x = max(start_x, CANVAS_MARGIN_LARGE)
 
-        if self.debug:
-            print(f"    [CENTRADO] Nivel: {len(level_elements)} elementos")
-            print(f"               Ancho total: {total_width:.1f}px")
-            print(f"               Canvas: {canvas_width:.0f}px")
-            print(f"               Start X: {start_x:.1f}px")
-
         # Distribuir elementos horizontalmente
         current_x = start_x
         for elem_id in level_elements:
@@ -534,9 +635,6 @@ class LAFOptimizer:
 
             # Asignar nueva posición X
             elem['x'] = current_x
-
-            if self.debug:
-                print(f"               {elem_id}: X {old_x:.1f} -> {current_x:.1f} (dx={dx:+.1f})")
 
             # Actualizar etiqueta X
             if elem_id in layout.label_positions:
@@ -586,327 +684,154 @@ class LAFOptimizer:
         La inflación se desplaza a Fase 6.
         """
         if self.debug:
-            print("\n" + "="*60)
-            print("LAF OPTIMIZER - Layout Abstracto Primero")
-            print("="*60)
+            print("\n[LAF] Pipeline LAF (10 fases)")
 
         # FASE 1: Análisis de estructura
-        if self.debug:
-            print("\n[LAF] FASE 1: Análisis de estructura")
-            print("-" * 60)
-
         structure_info = self.structure_analyzer.analyze(layout)
 
-        # Capturar snapshot Fase 1
         if self.visualizer:
-            # Extraer nombre del diagrama del layout si es posible
             diagram_name = getattr(layout, '_diagram_name', 'diagram')
             self.visualizer.capture_phase1(structure_info, diagram_name)
 
         if self.debug:
-            print(f"[LAF] [OK] Analisis completado")
-            print(f"      - Elementos primarios: {len(structure_info.primary_elements)}")
-            print(f"      - Contenedores: {len(structure_info.container_metrics)}")
-            if structure_info.container_metrics:
-                max_contained = max(m['total_icons'] for m in structure_info.container_metrics.values())
-                print(f"      - Max contenido: {max_contained} iconos")
-            print(f"      - Conexiones: {len(structure_info.connection_sequences)}")
             scored_count = sum(1 for v in structure_info.accessibility_scores.values() if v > 0)
-            if scored_count:
-                max_score = max(structure_info.accessibility_scores.values())
-                print(f"      - Nodos con accessibility score > 0: {scored_count} (max: {max_score:.4f})")
+            max_score = max(structure_info.accessibility_scores.values()) if scored_count else 0
+            print(f"[LAF] Fase 1 OK: {len(structure_info.primary_elements)} primarios, "
+                  f"{len(structure_info.container_metrics)} contenedores, "
+                  f"{len(structure_info.connection_sequences)} conexiones")
 
-            # Tabla de nodos primarios
-            print(f"\n[LAF] Nodos primarios clasificados ({len(structure_info.primary_elements)}):")
-            print(f"      {'ID':<10} | {'Tipo':<18} | {'Elemento':<30} | {'Nivel':<6} | Hijos")
-            print(f"      {'-'*10}-+-{'-'*18}-+-{'-'*30}-+-{'-'*6}-+-------")
+            # Tabla compacta de nodos primarios
+            print(f"  {'ID':<8} {'Tipo':<12} {'Elemento':<28} Nv  Hijos  Score")
             for elem_id in structure_info.primary_elements:
-                node_id = structure_info.primary_node_ids.get(elem_id, "N/A")
-                node_type = structure_info.primary_node_types.get(elem_id, "N/A")
-                level = structure_info.topological_levels.get(elem_id, "N/A")
-                level_str = str(level) if level != "N/A" else "N/A"
-                children_count = len(structure_info.element_tree.get(elem_id, {}).get('children', []))
-                # Truncar elemento ID si es muy largo
-                elem_display = elem_id if len(elem_id) <= 30 else elem_id[:27] + "..."
-                print(f"      {node_id:<10} | {node_type:<18} | {elem_display:<30} | {level_str:<6} | {children_count}")
+                nid = structure_info.primary_node_ids.get(elem_id, "?")
+                ntype = structure_info.primary_node_types.get(elem_id, "?")
+                lv = structure_info.topological_levels.get(elem_id, "?")
+                ch = len(structure_info.element_tree.get(elem_id, {}).get('children', []))
+                sc = structure_info.accessibility_scores.get(elem_id, 0.0)
+                name = elem_id[:28] if len(elem_id) <= 28 else elem_id[:25] + "..."
+                sc_str = f"{sc:.4f}" if sc > 0 else "-"
+                print(f"  {nid:<8} {ntype:<12} {name:<28} {str(lv):<3} {ch:<6} {sc_str}")
 
-        # Poblar atributos de análisis en el layout
         self._populate_layout_analysis(layout, structure_info)
-
-        # Dump layout después de Fase 1
         self._dump_layout(layout, "LAF_PHASE_1_STRUCTURE")
 
-        # FASE 2: Análisis topológico
-        if self.debug:
-            print("\n[LAF] FASE 2: Análisis topológico")
-            print("-" * 60)
-
-            # Mostrar distribución por nivel
-            by_level = {}
-            for elem_id, level in structure_info.topological_levels.items():
-                if level not in by_level:
-                    by_level[level] = []
-                by_level[level].append(elem_id)
-
-            print(f"[LAF] Niveles topológicos:")
-            for level in sorted(by_level.keys()):
-                elements = ', '.join(by_level[level])
-                print(f"      Nivel {level}: {elements}")
-
-            # Mostrar accessibility scores
-            scored = {k: v for k, v in structure_info.accessibility_scores.items() if v > 0}
-            if scored:
-                print(f"\n[LAF] Scores de accesibilidad:")
-                top_5 = sorted(scored.items(), key=lambda x: x[1], reverse=True)[:5]
-                for elem_id, score in top_5:
-                    level = structure_info.topological_levels.get(elem_id, 0)
-                    print(f"      {elem_id}: {score:.4f} (nivel {level})")
-
-            print(f"\n[LAF] [OK] Análisis topológico completado")
-            print(f"      - {len(structure_info.topological_levels)} elementos con niveles")
-            print(f"      - {len(scored)} elementos con accessibility score > 0")
-
-        # Capturar snapshot Fase 2
+        # FASE 2: Análisis topológico (ya calculado en Fase 1, solo visualizar)
         if self.visualizer:
             self.visualizer.capture_phase2_topology(structure_info)
-
-        # Dump layout después de Fase 2
         self._dump_layout(layout, "LAF_PHASE_2_TOPOLOGY")
 
-        # FASE 3: Ordenamiento por centralidad
         if self.debug:
-            print("\n[LAF] FASE 3: Ordenamiento por centralidad")
-            print("-" * 60)
+            by_level = {}
+            for eid, lv in structure_info.topological_levels.items():
+                by_level.setdefault(lv, []).append(eid)
+            levels_str = " | ".join(f"{lv}:{','.join(by_level[lv])}" for lv in sorted(by_level))
+            print(f"[LAF] Fase 2 OK: {levels_str}")
 
-        # Organizar elementos por nivel y score de centralidad
+        # FASE 3: Ordenamiento por centralidad
         centrality_order = self._order_by_centrality(structure_info)
 
-        if self.debug:
-            print(f"[LAF] Orden de centralidad por nivel:")
-            for level in sorted(centrality_order.keys()):
-                elements = centrality_order[level]
-                print(f"      Nivel {level}: {len(elements)} elementos")
-                for idx, (elem_id, score) in enumerate(elements[:5]):  # Mostrar top 5
-                    node_id = structure_info.primary_node_ids.get(elem_id, "N/A")
-                    position = "centro" if idx == len(elements) // 2 else ("izq" if idx < len(elements) // 2 else "der")
-                    print(f"        {node_id} ({elem_id}): score={score:.4f} -> {position}")
-                if len(elements) > 5:
-                    print(f"        ... y {len(elements) - 5} más")
-
-            print(f"\n[LAF] [OK] Ordenamiento por centralidad completado")
-            print(f"      - {len(centrality_order)} niveles organizados")
-
-        # Capturar snapshot Fase 3
         if self.visualizer:
             self.visualizer.capture_phase3_centrality(structure_info, centrality_order)
-
-        # Dump layout después de Fase 3
         self._dump_layout(layout, "LAF_PHASE_3_CENTRALITY")
 
-        # FASE 4: Layout abstracto
         if self.debug:
-            print("\n[LAF] FASE 4: Layout abstracto")
-            print("-" * 60)
+            print(f"[LAF] Fase 3 OK: {len(centrality_order)} niveles ordenados por centralidad")
 
-        # Pasar centrality_order de Fase 3 como orden inicial
+        # FASE 4: Layout abstracto
         abstract_positions = self.abstract_placer.place_elements(
             structure_info, layout, centrality_order=centrality_order
         )
-
-        # Calcular cruces
         crossings = self.abstract_placer.count_crossings(abstract_positions, layout.connections)
 
-        # Capturar snapshot Fase 4
         if self.visualizer:
             self.visualizer.capture_phase4_abstract(
                 abstract_positions, crossings, layout, structure_info
             )
-
-        if self.debug:
-            print(f"[LAF] [OK] Layout abstracto completado")
-            print(f"      - Posiciones calculadas: {len(abstract_positions)}")
-            print(f"      - Cruces de conectores: {crossings}")
-
-        # Escribir posiciones abstractas temporalmente para dump de Fase 4
         self._write_abstract_positions_to_layout(abstract_positions, layout)
-
-        # Dump layout después de Fase 4
         self._dump_layout(layout, "LAF_PHASE_4_ABSTRACT")
 
-        # FASE 5: Optimización de posiciones (Claude-SolFase5)
-        # Calcula la mejor posición para cada nodo primario minimizando
-        # la distancia total de conectores. NO realiza inflación.
         if self.debug:
-            print("\n[LAF] FASE 5: Optimización de posiciones (Claude-SolFase5)")
-            print("-" * 60)
+            print(f"[LAF] Fase 4 OK: {len(abstract_positions)} posiciones, {crossings} cruces")
 
+        # FASE 5: Optimización de posiciones (Claude-SolFase5)
         optimized_positions = self.position_optimizer.optimize_positions(
             abstract_positions, structure_info, layout
         )
-
-        # Recalcular cruces con posiciones optimizadas
         optimized_crossings = self.abstract_placer.count_crossings(
             optimized_positions, layout.connections
         )
-
-        # Actualizar posiciones abstractas en layout
         self._write_abstract_positions_to_layout(optimized_positions, layout)
-
-        # Actualizar optimized_layer_order si el orden cambió
         self._update_optimized_layer_order(optimized_positions, structure_info, layout)
+        layout._phase5_positions = optimized_positions
 
-        # Capturar snapshot Fase 5
         if self.visualizer:
             self.visualizer.capture_phase5_optimized(
                 optimized_positions, optimized_crossings, layout, structure_info
             )
-
-        if self.debug:
-            print(f"[LAF] [OK] Optimización de posiciones completada")
-            print(f"      - Posiciones optimizadas: {len(optimized_positions)}")
-            print(f"      - Cruces post-optimización: {optimized_crossings}")
-            if crossings != optimized_crossings:
-                print(f"      - Cambio en cruces: {crossings} -> {optimized_crossings}")
-
-        # Dump layout después de Fase 5
         self._dump_layout(layout, "LAF_PHASE_5_OPTIMIZED")
 
-        # FASE 6: Inflación
         if self.debug:
-            print("\n[LAF] FASE 6: Inflación de elementos")
-            print("-" * 60)
+            cross_delta = f" ({crossings}->{optimized_crossings})" if crossings != optimized_crossings else ""
+            print(f"[LAF] Fase 5 OK: {len(optimized_positions)} optimizadas, {optimized_crossings} cruces{cross_delta}")
 
+        # FASE 6: Inflación
         spacing = self.inflator.inflate_elements(optimized_positions, structure_info, layout)
 
-        # Capturar snapshot Fase 6
         if self.visualizer:
             self.visualizer.capture_phase6_inflated(layout, spacing)
-
-        if self.debug:
-            print(f"[LAF] [OK] Inflación completada")
-            print(f"      - Spacing: {spacing:.1f}px")
-            print(f"      - Elementos posicionados: {len(optimized_positions)}")
-            if layout.label_positions:
-                print(f"      - Etiquetas calculadas: {len(layout.label_positions)}")
-
-        # Dump layout después de Fase 6
         self._dump_layout(layout, "LAF_PHASE_6_INFLATED")
 
-        # FASE 7: Crecimiento de contenedores
         if self.debug:
-            print("\n[LAF] FASE 7: Crecimiento de contenedores")
-            print("-" * 60)
+            print(f"[LAF] Fase 6 OK: spacing={spacing:.0f}px")
 
+        # FASE 7: Crecimiento de contenedores
         self.container_grower.grow_containers(structure_info, layout)
-
-        # Calcular dimensiones finales del canvas
         canvas_width, canvas_height = self.container_grower.calculate_final_canvas(
-            structure_info,
-            layout
+            structure_info, layout
         )
         layout.canvas['width'] = canvas_width
         layout.canvas['height'] = canvas_height
 
-        # Capturar snapshot Fase 7
         if self.visualizer:
             self.visualizer.capture_phase7_containers(layout)
-
-        if self.debug:
-            print(f"[LAF] [OK] Contenedores expandidos")
-            if structure_info.container_metrics:
-                for container_id, metrics in structure_info.container_metrics.items():
-                    container = layout.elements_by_id.get(container_id)
-                    if container and 'width' in container:
-                        print(f"      - {container_id}: {container['width']:.0f}x{container['height']:.0f}px "
-                              f"({metrics['total_icons']} íconos)")
-            print(f"      - Canvas final: {canvas_width:.0f}x{canvas_height:.0f}px")
-
-        # Dump layout después de Fase 7
         self._dump_layout(layout, "LAF_PHASE_7_GROWN")
 
-        # FASE 8: Redistribución vertical post-crecimiento
         if self.debug:
-            print(f"\n[LAF] FASE 8: Redistribución vertical")
-            print("-" * 60)
+            print(f"[LAF] Fase 7 OK: canvas {canvas_width:.0f}x{canvas_height:.0f}px")
 
+        # FASE 8: Redistribución vertical
         self._redistribute_vertical_after_growth(structure_info, layout)
 
-        # Capturar snapshot Fase 8
         if self.visualizer:
             self.visualizer.capture_phase8_redistributed(layout)
-
-        if self.debug:
-            print(f"[LAF] [OK] Redistribución vertical completada")
-
-        # Dump layout después de Fase 8
         self._dump_layout(layout, "LAF_PHASE_8_REDISTRIBUTED")
 
-        # FASE 9: Re-calcular routing con contenedores expandidos
+        if self.debug:
+            print(f"[LAF] Fase 8 OK: redistribución vertical")
+
+        # FASE 9: Routing
         if self.router_manager:
-            if self.debug:
-                print(f"\n[LAF] FASE 9: Routing")
-                print("-" * 60)
-
             self.router_manager.calculate_all_paths(layout)
-
-            # Capturar snapshot Fase 9
             if self.visualizer:
                 self.visualizer.capture_phase9_routed(layout)
-
             if self.debug:
-                print(f"[LAF] [OK] Routing final calculado")
-                print(f"      - Conexiones: {len(layout.connections)}")
+                print(f"[LAF] Fase 9 OK: {len(layout.connections)} conexiones ruteadas")
 
-                # Calcular longitud total de paths si está disponible
-                total_path_length = 0
-                for conn in layout.connections:
-                    if 'path' in conn:
-                        # Calcular longitud aproximada del path
-                        points = conn['path']
-                        for i in range(len(points) - 1):
-                            x1, y1 = points[i]
-                            x2, y2 = points[i + 1]
-                            total_path_length += ((x2 - x1)**2 + (y2 - y1)**2)**0.5
-
-                if total_path_length > 0:
-                    print(f"      - Longitud total de paths: {total_path_length:.0f}px")
-
-        # Detección de colisiones finales
+        # Colisiones finales
         if self.collision_detector and self.debug:
             collision_count, _ = self.collision_detector.detect_all_collisions(layout)
-            print(f"\n[LAF] Colisiones finales detectadas: {collision_count}")
+            if collision_count > 0:
+                print(f"[LAF] WARN: {collision_count} colisiones detectadas")
 
-        # FASE 10: Generar visualizaciones si está activado
+        # FASE 10: Generar visualizaciones
         if self.visualizer:
-            if self.debug:
-                print(f"\n[LAF] FASE 10: Generación de SVG")
-                print("-" * 60)
-
-            # Capturar snapshot Fase 10 (final) ANTES de generar para incluirlo
             self.visualizer.capture_phase10_final(layout)
-
-            # Generar todos los SVGs (incluido phase10)
             self.visualizer.generate_all()
-
             if self.debug:
-                print(f"[LAF] [OK] Visualizaciones generadas")
-                print(f"      - Directorio: debug/growth/")
-                print(f"      - Canvas final: {canvas_width:.0f}x{canvas_height:.0f}px")
+                print(f"[LAF] Fase 10 OK: SVGs en debug/growth/")
 
         if self.debug:
-            print("\n" + "="*60)
-            print("[LAF] Sistema LAF completo (Fases 1-10)")
-            print("[LAF]   - Fase 1: Análisis de estructura")
-            print("[LAF]   - Fase 2: Análisis topológico")
-            print("[LAF]   - Fase 3: Ordenamiento por centralidad")
-            print("[LAF]   - Fase 4: Layout abstracto")
-            print("[LAF]   - Fase 5: Optimización de posiciones (Claude-SolFase5)")
-            print("[LAF]   - Fase 6: Inflación de elementos")
-            print("[LAF]   - Fase 7: Crecimiento de contenedores")
-            print("[LAF]   - Fase 8: Redistribución vertical")
-            print("[LAF]   - Fase 9: Routing")
-            print("[LAF]   - Fase 10: Generación de SVG")
-            print("="*60 + "\n")
+            print(f"[LAF] Pipeline completo")
 
         return layout
 
