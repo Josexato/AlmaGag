@@ -64,27 +64,37 @@
       "id": "laf_module-stage",
       "type": "firewall",
       "label": "LAF Module\n(--layout-algorithm=laf)",
-      "contains": ["structure_analyzer", "abstract_placer", "position_optimizer", "inflator", "container_grower", "xscale"]
+      "contains": ["structure_analyzer", "topology_viz", "centrality_order", "abstract_placer", "position_optimizer", "inflator", "container_grower", "xscale"]
     },
     {
       "id": "structure_analyzer",
       "type": "building",
-      "label": "StructureAnalyzer\nFase 1: Topología"
+      "label": "StructureAnalyzer\nFase 1: Estructura"
+    },
+    {
+      "id": "topology_viz",
+      "type": "building",
+      "label": "Topology Analysis\nFase 2: Niveles topológicos"
+    },
+    {
+      "id": "centrality_order",
+      "type": "building",
+      "label": "Centrality Ordering\nFase 3: Orden por centralidad"
     },
     {
       "id": "abstract_placer",
       "type": "building",
-      "label": "AbstractPlacer\nFase 3: Minimiza cruces"
+      "label": "AbstractPlacer\nFase 4: Sugiyama barycenter"
     },
     {
       "id": "inflator",
       "type": "building",
-      "label": "Inflator\nFase 4: Dimensiones reales"
+      "label": "Inflator\nFase 6: Dimensiones reales"
     },
     {
       "id": "container_grower",
       "type": "building",
-      "label": "ContainerGrower\nFase 6: Expansión bottom-up"
+      "label": "ContainerGrower\nFase 7: Expansión bottom-up"
     },
     {
       "id": "position_optimizer",
@@ -269,8 +279,20 @@
     },
     {
       "from": "structure_analyzer",
+      "to": "topology_viz",
+      "label": "estructura",
+      "direction": "forward"
+    },
+    {
+      "from": "topology_viz",
+      "to": "centrality_order",
+      "label": "niveles",
+      "direction": "forward"
+    },
+    {
+      "from": "centrality_order",
       "to": "abstract_placer",
-      "label": "topología",
+      "label": "orden por centralidad",
       "direction": "forward"
     },
     {
