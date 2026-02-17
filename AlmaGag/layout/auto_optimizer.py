@@ -1,16 +1,12 @@
 """
-AutoLayoutOptimizer - Implementación del optimizador automático v2.1
+AutoLayoutOptimizer - Optimizador automático de layouts
 
-Este optimizador implementa la estrategia de resolución de colisiones en 3 fases:
-1. Reubicar etiquetas a posiciones alternativas
-2. Mover elementos de baja prioridad
-3. Expandir canvas dinámicamente
-
-Características:
-- Análisis de grafo (niveles, grupos, prioridades)
-- Detección de colisiones precisas
-- Movimiento inteligente de elementos
-- Selección del mejor candidato entre iteraciones
+Pipeline de optimización:
+0. Auto-layout: posicionar elementos (jerárquico con barycenter + position optimization)
+1. Contenedores: calcular dimensiones, centrar, propagar coordenadas
+2. Routing: calcular paths de conexiones
+3. Iteración: reducir colisiones via reubicación de etiquetas, movimiento de
+   elementos, o expansión de canvas (max 10 iteraciones)
 """
 
 from copy import deepcopy
@@ -33,20 +29,19 @@ from AlmaGag.config import (
 
 class AutoLayoutOptimizer(LayoutOptimizer):
     """
-    Implementación del optimizador automático v2.1.
+    Optimizador automático de layouts.
 
-    Estrategia de optimización:
-    - Fase 0: Auto-routing de conexiones (SDJF v2.1)
-    - Fase 1: Reubicar etiquetas (más rápido, menos invasivo)
-    - Fase 2: Mover elementos (más efectivo, más costoso)
-    - Fase 3: Expandir canvas (último recurso)
+    Pipeline:
+    0. Auto-layout jerárquico (barycenter, position optimization, escala X global)
+    1. Contenedores: dimensiones, centrado, propagación de coordenadas
+    2. Routing y canvas desde bounds
+    3. Iteración: label relocation → element movement → canvas expansion
 
     Attributes:
         geometry (GeometryCalculator): Calculadora geométrica
         collision_detector (CollisionDetector): Detector de colisiones
         graph_analyzer (GraphAnalyzer): Analizador de grafos
-        router_manager (ConnectionRouterManager): Gestor de routing de conexiones
-        POSITIONS (List[str]): Posiciones posibles para etiquetas
+        router_manager (ConnectionRouterManager): Gestor de routing
     """
 
     POSITIONS = ['bottom', 'right', 'top', 'left']
@@ -121,16 +116,14 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         Optimiza layout con selección del mejor candidato.
 
         Flujo:
-        0. Auto-layout para coordenadas faltantes (SDJF v2.0)
-        0.5. Auto-routing de conexiones (SDJF v2.1)
-        1. Analizar layout inicial
-        2. Calcular posiciones iniciales
-        3. Evaluar colisiones iniciales
-        4. Iterar:
-            a. Crear copia del layout actual (candidato)
-            b. Aplicar estrategia (relocate labels / move elements)
-            c. Evaluar colisiones del candidato
-            d. Si es mejor, guardar como best_layout
+        0. Auto-layout jerárquico (barycenter + position optimization)
+        1. Contenedores: dimensiones, centrado con etiquetas, propagación
+        2. Ajuste post-expansión (desplazar solapamientos con contenedores)
+        3. Canvas desde bounds + routing final
+        4. Iteración (max 10):
+            a. Label relocation (más rápido, menos invasivo)
+            b. Element movement (mover elementos con colisiones)
+            c. Canvas expansion (último recurso, solo re-rutea)
         5. Retornar el mejor layout encontrado
 
         Args:
@@ -174,8 +167,8 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         self._calculate_initial_positions(current)
 
         # 2.5. CRÍTICO: Recalcular contenedores AHORA que las etiquetas tienen posición
-        #      En línea 144 se calcularon solo con íconos (label_positions vacío)
-        #      Ahora recalculamos incluyendo las etiquetas Y re-aplicando centrado
+        #      Antes se calcularon solo con íconos (label_positions vacío)
+        #      Ahora recalculamos incluyendo las etiquetas y re-aplicando centrado
 
         # Limpiar flag _resolved para forzar re-cálculo con centrado
         for elem in current.elements:
@@ -581,53 +574,6 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         # Si todas colisionan, usar preferida
         return self.geometry.get_text_coords(element, preferred, num_lines)
 
-    def _select_element_to_move(
-        self,
-        layout: Layout,
-        collision_pairs: List[Tuple]
-    ) -> Optional[str]:
-        """
-        Selecciona el elemento de MENOR prioridad para mover.
-
-        Reglas:
-        1. Si colisión es label_vs_line → mover el elemento de la etiqueta
-        2. Si colisión es label_vs_icon → mover el de menor prioridad
-        3. Nunca mover elementos con prioridad 'high' (valor 0)
-
-        Args:
-            layout: Layout actual
-            collision_pairs: Lista de (id1, id2, collision_type)
-
-        Returns:
-            Optional[str]: ID del elemento a mover, o None
-        """
-        candidates = {}
-
-        for id1, id2, coll_type in collision_pairs:
-            if 'label_vs_line' in coll_type:
-                # La etiqueta (id1) debe moverse
-                elem = layout.elements_by_id.get(id1)
-                if elem:
-                    priority = layout.priorities.get(id1, 1)
-                    if priority > 0:  # No mover high priority
-                        candidates[id1] = priority
-            else:
-                # Mover el de menor prioridad
-                for eid in [id1, id2]:
-                    if '->' in str(eid):  # Es una conexión, no elemento
-                        continue
-                    elem = layout.elements_by_id.get(eid)
-                    if elem:
-                        priority = layout.priorities.get(eid, 1)
-                        if priority > 0:
-                            candidates[eid] = priority
-
-        if not candidates:
-            return None
-
-        # Retornar el de menor prioridad (mayor número = menor prioridad)
-        return max(candidates, key=candidates.get)
-
     def _select_element_to_move_weighted(
         self,
         layout: Layout,
@@ -817,12 +763,12 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         """
         Recalcula todas las estructuras después de mover elementos.
 
-        Actualiza:
-        - elements_by_id
-        - Dimensiones de contenedores (basándose en nuevas posiciones)
-        - Rutas de conexiones (routing optimizado para nuevas posiciones)
-        - Análisis de grafo (levels, groups, priorities)
-        - Posiciones de etiquetas (recalculadas desde cero)
+        Actualiza (en orden):
+        1. elements_by_id (mapa de acceso rápido)
+        2. Rutas de conexiones (routing para nuevas posiciones)
+        3. Análisis de grafo (levels, groups, priorities)
+        4. Posiciones de etiquetas (recalculadas desde cero)
+        5. Contenedores: re-resolución con centrado + propagación de coordenadas
 
         Args:
             layout: Layout a recalcular

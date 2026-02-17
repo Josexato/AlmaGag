@@ -88,7 +88,7 @@ class GraphAnalyzer:
             roots = [max(outgoing, key=lambda k: len(outgoing[k]))] if outgoing else []
 
         # Longest-path assignment: propagate levels iteratively
-        # This handles cycles safely by capping at N iterations (Bellman-Ford style)
+        # Capped at N iterations to handle cycles safely
         levels = {e_id: 0 for e_id in elem_ids}
         for root in roots:
             levels[root] = 0

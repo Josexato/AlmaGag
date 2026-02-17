@@ -1,15 +1,13 @@
 """
-AutoLayoutPositioner - Cálculo automático de posiciones para SDJF v2.0
+AutoLayoutPositioner - Cálculo automático de posiciones (v4.0)
 
-Este módulo implementa la estrategia híbrida de auto-layout:
-- HIGH priority → centro (grid compacto)
-- NORMAL priority → alrededor (anillo medio)
-- LOW priority → periferia (anillo externo)
+Posiciona elementos de diagramas SDJF usando análisis topológico:
+1. Resolver contenedores (bottom-up)
+2. Análisis topológico: niveles, conexiones resueltas a primarios, centralidad
+3. Layout jerárquico: barycenter ordering + position optimization + escala X global
 
-Soporta:
-- Auto-layout completo (sin x ni y)
-- Coordenadas parciales (calcular solo x o solo y)
-- Centralidad basada en tamaño (hp/wp)
+Para diagramas sin conexiones, usa layout híbrido por prioridad:
+- HIGH → centro, NORMAL → anillo medio, LOW → periferia
 """
 
 import math
@@ -20,13 +18,13 @@ from AlmaGag.layout.sizing import SizingCalculator
 from AlmaGag.layout.graph_analysis import GraphAnalyzer
 from AlmaGag.config import (
     ICON_WIDTH, ICON_HEIGHT,
-    SPACING_SMALL, SPACING_MEDIUM, SPACING_LARGE, SPACING_XLARGE, SPACING_XXLARGE, SPACING_HUGE,
+    SPACING_SMALL, SPACING_XLARGE, SPACING_XXLARGE,
     CONTAINER_PADDING, CONTAINER_SPACING, CONTAINER_ELEMENT_SPACING, CONTAINER_ICON_HEIGHT,
     TEXT_LINE_HEIGHT, TEXT_CHAR_WIDTH,
     LABEL_OFFSET_VERTICAL,
-    CONTAINER_ICON_X, CONTAINER_ICON_Y, CONTAINER_LABEL_X, CONTAINER_LABEL_Y,
-    CANVAS_MARGIN_XLARGE, CANVAS_MARGIN_LARGE, CANVAS_MARGIN_SMALL,
-    GRID_SPACING_SMALL, GRID_SPACING_LARGE,
+    CONTAINER_ICON_X,
+    CANVAS_MARGIN_LARGE,
+    GRID_SPACING_SMALL,
     RADIUS_NORMAL_MAX, RADIUS_LOW_MAX,
     TOP_MARGIN_DEBUG, TOP_MARGIN_NORMAL,
     LAF_VERTICAL_SPACING
@@ -788,147 +786,6 @@ class AutoLayoutPositioner:
         """
         return int(y / 80)
 
-    def _group_elements_by_container(self, layout: Layout, elements: List[dict]) -> dict:
-        """
-        Agrupa elementos por contenedor (v2.2 - Container-Aware Layout).
-
-        Identifica qué elementos pertenecen a cada contenedor para
-        posicionarlos de forma agrupada y compacta.
-
-        Args:
-            layout: Layout con información de contenedores
-            elements: Elementos a agrupar
-
-        Returns:
-            dict: {
-                'container_id': [elem1, elem2, ...],
-                None: [elem_free1, elem_free2, ...]  # elementos sin contenedor
-            }
-        """
-        groups = {}
-        element_to_container = {}
-
-        # Mapear cada elemento a su contenedor (si tiene uno)
-        for elem in layout.elements:
-            if 'contains' in elem:
-                container_id = elem['id']
-                contains = elem.get('contains', [])
-
-                # Soportar formato dict {"id": "..."} o string directo
-                for item in contains:
-                    item_id = item['id'] if isinstance(item, dict) else item
-                    element_to_container[item_id] = container_id
-
-        # Agrupar elementos por contenedor
-        for elem in elements:
-            container_id = element_to_container.get(elem['id'], None)
-
-            if container_id not in groups:
-                groups[container_id] = []
-            groups[container_id].append(elem)
-
-        return groups
-
-    def _position_groups(self, layout: Layout, groups: dict):
-        """
-        Posiciona grupos de contenedores y elementos libres (v2.3 - Hierarchical).
-
-        Estrategia:
-        1. Posicionar contenedores primero (compactos, en horizontal)
-        2. Posicionar elementos libres con layout jerárquico si hay conexiones
-        3. Fallback a layout híbrido si no hay jerarquía clara
-
-        Args:
-            layout: Layout con canvas info
-            groups: Grupos de elementos por contenedor
-        """
-        # Configuración de espaciado
-        CONTAINER_SPACING = CONTAINER_SPACING  # Espacio entre contenedores
-        ELEMENT_SPACING_IN_CONTAINER = CONTAINER_ELEMENT_SPACING  # Espacio entre elementos del mismo contenedor
-
-        # Posición inicial
-        current_x = CANVAS_MARGIN_LARGE
-        current_y = SPACING_XXLARGE
-
-        # 1. Posicionar grupos de contenedores
-        container_groups = {k: v for k, v in groups.items() if k is not None}
-
-        for container_id in sorted(container_groups.keys()):
-            element_list = container_groups[container_id]
-
-            # Posicionar grupo de contenedor
-            group_width = self._position_container_group(
-                element_list,
-                layout,
-                current_x,
-                current_y,
-                ELEMENT_SPACING_IN_CONTAINER
-            )
-
-            # Mover a la siguiente posición horizontal
-            current_x += group_width + CONTAINER_SPACING
-
-        # 2. Posicionar elementos libres (sin contenedor)
-        free_elements = groups.get(None, [])
-        if free_elements:
-            # v2.3: Usar layout jerárquico si hay niveles topológicos
-            if hasattr(layout, 'topological_levels') and layout.topological_levels:
-                self._calculate_hierarchical_layout(layout, free_elements)
-            else:
-                # Fallback a layout híbrido
-                self._calculate_hybrid_layout(layout, free_elements)
-
-    def _position_container_group(
-        self,
-        elements: List[dict],
-        layout: Layout,
-        start_x: float,
-        start_y: float,
-        spacing: float
-    ) -> float:
-        """
-        Posiciona elementos de un contenedor en grid compacto.
-
-        Args:
-            elements: Elementos del contenedor
-            layout: Layout con información de prioridades
-            start_x: Posición X inicial del grupo
-            start_y: Posición Y inicial del grupo
-            spacing: Espaciado entre elementos
-
-        Returns:
-            float: Ancho total del grupo posicionado
-        """
-        n = len(elements)
-        if n == 0:
-            return 0
-
-        # Determinar configuración de grid según número de elementos
-        if n <= 3:
-            cols = 1
-            rows = n
-        elif n <= 6:
-            cols = 2
-            rows = (n + 1) // 2
-        elif n <= 9:
-            cols = 3
-            rows = (n + 2) // 3
-        else:
-            cols = 4
-            rows = (n + 3) // 4
-
-        # Posicionar elementos en grid
-        for i, elem in enumerate(elements):
-            row = i // cols
-            col = i % cols
-
-            elem['x'] = start_x + (col * spacing)
-            elem['y'] = start_y + (row * spacing)
-
-        # Retornar ancho del grupo
-        group_width = cols * spacing
-        return group_width
-
     def _analyze_container_hierarchy(self, layout: Layout) -> ContainerHierarchy:
         """
         Analiza jerarquía de contenedores y retorna orden de resolución.
@@ -1308,200 +1165,3 @@ class AutoLayoutPositioner:
                         del elem['_local_x']
                         del elem['_local_y']
 
-    def _redistribute_free_elements_with_containers(
-        self,
-        layout: Layout,
-        free_elements: List[dict],
-        containers: List[dict]
-    ):
-        """
-        Redistribuye elementos libres EVITANDO contenedores existentes.
-
-        Estrategia:
-        1. Identificar franjas verticales ocupadas por contenedores
-        2. Encontrar franjas libres (regiones entre/alrededor de contenedores)
-        3. Posicionar elementos libres en franjas libres usando topología
-
-        Args:
-            layout: Layout con contenedores posicionados
-            free_elements: Elementos libres a reposicionar
-            containers: Contenedores YA posicionados (no mover)
-        """
-        if not free_elements:
-            return
-
-        # 1. Identificar franjas verticales ocupadas por contenedores
-        occupied_ranges = []
-        for container in containers:
-            if 'y' in container and 'height' in container:
-                y_start = container['y']
-                y_end = container['y'] + container['height']
-                occupied_ranges.append((y_start, y_end))
-                logger.debug(f"    Contenedor {container['id']}: Y [{y_start:.1f} - {y_end:.1f}]")
-
-        occupied_ranges.sort()  # Ordenar por y_start
-
-        # 2. Encontrar franjas libres
-        canvas_height = layout.canvas['height']
-        free_ranges = []
-
-        # Añadir franja antes del primer contenedor
-        if occupied_ranges:
-            first_start = occupied_ranges[0][0]
-            if first_start > 150:  # Necesita al menos 150px para tener espacio (100 + 50 de margen)
-                free_ranges.append((100, first_start - 50))  # Dejar 50px de margen
-
-        # Añadir franjas entre contenedores
-        for i in range(len(occupied_ranges) - 1):
-            current_end = occupied_ranges[i][1]
-            next_start = occupied_ranges[i + 1][0]
-            gap = next_start - current_end
-            if gap > 100:  # Si hay espacio suficiente (>100px)
-                free_ranges.append((current_end + 50, next_start - 50))
-
-        # Añadir franja después del último contenedor
-        if occupied_ranges:
-            last_end = occupied_ranges[-1][1]
-            if last_end + 100 < canvas_height:
-                free_ranges.append((last_end + 50, canvas_height - 50))
-
-        # Si no hay contenedores, toda el área está libre
-        if not occupied_ranges:
-            free_ranges.append((100, canvas_height - 50))
-
-        logger.debug(f"    Franjas libres encontradas: {len(free_ranges)}")
-        for i, (start, end) in enumerate(free_ranges):
-            logger.debug(f"      Franja {i+1}: Y [{start:.1f} - {end:.1f}] (altura: {end-start:.1f})")
-
-        # Guardar franjas en el layout para visualización en modo debug
-        layout.debug_free_ranges = free_ranges
-
-        # 3. Posicionar elementos libres en franjas libres
-        if not free_ranges:
-            # No hay espacio libre → usar posición por defecto en centro
-            logger.debug("    WARN: No hay franjas libres, usando centro del canvas")
-            center_x = layout.canvas['width'] / 2
-            center_y = layout.canvas['height'] / 2
-            for elem in free_elements:
-                elem['x'] = center_x
-                elem['y'] = center_y
-            return
-
-        # Usar niveles topológicos si están disponibles
-        if hasattr(layout, 'topological_levels') and layout.topological_levels:
-            self._position_free_elements_by_topology(layout, free_elements, free_ranges)
-        else:
-            # Sin topología, distribuir equiespaciadamente
-            self._position_free_elements_equispaced(layout, free_elements, free_ranges)
-
-    def _position_free_elements_by_topology(
-        self,
-        layout: Layout,
-        elements: List[dict],
-        free_ranges: List[tuple]
-    ):
-        """
-        Posiciona elementos usando niveles topológicos en franjas libres.
-
-        Args:
-            layout: Layout con topological_levels
-            elements: Elementos a posicionar
-            free_ranges: Lista de (y_start, y_end) franjas libres
-        """
-        # Agrupar elementos por nivel
-        by_level = {}
-        for elem in elements:
-            level = layout.topological_levels.get(elem['id'], 0)
-            if level not in by_level:
-                by_level[level] = []
-            by_level[level].append(elem)
-
-        # Asignar cada nivel a una franja libre
-        num_levels = len(by_level)
-        center_x = layout.canvas['width'] / 2
-
-        # OPTIMIZACIÓN: Si solo hay 1 franja pero múltiples niveles,
-        # dividir la franja en sub-franjas verticales (una por nivel)
-        if len(free_ranges) == 1 and num_levels > 1:
-            y_start, y_end = free_ranges[0]
-            free_height = y_end - y_start
-            level_height = free_height / num_levels
-
-            # Crear sub-franjas para cada nivel
-            sub_franjas = []
-            for i in range(num_levels):
-                sub_y_start = y_start + (i * level_height)
-                sub_y_end = sub_y_start + level_height
-                sub_franjas.append((sub_y_start, sub_y_end))
-
-            logger.debug(f"    Dividiendo franja libre [{y_start:.1f} - {y_end:.1f}] en {num_levels} sub-franjas verticales")
-            logger.debug(f"    Altura por sub-franja: {level_height:.1f}px")
-            free_ranges = sub_franjas
-
-        for level_idx, level_num in enumerate(sorted(by_level.keys())):
-            level_elements = by_level[level_num]
-
-            # Seleccionar franja para este nivel
-            # Distribuir niveles equiespaciadamente en franjas libres
-            franja_idx = min(level_idx, len(free_ranges) - 1)
-            y_start, y_end = free_ranges[franja_idx]
-
-            # Posicionar en el centro de la franja
-            y_position = (y_start + y_end) / 2
-
-            # Distribuir horizontalmente
-            num_elements = len(level_elements)
-            if num_elements == 1:
-                level_elements[0]['x'] = center_x
-                level_elements[0]['y'] = y_position
-            else:
-                # Obtener anchos reales
-                widths = []
-                for elem in level_elements:
-                    width, height = self.sizing.get_element_size(elem)
-                    widths.append(width)
-
-                # Calcular ancho total con spacing entre elementos
-                spacing_between = SPACING_SMALL
-                total_width = sum(widths) + (num_elements - 1) * spacing_between
-                start_x = center_x - (total_width / 2)
-
-                # Posicionar considerando anchos reales
-                current_x = start_x
-                for i, elem in enumerate(level_elements):
-                    elem['x'] = current_x
-                    elem['y'] = y_position
-                    current_x += widths[i] + spacing_between
-
-            logger.debug(f"    Nivel {level_num} → Franja {franja_idx+1}, Y={y_position:.1f}")
-
-    def _position_free_elements_equispaced(
-        self,
-        layout: Layout,
-        elements: List[dict],
-        free_ranges: List[tuple]
-    ):
-        """
-        Posiciona elementos equiespaciadamente en franjas libres.
-
-        Args:
-            layout: Layout
-            elements: Elementos a posicionar
-            free_ranges: Lista de (y_start, y_end) franjas libres
-        """
-        center_x = layout.canvas['width'] / 2
-        num_elements = len(elements)
-
-        # Distribuir elementos en franjas libres
-        for i, elem in enumerate(elements):
-            # Seleccionar franja para este elemento
-            franja_idx = min(i, len(free_ranges) - 1)
-            y_start, y_end = free_ranges[franja_idx]
-
-            # Posicionar en el centro de la franja
-            y_position = (y_start + y_end) / 2
-
-            elem['x'] = center_x
-            elem['y'] = y_position
-
-            logger.debug(f"    {elem['id']} → Franja {franja_idx+1}, Y={y_position:.1f}")

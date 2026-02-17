@@ -4,14 +4,15 @@
 
 Reorganización completa del sistema de layout de AlmaGag para minimizar cruces de conectores mediante un enfoque jerárquico inspirado en Sugiyama.
 
-**Estado**: Sprint 6 de 6 completado (100% implementado) ✅
+**Estado**: Sprint 7 de 7 completado (100% implementado) ✅
 
 **Resultados finales**:
 - **-87% de cruces de conectores** (15 → 2) en diagrama de prueba
 - **-24% de colisiones** (50 → 38) vs sistema actual
-- **Sistema LAF completamente funcional** (Fases 1-8)
-- **Visualización del proceso** implementada (8 SVGs por diagrama)
-- **Numeración consistente** sin decimales (eliminado Fase 4.5)
+- **Sistema LAF completamente funcional** (10 fases)
+- **Visualización del proceso** implementada (10 SVGs por diagrama)
+- **Position optimization** con layer-offset bisection (Fase 5)
+- **Escala X global** preservando ángulos del layout abstracto (Fase 8)
 
 ---
 
@@ -43,31 +44,54 @@ El sistema actual de AlmaGag calculaba posiciones con geometría real desde el i
 
 ## Solución LAF
 
-### Nuevo Flujo (8 Fases - actualizado en Sprint 6)
+### Nuevo Flujo (10 Fases - actualizado en Sprint 7)
 
 ```
-FASE 1: ANÁLISIS
+FASE 1: STRUCTURE ANALYSIS
 ├─ Construir árbol de elementos
 ├─ Analizar grafo de conexiones
-├─ Calcular métricas recursivas
-└─ Niveles topológicos (BFS)
+└─ Calcular métricas recursivas
 
-FASE 2: LAYOUT ABSTRACTO
+FASE 2: TOPOLOGY ANALYSIS
+├─ Niveles topológicos (longest-path)
+├─ Accessibility scores
+└─ Visualización con color coding
+
+FASE 3: ABSTRACT PLACEMENT
 ├─ Elementos = puntos de 1px
 ├─ Layering (por nivel topológico)
 ├─ Ordering (barycenter + tipo)
 └─ Minimizar cruces explícitamente
 
-FASE 3: INFLACIÓN
-├─ Spacing proporcional: MAX(20*ICON_WIDTH, 3*max_contained*ICON_WIDTH)
+FASE 4: INFLATION
+├─ Spacing proporcional
 ├─ Asignar dimensiones reales
-├─ Calcular posiciones de etiquetas
-└─ Routing [1ª vez]
+└─ Calcular posiciones de etiquetas
 
-FASE 4: CRECIMIENTO
+FASE 5: POSITION OPTIMIZATION
+├─ Layer-offset bisection
+├─ Minimizar distancia ponderada de conectores
+└─ Forward + backward, convergencia < 0.001
+
+FASE 6: CONTAINER GROWTH
 ├─ Expandir contenedores bottom-up
-├─ Routing con bordes [2ª vez]
-└─ Expandir canvas si necesario
+└─ Posicionar elementos contenidos
+
+FASE 7: VERTICAL REDISTRIBUTION
+├─ Redistribuir tras crecimiento
+└─ Mantener proporciones relativas
+
+FASE 8: GLOBAL X SCALE
+├─ Factor único preservando ángulos
+└─ Calculado desde anchos de elementos
+
+FASE 9: ROUTING
+├─ Calcular paths de conexiones
+└─ Routing con bordes de contenedores
+
+FASE 10: SVG GENERATION
+├─ Canvas ajustado dinámicamente
+└─ Render final
 ```
 
 **Beneficios**:
@@ -75,6 +99,8 @@ FASE 4: CRECIMIENTO
 - Topología optimizada antes de geometría
 - Falsos positivos eliminados
 - Cruces minimizados explícitamente
+- Position optimization preserva ángulos del layout abstracto
+- Escala X global evita distorsión
 
 ---
 
@@ -373,22 +399,25 @@ almagag 05-arquitectura-gag.gag --layout-algorithm=laf --visualize-growth
 ```
 AlmaGag/
 ├── layout/
-│   ├── auto_optimizer.py        # Sistema ACTUAL (mantener)
-│   ├── laf_optimizer.py         # ✅ Coordinador LAF
+│   ├── auto_optimizer.py         # ✅ AutoLayoutOptimizer v4.0
+│   ├── auto_positioner.py        # ✅ Barycenter + position optimization
+│   ├── graph_analysis.py         # ✅ Topología + centralidad + resolución
+│   ├── laf_optimizer.py          # ✅ Coordinador LAF v1.4 (10 fases)
 │   ├── laf/
-│   │   ├── __init__.py          # ✅ Exports
-│   │   ├── README.md            # ✅ Documentación técnica
-│   │   ├── structure_analyzer.py # ✅ Fase 1
-│   │   ├── abstract_placer.py   # ✅ Fase 2
-│   │   ├── inflator.py          # ⏳ Fase 3 (Sprint 3)
-│   │   ├── container_grower.py  # ⏳ Fase 4 (Sprint 4)
-│   │   └── visualizer.py        # ⏳ Fase 5 (Sprint 5)
-│   ├── collision.py             # ✅ MODIFICADO
+│   │   ├── __init__.py           # ✅ Exports
+│   │   ├── README.md             # ✅ Documentación técnica
+│   │   ├── structure_analyzer.py # ✅ Fase 1: Structure Analysis
+│   │   ├── abstract_placer.py    # ✅ Fase 3: Abstract Placement
+│   │   ├── position_optimizer.py # ✅ Fase 5: Position Optimization
+│   │   ├── inflator.py           # ✅ Fase 4: Inflation
+│   │   ├── container_grower.py   # ✅ Fase 6: Container Growth
+│   │   └── visualizer.py         # ✅ 10 SVGs de visualización
+│   ├── collision.py              # ✅ Detección de colisiones
 │   └── ...
-├── generator.py                 # ⏳ Modificar (Sprint 3)
-├── main.py                      # ⏳ Modificar (Sprint 3)
+├── generator.py                  # ✅ Orquestador (auto/laf)
+├── main.py                       # ✅ CLI (--layout-algorithm)
 └── docs/
-    └── LAF-PROGRESS.md          # ✅ Este archivo
+    └── LAF-PROGRESS.md           # ✅ Este archivo
 ```
 
 ---
@@ -442,28 +471,22 @@ AlmaGag/
 
 ## Conclusión
 
-**Estado**: 100% completado (5 de 5 sprints) - **Proyecto LAF Finalizado ✅**
+**Estado**: 100% completado (7 de 7 sprints) - **Proyecto LAF Finalizado ✅**
 
 **Logros Finales**:
-- ✅ Sistema LAF completo en Fases 1-4
+- ✅ Sistema LAF completo en 10 Fases
 - ✅ -87% cruces de conectores (15 → 2)
 - ✅ -24% colisiones (50 → 38)
 - ✅ -100% falsos positivos eliminados
 - ✅ -60% routing recalculado (5+ → 2 veces)
+- ✅ Position optimization con layer-offset bisection (Fase 5)
+- ✅ Escala X global preservando ángulos (Fase 8)
 - ✅ CLI integrado: `--layout-algorithm=laf`
-- ✅ Visualización del proceso: `--visualize-growth`
-- ✅ Arquitectura modular y extensible (7 módulos nuevos)
+- ✅ Visualización del proceso: `--visualize-growth` (10 SVGs)
+- ✅ Arquitectura modular y extensible (8 módulos LAF)
 - ✅ Spacing proporcional basado en ICON_WIDTH
 - ✅ Contenedores con dimensiones dinámicas
 - ✅ Propagación de coordenadas globales
-- ✅ 4 SVGs de visualización por diagrama
-
-**Código Total**:
-- 7 archivos nuevos (~2020 líneas)
-- 9 archivos modificados (+143 líneas)
-- Total: ~2163 líneas de código
-
-**Tiempo invertido**: ~31 horas (vs ~28-38h estimado = **dentro del rango**)
 
 ---
 
@@ -540,4 +563,36 @@ AlmaGag/
 
 ---
 
-**Última actualización**: 2026-02-08 (Sprint 6 completado - Sistema de 8 fases ✅)
+---
+
+## Sprint 7: Position Optimization + Escala X Global (2026-02-17)
+
+**Objetivo**: Agregar position optimization (Fase 5) y escala X global (Fase 8) al pipeline LAF, llegando a 10 fases totales.
+
+### Cambios Implementados
+
+**1. Fase 5: Position Optimization**
+- Layer-offset bisection para minimizar distancia ponderada de conectores
+- Forward + backward iterations, convergencia < 0.001
+- Preserva orden relativo del barycenter
+
+**2. Fase 8: Global X Scale**
+- Factor único calculado desde anchos reales de elementos
+- Preserva ángulos del layout abstracto
+- Evita distorsión horizontal
+
+**3. Renumeración a 10 fases**
+- Fases 1-4: Structure, Topology, Abstract, Inflation
+- Fase 5: Position Optimization (NUEVA)
+- Fases 6-7: Container Growth, Vertical Redistribution
+- Fase 8: Global X Scale (NUEVA)
+- Fases 9-10: Routing, SVG Generation
+
+### Archivos Modificados
+
+- `laf_optimizer.py`: Pipeline actualizado a 10 fases, v1.4
+- `laf/position_optimizer.py`: Fase 5 implementada
+- `laf/visualizer.py`: 10 métodos de captura y generación SVG
+- `laf/structure_analyzer.py`: Debug output mejorado
+
+**Última actualización**: 2026-02-17 (Sprint 7 completado - Sistema de 10 fases ✅)

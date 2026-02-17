@@ -2,22 +2,18 @@
 LAFOptimizer - Layout Abstracto Primero
 
 Coordinador del sistema LAF que ejecuta las 10 fases:
-1. Análisis de estructura
-2. Análisis topológico
-3. Ordenamiento por centralidad
-4. Layout abstracto (minimización de cruces)
-5. Optimización de posiciones (Claude-SolFase5) - minimiza distancia de conectores
+1. Análisis de estructura (grafo, accesibilidad, centralidad)
+2. Análisis topológico (niveles jerárquicos, longest-path)
+3. Ordenamiento por centralidad (centrales al centro, hojas a extremos)
+4. Layout abstracto (Sugiyama barycenter, minimización de cruces)
+5. Optimización de posiciones (layer-offset bisection, minimiza distancia de conectores)
 6. Inflación de elementos (dimensiones reales)
-7. Crecimiento de contenedores
-8. Redistribución vertical
-9. Routing
+7. Crecimiento de contenedores (bottom-up)
+8. Redistribución vertical con escala X global (preserva ángulos de Fase 5)
+9. Routing (paths de conexiones)
 10. Generación de SVG
 
-Versión Sprint 5: Claude-SolFase5 - Optimización de posiciones de nodos primarios.
-
-Author: José + ALMA + Claude (Claude-SolFase5)
-Version: v1.3 (Sprint 5)
-Date: 2026-02-15
+Version: v1.4 (Sprint 5 + Fase 8 angle-preserving)
 """
 
 from typing import List
@@ -282,13 +278,15 @@ class LAFOptimizer:
         Redistribuye elementos después del crecimiento de contenedores,
         preservando los ángulos de conectores de Fase 5.
 
-        Estrategia: Escala X global única
-        - En vez de centrar cada nivel independientemente, calcula un único
-          factor de escala X global que acomode el nivel más ancho.
-        - dx entre elementos conectados es proporcional a su diferencia
-          abstract_x de Fase 5 por un factor constante.
-        - Solo dy varía (inevitable: containers altos necesitan más espacio).
-        - El diagrama se centra una sola vez globalmente, no por nivel.
+        Algoritmo:
+        1. Obtener posiciones abstractas de Fase 5 (abstract_x, abstract_y)
+        2. Calcular escala X global = max(element_width + gap) / abstract_gap
+           para todos los pares adyacentes en cada nivel
+        3. Asignar Y secuencial por nivel (max_height + 240px)
+        4. Asignar X = (abstract_x + shift) * global_x_scale + margin
+        5. Centrar globalmente con un dx uniforme
+
+        Si no hay posiciones de Fase 5, usa fallback con centrado por nivel.
 
         Args:
             structure_info: Información estructural con topological_levels
@@ -320,7 +318,7 @@ class LAFOptimizer:
                 by_level[actual_level] = layer_elements.copy()
 
             if self.debug:
-                print(f"[REDISTRIBUTE] Orden Fase 2: {len(by_level)} niveles")
+                print(f"[REDISTRIBUTE] Orden optimizado (Fase 5): {len(by_level)} niveles")
         else:
             for elem_id in structure_info.primary_elements:
                 level = structure_info.topological_levels.get(elem_id, 0)
@@ -582,8 +580,8 @@ class LAFOptimizer:
         """
         Centra elementos de un nivel horizontalmente en el canvas.
 
-        IMPORTANTE: Los elementos ya vienen ordenados por el abstract_placer
-        para minimizar cruces. Este método debe RESPETAR ese orden al centrarlos.
+        NOTA: Solo se usa en el fallback (sin posiciones de Fase 5).
+        En el flujo normal, Phase 8 usa escala X global en vez de centrado por nivel.
 
         Args:
             level_elements: IDs de elementos del nivel (YA ORDENADOS)
@@ -671,17 +669,23 @@ class LAFOptimizer:
 
     def optimize(self, layout):
         """
-        Ejecuta optimización LAF.
+        Ejecuta el pipeline LAF de 10 fases.
+
+        Fases:
+        1-3: Análisis (estructura, topología, centralidad)
+        4: Layout abstracto (Sugiyama barycenter)
+        5: Optimización de posiciones (layer-offset bisection)
+        6: Inflación (dimensiones reales)
+        7: Crecimiento de contenedores
+        8: Redistribución vertical (escala X global preservando ángulos de Fase 5)
+        9: Routing
+        10: SVG
 
         Args:
             layout: Layout inicial
 
         Returns:
-            Layout: Layout optimizado con Fases 1-10 aplicadas
-
-        Sprint 5: Claude-SolFase5 - Optimización de posiciones de nodos primarios.
-        La Fase 5 optimiza posiciones para minimizar distancia de conectores.
-        La inflación se desplaza a Fase 6.
+            Layout: Layout optimizado
         """
         if self.debug:
             print("\n[LAF] Pipeline LAF (10 fases)")

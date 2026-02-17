@@ -4,6 +4,66 @@ Todas las mejoras notables de AlmaGag están documentadas en este archivo.
 
 ---
 
+## [3.1.0] - 2026-02-17
+
+### 🎉 Características Principales
+
+#### Auto Layout v4.0 — Calidad comparable a LAF
+- **Nuevo:** Barycenter ordering (Sugiyama-style) minimiza cruces dentro de cada nivel
+- **Nuevo:** Position optimization con layer-offset bisection minimiza distancia de conectores
+- **Nuevo:** Connection resolution — endpoints contenidos se resuelven a sus contenedores padre
+- **Nuevo:** Centrality scores — nodos con más conexiones centrados en su nivel
+- **Nuevo:** Escala X global calculada desde anchos de elementos
+
+#### LAF v1.4 — Pipeline de 10 fases
+- **Nuevo:** Fase 2 (Topology Analysis) con visualización de niveles y scores
+- **Nuevo:** Fase 5 (Position Optimization) con layer-offset bisection
+- **Nuevo:** Fase 8 (Global X Scale) preservando ángulos del layout abstracto
+- **Actualizado:** Numeración consistente 1-10 (eliminado Fase 4.5)
+- **Actualizado:** 10 SVGs de visualización por diagrama (vs 4 anterior)
+
+### 🐛 Correcciones
+
+#### Elementos apilados tras expansión de contenedores (Critical Fix)
+- **Corregido:** `recalculate_positions_with_expanded_containers()` ya no elimina posiciones de elementos libres
+- **Solución:** Solo desplaza elementos que realmente solapan con contenedores expandidos
+
+#### Convergencia del optimizador
+- **Corregido:** Expansión de canvas (Strategy C) ya no resetea progreso del optimizador
+- **Corregido:** Cache de colisiones invalidado correctamente tras reubicación de etiquetas
+
+#### Spacing vertical
+- **Corregido:** Spacing vertical de 100px a 240px (LAF_VERTICAL_SPACING) para contenedores altos
+
+### 📦 Archivos Modificados
+
+**Core Layout:**
+- `AlmaGag/layout/auto_positioner.py` — v4.0: barycenter, position optimization, connection resolution
+- `AlmaGag/layout/auto_optimizer.py` — Convergencia mejorada, dead code eliminado
+- `AlmaGag/layout/graph_analysis.py` — Topological levels (longest-path), centrality scores, connection resolution
+
+**LAF Pipeline:**
+- `AlmaGag/layout/laf_optimizer.py` — v1.4: pipeline de 10 fases
+- `AlmaGag/layout/laf/position_optimizer.py` — Fase 5: layer-offset bisection
+- `AlmaGag/layout/laf/visualizer.py` — 10 SVGs de visualización
+- `AlmaGag/layout/laf/structure_analyzer.py` — Debug output mejorado
+
+### 📊 Métricas de Mejora
+
+| Métrica | v3.0.0 | v3.1.0 | Delta |
+|---------|--------|--------|-------|
+| Colisiones (05-arquitectura) | 90 | 46 | -49% |
+| Elementos apilados | 8 | 0 | -100% |
+| Convergencia optimizador | Inestable | Estable | FIX |
+| Fases LAF | 8 | 10 | +2 |
+| SVGs de visualización | 8 | 10 | +2 |
+
+### 🔧 Breaking Changes
+
+Ninguno - Totalmente compatible con archivos .gag anteriores
+
+---
+
 ## [3.0.0] - 2026-01-10
 
 ### 🎉 Características Principales

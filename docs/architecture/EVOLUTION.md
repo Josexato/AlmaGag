@@ -314,6 +314,45 @@ Diagrama demostrativo con 4 elementos y centro evitado:
 
 ---
 
+## v4.0 - Auto Layout con Barycenter y Position Optimization
+
+**Fecha:** 2026-02-17
+
+**Motivación:**
+El layout jerárquico v3.0 asignaba niveles topológicos pero no optimizaba el orden dentro de cada nivel ni minimizaba distancias de conectores. Esto producía cruces innecesarios y elementos apilados en diagramas con contenedores.
+
+**Características nuevas:**
+
+1. **Barycenter ordering** (Sugiyama-style): 2 iteraciones forward + 2 backward. Cada nodo se ordena por el promedio de posiciones X de sus vecinos en el nivel adyacente, con blend híbrido usando centrality scores.
+
+2. **Position optimization**: Layer-offset bisection minimiza la distancia total ponderada de conectores. Forward + backward, max 10 iteraciones, convergencia < 0.001.
+
+3. **Connection resolution**: `resolve_connections_to_primary()` resuelve endpoints contenidos a sus contenedores padre. Resultado: 20 edges resueltas en vez de 8 para el grafo de barycenter.
+
+4. **Centrality scores**: `score = max(0, outdegree-1)*0.10 + max(0, indegree-1)*0.15`. Nodos con más conexiones se centran en su nivel.
+
+5. **Escala X global**: Factor único calculado desde anchos de elementos para prevenir solapamientos.
+
+6. **Fix de convergencia del optimizador**: Strategy C (canvas expansion) ya no resetea moved_elements ni llama a full _recalculate_structures.
+
+7. **Fix de elementos apilados**: `recalculate_positions_with_expanded_containers()` ya no elimina posiciones de elementos libres.
+
+**Benchmark - Diagrama de Arquitectura:**
+
+```
+Auto v4.0: 46 colisiones (vs 90 en v3.0)
+  - 9 niveles topológicos
+  - 0 elementos apilados (vs 8 en v3.0)
+  - Convergencia estable (46 se mantiene en 46)
+```
+
+**Limpieza de código:**
+- Eliminadas ~350 líneas de código muerto en auto_positioner.py
+- Eliminado método `_select_element_to_move()` (reemplazado por `_select_element_to_move_weighted()`)
+- Removidos 9 imports no utilizados
+
+---
+
 ## v2.2 - (Futuro)
 
 **Objetivos:**

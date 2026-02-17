@@ -1,7 +1,7 @@
 # AlmaGag - Roadmap de Desarrollo
 
-**Versión Actual**: v2.1 (código) + SDJF v2.0 (estándar)
-**Actualizado**: 2026-01-08
+**Versión Actual**: v3.1.0 (código) + SDJF v3.0 (estándar)
+**Actualizado**: 2026-02-17
 
 ---
 
@@ -33,6 +33,19 @@
 - ✅ Patrón inmutable (Layout.copy())
 - ✅ Componentes auxiliares (SizingCalculator, AutoLayoutPositioner)
 - ✅ Documentación reorganizada (spec/, guides/, architecture/)
+
+#### Código v3.0 (Enero 2026)
+- ✅ Layout jerárquico topológico (longest-path levels)
+- ✅ Label collision optimizer
+- ✅ Sistema LAF con 8 fases (Sugiyama-style)
+- ✅ Routing declarativo (5 tipos: straight, orthogonal, bezier, arc, manual)
+
+#### Código v3.1 (Febrero 2026)
+- ✅ **Auto Layout v4.0**: Barycenter ordering + position optimization + connection resolution
+- ✅ **LAF v1.4**: Pipeline de 10 fases con position optimization y escala X global
+- ✅ Centrality scores para centrar nodos conectados
+- ✅ Fix de convergencia del optimizador y elementos apilados
+- ✅ Limpieza de ~350 líneas de código muerto
 
 ---
 
@@ -660,5 +673,4 @@ Ver [CONTRIBUTING.md](CONTRIBUTING.md) para guías de contribución.
 
 ---
 
-**Actualizado**: 2026-01-08
-**Próxima revisión**: Después de lanzar v2.1-beta
+**Actualizado**: 2026-02-17

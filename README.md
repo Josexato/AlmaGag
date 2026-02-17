@@ -2,7 +2,7 @@
 
 **Proyecto**: ALMA (Almas y Sentidos)
 **Módulo**: GAG - Intérprete de sentidos para Funes
-**Versión**: v3.0.0 + SDJF v3.0
+**Versión**: v3.1.0 + SDJF v3.0
 
 ---
 
@@ -90,19 +90,16 @@ AlmaGag v3.0 incluye dos algoritmos de layout automático que puedes elegir seg�
 
 #### 🔹 Algoritmo AUTO (por defecto)
 
-Sistema AutoLayoutOptimizer v3.0 jerárquico iterativo.
+Sistema AutoLayoutOptimizer v4.0 jerárquico con optimización topológica.
 
 **Características**:
-- **✅ Layout Jerárquico**: Posicionamiento basado en topología de grafos (BFS)
-- **✅ Optimización de Colisiones de Etiquetas**: Sistema inteligente de posicionamiento
-  - Generación de posiciones candidatas (8 para conexiones, 3 para contenedores)
-  - Scoring basado en colisiones y legibilidad
-  - Algoritmo greedy con prioridades
-- **✅ Detección Avanzada de Colisiones**: Etiqueta-elemento y etiqueta-etiqueta
+- **✅ Layout Jerárquico v4.0**: Niveles topológicos (longest-path), barycenter ordering, position optimization con layer-offset bisection, escala X global
+- **✅ Resolución de conexiones**: Endpoints contenidos se resuelven a sus contenedores padre, proporcionando el grafo completo al algoritmo
+- **✅ Centralidad**: Nodos con mas conexiones se posicionan al centro de su nivel
+- **✅ Optimización iterativa**: Label relocation, element movement, canvas expansion (max 10 iteraciones)
 - **✅ Coordenadas Manuales**: Preserva posiciones x,y si las especificas
-- **✅ Rápido**: Óptimo para diagramas pequeños (<10 elementos)
 
-**Cuándo usar**: Diagramas simples, prototipos rápidos, cuando necesitas coordenadas manuales.
+**Cuándo usar**: Diagramas simples a medianos, prototipos rápidos, cuando necesitas coordenadas manuales.
 
 ```bash
 almagag diagrama.gag
@@ -112,14 +109,14 @@ almagag diagrama.gag --layout-algorithm=auto
 
 #### 🔹 Algoritmo LAF (opcional)
 
-Sistema LAFOptimizer v1.3 con minimización agresiva de cruces de conexiones.
+Sistema LAFOptimizer v1.4 con pipeline de 10 fases y minimización agresiva de cruces.
 
 **Características**:
 - **✅ Minimización de Cruces**: Reduce cruces de conexiones en 87%
-- **✅ 4 Fases Especializadas**: Structure → Abstract → Inflate → Grow
+- **✅ 10 Fases Especializadas**: Structure → Topology → Abstract → Inflate → Position Opt. → Growth → Redistribution → X Scale → Routing → SVG
+- **✅ Position Optimization**: Layer-offset bisection preservando ángulos
+- **✅ Escala X Global**: Factor único que mantiene proporciones del layout abstracto
 - **✅ Optimización Bottom-Up**: Expansión inteligente de contenedores
-- **✅ Menos Iteraciones**: 80% menos llamadas a routing, más rápido en diagramas complejos
-- **✅ Routing Dual**: Calcula rutas 2 veces para máxima precisión
 
 **Mejoras vs AUTO**:
 - 87% menos cruces de conexiones
@@ -248,20 +245,19 @@ AlmaGag.generator (Orquestador)
     │                                                           │
     │  PATH 1: ALGORITMO AUTO (default)                        │  PATH 2: ALGORITMO LAF (--layout-algorithm=laf)
     │                                                           │
-    │  AutoLayoutOptimizer v3.0 Jerárquico                     │  LAFOptimizer v1.3
-    │  ├─ GraphAnalyzer: topología (niveles, grupos)           │  ├─ FASE 1: Structure Analysis
-    │  ├─ AutoLayoutPositioner: layout jerárquico              │  │   └─ Topología y jerarquía del grafo
-    │  ├─ RouterManager: rutas de conexiones (v2.1)            │  ├─ FASE 2: Abstract Placement
-    │  ├─ CollisionDetector: detección de colisiones           │  │   └─ Minimización de cruces (Sugiyama-like)
-    │  └─ Iterative optimization (hasta 10 iteraciones)        │  ├─ FASE 3: Inflation
-    │                                                           │  │   └─ Aplicar dimensiones reales
-    │                                                           │  ├─ FASE 4: Container Growth
-    │                                                           │  │   └─ Expansión bottom-up de contenedores
-    │                                                           │  └─ Routing DUAL (2 pasadas para precisión)
+    │  AutoLayoutOptimizer v4.0 Jerárquico                     │  LAFOptimizer v1.4 (10 fases)
+    │  ├─ GraphAnalyzer: topología + centralidad + resolución  │  ├─ FASE 1-2: Structure + Topology Analysis
+    │  ├─ AutoLayoutPositioner: barycenter + position optim.   │  ├─ FASE 3: Abstract Placement (Sugiyama)
+    │  ├─ RouterManager: rutas de conexiones (v2.1)            │  ├─ FASE 4: Inflation
+    │  ├─ CollisionDetector: detección de colisiones           │  ├─ FASE 5: Position Optimization
+    │  └─ Iterative optimization (hasta 10 iteraciones)        │  ├─ FASE 6-7: Container Growth + Redistribution
+    │                                                           │  ├─ FASE 8: Global X Scale (angle-preserving)
+    │                                                           │  ├─ FASE 9: Routing
+    │                                                           │  └─ FASE 10: SVG Generation
     │                                                           │
     └─────────────────────────────────────────────────────────┘
     │
-    ├─ LabelPositionOptimizer v3.0
+    ├─ LabelPositionOptimizer
     │   ├─ Generación de posiciones candidatas (8 conexiones, 3 contenedores)
     │   ├─ Scoring basado en colisiones y legibilidad
     │   └─ Asignación greedy por prioridad
@@ -279,7 +275,7 @@ Ver [LAYOUT-DECISION-GUIDE.md](docs/guides/LAYOUT-DECISION-GUIDE.md) para elegir
 
 **Módulos principales:**
 
-- `AlmaGag/layout/` - Layout inmutable + Optimización jerárquica (v3.0)
+- `AlmaGag/layout/` - Layout inmutable + Optimización jerárquica (v4.0)
 - `AlmaGag/routing/` - Sistema de routing declarativo (5 tipos)
 - `AlmaGag/draw/` - Renderizado SVG (íconos, conexiones, contenedores)
 
@@ -336,15 +332,15 @@ AlmaGag/
 │   ├── generator.py          # Orquestador
 │   ├── config.py             # Constantes globales
 │   ├── debug.py              # Utilities de debug (SVG→PNG)
-│   ├── layout/               # Módulo de Layout (v3.0)
+│   ├── layout/               # Módulo de Layout (v4.0)
 │   │   ├── layout.py         # Clase Layout (inmutable)
-│   │   ├── auto_optimizer.py # AutoLayoutOptimizer v3.0
+│   │   ├── auto_optimizer.py # AutoLayoutOptimizer v4.0
 │   │   ├── auto_positioner.py # Posicionamiento jerárquico
 │   │   ├── sizing.py         # SizingCalculator (hp/wp)
 │   │   ├── geometry.py       # GeometryCalculator + colisiones
 │   │   ├── collision.py      # CollisionDetector
 │   │   ├── graph_analysis.py # GraphAnalyzer (topología)
-│   │   ├── label_optimizer.py # LabelPositionOptimizer v3.0
+│   │   ├── label_optimizer.py # LabelPositionOptimizer
 │   │   ├── container_calculator.py # Cálculo de contenedores
 │   │   └── optimizer_base.py # Base classes
 │   ├── routing/              # Sistema de routing (v2.1)
@@ -443,13 +439,20 @@ No requiere modificar código existente (dynamic import).
 
 ## 🗺️ Roadmap
 
+### ✅ v3.1 - Auto Layout v4.0 + LAF 10 fases (Implementado)
+
+- **✅ Barycenter ordering**: Minimización de cruces dentro de cada nivel (Sugiyama-style)
+- **✅ Position optimization**: Layer-offset bisection para minimizar distancia de conectores
+- **✅ Connection resolution**: Endpoints contenidos resueltos a contenedores padre
+- **✅ Centrality scores**: Nodos con más conexiones centrados en su nivel
+- **✅ LAF 10 fases**: Pipeline completo con topology analysis, position optimization, escala X global
+
 ### ✅ v3.0 - Layout Jerárquico + Optimización de Etiquetas (Implementado)
 
-- **✅ Layout jerárquico**: Posicionamiento basado en topología de grafos (BFS)
+- **✅ Layout jerárquico**: Posicionamiento basado en topología de grafos (longest-path)
 - **✅ Label collision optimizer**: Sistema inteligente de posicionamiento de etiquetas
 - **✅ Detección avanzada de colisiones**: Etiqueta-elemento y etiqueta-etiqueta
 - **✅ Debug automatizado**: PNG generation con Chrome headless
-- **✅ Reorganización completa**: Estructura de repositorio profesional
 
 Ver [release notes v3.0.0](docs/RELEASE_v3.0.0.md) y [CHANGELOG](docs/CHANGELOG.md).
 
@@ -507,4 +510,4 @@ Este proyecto es parte de ALMA. Para reportar bugs o sugerir mejoras, abre un is
 ---
 
 **AlmaGag** - Generación automática de diagramas con layout jerárquico inteligente y optimización de etiquetas
-**Versión**: v3.0.0 + SDJF v3.0 | **Actualizado**: 2026-01-10
+**Versión**: v3.1.0 + SDJF v3.0 | **Actualizado**: 2026-02-17
