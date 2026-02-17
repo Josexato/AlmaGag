@@ -58,14 +58,29 @@ class StructureAnalyzer:
     - Calcular métricas para heurísticas de placement
     """
 
-    def __init__(self, debug: bool = False):
+    def __init__(
+        self,
+        debug: bool = False,
+        centrality_alpha: float = 0.15,
+        centrality_beta: float = 0.10,
+        centrality_gamma: float = 0.15,
+        centrality_max_score: float = 100.0,
+    ):
         """
         Inicializa el analizador de estructura.
 
         Args:
             debug: Si True, imprime logs de debug
+            centrality_alpha: Peso por unidad de distancia en W_precedence (skip connections)
+            centrality_beta: Peso por hijo extra en W_hijos (hub-ness)
+            centrality_gamma: Peso por padre extra en W_fanin (0.0 = desactivado)
+            centrality_max_score: Clamp máximo del score de accesibilidad
         """
         self.debug = debug
+        self.centrality_alpha = centrality_alpha
+        self.centrality_beta = centrality_beta
+        self.centrality_gamma = centrality_gamma
+        self.centrality_max_score = centrality_max_score
 
     def analyze(self, layout) -> StructureInfo:
         """
@@ -101,16 +116,19 @@ class StructureAnalyzer:
         self._classify_primary_nodes(layout, info)
 
         # Calcular scores de accesibilidad intra-nivel
-        self._calculate_accessibility_scores(info)
+        self._calculate_accessibility_scores(
+            info,
+            alpha=self.centrality_alpha,
+            beta=self.centrality_beta,
+            gamma=self.centrality_gamma,
+            max_score=self.centrality_max_score,
+        )
 
         # Agrupar elementos por tipo
         self._group_elements_by_type(layout, info)
 
         # Generar secuencia de conexiones
         self._generate_connection_sequences(layout, info)
-
-        if self.debug:
-            self._print_debug_info(info)
 
         return info
 
@@ -348,15 +366,11 @@ class StructureAnalyzer:
                     # Actualizar nivel si encontramos un camino más largo
                     old_level = info.topological_levels[neighbor_id]
                     new_level = level + 1
-                    if new_level > old_level:
-                        if self.debug:
-                            print(f"[TOPOLOGICAL] {neighbor_id}: nivel {old_level} -> {new_level} (via {current_id})")
                     info.topological_levels[neighbor_id] = max(
                         info.topological_levels[neighbor_id],
                         level + 1
                     )
 
-        # Post-processing: leaf nodes stay at parent level (leaf stays in parent level)
         # Build local reverse graph for parent lookup
         local_incoming = {}
         for from_id, to_list in info.connection_graph.items():
@@ -365,6 +379,11 @@ class StructureAnalyzer:
                     local_incoming[to_id] = []
                 if from_id not in local_incoming[to_id]:
                     local_incoming[to_id].append(from_id)
+
+        # Correccion de consistencia para nodos no-hoja:
+        # todo nodo con hijos debe estar al menos un nivel sobre su padre dominante.
+        # Esto corrige casos donde BFS actualiza un padre tarde y no reprocesa hijos.
+        self._enforce_non_leaf_parent_progression(info, local_incoming)
 
         # Apply leaf correction: leaves stay at their dominant parent's level
         for elem_id in info.primary_elements:
@@ -375,35 +394,43 @@ class StructureAnalyzer:
                     max_base_parent = max(
                         info.topological_levels[p] for p in parents
                     )
-                    old_level = info.topological_levels[elem_id]
                     info.topological_levels[elem_id] = max_base_parent
-                    if self.debug and old_level != max_base_parent:
-                        print(
-                            f"[TOPOLOGICAL] Leaf correction: {elem_id} "
-                            f"level {old_level} -> {max_base_parent} "
-                            f"(stays at parent level)"
-                        )
 
         # Corrección para hojas terminales: suben un nivel sobre su padre dominante
-        # (se aplica después de la corrección de hojas normales)
         for elem_id in info.terminal_leaf_nodes:
             parents = local_incoming.get(elem_id, [])
             if parents:
                 max_parent_level = max(info.topological_levels[p] for p in parents)
-                old_level = info.topological_levels.get(elem_id, 0)
                 info.topological_levels[elem_id] = max_parent_level + 1
-                if self.debug and old_level != max_parent_level + 1:
-                    print(
-                        f"[TOPOLOGICAL] Terminal leaf correction: {elem_id} "
-                        f"level {old_level} -> {max_parent_level + 1} "
-                        f"(moves above parent level)"
-                    )
 
-        # Debug: Mostrar niveles finales
-        if self.debug:
-            print(f"\n[TOPOLOGICAL] Niveles finales:")
-            for elem_id, level in sorted(info.topological_levels.items(), key=lambda x: (x[1], x[0])):
-                print(f"  Nivel {level}: {elem_id}")
+    def _enforce_non_leaf_parent_progression(
+        self,
+        info: StructureInfo,
+        local_incoming: Dict[str, List[str]]
+    ) -> None:
+        """
+        Garantiza para nodos con hijos (outdeg > 0):
+            level(node) >= max(level(parent)) + 1
+        aplicando un fixpoint hasta converger.
+        """
+        changed = True
+        while changed:
+            changed = False
+            for elem_id in info.primary_elements:
+                outdeg = len(info.connection_graph.get(elem_id, []))
+                if outdeg == 0:
+                    continue
+
+                parents = local_incoming.get(elem_id, [])
+                if not parents:
+                    continue
+
+                required_level = max(info.topological_levels.get(p, 0) for p in parents) + 1
+                current_level = info.topological_levels.get(elem_id, 0)
+
+                if current_level < required_level:
+                    info.topological_levels[elem_id] = required_level
+                    changed = True
 
     def _classify_primary_nodes(self, layout, info: StructureInfo) -> None:
         """
@@ -445,14 +472,7 @@ class StructureAnalyzer:
             info.primary_node_types[elem_id] = node_type
             node_counter += 1
 
-        if self.debug:
-            print(f"\n[CLASIFICACION] Nodos primarios clasificados:")
-            for elem_id in info.primary_elements:
-                node_id = info.primary_node_ids[elem_id]
-                node_type = info.primary_node_types[elem_id]
-                level = info.topological_levels.get(elem_id, "N/A")
-                children_count = len(info.element_tree[elem_id]['children'])
-                print(f"  {node_id} | {node_type:18} | {elem_id:30} | Nivel {level} | {children_count} hijos")
+        pass  # clasificación completada, debug se muestra en laf_optimizer
 
     def _build_incoming_graph(self, info: StructureInfo) -> None:
         """
@@ -532,14 +552,7 @@ class StructureAnalyzer:
         info.leaf_nodes = leaf_nodes
         info.terminal_leaf_nodes = terminal_leaf_nodes
 
-        if self.debug:
-            print(f"\n[LEAF] Nodos hoja: {len(info.leaf_nodes)}")
-            if info.leaf_nodes:
-                print(f"  - {sorted(info.leaf_nodes)}")
-
-            print(f"[LEAF] Hojas terminales: {len(info.terminal_leaf_nodes)}")
-            if info.terminal_leaf_nodes:
-                print(f"  - {sorted(info.terminal_leaf_nodes)}")
+        pass  # hojas identificadas, debug se muestra en laf_optimizer
 
     def _calculate_accessibility_scores(
         self,
@@ -602,18 +615,7 @@ class StructureAnalyzer:
             score_raw = w_hijos + w_precedence + w_fanin
             info.accessibility_scores[elem_id] = min(max_score, score_raw)
 
-        if self.debug:
-            scored = {k: v for k, v in info.accessibility_scores.items() if v > 0}
-            if scored:
-                print(f"\n[ACCESSIBILITY] Scores calculados:")
-                for elem_id in sorted(scored, key=scored.get, reverse=True):
-                    score = scored[elem_id]
-                    base = info.topological_levels.get(elem_id, 0)
-                    outdeg = len(info.connection_graph.get(elem_id, []))
-                    indeg = len(info.incoming_graph.get(elem_id, []))
-                    print(f"  {elem_id}: score={score:.4f} (base={base}, out={outdeg}, in={indeg})")
-            else:
-                print(f"\n[ACCESSIBILITY] Todos los scores son 0 (grafo simple)")
+        pass  # scores calculados, debug se muestra en laf_optimizer
 
     def _group_elements_by_type(self, layout, info: StructureInfo) -> None:
         """

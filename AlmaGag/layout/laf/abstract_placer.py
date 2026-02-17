@@ -96,31 +96,11 @@ class AbstractPlacer:
         # Fase 1: Layering (asignar elementos primarios a capas)
         layers = self._assign_layers(structure_info, centrality_order)
 
-        if self.debug:
-            print(f"\n[ABSTRACT] Layering completado: {len(layers)} capas")
-            for level, elements in enumerate(layers):
-                print(f"  Capa {level}: {len(elements)} elementos")
-
         # Step 2: Ordering (ordenar dentro de capas)
         self._order_within_layers(layers, structure_info, layout)
 
-        # CRÍTICO: Guardar COPIA PROFUNDA del orden optimizado para usarlo en Fase 8 (Redistribución)
-        # Esto preserva el orden de barycenter bidireccional + hub positioning
+        # Guardar orden optimizado para Fase 8 (Redistribución)
         layout.optimized_layer_order = [layer.copy() for layer in layers]
-
-        if self.debug:
-            print(f"\n[ABSTRACT] Ordering completado")
-            print(f"           Orden final guardado para Fase 8 (Redistribución):")
-            for idx, layer in enumerate(layout.optimized_layer_order):
-                if len(layer) > 1:
-                    print(f"             Capa {idx}: {' -> '.join(layer)}")
-
-            # Verificar que coincide con el estado actual de layers
-            for idx in range(len(layers)):
-                if len(layers[idx]) > 1 and layers[idx] != layout.optimized_layer_order[idx]:
-                    print(f"           ⚠️ ADVERTENCIA: Capa {idx} difiere:")
-                    print(f"              layers actual: {' -> '.join(layers[idx])}")
-                    print(f"              guardado:      {' -> '.join(layout.optimized_layer_order[idx])}")
 
         # Fase 3: Positioning (asignar coordenadas abstractas a primarios)
         positions = self._assign_abstract_positions(layers)
@@ -129,17 +109,9 @@ class AbstractPlacer:
         self._assign_contained_positions(positions, structure_info, layout)
 
         if self.debug:
-            primary_count = len(structure_info.primary_elements)
-            contained_count = len(positions) - primary_count
-            print(f"\n[ABSTRACT] Posiciones asignadas:")
-            print(f"           - Primarios: {primary_count}")
-            print(f"           - Contenidos: {contained_count}")
-            print(f"           - Total: {len(positions)}")
-
-        # Calcular cruces finales
-        if self.debug:
-            initial_crossings = self.count_crossings(positions, layout.connections)
-            print(f"\n[ABSTRACT] Cruces calculados: {initial_crossings}")
+            for idx, layer in enumerate(layers):
+                if len(layer) > 1:
+                    print(f"  Capa {idx}: {' -> '.join(layer)}")
 
         return positions
 
@@ -247,6 +219,14 @@ class AbstractPlacer:
                         layout
                     )
 
+            # Leaf positioning: hojas adyacentes a su padre, lado opuesto al centro
+            for layer_idx in range(len(layers)):
+                if len(layers[layer_idx]) >= 2:
+                    self._position_leaves_near_parents(
+                        layers[layer_idx],
+                        structure_info,
+                    )
+
             # DESHABILITADO: Aplicar optimal_distribution después del barycenter
             # crea conflicto entre dos optimizaciones diferentes.
             # El barycenter YA usa el orden de Fase 3 (centrality_order) como
@@ -264,11 +244,7 @@ class AbstractPlacer:
             #                 layout
             #             )
 
-            if self.debug and iteration == iterations - 1:
-                print(f"\n           Orden FINAL después de iteración {iteration + 1}:")
-                for layer_idx, layer in enumerate(layers):
-                    if len(layer) > 1:
-                        print(f"             Capa {layer_idx}: {' -> '.join(layer)}")
+            pass  # orden final se muestra en place_elements
 
     def _order_first_layer(
         self,
@@ -364,39 +340,19 @@ class AbstractPlacer:
             barycenter_final = (1.0 - alpha) * barycenter_conn + alpha * center
             barycenters[elem_id] = barycenter_final
 
-            if self.debug and score > 0:
-                print(f"           {elem_id}: score={score:.3f}, alpha={alpha:.2f}, " +
-                      f"bc_conn={barycenter_conn:.2f} -> bc_final={barycenter_final:.2f}")
-
         # Ordenar por barycenter híbrido (ya incluye centralidad)
         def get_sort_key(elem_id: str) -> Tuple[float, int, str]:
             barycenter = barycenters.get(elem_id, len(previous_layer) / 2)
-
-            # Tiebreaker: contenedores primero en caso de empate (prioridad 0)
             container_node = structure_info.element_tree.get(elem_id)
             is_container = 1 if (container_node and container_node['is_container']) else 2
-
-            # Tipo del elemento
             elem_type = 'unknown'
             for etype, ids in structure_info.element_types.items():
                 if elem_id in ids:
                     elem_type = etype
                     break
-
             return (barycenter, is_container, elem_type)
 
-        if self.debug:
-            print(f"           Barycenters antes de ordenar (con score-adjustment):")
-            for elem_id in current_layer:
-                bc = barycenters.get(elem_id, -1)
-                score = structure_info.accessibility_scores.get(elem_id, 0.0)
-                score_str = f" [score={score:.3f}]" if score > 0 else ""
-                print(f"             {elem_id}: {bc:.2f}{score_str}")
-
         current_layer.sort(key=get_sort_key)
-
-        if self.debug:
-            print(f"           Orden después de sort: {' -> '.join(current_layer)}")
 
     def _position_hub_containers_in_center(
         self,
@@ -460,8 +416,82 @@ class AbstractPlacer:
                     current_layer.pop(current_idx)
                     current_layer.insert(center_idx, elem_id)
 
-                    if self.debug:
-                        print(f"           [HUB] {elem_id}: {len(sources)} fuentes -> movido a centro (pos {center_idx})")
+                    pass  # hub movido al centro
+
+    def _position_leaves_near_parents(
+        self,
+        current_layer: List[str],
+        structure_info: StructureInfo,
+    ) -> None:
+        """
+        Post-procesa la capa para colocar hojas adyacentes a su padre gráfico,
+        en el lado opuesto al centro de la capa.
+
+        Una hoja es un nodo con outdegree = 0 en connection_graph.
+        Su padre gráfico es quien tiene una arista apuntando a la hoja
+        (connection_graph[parent] contiene la hoja) y está en la misma capa.
+
+        Regla: centro → padre → hoja  (hoja más lejos del centro que el padre).
+
+        Args:
+            current_layer: Capa ordenada (modifica in-place)
+            structure_info: Información estructural
+        """
+        if len(current_layer) < 2:
+            return
+
+        center = (len(current_layer) - 1) / 2.0
+
+        # Identificar hojas en esta capa y su padre gráfico dentro de la misma capa.
+        layer_set = set(current_layer)
+        leaf_to_parent = {}  # {leaf_id: parent_id}
+
+        for elem_id in current_layer:
+            outdeg = len(structure_info.connection_graph.get(elem_id, []))
+            if outdeg != 0:
+                continue
+            # Contenedores con alta centralidad no son hojas (deben quedarse al centro)
+            score = structure_info.accessibility_scores.get(elem_id, 0.0)
+            if score > 0.05:
+                continue
+            # Es hoja: buscar quién le apunta desde la misma capa.
+            for candidate in current_layer:
+                if candidate == elem_id:
+                    continue
+                children_of_candidate = structure_info.connection_graph.get(candidate, [])
+                if elem_id in children_of_candidate:
+                    leaf_to_parent[elem_id] = candidate
+                    break  # tomar el primer padre encontrado
+
+        if not leaf_to_parent:
+            return
+
+        for leaf_id, parent_id in leaf_to_parent.items():
+            if leaf_id not in current_layer or parent_id not in current_layer:
+                continue
+
+            parent_idx = current_layer.index(parent_id)
+            leaf_idx = current_layer.index(leaf_id)
+
+            # Determinar en qué lado del centro está el padre.
+            # La hoja debe ir en el lado del padre que se aleja del centro.
+            if parent_idx >= center:
+                # Padre al centro o a la derecha → hoja justo después del padre.
+                target_idx = parent_idx + 1
+            else:
+                # Padre a la izquierda del centro → hoja justo antes del padre.
+                target_idx = parent_idx
+
+            # Remover hoja de su posición actual.
+            current_layer.pop(leaf_idx)
+
+            # Ajustar target si la remoción desplazó índices.
+            if leaf_idx < target_idx:
+                target_idx -= 1
+
+            current_layer.insert(target_idx, leaf_id)
+
+            pass  # hoja posicionada junto a padre
 
     def _order_layer_barycenter_backward(
         self,
@@ -498,11 +528,15 @@ class AbstractPlacer:
             )
             barycenters[elem_id] = barycenter
 
-        # BACKWARD PASS: NO aplicar algoritmo híbrido
-        # El forward pass ya estableció el orden basado en centralidad
-        # El backward solo refina para conexiones hacia adelante
+        # ALGORITMO HÍBRIDO también en backward: mezclar barycenter con atracción al centro
+        center = (len(current_layer) - 1) / 2.0
+        for elem_id in current_layer:
+            score = structure_info.accessibility_scores.get(elem_id, 0.0)
+            barycenter_conn = barycenters.get(elem_id, center)
+            alpha = self._calculate_centrality_weight(score)
+            barycenters[elem_id] = (1.0 - alpha) * barycenter_conn + alpha * center
 
-        # Ordenar por barycenter puro (sin modificar con centralidad)
+        # Ordenar por barycenter híbrido
         def get_sort_key(elem_id: str) -> float:
             return barycenters.get(elem_id, len(next_layer) / 2)
 
@@ -594,9 +628,6 @@ class AbstractPlacer:
             # Esto ayuda a posicionar contenedores en el medio de sus "clientes"
             barycenter = avg_barycenter * 0.5 + center_position * 0.5
 
-            if self.debug:
-                print(f"           [CONTAINER] {container_id}: {len(source_barycenter_values)} conexiones")
-                print(f"                       avg_sources={avg_barycenter:.2f}, center={center_position:.2f} -> barycenter={barycenter:.2f}")
             return barycenter
         else:
             # Sin conexiones entrantes: posición central
@@ -930,9 +961,6 @@ class AbstractPlacer:
 
                 positions[child_id] = (child_x, child_y)
 
-                if self.debug:
-                    print(f"           {child_id} -> ({child_x:.2f}, {child_y:.2f}) [hijo de {container_id}]")
-
     def count_crossings(
         self,
         positions: Dict[str, Tuple[int, int]],
@@ -1150,10 +1178,7 @@ class AbstractPlacer:
         # Actualizar current_layer in-place
         current_layer[:] = new_order
 
-        if self.debug:
-            print(f"\n           [OPTIMAL DIST] Capa reorganizada:")
-            print(f"             Centrales: {len(centrales)}, Normales: {len(normales)}, Hojas: {len(hojas)}")
-            print(f"             Nuevo orden: {' -> '.join(new_order)}")
+        pass  # distribución óptima aplicada
 
     def _get_parents(
         self,

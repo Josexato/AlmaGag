@@ -72,8 +72,48 @@ Ejemplos:
         action="store_true",
         help="Genera SVGs de cada fase del proceso LAF (solo con --layout-algorithm=laf)"
     )
+    parser.add_argument(
+        "--centrality-alpha",
+        type=float,
+        default=None,
+        metavar='F',
+        help="Peso por distancia en skip connections (default: 0.15, solo LAF)"
+    )
+    parser.add_argument(
+        "--centrality-beta",
+        type=float,
+        default=None,
+        metavar='F',
+        help="Peso por hijo extra / hub-ness (default: 0.10, solo LAF)"
+    )
+    parser.add_argument(
+        "--centrality-gamma",
+        type=float,
+        default=None,
+        metavar='F',
+        help="Peso por fan-in extra (default: 0.15, 0=desactivado, solo LAF)"
+    )
+    parser.add_argument(
+        "--centrality-max-score",
+        type=float,
+        default=None,
+        metavar='F',
+        help="Clamp maximo del score de accesibilidad (default: 100.0, solo LAF)"
+    )
 
     args = parser.parse_args()
+
+    # Construir dict de centralidad solo con los valores explícitos
+    centrality_kwargs = {}
+    if args.centrality_alpha is not None:
+        centrality_kwargs['centrality_alpha'] = args.centrality_alpha
+    if args.centrality_beta is not None:
+        centrality_kwargs['centrality_beta'] = args.centrality_beta
+    if args.centrality_gamma is not None:
+        centrality_kwargs['centrality_gamma'] = args.centrality_gamma
+    if args.centrality_max_score is not None:
+        centrality_kwargs['centrality_max_score'] = args.centrality_max_score
+
     ok = generate_diagram(
         args.input_file,
         debug=args.debug,
@@ -83,7 +123,8 @@ Ejemplos:
         dump_iterations=args.dump_iterations,
         output_file=args.output,
         layout_algorithm=args.layout_algorithm,
-        visualize_growth=args.visualize_growth
+        visualize_growth=args.visualize_growth,
+        **centrality_kwargs
     )
     if not ok:
         sys.exit(1)

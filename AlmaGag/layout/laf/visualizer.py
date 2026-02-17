@@ -64,8 +64,7 @@ class GrowthVisualizer:
             'diagram_name': diagram_name
         }
 
-        if self.debug:
-            print(f"[VISUALIZER] Phase 1 capturada")
+        pass
 
     def capture_phase2_topology(
         self,
@@ -81,8 +80,7 @@ class GrowthVisualizer:
             'structure_info': deepcopy(structure_info)
         }
 
-        if self.debug:
-            print(f"[VISUALIZER] Phase 2 capturada (topología)")
+        pass
 
     def capture_phase3_centrality(
         self,
@@ -102,8 +100,7 @@ class GrowthVisualizer:
             'centrality_order': dict(centrality_order)  # Convertir a dict simple
         }
 
-        if self.debug:
-            print(f"[VISUALIZER] Phase 3 capturada (centralidad)")
+        pass
 
     def capture_phase4_abstract(
         self,
@@ -128,8 +125,7 @@ class GrowthVisualizer:
             'structure_info': structure_info
         }
 
-        if self.debug:
-            print(f"[VISUALIZER] Phase 4 capturada ({crossings} cruces)")
+        pass
 
     def capture_phase5_optimized(
         self,
@@ -154,8 +150,7 @@ class GrowthVisualizer:
             'structure_info': structure_info
         }
 
-        if self.debug:
-            print(f"[VISUALIZER] Phase 5 capturada (Claude-SolFase5, {crossings} cruces)")
+        pass
 
     def capture_phase6_inflated(
         self,
@@ -174,8 +169,7 @@ class GrowthVisualizer:
             'spacing': spacing
         }
 
-        if self.debug:
-            print(f"[VISUALIZER] Phase 6 capturada (spacing={spacing:.1f}px)")
+        pass
 
     def capture_phase7_containers(
         self,
@@ -191,8 +185,7 @@ class GrowthVisualizer:
             'layout': deepcopy(layout)
         }
 
-        if self.debug:
-            print(f"[VISUALIZER] Phase 7 capturada")
+        pass
 
     def capture_phase8_redistributed(
         self,
@@ -208,8 +201,7 @@ class GrowthVisualizer:
             'layout': deepcopy(layout)
         }
 
-        if self.debug:
-            print(f"[VISUALIZER] Phase 8 capturada")
+        pass
 
     def capture_phase9_routed(
         self,
@@ -225,8 +217,7 @@ class GrowthVisualizer:
             'layout': deepcopy(layout)
         }
 
-        if self.debug:
-            print(f"[VISUALIZER] Phase 9 capturada")
+        pass
 
     def capture_phase10_final(
         self,
@@ -242,8 +233,7 @@ class GrowthVisualizer:
             'layout': deepcopy(layout)
         }
 
-        if self.debug:
-            print(f"[VISUALIZER] Phase 10 capturada")
+        pass
 
     def generate_all(self) -> None:
         """
@@ -452,6 +442,168 @@ class GrowthVisualizer:
 
         if self.debug:
             print(f"[VISUALIZER] Generado: {filename}")
+
+    def _draw_colored_connections(self, dwg, node_positions, connection_graph, node_radius=12):
+        """
+        Dibuja conexiones con colores por origen y distribución colineal.
+
+        Cada nodo origen recibe un color único. Conexiones colineales (mismo origen,
+        ángulo similar) se separan con offsets perpendiculares para evitar superposición.
+
+        Args:
+            dwg: svgwrite Drawing
+            node_positions: {elem_id: (x, y)}
+            connection_graph: {from_id: [to_id, ...]}
+            node_radius: radio de los nodos para calcular offset de flechas
+        """
+        import math
+
+        # Paleta de colores bien diferenciados
+        origin_colors = [
+            '#E53935', '#1E88E5', '#43A047', '#FB8C00', '#8E24AA',
+            '#00ACC1', '#D81B60', '#7CB342', '#3949AB', '#F4511E',
+            '#00897B', '#C0CA33', '#5E35B1', '#039BE5', '#e53935',
+            '#6D4C41', '#546E7A', '#FFB300', '#1565C0', '#2E7D32',
+        ]
+
+        # Asignar un color estable por origen
+        origin_color_map = {}
+        color_idx = 0
+        for from_id in sorted(connection_graph.keys()):
+            if from_id in node_positions:
+                origin_color_map[from_id] = origin_colors[color_idx % len(origin_colors)]
+                color_idx += 1
+
+        # Paso 1: Recopilar todas las conexiones con geometría
+        conn_list = []
+        for from_id, to_list in connection_graph.items():
+            if from_id not in node_positions:
+                continue
+            from_x, from_y = node_positions[from_id]
+            for to_id in to_list:
+                if to_id not in node_positions:
+                    continue
+                to_x, to_y = node_positions[to_id]
+                dx = to_x - from_x
+                dy = to_y - from_y
+                dist = math.hypot(dx, dy)
+                if dist < 1:
+                    continue
+                angle = math.atan2(dy, dx)
+                conn_list.append({
+                    'from_id': from_id, 'to_id': to_id,
+                    'from_pos': (from_x, from_y), 'to_pos': (to_x, to_y),
+                    'angle': angle,
+                })
+
+        # Paso 2: Detectar grupos colineales y asignar offsets perpendiculares
+        ANGLE_THRESHOLD = 0.25  # ~14°
+        COLLINEAR_SPACING = 10.0
+
+        by_origin = {}
+        for idx, conn in enumerate(conn_list):
+            by_origin.setdefault(conn['from_id'], []).append(idx)
+
+        collinear_offsets = {}  # {idx: (dx, dy)}
+
+        for origin, indices in by_origin.items():
+            if len(indices) < 2:
+                continue
+            visited = set()
+            for i_pos, i_idx in enumerate(indices):
+                if i_idx in visited:
+                    continue
+                group = [i_idx]
+                a1 = conn_list[i_idx]['angle']
+                for j_pos in range(i_pos + 1, len(indices)):
+                    j_idx = indices[j_pos]
+                    if j_idx in visited:
+                        continue
+                    a2 = conn_list[j_idx]['angle']
+                    diff = abs(a1 - a2)
+                    if diff > math.pi:
+                        diff = 2 * math.pi - diff
+                    if diff < ANGLE_THRESHOLD:
+                        group.append(j_idx)
+                        visited.add(j_idx)
+                if len(group) < 2:
+                    continue
+                visited.add(i_idx)
+                # Distribuir simétricamente con offset perpendicular
+                ordered = sorted(group, key=lambda idx: conn_list[idx]['to_id'])
+                count = len(ordered)
+                center = (count - 1) / 2.0
+                for order_pos, g_idx in enumerate(ordered):
+                    multiplier = order_pos - center
+                    ang = conn_list[g_idx]['angle']
+                    # Vector perpendicular a la dirección de la conexión
+                    perp_x = -math.sin(ang)
+                    perp_y = math.cos(ang)
+                    collinear_offsets[g_idx] = (
+                        perp_x * multiplier * COLLINEAR_SPACING,
+                        perp_y * multiplier * COLLINEAR_SPACING,
+                    )
+
+        # Paso 3: Dibujar con offsets aplicados
+        for idx, conn in enumerate(conn_list):
+            from_x, from_y = conn['from_pos']
+            to_x, to_y = conn['to_pos']
+            line_color = origin_color_map.get(conn['from_id'], '#495057')
+
+            # Aplicar offset colineal
+            off_dx, off_dy = collinear_offsets.get(idx, (0.0, 0.0))
+            from_x += off_dx
+            from_y += off_dy
+            to_x += off_dx
+            to_y += off_dy
+
+            # Recalcular dirección tras offset
+            dx = to_x - from_x
+            dy = to_y - from_y
+            dist = math.hypot(dx, dy)
+            if dist < 1:
+                continue
+            ux = dx / dist
+            uy = dy / dist
+
+            # Puntos de inicio/fin en el borde de los nodos
+            start_x = from_x + node_radius * ux
+            start_y = from_y + node_radius * uy
+            end_x = to_x - (node_radius + 8) * ux
+            end_y = to_y - (node_radius + 8) * uy
+
+            # Círculo de origen
+            dwg.add(dwg.circle(
+                center=(start_x, start_y),
+                r=3,
+                fill=line_color,
+                opacity=0.7
+            ))
+
+            # Línea
+            dwg.add(dwg.line(
+                start=(start_x, start_y),
+                end=(end_x, end_y),
+                stroke=line_color,
+                stroke_width=1.5,
+                opacity=0.6
+            ))
+
+            # Punta de flecha
+            arrow_length = 10
+            arrow_width = 0.35
+            angle = math.atan2(uy, ux)
+            tip_x, tip_y = end_x, end_y
+            b1x = tip_x - arrow_length * math.cos(angle + arrow_width)
+            b1y = tip_y - arrow_length * math.sin(angle + arrow_width)
+            b2x = tip_x - arrow_length * math.cos(angle - arrow_width)
+            b2y = tip_y - arrow_length * math.sin(angle - arrow_width)
+
+            dwg.add(dwg.polygon(
+                points=[(tip_x, tip_y), (b1x, b1y), (b2x, b2y)],
+                fill=line_color,
+                opacity=0.7
+            ))
 
     def _segments_intersect(self, p1, p2, p3, p4):
         """
@@ -670,6 +822,33 @@ class GrowthVisualizer:
             for conn_idx in group:
                 color_assignments[conn_idx] = color
 
+        # Asignar desplazamientos simétricos a conexiones colineales
+        # para separarlas visualmente (arriba/abajo respecto a su dirección).
+        collinear_offsets = {}  # {index: (dx, dy)}
+        collinear_spacing = 10.0
+
+        for group in collinear_groups:
+            # Orden estable para que el patrón sea reproducible.
+            ordered = sorted(group, key=lambda idx: (
+                connections[idx]['to_id'],
+                connections[idx]['angle']
+            ))
+            count = len(ordered)
+            center = (count - 1) / 2.0
+
+            for order_idx, conn_idx in enumerate(ordered):
+                conn = connections[conn_idx]
+                multiplier = order_idx - center  # simétrico (ej: -0.5, +0.5)
+                angle = conn['angle']
+
+                # Vector normal unitario a la conexión.
+                nx = -math.sin(angle)
+                ny = math.cos(angle)
+
+                dx = nx * multiplier * collinear_spacing
+                dy = ny * multiplier * collinear_spacing
+                collinear_offsets[conn_idx] = (dx, dy)
+
         # Dibujar conexiones (flechas)
         for i, conn in enumerate(connections):
             has_crossing = i in crossing_indices
@@ -689,8 +868,15 @@ class GrowthVisualizer:
                 arrow_color = '#495057'
                 opacity = 0.6
 
+            # Aplicar offset visual si pertenece a grupo colineal.
+            offset_dx, offset_dy = collinear_offsets.get(i, (0.0, 0.0))
+            start_x, start_y = conn['start']
+            end_x, end_y = conn['end']
+            draw_start = (start_x + offset_dx, start_y + offset_dy)
+            draw_end = (end_x + offset_dx, end_y + offset_dy)
+
             # Dibujar bolita de origen (pequeña)
-            origin_x, origin_y = conn['start']
+            origin_x, origin_y = draw_start
             dwg.add(dwg.circle(
                 center=(origin_x, origin_y),
                 r=3,
@@ -702,8 +888,8 @@ class GrowthVisualizer:
 
             # Dibujar línea
             dwg.add(dwg.line(
-                start=conn['start'],
-                end=conn['end'],
+                start=draw_start,
+                end=draw_end,
                 stroke=line_color,
                 stroke_width=2,
                 opacity=opacity
@@ -714,10 +900,7 @@ class GrowthVisualizer:
             arrow_width = 0.4
 
             angle = conn['angle']
-            to_x, to_y = conn['to_pos']
-
-            arrow_tip_x = to_x - node_radius * math.cos(angle)
-            arrow_tip_y = to_y - node_radius * math.sin(angle)
+            arrow_tip_x, arrow_tip_y = draw_end
 
             arrow_base1_x = arrow_tip_x - arrow_length * math.cos(angle + arrow_width)
             arrow_base1_y = arrow_tip_y - arrow_length * math.sin(angle + arrow_width)
@@ -1019,6 +1202,9 @@ class GrowthVisualizer:
             fill='#6c757d'
         ))
 
+        # Primero calcular todas las posiciones de nodos para luego dibujar conexiones
+        all_node_positions = {}
+
         for level in sorted(centrality_order.keys()):
             elements = centrality_order[level]
             y = start_y + level * level_height
@@ -1098,62 +1284,76 @@ class GrowthVisualizer:
 
                 for idx, (elem_id, score) in enumerate(elements):
                     x = positions[idx]
-                    node_id = structure_info.primary_node_ids.get(elem_id, "N/A")
-                    elem_level = structure_info.topological_levels.get(elem_id, level)
+                    all_node_positions[elem_id] = (x, y)
 
-                    # Color según score
-                    if score > 0.05:
-                        color = '#dc3545'  # Rojo - Alto
-                    elif score > 0.02:
-                        color = '#ffc107'  # Amarillo - Medio
-                    else:
-                        color = '#0d6efd'  # Azul - Bajo/Normal
+        # Dibujar conexiones con colores por origen
+        self._draw_colored_connections(dwg, all_node_positions,
+                                       structure_info.connection_graph, node_radius=15)
 
-                    # Dibujar nodo (círculo)
-                    radius = 15 if score > 0.02 else 12  # Nodos importantes más grandes
-                    dwg.add(dwg.circle(
-                        center=(x, y),
-                        r=radius,
-                        fill=color,
-                        opacity=0.8,
-                        stroke='#212529',
-                        stroke_width=2
-                    ))
+        # Dibujar nodos encima de las conexiones
+        for level in sorted(centrality_order.keys()):
+            elements = centrality_order[level]
+            for elem_id, score in elements:
+                if elem_id not in all_node_positions:
+                    continue
+                x, y = all_node_positions[elem_id]
 
-                    # ID del nodo con nivel
-                    node_label = f"{node_id} [L{elem_level}]"
+                node_id = structure_info.primary_node_ids.get(elem_id, "N/A")
+                elem_level = structure_info.topological_levels.get(elem_id, level)
+
+                # Color según score
+                if score > 0.05:
+                    color = '#dc3545'  # Rojo - Alto
+                elif score > 0.02:
+                    color = '#ffc107'  # Amarillo - Medio
+                else:
+                    color = '#0d6efd'  # Azul - Bajo/Normal
+
+                # Dibujar nodo (círculo)
+                radius = 15 if score > 0.02 else 12  # Nodos importantes más grandes
+                dwg.add(dwg.circle(
+                    center=(x, y),
+                    r=radius,
+                    fill=color,
+                    opacity=0.8,
+                    stroke='#212529',
+                    stroke_width=2
+                ))
+
+                # ID del nodo con nivel
+                node_label = f"{node_id} [L{elem_level}]"
+                dwg.add(dwg.text(
+                    node_label,
+                    insert=(x, y - radius - 5),
+                    font_size='10px',
+                    fill='#212529',
+                    text_anchor='middle',
+                    font_family='monospace',
+                    font_weight='bold'
+                ))
+
+                # Score (si > 0)
+                if score > 0:
                     dwg.add(dwg.text(
-                        node_label,
-                        insert=(x, y - radius - 5),
-                        font_size='10px',
-                        fill='#212529',
+                        f'{score:.3f}',
+                        insert=(x, y + 4),
+                        font_size='8px',
+                        fill='white',
                         text_anchor='middle',
                         font_family='monospace',
                         font_weight='bold'
                     ))
 
-                    # Score (si > 0)
-                    if score > 0:
-                        dwg.add(dwg.text(
-                            f'{score:.3f}',
-                            insert=(x, y + 4),
-                            font_size='8px',
-                            fill='white',
-                            text_anchor='middle',
-                            font_family='monospace',
-                            font_weight='bold'
-                        ))
-
-                    # Nombre del elemento (debajo)
-                    label = elem_id if len(elem_id) <= 12 else elem_id[:9] + '...'
-                    dwg.add(dwg.text(
-                        label,
-                        insert=(x, y + radius + 15),
-                        font_size='9px',
-                        fill='#6c757d',
-                        text_anchor='middle',
-                        font_family='monospace'
-                    ))
+                # Nombre del elemento (debajo)
+                label = elem_id if len(elem_id) <= 12 else elem_id[:9] + '...'
+                dwg.add(dwg.text(
+                    label,
+                    insert=(x, y + radius + 15),
+                    font_size='9px',
+                    fill='#6c757d',
+                    text_anchor='middle',
+                    font_family='monospace'
+                ))
 
         # Leyenda
         legend_y = canvas_height - 100
@@ -1286,8 +1486,9 @@ class GrowthVisualizer:
             for child_id in children:
                 contained_to_parent[child_id] = elem_id
 
-        # Dibujar conexiones (líneas) - mapear a elementos primarios
-        drawn_connections = set()  # Evitar duplicados
+        # Construir grafo de conexiones mapeado a primarios (sin duplicados)
+        primary_conn_graph = {}
+        drawn_connections = set()
         for conn in connections:
             from_id = conn['from']
             to_id = conn['to']
@@ -1298,22 +1499,19 @@ class GrowthVisualizer:
             if to_id not in primary_positions and to_id in contained_to_parent:
                 to_id = contained_to_parent[to_id]
 
-            # Dibujar si ambos son primarios y no duplicado
             if from_id in primary_positions and to_id in primary_positions:
                 conn_key = (from_id, to_id)
                 if conn_key not in drawn_connections:
                     drawn_connections.add(conn_key)
+                    if from_id not in primary_conn_graph:
+                        primary_conn_graph[from_id] = []
+                    primary_conn_graph[from_id].append(to_id)
 
-                    from_x, from_y = to_canvas(*primary_positions[from_id])
-                    to_x, to_y = to_canvas(*primary_positions[to_id])
+        # Posiciones en canvas para las conexiones
+        canvas_positions = {eid: to_canvas(*pos) for eid, pos in primary_positions.items()}
 
-                    dwg.add(dwg.line(
-                        start=(from_x, from_y),
-                        end=(to_x, to_y),
-                        stroke='#adb5bd',
-                        stroke_width=1,
-                        opacity=0.6
-                    ))
+        # Dibujar conexiones con colores por origen
+        self._draw_colored_connections(dwg, canvas_positions, primary_conn_graph, node_radius=14)
 
         # Dibujar elementos primarios (puntos con información detallada)
         for elem_id, (ax, ay) in primary_positions.items():
@@ -1516,14 +1714,12 @@ class GrowthVisualizer:
         min_y = min(y for x, y in primary_positions.values())
         max_y = max(y for x, y in primary_positions.values())
 
-        # Escalar al canvas
-        padding = 150
-        canvas_width = 1600
-        canvas_height = 1000
+        # Escalar al canvas dinámicamente según contenido.
+        padding = 180
+        scale = 200  # px por unidad abstracta
 
-        scale_x = (canvas_width - 2 * padding) / max(1, max_x - min_x)
-        scale_y = (canvas_height - 2 * padding) / max(1, max_y - min_y)
-        scale = min(scale_x, scale_y, 120)
+        canvas_width = max(800, int(2 * padding + (max_x - min_x) * scale))
+        canvas_height = max(600, int(2 * padding + (max_y - min_y) * scale))
 
         def to_canvas(ax, ay):
             cx = padding + (ax - min_x) * scale
@@ -1569,8 +1765,11 @@ class GrowthVisualizer:
             for child_id in children:
                 contained_to_parent[child_id] = elem_id
 
-        # Dibujar conexiones
-        drawn_connections = set()
+        # Dibujar conexiones agregadas por par de nodos primarios,
+        # mostrando dirección y cantidad de conexiones agrupadas.
+        import math
+
+        directed_counts = {}  # {(from_primary, to_primary): count}
         for conn in connections:
             from_id = conn['from']
             to_id = conn['to']
@@ -1580,21 +1779,229 @@ class GrowthVisualizer:
             if to_id not in primary_positions and to_id in contained_to_parent:
                 to_id = contained_to_parent[to_id]
 
-            if from_id in primary_positions and to_id in primary_positions:
-                conn_key = (from_id, to_id)
-                if conn_key not in drawn_connections:
-                    drawn_connections.add(conn_key)
+            if from_id in primary_positions and to_id in primary_positions and from_id != to_id:
+                key = (from_id, to_id)
+                directed_counts[key] = directed_counts.get(key, 0) + 1
 
-                    from_x, from_y = to_canvas(*primary_positions[from_id])
-                    to_x, to_y = to_canvas(*primary_positions[to_id])
+        def draw_arrowhead(tip_x, tip_y, angle, color):
+            arrow_length = 10
+            arrow_width = 0.45
+            base1_x = tip_x - arrow_length * math.cos(angle + arrow_width)
+            base1_y = tip_y - arrow_length * math.sin(angle + arrow_width)
+            base2_x = tip_x - arrow_length * math.cos(angle - arrow_width)
+            base2_y = tip_y - arrow_length * math.sin(angle - arrow_width)
+            dwg.add(dwg.polygon(
+                points=[(tip_x, tip_y), (base1_x, base1_y), (base2_x, base2_y)],
+                fill=color,
+                opacity=0.85,
+                stroke=color,
+                stroke_width=0.5
+            ))
 
-                    dwg.add(dwg.line(
-                        start=(from_x, from_y),
-                        end=(to_x, to_y),
-                        stroke='#28a745',
-                        stroke_width=1.5,
-                        opacity=0.5
-                    ))
+        # Precalcular radio de cada nodo primario.
+        node_radius_map = {}
+        for elem_id in primary_positions:
+            node = structure_info.element_tree.get(elem_id, {})
+            is_container = bool(node.get('children', []))
+            node_radius_map[elem_id] = 14 if is_container else 10
+
+        # --- Fase 1: recopilar todas las líneas direccionales a dibujar ---
+        # Cada entrada: {from_id, to_id, count, src_canvas, dst_canvas,
+        #                src_radius, dst_radius, angle, bidir_side}
+        draw_list = []
+
+        processed_pairs = set()
+        for from_id, to_id in sorted(directed_counts.keys()):
+            pair_key = tuple(sorted([from_id, to_id]))
+            if pair_key in processed_pairs:
+                continue
+            processed_pairs.add(pair_key)
+
+            a, b = pair_key
+            count_ab = directed_counts.get((a, b), 0)
+            count_ba = directed_counts.get((b, a), 0)
+
+            ax, ay = to_canvas(*primary_positions[a])
+            bx, by = to_canvas(*primary_positions[b])
+
+            dx = bx - ax
+            dy = by - ay
+            length = math.hypot(dx, dy)
+            if length < 1e-6:
+                continue
+
+            bidirectional = count_ab > 0 and count_ba > 0
+            bidir_offset = 5.0 if bidirectional else 0.0
+
+            r_a = node_radius_map.get(a, 10)
+            r_b = node_radius_map.get(b, 10)
+
+            if count_ab > 0:
+                angle_ab = math.atan2(dy, dx)
+                draw_list.append({
+                    'from_id': a, 'to_id': b, 'count': count_ab,
+                    'src_canvas': (ax, ay), 'dst_canvas': (bx, by),
+                    'src_radius': r_a, 'dst_radius': r_b,
+                    'angle': angle_ab, 'bidir_offset': bidir_offset,
+                    'bidir_side': 1,
+                })
+            if count_ba > 0:
+                angle_ba = math.atan2(-dy, -dx)
+                draw_list.append({
+                    'from_id': b, 'to_id': a, 'count': count_ba,
+                    'src_canvas': (bx, by), 'dst_canvas': (ax, ay),
+                    'src_radius': r_b, 'dst_radius': r_a,
+                    'angle': angle_ba, 'bidir_offset': bidir_offset,
+                    'bidir_side': -1,
+                })
+
+        # --- Fase 2: detectar grupos colineales por nodo origen ---
+        # Dos líneas son colineales si salen del mismo nodo con ángulo similar.
+        ANGLE_THRESHOLD = 0.25  # radianes (~14°)
+
+        by_origin = {}
+        for idx, item in enumerate(draw_list):
+            origin = item['from_id']
+            by_origin.setdefault(origin, []).append(idx)
+
+        collinear_offsets = {}  # {idx: (dx, dy)}
+        COLLINEAR_SPACING = 25.0  # Más separación para scale=200px/unit
+
+        for origin, indices in by_origin.items():
+            if len(indices) < 2:
+                continue
+
+            visited = set()
+            for i_pos, i_idx in enumerate(indices):
+                if i_idx in visited:
+                    continue
+                group = [i_idx]
+                a1 = draw_list[i_idx]['angle']
+
+                for j_pos in range(i_pos + 1, len(indices)):
+                    j_idx = indices[j_pos]
+                    if j_idx in visited:
+                        continue
+                    a2 = draw_list[j_idx]['angle']
+                    diff = abs(a1 - a2)
+                    if diff > math.pi:
+                        diff = 2 * math.pi - diff
+                    if diff < ANGLE_THRESHOLD:
+                        group.append(j_idx)
+                        visited.add(j_idx)
+
+                if len(group) < 2:
+                    continue
+                visited.add(i_idx)
+
+                # Ordenar de forma estable y distribuir simétricamente.
+                ordered = sorted(group, key=lambda idx: draw_list[idx]['to_id'])
+                count = len(ordered)
+                center = (count - 1) / 2.0
+
+                for order_pos, g_idx in enumerate(ordered):
+                    multiplier = order_pos - center
+                    angle = draw_list[g_idx]['angle']
+                    # Vector normal perpendicular a la conexión.
+                    perp_x = -math.sin(angle)
+                    perp_y = math.cos(angle)
+                    collinear_offsets[g_idx] = (
+                        perp_x * multiplier * COLLINEAR_SPACING,
+                        perp_y * multiplier * COLLINEAR_SPACING,
+                    )
+
+        # Asignar colores por nodo origen
+        _origin_colors = [
+            '#E53935', '#1E88E5', '#43A047', '#FB8C00', '#8E24AA',
+            '#00ACC1', '#D81B60', '#7CB342', '#3949AB', '#F4511E',
+            '#00897B', '#C0CA33', '#5E35B1', '#039BE5', '#e53935',
+            '#6D4C41', '#546E7A', '#FFB300', '#1565C0', '#2E7D32',
+        ]
+        _origin_color_map = {}
+        _color_idx = 0
+        for _oid in sorted(set(item['from_id'] for item in draw_list)):
+            _origin_color_map[_oid] = _origin_colors[_color_idx % len(_origin_colors)]
+            _color_idx += 1
+
+        # --- Fase 3: dibujar todas las líneas con offsets aplicados ---
+        for idx, item in enumerate(draw_list):
+            src_x, src_y = item['src_canvas']
+            dst_x, dst_y = item['dst_canvas']
+
+            # Offset bidireccional (paralelo).
+            dx = dst_x - src_x
+            dy = dst_y - src_y
+            seg_len = math.hypot(dx, dy)
+            if seg_len < 1e-6:
+                continue
+            ux = dx / seg_len
+            uy = dy / seg_len
+            nx = -uy
+            ny = ux
+
+            bidir_off = item['bidir_offset'] * item['bidir_side']
+            sx = src_x + nx * bidir_off
+            sy = src_y + ny * bidir_off
+            ex = dst_x + nx * bidir_off
+            ey = dst_y + ny * bidir_off
+
+            # Offset colineal (perpendicular adicional).
+            col_dx, col_dy = collinear_offsets.get(idx, (0.0, 0.0))
+            sx += col_dx
+            sy += col_dy
+            ex += col_dx
+            ey += col_dy
+
+            # Recalcular dirección final tras offsets.
+            dir_x = ex - sx
+            dir_y = ey - sy
+            seg_len2 = math.hypot(dir_x, dir_y)
+            if seg_len2 < 1e-6:
+                continue
+            dux = dir_x / seg_len2
+            duy = dir_y / seg_len2
+
+            # Recortar al borde de cada nodo.
+            edge_sx = sx + dux * item['src_radius']
+            edge_sy = sy + duy * item['src_radius']
+            edge_ex = ex - dux * item['dst_radius']
+            edge_ey = ey - duy * item['dst_radius']
+
+            # Color por nodo origen
+            _conn_color = _origin_color_map.get(item['from_id'], '#495057')
+
+            # Círculo de origen en el borde del nodo fuente.
+            dwg.add(dwg.circle(
+                center=(edge_sx, edge_sy),
+                r=3,
+                fill=_conn_color,
+                opacity=0.85
+            ))
+
+            dwg.add(dwg.line(
+                start=(edge_sx, edge_sy),
+                end=(edge_ex, edge_ey),
+                stroke=_conn_color,
+                stroke_width=1.8,
+                opacity=0.7
+            ))
+
+            angle = math.atan2(duy, dux)
+            draw_arrowhead(edge_ex, edge_ey, angle, _conn_color)
+
+            # Etiqueta de conteo en el punto medio.
+            mid_x = (edge_sx + edge_ex) / 2
+            mid_y = (edge_sy + edge_ey) / 2
+            label_side = 12 if item['bidir_side'] >= 0 else -12
+            dwg.add(dwg.text(
+                f"x{item['count']}",
+                insert=(mid_x + nx * label_side, mid_y + ny * label_side),
+                font_size='10px',
+                font_weight='bold',
+                fill=_conn_color,
+                font_family='monospace',
+                text_anchor='middle'
+            ))
 
         # Dibujar nodos
         for elem_id, (ax, ay) in primary_positions.items():
@@ -1653,9 +2060,22 @@ class GrowthVisualizer:
                 text_anchor='middle'
             ))
 
+            # Score de centralidad
+            score = structure_info.accessibility_scores.get(elem_id, 0.0)
+            score_text = f'c={score:.3f}' if score > 0 else 'c=0'
+            dwg.add(dwg.text(
+                score_text,
+                insert=(cx, cy + radius + 30),
+                font_size='9px',
+                fill='#dc3545' if score > 0.05 else '#6c757d',
+                font_family='monospace',
+                text_anchor='middle',
+                font_weight='bold' if score > 0.05 else 'normal'
+            ))
+
             dwg.add(dwg.text(
                 f'({ax:.1f}, {ay})',
-                insert=(cx, cy + radius + 30),
+                insert=(cx, cy + radius + 42),
                 font_size='9px',
                 fill='#6c757d',
                 font_family='monospace',

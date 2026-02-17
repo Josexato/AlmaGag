@@ -52,17 +52,8 @@ class ContainerGrower:
             structure_info: Información estructural con element_tree
             layout: Layout a modificar in-place
         """
-        if self.debug:
-            print(f"[GROWER] Iniciando crecimiento de contenedores...")
-
         # Paso 1: Ordenar contenedores por profundidad (bottom-up)
         sorted_containers = self._sort_containers_by_depth(structure_info)
-
-        if self.debug:
-            print(f"[GROWER] Orden de procesamiento ({len(sorted_containers)} contenedores):")
-            for i, container_id in enumerate(sorted_containers):
-                depth = structure_info.element_tree[container_id]['depth']
-                print(f"           {i+1}. {container_id} (depth={depth})")
 
         # Paso 2: Procesar cada contenedor
         for container_id in sorted_containers:
@@ -71,9 +62,6 @@ class ContainerGrower:
                 structure_info,
                 layout
             )
-
-        if self.debug:
-            print(f"[GROWER] Crecimiento completado")
 
     def _sort_containers_by_depth(
         self,
@@ -127,9 +115,7 @@ class ContainerGrower:
             if from_id in children_set and to_id in children_set:
                 subgraph[from_id].append(to_id)
 
-        if self.debug:
-            internal_edges = sum(len(targets) for targets in subgraph.values())
-            print(f"[GROWER] Subgrafo: {len(children)} nodos, {internal_edges} aristas internas")
+        pass  # subgrafo construido
 
         return subgraph
 
@@ -193,10 +179,7 @@ class ContainerGrower:
         if orphans:
             layers.append(orphans)
 
-        if self.debug:
-            print(f"[GROWER] Layering: {len(layers)} capas")
-            for i, layer in enumerate(layers):
-                print(f"           Capa {i}: {len(layer)} elementos")
+        pass  # layering asignado
 
         return layers
 
@@ -219,8 +202,7 @@ class ContainerGrower:
             layout: Layout con elements_by_id
             iterations: Número de iteraciones de optimización
         """
-        if self.debug:
-            print(f"[GROWER] Optimizando orden (barycenter, {iterations} iteraciones)...")
+        pass  # optimización de orden
 
         for iteration in range(iterations):
             # Forward pass (de arriba hacia abajo)
@@ -421,22 +403,14 @@ class ContainerGrower:
                     label_bottom = label_y + label_height
                     layer_bottom = max(layer_bottom, label_bottom)
 
-                    if self.debug:
-                        print(f"[GROWER]     {elem_id}: ({current_x:.0f}, {current_y:.0f}) {elem_width:.0f}x{elem_height:.0f}px, label_bottom={label_bottom:.0f}")
                 else:
                     layer_bottom = max(layer_bottom, current_y + elem_height)
-
-                    if self.debug:
-                        print(f"[GROWER]     {elem_id}: ({current_x:.0f}, {current_y:.0f}) {elem_width:.0f}x{elem_height:.0f}px")
 
                 # Avanzar horizontalmente
                 current_x += elem_width + spacing
 
             # Siguiente capa
             current_y = layer_bottom + spacing
-
-            if self.debug:
-                print(f"[GROWER]     Capa {layer_idx}: {len(layer)} elementos, bottom={layer_bottom:.0f}, next_y={current_y:.0f}")
 
     def _calculate_content_dimensions(
         self,
@@ -569,9 +543,6 @@ class ContainerGrower:
         children = node['children']
 
         if not children:
-            # Sin hijos: tamaño mínimo
-            if self.debug:
-                print(f"[GROWER] {container_id}: Sin hijos, tamaño mínimo")
             container['width'] = 200
             container['height'] = 150
             return
@@ -600,23 +571,16 @@ class ContainerGrower:
             min_width_for_label = 10 + ICON_WIDTH + 10 + label_width + 10
             final_width = max(final_width, min_width_for_label)
 
-        if self.debug:
-            print(f"[GROWER] {container_id}:")
-            print(f"           header_height={header_height:.1f}px")
-            print(f"           content: {content_width:.1f}x{content_height:.1f}px")
-            print(f"           final_width={final_width:.1f}px (antes de posicionar)")
-
         # PASO 4: Posicionar elementos (SEGUNDA PASADA - con ancho conocido)
         self._position_contained_elements(
             children, layout, padding, header_height, final_width
         )
 
         # PASO 5: Calcular altura final del contenedor
-        # Alto = padding + header + padding + contenido + padding
         final_height = padding + header_height + padding + content_height + padding
 
         if self.debug:
-            print(f"           final: {final_width:.1f}x{final_height:.1f}px")
+            print(f"  {container_id}: {final_width:.0f}x{final_height:.0f}px ({len(children)} hijos)")
 
         # Asignar dimensiones finales
         container['width'] = final_width
@@ -648,9 +612,7 @@ class ContainerGrower:
         # - header_height: espacio del header (ícono + etiqueta del contenedor)
         content_offset_y = padding + header_height
 
-        if self.debug:
-            print(f"[GROWER] Propagando coordenadas desde ({container_x:.0f}, {container_y:.0f})")
-            print(f"           content_offset_y = {content_offset_y:.0f} (padding={padding:.0f} + header={header_height:.0f})")
+        pass  # propagando coordenadas
 
         for child_id in children:
             child = layout.elements_by_id.get(child_id)
@@ -665,18 +627,12 @@ class ContainerGrower:
                 child['x'] = local_x + padding + container_x
                 child['y'] = local_y + content_offset_y + container_y
 
-                if self.debug:
-                    print(f"           {child_id}: local({local_x:.0f}, {local_y:.0f}) -> global({child['x']:.0f}, {child['y']:.0f})")
-
                 # Actualizar etiqueta también (suma padding + content_offset_y)
                 if child_id in layout.label_positions:
                     label_x, label_y, anchor, baseline = layout.label_positions[child_id]
 
                     global_label_x = label_x + padding + container_x
                     global_label_y = label_y + content_offset_y + container_y
-
-                    if self.debug:
-                        print(f"           {child_id} label: local({label_x:.0f}, {label_y:.0f}) -> global({global_label_x:.0f}, {global_label_y:.0f})")
 
                     layout.label_positions[child_id] = (
                         global_label_x,

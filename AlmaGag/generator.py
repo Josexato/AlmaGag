@@ -534,7 +534,7 @@ def setup_arrow_markers(dwg):
         'bidirectional': (marker_start.get_funciri(), marker_end.get_funciri())
     }
 
-def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False, guide_lines=None, dump_iterations=False, output_file=None, layout_algorithm='auto', visualize_growth=False):
+def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False, guide_lines=None, dump_iterations=False, output_file=None, layout_algorithm='auto', visualize_growth=False, **centrality_kwargs):
     # Configurar logging si debug está activo
     if debug:
         logging.basicConfig(
@@ -631,7 +631,8 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
             label_optimizer=label_optimizer,
             geometry=geometry,
             visualize_growth=visualize_growth,
-            debug=debug
+            debug=debug,
+            **centrality_kwargs
         )
         logger.debug(f"LAFOptimizer instanciado (debug={debug})")
     else:

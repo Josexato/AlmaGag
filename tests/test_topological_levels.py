@@ -279,6 +279,38 @@ def test_mixed_leaf_and_non_leaf_children():
     print("[PASS] Mixed leaf and non-leaf children")
 
 
+def test_non_leaf_respects_max_parent_plus_one_after_late_parent_update():
+    """
+    Si un padre de un nodo no-hoja aumenta su nivel tardíamente, el nodo y su hijo
+    deben ajustarse para mantener la regla level >= max(parent)+1.
+    """
+    layout = MockLayout(
+        elements=[
+            {'id': 'S', 'type': 'icon'},
+            {'id': 'A', 'type': 'icon'},
+            {'id': 'B', 'type': 'icon'},
+            {'id': 'X', 'type': 'icon'},
+        ],
+        connections=[
+            {'from': 'S', 'to': 'A'},  # camino corto a A
+            {'from': 'S', 'to': 'B'},
+            {'from': 'B', 'to': 'A'},  # camino alterno que eleva A
+            {'from': 'A', 'to': 'X'},  # hijo de A debe propagarse
+        ],
+    )
+
+    analyzer = StructureAnalyzer(debug=False)
+    info = analyzer.analyze(layout)
+
+    assert info.topological_levels['A'] == 2, (
+        f"A (non-leaf) should be level 2, got {info.topological_levels['A']}"
+    )
+    assert info.topological_levels['X'] == 3, (
+        f"X should be level 3 after propagation from A, got {info.topological_levels['X']}"
+    )
+    print("[PASS] Non-leaf progression propagates after late parent update")
+
+
 def main():
     """Run all topological level tests."""
     print("=" * 70)
@@ -295,6 +327,7 @@ def main():
         test_source_node_is_leaf,
         test_fan_out_multiple_leaves,
         test_mixed_leaf_and_non_leaf_children,
+        test_non_leaf_respects_max_parent_plus_one_after_late_parent_update,
     ]
 
     passed = 0

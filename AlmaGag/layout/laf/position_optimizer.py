@@ -46,6 +46,8 @@ class PositionOptimizer:
             debug: Si True, imprime logs de debug
         """
         self.debug = debug
+        # Fase 5: optimizar con respecto a padres; hijos se acomodan en su propia capa.
+        self.optimize_against_parents_only = True
 
     def optimize_positions(
         self,
@@ -103,14 +105,14 @@ class PositionOptimizer:
         )
 
         if self.debug:
-            print(f"[POSOPT] Claude-SolFase5: Optimización de posiciones")
-            print(f"         Nodos primarios: {len(primary_positions)}")
-            print(f"         Capas: {len(layers)}")
-            print(f"         Conexiones primarias: {sum(len(v) for v in adjacency.values()) // 2}")
-            print(f"         Distancia total inicial: {initial_distance:.4f}")
+            print(f"[POSOPT] {len(primary_positions)} nodos, {len(layers)} capas, dist_inicial={initial_distance:.2f}")
 
-        # Iteración de optimización
-        optimized = dict(primary_positions)
+        # Iteración de optimización por desplazamiento decimal de capa.
+        # Se preserva el orden relativo de Fase 4 (baricentro), y en Fase 5
+        # solo se traslada cada capa en X para minimizar distancia total.
+        base_positions = dict(primary_positions)
+        layer_offsets = {level: 0.0 for level in layers.keys()}
+        optimized = self._apply_layer_offsets(base_positions, layers, layer_offsets)
         prev_distance = initial_distance
 
         for iteration in range(max_iterations):
@@ -118,41 +120,40 @@ class PositionOptimizer:
 
             # Forward pass: optimizar capas de arriba hacia abajo
             for level in sorted(layers.keys()):
-                layer_nodes = layers[level]
-                if len(layer_nodes) <= 1:
-                    continue
-
-                changed = self._optimize_layer(
-                    layer_nodes, optimized, adjacency, structure_info
+                changed = self._optimize_layer_offset(
+                    level=level,
+                    layers=layers,
+                    base_positions=base_positions,
+                    current_positions=optimized,
+                    adjacency=adjacency,
+                    layer_offsets=layer_offsets
                 )
                 if changed:
                     moved = True
+                    optimized = self._apply_layer_offsets(base_positions, layers, layer_offsets)
 
             # Backward pass: optimizar capas de abajo hacia arriba
             for level in sorted(layers.keys(), reverse=True):
-                layer_nodes = layers[level]
-                if len(layer_nodes) <= 1:
-                    continue
-
-                changed = self._optimize_layer(
-                    layer_nodes, optimized, adjacency, structure_info
+                changed = self._optimize_layer_offset(
+                    level=level,
+                    layers=layers,
+                    base_positions=base_positions,
+                    current_positions=optimized,
+                    adjacency=adjacency,
+                    layer_offsets=layer_offsets
                 )
                 if changed:
                     moved = True
+                    optimized = self._apply_layer_offsets(base_positions, layers, layer_offsets)
 
             # Calcular nueva distancia total
             new_distance = self._calculate_total_distance(optimized, adjacency)
             improvement = prev_distance - new_distance
 
-            if self.debug:
-                print(f"         Iteración {iteration + 1}: "
-                      f"distancia={new_distance:.4f}, "
-                      f"mejora={improvement:.6f}")
-
             # Verificar convergencia
             if improvement < convergence_threshold or not moved:
                 if self.debug:
-                    print(f"         Convergencia alcanzada en iteración {iteration + 1}")
+                    print(f"[POSOPT] Convergencia en iteración {iteration + 1}, dist={new_distance:.2f}")
                 break
 
             prev_distance = new_distance
@@ -166,18 +167,7 @@ class PositionOptimizer:
         reduction_pct = (reduction / initial_distance * 100) if initial_distance > 0 else 0
 
         if self.debug:
-            print(f"         Distancia final: {final_distance:.4f}")
-            print(f"         Reducción: {reduction:.4f} ({reduction_pct:.1f}%)")
-            print(f"[POSOPT] Posiciones optimizadas:")
-            for level in sorted(layers.keys()):
-                layer_ids = layers[level]
-                # Ordenar por posición X optimizada
-                sorted_nodes = sorted(layer_ids, key=lambda nid: optimized[nid][0])
-                positions_str = " -> ".join(
-                    f"{nid}(x={optimized[nid][0]:.1f})"
-                    for nid in sorted_nodes
-                )
-                print(f"           Nivel {level}: {positions_str}")
+            print(f"[POSOPT] Reducción: {reduction:.2f} ({reduction_pct:.1f}%)")
 
         # Recalcular posiciones de elementos contenidos
         self._update_contained_positions(
@@ -325,115 +315,119 @@ class PositionOptimizer:
 
         return total
 
-    def _optimize_layer(
+    def _apply_layer_offsets(
         self,
-        layer_nodes: List[str],
-        positions: Dict[str, Tuple[float, float]],
+        base_positions: Dict[str, Tuple[float, float]],
+        layers: Dict[int, List[str]],
+        layer_offsets: Dict[int, float]
+    ) -> Dict[str, Tuple[float, float]]:
+        """
+        Aplica offsets por capa preservando el orden relativo intra-capa.
+        """
+        result = dict(base_positions)
+        for level, nodes in layers.items():
+            offset = layer_offsets.get(level, 0.0)
+            for node_id in nodes:
+                if node_id not in result:
+                    continue
+                x, y = result[node_id]
+                result[node_id] = (x + offset, y)
+        return result
+
+    def _optimize_layer_offset(
+        self,
+        level: int,
+        layers: Dict[int, List[str]],
+        base_positions: Dict[str, Tuple[float, float]],
+        current_positions: Dict[str, Tuple[float, float]],
         adjacency: Dict[str, List[Tuple[str, int]]],
-        structure_info: StructureInfo
+        layer_offsets: Dict[int, float]
     ) -> bool:
         """
-        Optimiza las posiciones X de los nodos en una capa.
-
-        Para cada nodo, calcula la posición X óptima como el baricentro
-        ponderado de las posiciones de sus vecinos conectados:
-
-            x_opt = Σ(weight_i * x_neighbor_i) / Σ(weight_i)
-
-        Luego resuelve conflictos manteniendo el orden relativo que
-        minimiza cruces.
-
-        Args:
-            layer_nodes: IDs de nodos en esta capa
-            positions: Posiciones actuales (modificadas in-place)
-            adjacency: Mapa de adyacencia
-            structure_info: Información estructural
-
-        Returns:
-            bool: True si algún nodo cambió de posición
+        Optimiza el desplazamiento X de una capa completa (offset continuo).
         """
+        layer_nodes = layers.get(level, [])
         if not layer_nodes:
             return False
 
-        # Calcular posición X óptima para cada nodo
-        optimal_x: Dict[str, float] = {}
-
+        # Recolectar términos dependientes del offset de esta capa.
+        # Solo importan aristas hacia otras capas; intra-capa no cambia.
+        terms: List[Tuple[float, float, float]] = []  # (a, dy, weight)
         for node_id in layer_nodes:
-            neighbors = adjacency.get(node_id, [])
-
-            if not neighbors:
-                # Sin vecinos: mantener posición actual
-                optimal_x[node_id] = positions[node_id][0]
+            if node_id not in base_positions:
                 continue
-
-            # Baricentro ponderado de vecinos
-            weighted_sum = 0.0
-            total_weight = 0.0
-
-            for neighbor_id, weight in neighbors:
-                if neighbor_id not in positions:
+            base_x, y1 = base_positions[node_id]
+            for neighbor_id, weight in adjacency.get(node_id, []):
+                if neighbor_id in layer_nodes:
                     continue
-                weighted_sum += positions[neighbor_id][0] * weight
-                total_weight += weight
+                if neighbor_id not in current_positions:
+                    continue
 
-            if total_weight > 0:
-                target_x = weighted_sum / total_weight
-                # Mezclar con posición actual para suavizar (factor de amortiguación)
-                current_x = positions[node_id][0]
-                optimal_x[node_id] = current_x * 0.3 + target_x * 0.7
+                if self.optimize_against_parents_only:
+                    # Considerar solo padres (niveles anteriores).
+                    neighbor_level = None
+                    for lvl, ids in layers.items():
+                        if neighbor_id in ids:
+                            neighbor_level = lvl
+                            break
+                    if neighbor_level is None or neighbor_level >= level:
+                        continue
+
+                x_other, y2 = current_positions[neighbor_id]
+                a = base_x - x_other
+                dy = y1 - y2
+                terms.append((a, dy, float(weight)))
+
+        if not terms:
+            return False
+
+        current_offset = layer_offsets.get(level, 0.0)
+
+        def derivative(offset: float) -> float:
+            d = 0.0
+            for a, dy, w in terms:
+                dx = a + offset
+                denom = math.sqrt(dx * dx + dy * dy)
+                if denom == 0:
+                    continue
+                d += w * (dx / denom)
+            return d
+
+        # Buscar intervalo con cambio de signo de la derivada (función convexa).
+        low = current_offset - 20.0
+        high = current_offset + 20.0
+        d_low = derivative(low)
+        d_high = derivative(high)
+        expand = 0
+        while d_low > 0 and expand < 8:
+            low -= (high - low)
+            d_low = derivative(low)
+            expand += 1
+        expand = 0
+        while d_high < 0 and expand < 8:
+            high += (high - low)
+            d_high = derivative(high)
+            expand += 1
+
+        # Si no hay bracket claro, mantener.
+        if d_low > 0 or d_high < 0:
+            return False
+
+        # Bisección para root de derivada.
+        for _ in range(48):
+            mid = (low + high) / 2.0
+            d_mid = derivative(mid)
+            if d_mid < 0:
+                low = mid
             else:
-                optimal_x[node_id] = positions[node_id][0]
+                high = mid
 
-        # Ordenar nodos por su posición X óptima
-        sorted_nodes = sorted(layer_nodes, key=lambda nid: optimal_x[nid])
+        optimal_offset = (low + high) / 2.0
+        if abs(optimal_offset - current_offset) <= 0.001:
+            return False
 
-        # Verificar si el nuevo orden es diferente al actual
-        current_order = sorted(layer_nodes, key=lambda nid: positions[nid][0])
-        changed = False
-
-        # Asignar nuevas posiciones X respetando el orden óptimo
-        # y evitando solapamientos (mínimo 1 unidad abstracta de separación)
-        MIN_SEPARATION = 1.0
-
-        # Calcular posiciones finales manteniendo orden y separación mínima
-        final_positions: Dict[str, float] = {}
-
-        for i, node_id in enumerate(sorted_nodes):
-            target = optimal_x[node_id]
-
-            # Asegurar separación con nodo anterior
-            if i > 0:
-                prev_node = sorted_nodes[i - 1]
-                prev_x = final_positions[prev_node]
-                target = max(target, prev_x + MIN_SEPARATION)
-
-            final_positions[node_id] = target
-
-        # Centrar el grupo: mover para que el centro del grupo
-        # esté alineado con el centro del rango original
-        if final_positions:
-            new_min = min(final_positions.values())
-            new_max = max(final_positions.values())
-            new_center = (new_min + new_max) / 2
-
-            old_positions_x = [positions[nid][0] for nid in layer_nodes]
-            old_center = (min(old_positions_x) + max(old_positions_x)) / 2
-
-            offset = old_center - new_center
-            for node_id in final_positions:
-                final_positions[node_id] += offset
-
-        # Aplicar posiciones optimizadas
-        for node_id in layer_nodes:
-            old_x = positions[node_id][0]
-            new_x = final_positions.get(node_id, old_x)
-            y = positions[node_id][1]
-
-            if abs(new_x - old_x) > 0.01:
-                positions[node_id] = (new_x, y)
-                changed = True
-
-        return changed
+        layer_offsets[level] = optimal_offset
+        return True
 
     def _normalize_positions(
         self,
@@ -456,14 +450,30 @@ class PositionOptimizer:
         """
         normalized = {}
 
-        for level, layer_nodes in layers.items():
-            # Ordenar por posición X optimizada
+        # Discretizar por capa preservando coordenadas absolutas entre capas.
+        # Antes se reindexaba cada capa como 0..N, rompiendo alineaciones verticales.
+        for _, layer_nodes in layers.items():
             sorted_nodes = sorted(layer_nodes, key=lambda nid: positions[nid][0])
 
-            # Asignar posiciones enteras preservando orden
-            for idx, node_id in enumerate(sorted_nodes):
+            prev_x = None
+            for node_id in sorted_nodes:
                 y = positions[node_id][1]
-                normalized[node_id] = (idx, int(y))
+                target_x = int(round(positions[node_id][0]))
+
+                # Asegurar separación mínima intra-capa después de discretizar.
+                if prev_x is not None and target_x <= prev_x:
+                    target_x = prev_x + 1
+
+                normalized[node_id] = (target_x, int(y))
+                prev_x = target_x
+
+        # Desplazar globalmente si hay X negativas.
+        if normalized:
+            min_x = min(pos[0] for pos in normalized.values())
+            if min_x < 0:
+                shift = -min_x
+                for node_id, (x, y) in list(normalized.items()):
+                    normalized[node_id] = (x + shift, y)
 
         return normalized
 
