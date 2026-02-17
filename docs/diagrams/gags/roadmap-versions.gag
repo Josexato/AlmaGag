@@ -34,19 +34,19 @@
       "color": "orange"
     },
     {
-      "id": "v2.2",
+      "id": "v3.0",
       "type": "building",
       "x": 900,
       "y": 200,
-      "label": "SDJF v2.2\n(Q2 2026)\nOptimización",
-      "color": "tomato"
+      "label": "SDJF v3.0\n(Ene 2026)\nLayout jerárquico",
+      "color": "gold"
     },
     {
-      "id": "v3.0",
-      "type": "cloud",
+      "id": "v3.1",
+      "type": "building",
       "x": 1100,
       "y": 200,
-      "label": "SDJF v3.0\n(Q3-Q4 2026)\nTemas",
+      "label": "v3.1\n(Feb 2026)\nAuto v4.0\nLAF 10 fases",
       "color": "violet"
     },
     {
@@ -82,57 +82,41 @@
       "color": "lightgray"
     },
     {
-      "id": "feat-constraints",
+      "id": "feat-hierarchical",
       "type": "server",
       "x": 900,
       "y": 400,
-      "label": "Layout\nconstraints\nmargins",
+      "label": "Layout jerárquico\nLabel optimizer\nLAF 8 fases",
       "color": "lightgray"
     },
     {
-      "id": "feat-themes",
+      "id": "feat-v4",
       "type": "server",
       "x": 1100,
       "y": 400,
-      "label": "Temas\nAnimación\nÍconos custom",
+      "label": "Barycenter\nPosition Opt.\nCentralidad\nLAF 10 fases",
       "color": "lightgray"
     },
     {
       "id": "status-done",
       "type": "cloud",
-      "x": 350,
+      "x": 600,
       "y": 600,
       "label": "COMPLETADO",
       "color": "lightgreen"
-    },
-    {
-      "id": "status-current",
-      "type": "cloud",
-      "x": 700,
-      "y": 600,
-      "label": "EN DESARROLLO",
-      "color": "gold"
-    },
-    {
-      "id": "status-planned",
-      "type": "cloud",
-      "x": 1000,
-      "y": 600,
-      "label": "PLANIFICADO",
-      "color": "lightgray"
     }
   ],
   "connections": [
     {"from": "v1.0", "to": "v1.5", "direction": "forward"},
     {"from": "v1.5", "to": "v2.0", "direction": "forward"},
     {"from": "v2.0", "to": "v2.1", "direction": "forward"},
-    {"from": "v2.1", "to": "v2.2", "direction": "forward"},
-    {"from": "v2.2", "to": "v3.0", "direction": "forward"},
+    {"from": "v2.1", "to": "v3.0", "direction": "forward"},
+    {"from": "v3.0", "to": "v3.1", "direction": "forward"},
     {"from": "v1.0", "to": "feat-coords", "label": "features", "direction": "forward"},
     {"from": "v1.5", "to": "feat-waypoints", "label": "features", "direction": "forward"},
     {"from": "v2.0", "to": "feat-autolayout", "label": "features", "direction": "forward"},
     {"from": "v2.1", "to": "feat-routing", "label": "features", "direction": "forward"},
-    {"from": "v2.2", "to": "feat-constraints", "label": "features", "direction": "forward"},
-    {"from": "v3.0", "to": "feat-themes", "label": "features", "direction": "forward"}
+    {"from": "v3.0", "to": "feat-hierarchical", "label": "features", "direction": "forward"},
+    {"from": "v3.1", "to": "feat-v4", "label": "features", "direction": "forward"}
   ]
 }

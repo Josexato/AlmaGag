@@ -28,13 +28,15 @@
     {
       "id": "laf_optimizer",
       "type": "building",
-      "label": "LAF Optimizer\nLayout Abstracto Primero",
+      "label": "LAF Optimizer v1.4\n10 Fases",
       "contains": [
         {"id": "phase1"},
         {"id": "phase2"},
         {"id": "phase3"},
         {"id": "phase4"},
-        {"id": "phase45"}
+        {"id": "phase45"},
+        {"id": "phase5"},
+        {"id": "phase8"}
       ]
     },
     {
@@ -45,27 +47,37 @@
     {
       "id": "phase2",
       "type": "cloud",
-      "label": "Phase 2\nAbstract Placement"
+      "label": "Phase 3\nAbstract Placement"
     },
     {
       "id": "phase3",
       "type": "cloud",
-      "label": "Phase 3\nInflation"
+      "label": "Phase 4\nInflation"
     },
     {
       "id": "phase4",
       "type": "cloud",
-      "label": "Phase 4\nContainer Growth"
+      "label": "Phase 6\nContainer Growth"
     },
     {
       "id": "phase45",
       "type": "cloud",
-      "label": "Phase 4.5\nRedistribution"
+      "label": "Phase 7\nRedistribution"
+    },
+    {
+      "id": "phase5",
+      "type": "cloud",
+      "label": "Phase 5\nPosition Optimization"
+    },
+    {
+      "id": "phase8",
+      "type": "cloud",
+      "label": "Phase 8\nGlobal X Scale"
     },
     {
       "id": "auto_optimizer",
       "type": "building",
-      "label": "Auto Optimizer\n(legacy)"
+      "label": "Auto Optimizer v4.0\nBarycenter + Pos.Opt."
     },
     {
       "id": "routing",
@@ -85,7 +97,7 @@
     {
       "id": "structure_analyzer",
       "type": "function",
-      "label": "StructureAnalyzer\n- Element tree\n- Connection graph\n- Topological levels\n- Accessibility scores"
+      "label": "StructureAnalyzer\n- Element tree\n- Connection graph\n- Topological levels\n- Centrality scores"
     },
     {
       "id": "abstract_placer",
@@ -101,6 +113,11 @@
       "id": "container_grower",
       "type": "function",
       "label": "ContainerGrower\n- Expand containers\n- Fit contents"
+    },
+    {
+      "id": "position_optimizer_fn",
+      "type": "function",
+      "label": "PositionOptimizer\n- Layer-offset bisection\n- Minimize connector distance"
     },
     {
       "id": "redistributor",
@@ -166,8 +183,18 @@
     },
     {
       "from": "abstract_placer",
-      "to": "phase3",
+      "to": "phase5",
       "label": "abstract_positions"
+    },
+    {
+      "from": "phase5",
+      "to": "position_optimizer_fn",
+      "label": "execute"
+    },
+    {
+      "from": "position_optimizer_fn",
+      "to": "phase3",
+      "label": "optimized_positions"
     },
     {
       "from": "phase3",
@@ -196,6 +223,11 @@
     },
     {
       "from": "redistributor",
+      "to": "phase8",
+      "label": "redistributed"
+    },
+    {
+      "from": "phase8",
       "to": "routing",
       "label": "layout_final"
     },

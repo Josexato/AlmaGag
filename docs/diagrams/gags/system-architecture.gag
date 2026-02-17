@@ -22,13 +22,13 @@
     {
       "id": "optimizer",
       "type": "server",
-      "label": "AutoLayoutOptimizer\nOrquestador Layout",
+      "label": "AutoLayoutOptimizer v4.0\nOrquestador Layout",
       "color": "cyan"
     },
     {
       "id": "positioner",
       "type": "server",
-      "label": "AutoLayoutPositioner\nCálculo coordenadas",
+      "label": "AutoLayoutPositioner v4.0\nBarycenter + Position Opt.",
       "color": "lightcyan"
     },
     {
@@ -80,6 +80,12 @@
       "color": "plum"
     },
     {
+      "id": "graph-analyzer",
+      "type": "cloud",
+      "label": "GraphAnalyzer\nTopología + Centralidad",
+      "color": "lightcyan"
+    },
+    {
       "id": "draw-elements",
       "type": "building",
       "label": "Rendering Layer\ndraw/elements.py",
@@ -107,6 +113,7 @@
     {"from": "optimizer", "to": "router-manager", "label": "fase 3", "direction": "forward"},
     {"from": "optimizer", "to": "label-opt", "label": "fase 4", "direction": "forward"},
     {"from": "optimizer", "to": "collision-det", "label": "fase 5", "direction": "forward"},
+    {"from": "optimizer", "to": "graph-analyzer", "label": "análisis", "direction": "forward"},
     {"from": "positioner", "to": "sizing", "label": "consulta", "direction": "forward"},
     {"from": "container-calc", "to": "geometry", "label": "consulta", "direction": "forward"},
     {"from": "router-manager", "to": "router-base", "label": "delega", "direction": "forward"},

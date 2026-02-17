@@ -17,7 +17,7 @@
     {
       "id": "positioner",
       "type": "server",
-      "label": "AutoLayoutPositioner\n3 fases:\n1. Resolver contenedores\n2. Análisis topológico\n3. Distribución espacial",
+      "label": "AutoLayoutPositioner v4.0\n1. Resolver contenedores\n2. Topología + centralidad + resolución\n3. Barycenter + Position Opt.\n4. Escala X global",
       "color": "lightyellow",
       "hp": 2
     },
@@ -38,7 +38,7 @@
     {
       "id": "phase1",
       "type": "building",
-      "label": "Fase 1: Análisis\n- Construir grafo de adyacencia\n- Calcular niveles topológicos\n- Detectar grupos conectados",
+      "label": "Fase 1: Análisis\n- Niveles topológicos (longest-path)\n- Centralidad (degree-based)\n- Resolución conexiones a primarios\n- Grupos conectados",
       "color": "orange",
       "hp": 2
     },

@@ -28,7 +28,7 @@
     {
       "id": "optimizer",
       "type": "building",
-      "label": "AutoLayoutOptimizer\n(Fase 0-3)",
+      "label": "AutoLayoutOptimizer v4.0\n(Barycenter + Pos.Opt.)",
       "color": "tomato"
     },
     {

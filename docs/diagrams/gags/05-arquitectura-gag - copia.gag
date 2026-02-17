@@ -36,7 +36,7 @@
     {
       "id": "layout_container",
       "type": "firewall",
-      "label": "Layout Module\n(jerárquico v3.0)",
+      "label": "Layout Module\n(jerárquico v4.0)",
       "contains": ["layout", "sizing", "positioner"],
       "color": "#E8E8FF"
     },
@@ -51,7 +51,7 @@
     {
       "id": "sizing",
       "type": "building",
-      "label": "SizingCalculator\nhp/wp (v3.0)",
+      "label": "SizingCalculator\nhp/wp",
       "color": "plum"
     },
     {
@@ -63,7 +63,7 @@
     {
       "id": "optimizer",
       "type": "server",
-      "label": "AutoLayoutOptimizer\nv3.0 Jerárquico",
+      "label": "AutoLayoutOptimizer\nv4.0 Jerárquico",
       "hp": 1.8,
       "wp": 1.5,
       "color": "tomato",
@@ -72,7 +72,7 @@
     {
       "id": "routing_container",
       "type": "firewall",
-      "label": "Routing Module\n(v3.0)",
+      "label": "Routing Module",
       "contains": ["router_mgr", "routers"],
       "color": "#FFE8E8"
     },
@@ -107,7 +107,7 @@
     {
       "id": "graph",
       "type": "building",
-      "label": "GraphAnalyzer\ntopología (v3.0)\nniveles\ngrupos",
+      "label": "GraphAnalyzer\ntopología + centralidad\nniveles\nresolución conexiones",
       "color": "lightcoral"
     },
     {
@@ -140,7 +140,7 @@
     {
       "id": "connections",
       "type": "building",
-      "label": "connections.py\nFase 2: Lines\nRouting types (v3.0)",
+      "label": "connections.py\nFase 2: Lines\nRouting types",
       "hp": 1.3,
       "color": "orange",
       "label_priority": "high"
@@ -220,7 +220,7 @@
       "from": "optimizer",
       "to": "router_mgr",
       "routing": {"type": "orthogonal"},
-      "label": "calculate_all_paths()\nv3.0",
+      "label": "calculate_all_paths()",
       "direction": "forward"
     },
     {

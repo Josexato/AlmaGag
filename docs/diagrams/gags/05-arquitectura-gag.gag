@@ -27,7 +27,7 @@
     {
       "id": "layout_module-stage",
       "type": "firewall",
-      "label": "Layout Module\n(jerárquico v3.0)",
+      "label": "Layout Module\n(jerárquico v4.0)",
       "contains": ["layout", "sizing", "positioner"]
     },
     {
@@ -38,7 +38,7 @@
     {
       "id": "sizing",
       "type": "building",
-      "label": "SizingCalculator\nhp/wp (v3.0)"
+      "label": "SizingCalculator\nhp/wp"
     },
     {
       "id": "positioner",
@@ -48,23 +48,23 @@
     {
       "id": "optimizer",
       "type": "server",
-      "label": "AutoLayoutOptimizer\nv3.0 Jerárquico\n(algoritmo AUTO)"
+      "label": "AutoLayoutOptimizer\nv4.0 Jerárquico\n(algoritmo AUTO)"
     },
     {
       "id": "laf_optimizer",
       "type": "server",
-      "label": "LAFOptimizer\nv1.3\n(algoritmo LAF - opcional)"
+      "label": "LAFOptimizer\nv1.4 (10 fases)\n(algoritmo LAF)"
     },
     {
       "id": "label_position_optimizer",
       "type": "building",
-      "label": "LabelPositionOptimizer\nv3.0\nScoring + Greedy"
+      "label": "LabelPositionOptimizer\nScoring + Greedy"
     },
     {
       "id": "laf_module-stage",
       "type": "firewall",
       "label": "LAF Module\n(--layout-algorithm=laf)",
-      "contains": ["structure_analyzer", "abstract_placer", "inflator", "container_grower"]
+      "contains": ["structure_analyzer", "abstract_placer", "position_optimizer", "inflator", "container_grower", "xscale"]
     },
     {
       "id": "structure_analyzer",
@@ -74,22 +74,32 @@
     {
       "id": "abstract_placer",
       "type": "building",
-      "label": "AbstractPlacer\nFase 2: Minimiza cruces"
+      "label": "AbstractPlacer\nFase 3: Minimiza cruces"
     },
     {
       "id": "inflator",
       "type": "building",
-      "label": "Inflator\nFase 3: Dimensiones reales"
+      "label": "Inflator\nFase 4: Dimensiones reales"
     },
     {
       "id": "container_grower",
       "type": "building",
-      "label": "ContainerGrower\nFase 4: Expansión bottom-up"
+      "label": "ContainerGrower\nFase 6: Expansión bottom-up"
+    },
+    {
+      "id": "position_optimizer",
+      "type": "building",
+      "label": "PositionOptimizer\nFase 5: Layer-offset"
+    },
+    {
+      "id": "xscale",
+      "type": "building",
+      "label": "Global X Scale\nFase 8: Preserva ángulos"
     },
     {
       "id": "routing_module-stage",
       "type": "firewall",
-      "label": "Routing Module\n(v3.0)",
+      "label": "Routing Module",
       "contains": ["router_mgr", "routers"]
     },
     {
@@ -116,7 +126,7 @@
     {
       "id": "graph",
       "type": "building",
-      "label": "GraphAnalyzer\ntopología (v3.0)\nniveles\ngrupos"
+      "label": "GraphAnalyzer\ntopología + centralidad\nniveles\nresolución conexiones"
     },
     {
       "id": "collision",
@@ -142,7 +152,7 @@
     {
       "id": "connections",
       "type": "building",
-      "label": "connections.py\nFase 2: Lines\nRouting types (v3.0)"
+      "label": "connections.py\nFase 2: Lines\nRouting types"
     },
     {
       "id": "labels",
@@ -212,7 +222,7 @@
     {
       "from": "optimizer",
       "to": "router_mgr",
-      "label": "calculate_all_paths()\nv3.0",
+      "label": "calculate_all_paths()",
       "direction": "forward"
     },
     {
@@ -265,14 +275,26 @@
     },
     {
       "from": "abstract_placer",
-      "to": "inflator",
+      "to": "position_optimizer",
       "label": "posiciones abstractas",
+      "direction": "forward"
+    },
+    {
+      "from": "position_optimizer",
+      "to": "inflator",
+      "label": "posiciones optimizadas",
       "direction": "forward"
     },
     {
       "from": "inflator",
       "to": "container_grower",
       "label": "dimensiones reales",
+      "direction": "forward"
+    },
+    {
+      "from": "container_grower",
+      "to": "xscale",
+      "label": "escala global",
       "direction": "forward"
     },
     {
