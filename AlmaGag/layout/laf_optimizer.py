@@ -788,7 +788,7 @@ class LAFOptimizer:
         layout.canvas['height'] = canvas_height
 
         if self.visualizer:
-            self.visualizer.capture_phase6_inflated(layout, spacing)
+            self.visualizer.capture_phase6_inflated(layout, spacing, structure_info)
         self._dump_layout(layout, "LAF_PHASE_6_INFLATED_AND_GROWN")
 
         if self.debug:
@@ -798,7 +798,7 @@ class LAFOptimizer:
         self._redistribute_vertical_after_growth(structure_info, layout)
 
         if self.visualizer:
-            self.visualizer.capture_phase8_redistributed(layout)
+            self.visualizer.capture_phase7_redistributed(layout)
         self._dump_layout(layout, "LAF_PHASE_7_REDISTRIBUTED")
 
         if self.debug:
@@ -808,7 +808,7 @@ class LAFOptimizer:
         if self.router_manager:
             self.router_manager.calculate_all_paths(layout)
             if self.visualizer:
-                self.visualizer.capture_phase9_routed(layout)
+                self.visualizer.capture_phase8_routed(layout)
             if self.debug:
                 print(f"[LAF] Fase 8 OK: {len(layout.connections)} conexiones ruteadas")
 
@@ -820,7 +820,7 @@ class LAFOptimizer:
 
         # FASE 9: Generar visualizaciones
         if self.visualizer:
-            self.visualizer.capture_phase10_final(layout)
+            self.visualizer.capture_phase9_final(layout)
             self.visualizer.generate_all()
             if self.debug:
                 print(f"[LAF] Fase 9 OK: SVGs en debug/growth/")

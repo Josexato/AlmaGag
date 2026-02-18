@@ -85,12 +85,10 @@ class ElementInflator:
         """
         Calcula spacing entre elementos primarios.
 
-        Formula (ajustada para evitar diagramas excesivamente grandes):
-            max_contained = max(total_icons for container in containers)
-            spacing = MAX(
-                3 * ICON_WIDTH,                 # Base: 3 unidades (reducido de 20)
-                1.5 * max_contained * ICON_WIDTH  # Scaled: 1.5x contenido máximo (reducido de 3x)
-            )
+        Formula: spacing = max(3, sqrt(max_contained) * 2) * ICON_WIDTH
+        - Base mínimo: 3 * ICON_WIDTH = 240px
+        - Escala con raíz cuadrada del contenedor más grande (los hijos se
+          distribuyen en grilla, no linealmente)
 
         Args:
             structure_info: Información estructural con container_metrics
@@ -98,20 +96,20 @@ class ElementInflator:
         Returns:
             float: Spacing en píxeles
         """
-        # Base: 3 unidades de ICON_WIDTH (240px con ICON_WIDTH=80)
-        base_spacing = 3 * ICON_WIDTH
+        import math
 
-        # Scaled: 1.5 veces el contenedor más grande
+        base_factor = 3
+
         if structure_info.container_metrics:
             max_contained = max(
                 metrics['total_icons']
                 for metrics in structure_info.container_metrics.values()
             )
-            scaled_spacing = 1.5 * max_contained * ICON_WIDTH
+            scaled_factor = math.sqrt(max_contained) * 2
         else:
-            scaled_spacing = 0
+            scaled_factor = 0
 
-        return max(base_spacing, scaled_spacing)
+        return max(base_factor, scaled_factor) * ICON_WIDTH
 
     def _assign_real_positions(
         self,

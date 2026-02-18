@@ -154,85 +154,64 @@ class GrowthVisualizer:
     def capture_phase6_inflated(
         self,
         layout,
-        spacing: float
+        spacing: float,
+        structure_info=None
     ) -> None:
         """
-        Captura snapshot de Fase 6 (Inflación).
+        Captura snapshot de Fase 6 (Inflación + Contenedores).
 
         Args:
-            layout: Layout con elementos inflados
+            layout: Layout con elementos inflados y contenedores expandidos
             spacing: Spacing calculado
+            structure_info: Información estructural con primary_node_ids
         """
         self.snapshots['phase6'] = {
             'layout': deepcopy(layout),
-            'spacing': spacing
+            'spacing': spacing,
+            'structure_info': structure_info
         }
 
-        pass
-
-    def capture_phase7_containers(
+    def capture_phase7_redistributed(
         self,
         layout
     ) -> None:
         """
-        Captura snapshot de Fase 7 (Crecimiento de contenedores).
+        Captura snapshot de Fase 7 (Redistribución vertical).
 
         Args:
-            layout: Layout con contenedores expandidos
+            layout: Layout después de redistribución vertical
         """
         self.snapshots['phase7'] = {
             'layout': deepcopy(layout)
         }
 
-        pass
-
-    def capture_phase8_redistributed(
+    def capture_phase8_routed(
         self,
         layout
     ) -> None:
         """
-        Captura snapshot de Fase 8 (Redistribución vertical).
+        Captura snapshot de Fase 8 (Routing).
 
         Args:
-            layout: Layout después de redistribución vertical
+            layout: Layout con paths de conexiones calculados
         """
         self.snapshots['phase8'] = {
             'layout': deepcopy(layout)
         }
 
-        pass
-
-    def capture_phase9_routed(
+    def capture_phase9_final(
         self,
         layout
     ) -> None:
         """
-        Captura snapshot de Fase 9 (Routing).
-
-        Args:
-            layout: Layout con paths de conexiones calculados
-        """
-        self.snapshots['phase9'] = {
-            'layout': deepcopy(layout)
-        }
-
-        pass
-
-    def capture_phase10_final(
-        self,
-        layout
-    ) -> None:
-        """
-        Captura snapshot de Fase 10 (Generación SVG final).
+        Captura snapshot de Fase 9 (Generación SVG final).
 
         Args:
             layout: Layout final completo
         """
-        self.snapshots['phase10'] = {
+        self.snapshots['phase9'] = {
             'layout': deepcopy(layout)
         }
-
-        pass
 
     def generate_all(self) -> None:
         """
@@ -270,14 +249,14 @@ class GrowthVisualizer:
         if 'phase6' in self.snapshots:
             self._generate_phase6_inflated_svg(output_path)
 
+        if 'phase7' in self.snapshots:
+            self._generate_phase7_redistributed_svg(output_path)
+
         if 'phase8' in self.snapshots:
-            self._generate_phase8_redistributed_svg(output_path)
+            self._generate_phase8_routed_svg(output_path)
 
         if 'phase9' in self.snapshots:
-            self._generate_phase9_routed_svg(output_path)
-
-        if 'phase10' in self.snapshots:
-            self._generate_phase10_final_svg(output_path)
+            self._generate_phase9_final_svg(output_path)
 
         if self.debug:
             print(f"[VISUALIZER] Generación completada: {len(self.snapshots)} fases")
@@ -2096,10 +2075,12 @@ class GrowthVisualizer:
     def _generate_phase6_inflated_svg(self, output_path: str) -> None:
         """
         Genera SVG de Fase 6: Inflación + Contenedores expandidos.
+        Incluye etiquetas NdFn para cada nodo final.
         """
         snapshot = self.snapshots['phase6']
         layout = snapshot['layout']
         spacing = snapshot['spacing']
+        structure_info = snapshot.get('structure_info')
 
         filename = os.path.join(output_path, "phase6_inflated_grown.svg")
 
@@ -2129,6 +2110,9 @@ class GrowthVisualizer:
             fill='#6c757d'
         ))
 
+        # Construir mapeo NdFn
+        ndfn_labels = self._build_ndfn_labels(layout, structure_info)
+
         # Dibujar elementos
         for elem in layout.elements:
             if 'x' not in elem or 'y' not in elem:
@@ -2138,15 +2122,14 @@ class GrowthVisualizer:
             y = elem['y']
             w = elem.get('width', ICON_WIDTH)
             h = elem.get('height', ICON_HEIGHT)
+            elem_id = elem.get('id', '')
 
             # Color según tipo
             if 'contains' in elem:
-                # Contenedor (aún no expandido)
                 fill_color = '#ffc107'
                 stroke_color = '#ff9800'
                 opacity = 0.3
             else:
-                # Elemento normal
                 fill_color = '#0d6efd'
                 stroke_color = '#084298'
                 opacity = 0.7
@@ -2161,8 +2144,7 @@ class GrowthVisualizer:
                 opacity=opacity
             ))
 
-            # Label del elemento
-            elem_id = elem.get('id', '')
+            # Label del elemento (nombre)
             dwg.add(dwg.text(
                 elem_id,
                 insert=(x + w/2, y + h/2),
@@ -2171,6 +2153,30 @@ class GrowthVisualizer:
                 fill='#212529',
                 font_family='monospace'
             ))
+
+            # Etiqueta NdFn
+            ndfn = ndfn_labels.get(elem_id, '')
+            if ndfn:
+                dwg.add(dwg.text(
+                    ndfn,
+                    insert=(x + 2, y + 10),
+                    font_size='8px',
+                    fill='#dc3545',
+                    font_family='monospace',
+                    font_weight='bold'
+                ))
+
+            # Etiqueta NdFn para ícono de contenedor (.1)
+            ndfn_icon = ndfn_labels.get(f"{elem_id}__icon", '')
+            if ndfn_icon:
+                dwg.add(dwg.text(
+                    ndfn_icon,
+                    insert=(x + 2, y + 20),
+                    font_size='8px',
+                    fill='#e85d04',
+                    font_family='monospace',
+                    font_weight='bold'
+                ))
 
         # Badge
         dwg.add(dwg.text(
@@ -2185,112 +2191,77 @@ class GrowthVisualizer:
         if self.debug:
             print(f"[VISUALIZER] Generado: {filename}")
 
-    def _generate_phase7_containers_svg(self, output_path: str) -> None:
+    def _build_ndfn_labels(self, layout, structure_info):
         """
-        Genera SVG de Fase 7: Contenedores expandidos.
+        Construye etiquetas NdFn (Nodo Final) para cada elemento.
 
-        Similar al output final pero con anotaciones de debug.
+        Formato:
+        - Nodo primario simple:        NdFn.AAA.XXX.0
+        - Contenedor box:              NdFn.AAA.XXX.0
+        - Contenedor ícono:            NdFn.AAA.XXX.1 (skip si virtual)
+        - Elementos contenidos:        NdFn.AAA.XXX.2, .3, .4...
+
+        AAA = secuencial global, XXX = NdPr histórico
+        """
+        labels = {}
+        if not structure_info:
+            return labels
+
+        # Mapear elem_id → NdPr number
+        ndpr_map = {}
+        for elem_id, ndpr_id in structure_info.primary_node_ids.items():
+            # Extraer número de "NdPr001" → "001"
+            ndpr_map[elem_id] = ndpr_id.replace('NdPr', '')
+
+        # Mapear contenedores: elem_id → lista de hijos
+        container_children = {}
+        elements_by_id = {e['id']: e for e in layout.elements}
+        for elem_id, elem in elements_by_id.items():
+            if 'contains' in elem and elem['contains']:
+                children = []
+                for item in elem['contains']:
+                    child_id = item['id'] if isinstance(item, dict) else item
+                    children.append(child_id)
+                container_children[elem_id] = children
+
+        # Asignar AAA secuencial global
+        aaa = 1
+        for elem_id in structure_info.primary_elements:
+            xxx = ndpr_map.get(elem_id, '000')
+            node_type = structure_info.primary_node_types.get(elem_id, 'Simple')
+            is_container = elem_id in container_children
+            is_virtual = node_type == 'Contenedor Virtual'
+
+            # .0 = el box del contenedor o el nodo simple
+            labels[elem_id] = f"NdFn.{aaa:03d}.{xxx}.0"
+            aaa += 1
+
+            if is_container:
+                # .1 = ícono del contenedor (skip si virtual)
+                if not is_virtual:
+                    # El ícono del contenedor es el propio elem_id
+                    # pero como nodo visual dentro del contenedor
+                    # Lo marcamos como sub-índice 1
+                    labels[f"{elem_id}__icon"] = f"NdFn.{aaa:03d}.{xxx}.1"
+                    aaa += 1
+
+                # .2, .3, .4... = elementos contenidos
+                sub_idx = 2
+                for child_id in container_children[elem_id]:
+                    labels[child_id] = f"NdFn.{aaa:03d}.{xxx}.{sub_idx}"
+                    aaa += 1
+                    sub_idx += 1
+
+        return labels
+
+    def _generate_phase7_redistributed_svg(self, output_path: str) -> None:
+        """
+        Genera SVG de Fase 7: Redistribución vertical.
         """
         snapshot = self.snapshots['phase7']
         layout = snapshot['layout']
 
-        filename = os.path.join(output_path, "phase7_containers.svg")
-
-        canvas_width = layout.canvas.get('width', 2000)
-        canvas_height = layout.canvas.get('height', 2000)
-
-        dwg = svgwrite.Drawing(filename, size=(canvas_width, canvas_height))
-
-        # Fondo
-        dwg.add(dwg.rect(insert=(0, 0), size=(canvas_width, canvas_height), fill='#ffffff'))
-
-        # Título
-        dwg.add(dwg.text(
-            'LAF Phase 7: Container Growth',
-            insert=(20, 30),
-            font_size='20px',
-            font_weight='bold',
-            fill='#212529'
-        ))
-
-        # Dibujar contenedores primero (fondo)
-        for elem in layout.elements:
-            if 'contains' not in elem:
-                continue
-
-            if 'x' not in elem or 'y' not in elem or 'width' not in elem:
-                continue
-
-            x = elem['x']
-            y = elem['y']
-            w = elem['width']
-            h = elem['height']
-
-            # Contenedor
-            dwg.add(dwg.rect(
-                insert=(x, y),
-                size=(w, h),
-                fill='#e9ecef',
-                stroke='#6c757d',
-                stroke_width=2,
-                opacity=0.5
-            ))
-
-        # Dibujar elementos normales
-        for elem in layout.elements:
-            if 'contains' in elem:
-                continue
-
-            if 'x' not in elem or 'y' not in elem:
-                continue
-
-            x = elem['x']
-            y = elem['y']
-            w = elem.get('width', ICON_WIDTH)
-            h = elem.get('height', ICON_HEIGHT)
-
-            # Elemento
-            dwg.add(dwg.rect(
-                insert=(x, y),
-                size=(w, h),
-                fill='#0d6efd',
-                stroke='#084298',
-                stroke_width=2
-            ))
-
-            # Label
-            elem_id = elem.get('id', '')
-            dwg.add(dwg.text(
-                elem_id,
-                insert=(x + w/2, y + h/2),
-                text_anchor='middle',
-                font_size='10px',
-                fill='#ffffff',
-                font_family='monospace',
-                font_weight='bold'
-            ))
-
-        # Badge
-        dwg.add(dwg.text(
-            'Phase 7/9',
-            insert=(canvas_width - 100, 30),
-            font_size='14px',
-            fill='#6c757d'
-        ))
-
-        dwg.save()
-
-        if self.debug:
-            print(f"[VISUALIZER] Generado: {filename}")
-
-    def _generate_phase8_redistributed_svg(self, output_path: str) -> None:
-        """
-        Genera SVG de Fase 8: Redistribución vertical.
-        """
-        snapshot = self.snapshots['phase8']
-        layout = snapshot['layout']
-
-        filename = os.path.join(output_path, "phase8_redistributed.svg")
+        filename = os.path.join(output_path, "phase7_redistributed.svg")
 
         canvas_width = layout.canvas.get('width', 2000)
         canvas_height = layout.canvas.get('height', 2000)
@@ -2377,14 +2348,14 @@ class GrowthVisualizer:
         if self.debug:
             print(f"[VISUALIZER] Generado: {filename}")
 
-    def _generate_phase9_routed_svg(self, output_path: str) -> None:
+    def _generate_phase8_routed_svg(self, output_path: str) -> None:
         """
-        Genera SVG de Fase 9: Routing de conexiones.
+        Genera SVG de Fase 8: Routing de conexiones.
         """
-        snapshot = self.snapshots['phase9']
+        snapshot = self.snapshots['phase8']
         layout = snapshot['layout']
 
-        filename = os.path.join(output_path, "phase9_routed.svg")
+        filename = os.path.join(output_path, "phase8_routed.svg")
 
         canvas_width = layout.canvas.get('width', 2000)
         canvas_height = layout.canvas.get('height', 2000)
@@ -2396,7 +2367,7 @@ class GrowthVisualizer:
 
         # Título
         dwg.add(dwg.text(
-            'LAF Phase 8: Routing',
+            'LAF Phase 8: Connection Routing',
             insert=(20, 30),
             font_size='20px',
             font_weight='bold',
@@ -2476,14 +2447,14 @@ class GrowthVisualizer:
         if self.debug:
             print(f"[VISUALIZER] Generado: {filename}")
 
-    def _generate_phase10_final_svg(self, output_path: str) -> None:
+    def _generate_phase9_final_svg(self, output_path: str) -> None:
         """
-        Genera SVG de Fase 10: Generación SVG final.
+        Genera SVG de Fase 9: Generación SVG final.
         """
-        snapshot = self.snapshots['phase10']
+        snapshot = self.snapshots['phase9']
         layout = snapshot['layout']
 
-        filename = os.path.join(output_path, "phase10_final.svg")
+        filename = os.path.join(output_path, "phase9_final.svg")
 
         canvas_width = layout.canvas.get('width', 2000)
         canvas_height = layout.canvas.get('height', 2000)
