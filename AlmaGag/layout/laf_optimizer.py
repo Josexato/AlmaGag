@@ -780,9 +780,6 @@ class LAFOptimizer:
         # FASE 6: Inflación + Crecimiento de contenedores
         spacing = self.inflator.inflate_elements(optimized_positions, structure_info, layout)
 
-        if self.visualizer:
-            self.visualizer.capture_phase6_inflated(layout, spacing)
-
         self.container_grower.grow_containers(structure_info, layout)
         canvas_width, canvas_height = self.container_grower.calculate_final_canvas(
             structure_info, layout
@@ -791,7 +788,7 @@ class LAFOptimizer:
         layout.canvas['height'] = canvas_height
 
         if self.visualizer:
-            self.visualizer.capture_phase7_containers(layout)
+            self.visualizer.capture_phase6_inflated(layout, spacing)
         self._dump_layout(layout, "LAF_PHASE_6_INFLATED_AND_GROWN")
 
         if self.debug:

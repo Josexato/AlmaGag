@@ -26,11 +26,10 @@ class GrowthVisualizer:
     3. phase3_centrality.svg: Ordenamiento por centralidad
     4. phase4_abstract.svg: Posiciones abstractas (puntos)
     5. phase5_optimized.svg: Posiciones optimizadas (Claude-SolFase5)
-    6. phase6_inflated.svg: Elementos con dimensiones reales
-    7. phase7_containers.svg: Contenedores expandidos
-    8. phase8_redistributed.svg: Redistribución vertical
-    9. phase9_routed.svg: Routing de conexiones
-    10. phase10_final.svg: Layout final completo
+    6. phase6_inflated.svg: Inflación + Contenedores expandidos
+    7. phase7_redistributed.svg: Redistribución vertical
+    8. phase8_routed.svg: Routing de conexiones
+    9. phase9_final.svg: Layout final completo
     """
 
     def __init__(self, output_dir: str = "debug/growth", debug: bool = False):
@@ -271,9 +270,6 @@ class GrowthVisualizer:
         if 'phase6' in self.snapshots:
             self._generate_phase6_inflated_svg(output_path)
 
-        if 'phase7' in self.snapshots:
-            self._generate_phase7_containers_svg(output_path)
-
         if 'phase8' in self.snapshots:
             self._generate_phase8_redistributed_svg(output_path)
 
@@ -432,7 +428,7 @@ class GrowthVisualizer:
 
         # Badge
         dwg.add(dwg.text(
-            'Phase 1/10',
+            'Phase 1/9',
             insert=(canvas_width - 100, 30),
             font_size='14px',
             fill='#6c757d'
@@ -1052,7 +1048,7 @@ class GrowthVisualizer:
 
         # Badge
         dwg.add(dwg.text(
-            'Phase 2/10',
+            'Phase 2/9',
             insert=(canvas_width - 100, 30),
             font_size='14px',
             fill='#6c757d'
@@ -1400,7 +1396,7 @@ class GrowthVisualizer:
 
         # Badge
         dwg.add(dwg.text(
-            'Phase 3/10',
+            'Phase 3/9',
             insert=(canvas_width - 100, 30),
             font_size='14px',
             fill='#6c757d'
@@ -1612,7 +1608,7 @@ class GrowthVisualizer:
 
         # Badge
         dwg.add(dwg.text(
-            'Phase 4/10',
+            'Phase 4/9',
             insert=(canvas_width - 100, 30),
             font_size='14px',
             fill='#6c757d'
@@ -2085,7 +2081,7 @@ class GrowthVisualizer:
 
         # Badge
         dwg.add(dwg.text(
-            'Phase 5/10 - Claude-SolFase5',
+            'Phase 5/9 - Claude-SolFase5',
             insert=(canvas_width - 260, 30),
             font_size='14px',
             fill='#28a745',
@@ -2099,13 +2095,13 @@ class GrowthVisualizer:
 
     def _generate_phase6_inflated_svg(self, output_path: str) -> None:
         """
-        Genera SVG de Fase 6: Elementos inflados.
+        Genera SVG de Fase 6: Inflación + Contenedores expandidos.
         """
         snapshot = self.snapshots['phase6']
         layout = snapshot['layout']
         spacing = snapshot['spacing']
 
-        filename = os.path.join(output_path, "phase6_inflated.svg")
+        filename = os.path.join(output_path, "phase6_inflated_grown.svg")
 
         # Canvas basado en elementos
         canvas_width = layout.canvas.get('width', 2000)
@@ -2118,7 +2114,7 @@ class GrowthVisualizer:
 
         # Título
         dwg.add(dwg.text(
-            'LAF Phase 6: Inflated Elements',
+            'LAF Phase 6: Inflation + Container Growth',
             insert=(20, 30),
             font_size='20px',
             font_weight='bold',
@@ -2178,7 +2174,7 @@ class GrowthVisualizer:
 
         # Badge
         dwg.add(dwg.text(
-            'Phase 6/10',
+            'Phase 6/9',
             insert=(canvas_width - 100, 30),
             font_size='14px',
             fill='#6c757d'
@@ -2276,7 +2272,7 @@ class GrowthVisualizer:
 
         # Badge
         dwg.add(dwg.text(
-            'Phase 7/10',
+            'Phase 7/9',
             insert=(canvas_width - 100, 30),
             font_size='14px',
             fill='#6c757d'
@@ -2306,7 +2302,7 @@ class GrowthVisualizer:
 
         # Título
         dwg.add(dwg.text(
-            'LAF Phase 8: Vertical Redistribution',
+            'LAF Phase 7: Vertical Redistribution',
             insert=(20, 30),
             font_size='20px',
             font_weight='bold',
@@ -2370,7 +2366,7 @@ class GrowthVisualizer:
 
         # Badge
         dwg.add(dwg.text(
-            'Phase 8/10',
+            'Phase 7/9',
             insert=(canvas_width - 100, 30),
             font_size='14px',
             fill='#6c757d'
@@ -2400,7 +2396,7 @@ class GrowthVisualizer:
 
         # Título
         dwg.add(dwg.text(
-            'LAF Phase 9: Routing',
+            'LAF Phase 8: Routing',
             insert=(20, 30),
             font_size='20px',
             font_weight='bold',
@@ -2469,7 +2465,7 @@ class GrowthVisualizer:
 
         # Badge
         dwg.add(dwg.text(
-            'Phase 9/10',
+            'Phase 8/9',
             insert=(canvas_width - 100, 30),
             font_size='14px',
             fill='#6c757d'
@@ -2499,7 +2495,7 @@ class GrowthVisualizer:
 
         # Título
         dwg.add(dwg.text(
-            'LAF Phase 10: SVG Generation (COMPLETE)',
+            'LAF Phase 9: SVG Generation (COMPLETE)',
             insert=(20, 30),
             font_size='20px',
             font_weight='bold',
@@ -2568,7 +2564,7 @@ class GrowthVisualizer:
 
         # Badge
         dwg.add(dwg.text(
-            'Phase 10/10 - COMPLETE',
+            'Phase 9/9 - COMPLETE',
             insert=(canvas_width - 240, 30),
             font_size='14px',
             fill='#28a745',
