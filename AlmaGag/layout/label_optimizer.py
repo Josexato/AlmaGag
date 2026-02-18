@@ -42,6 +42,8 @@ class Label:
     priority: int = 1
     category: str = "connection"
     fixed: bool = False
+    element_center_x: Optional[float] = None
+    element_center_y: Optional[float] = None
 
 
 @dataclass
@@ -118,7 +120,13 @@ class LabelPositionOptimizer:
             List[LabelPosition]: Lista de posiciones candidatas
         """
         candidates = []
-        x, y = label.anchor_x, label.anchor_y
+
+        # Para elementos con centro conocido, usar el centro del ícono
+        # como base para candidatos (no la posición pre-calculada de la etiqueta)
+        if label.category == "element" and label.element_center_x is not None:
+            x, y = label.element_center_x, label.element_center_y
+        else:
+            x, y = label.anchor_x, label.anchor_y
 
         # Offsets calculados dinámicamente según el tamaño del elemento
         # Fórmula: OFFSET = (dimension/2) + (1.5 * char_size)
@@ -149,12 +157,16 @@ class LabelPositionOptimizer:
                 ("top-right", x + 20, y - 10, "start"),
             ]
         else:  # element
-            # 4 posiciones para elementos (bottom primero - preferido)
+            # 8 posiciones para elementos (bottom primero - preferido)
             offsets = [
                 ("bottom", x, y + NEAR_OFFSET, "middle"),  # Preferido
                 ("top", x, y - NEAR_OFFSET, "middle"),
                 ("right", x + FAR_OFFSET, y, "start"),
                 ("left", x - FAR_OFFSET, y, "end"),
+                ("bottom-right", x + FAR_OFFSET, y + NEAR_OFFSET, "start"),
+                ("bottom-left", x - FAR_OFFSET, y + NEAR_OFFSET, "end"),
+                ("top-right", x + FAR_OFFSET, y - NEAR_OFFSET, "start"),
+                ("top-left", x - FAR_OFFSET, y - NEAR_OFFSET, "end"),
             ]
 
         for offset_name, pos_x, pos_y, anchor in offsets:

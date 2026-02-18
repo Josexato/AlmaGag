@@ -286,6 +286,68 @@ class ContainerGrower:
         # Actualizar layer in-place
         layer[:] = [elem_id for _, _, elem_id in barycenters]
 
+    @staticmethod
+    def _compute_label_bbox(elem, label_x, label_y, label_height, anchor):
+        """Calcula el bounding box de una etiqueta."""
+        label_text = elem.get('label', '')
+        lines = label_text.split('\n')
+        label_width = max(len(line) for line in lines) * 8  # ~8px/char at 14px font
+
+        if anchor == 'middle':
+            x1 = label_x - label_width / 2
+            x2 = label_x + label_width / 2
+        elif anchor == 'end':
+            x1 = label_x - label_width
+            x2 = label_x
+        else:  # 'start'
+            x1 = label_x
+            x2 = label_x + label_width
+
+        return (x1, label_y, x2, label_y + label_height)
+
+    @staticmethod
+    def _bbox_overlaps(a, b):
+        """Verifica si dos bboxes (x1,y1,x2,y2) se solapan."""
+        return not (a[2] <= b[0] or b[2] <= a[0] or a[3] <= b[1] or b[3] <= a[1])
+
+    def _find_best_label_position(self, elem, current_x, current_y,
+                                   elem_width, elem_height, placed_bboxes):
+        """
+        Busca la mejor posición para una etiqueta entre 4 candidatas,
+        verificando colisiones contra bboxes ya colocados.
+
+        Returns:
+            (label_x, label_y, anchor, position_name, label_height)
+        """
+        label_text = elem.get('label', '')
+        lines = label_text.split('\n')
+        label_height = len(lines) * 18
+
+        candidates = [
+            ('bottom', current_x + elem_width / 2,
+             current_y + elem_height + 15, 'middle'),
+            ('right', current_x + elem_width + 10,
+             current_y + elem_height / 2, 'start'),
+            ('top', current_x + elem_width / 2,
+             current_y - label_height - 5, 'middle'),
+            ('left', current_x - 10,
+             current_y + elem_height / 2, 'end'),
+        ]
+
+        for pos_name, lx, ly, anchor in candidates:
+            bbox = self._compute_label_bbox(elem, lx, ly, label_height, anchor)
+            has_collision = False
+            for placed in placed_bboxes:
+                if self._bbox_overlaps(bbox, placed):
+                    has_collision = True
+                    break
+            if not has_collision:
+                return lx, ly, anchor, pos_name, label_height
+
+        # Fallback: bottom (posición original)
+        return (candidates[0][1], candidates[0][2],
+                candidates[0][3], 'bottom', label_height)
+
     def _position_contained_elements(
         self,
         children: List[str],
@@ -330,6 +392,9 @@ class ContainerGrower:
         # con coordenadas locales relativas al contenido (SIN header).
         # El header se añadirá arriba al convertir a globales.
         current_y = padding
+
+        # Tracking de bboxes colocados para detección de colisiones de etiquetas
+        placed_bboxes = []  # Lista de (x1, y1, x2, y2)
 
         for layer_idx, layer in enumerate(layers):
             # Calcular dimensiones de elementos en esta capa
@@ -386,21 +451,33 @@ class ContainerGrower:
                 elem['width'] = elem_width
                 elem['height'] = elem_height
 
-                # Calcular posición de etiqueta (también relativa al box de contenido)
-                if elem.get('label'):
-                    label_x = current_x + elem_width / 2
-                    label_y = current_y + elem_height + 15
+                # Registrar bbox del ícono para detección de colisiones
+                placed_bboxes.append((
+                    current_x, current_y,
+                    current_x + elem_width, current_y + elem_height
+                ))
 
-                    layout.label_positions[elem_id] = (
-                        label_x,
-                        label_y,
-                        'middle',
-                        'top'
+                # Calcular posición de etiqueta con detección de colisiones
+                if elem.get('label'):
+                    label_x, label_y, anchor, pos_name, label_h = (
+                        self._find_best_label_position(
+                            elem, current_x, current_y,
+                            elem_width, elem_height, placed_bboxes
+                        )
                     )
 
-                    lines = elem['label'].split('\n')
-                    label_height = len(lines) * 18
-                    label_bottom = label_y + label_height
+                    layout.label_positions[elem_id] = (
+                        label_x, label_y, anchor, pos_name
+                    )
+
+                    # Registrar bbox de la etiqueta colocada
+                    label_bbox = self._compute_label_bbox(
+                        elem, label_x, label_y, label_h, anchor
+                    )
+                    placed_bboxes.append(label_bbox)
+
+                    # Actualizar layer_bottom considerando la posición real
+                    label_bottom = label_bbox[3]  # y2 del bbox
                     layer_bottom = max(layer_bottom, label_bottom)
 
                 else:

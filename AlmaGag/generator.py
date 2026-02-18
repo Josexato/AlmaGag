@@ -903,19 +903,19 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
         # Solo agregar elementos que NO son contenedores
         if 'contains' not in elem and elem.get('label') and 'x' in elem and 'y' in elem:
             elem_id = elem['id']
+            elem_width = elem.get('width', ICON_WIDTH)
+            elem_height = elem.get('height', ICON_HEIGHT)
+            elem_cx = elem['x'] + elem_width / 2
+            elem_cy = elem['y'] + elem_height / 2
 
-            # IMPORTANTE: Si el elemento tiene posición precalculada (por ContainerGrower/Sugiyama),
-            # usar esa posición y marcar como fixed para que LabelOptimizer no la mueva
             if elem_id in label_positions:
+                # Posición pre-calculada por ContainerGrower: usar como anchor
+                # pero permitir que el optimizador la reposicione si hay colisión
                 label_x, label_y, anchor, baseline = label_positions[elem_id]
-                is_fixed = True  # Posición ya calculada por ContainerGrower
             else:
-                # Calcular posición automática (elementos NO contenidos)
-                elem_width = elem.get('width', ICON_WIDTH)
-                elem_height = elem.get('height', ICON_HEIGHT)
-                label_x = elem['x'] + elem_width / 2
-                label_y = elem['y'] + elem_height / 2
-                is_fixed = False  # Puede ser reposicionada por LabelOptimizer
+                # Elementos sin posición pre-calculada: centro del ícono
+                label_x = elem_cx
+                label_y = elem_cy
 
             labels_to_optimize.append(Label(
                 id=elem_id,
@@ -925,7 +925,9 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
                 font_size=14,
                 priority=2,  # Baja (pueden moverse más)
                 category="element",
-                fixed=is_fixed
+                fixed=False,
+                element_center_x=elem_cx,
+                element_center_y=elem_cy
             ))
 
     # Etiquetas de contenedores - NO optimizar, posición fija

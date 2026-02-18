@@ -1,14 +1,17 @@
-# Referencia Completa CLI - AlmaGag v3.0
+# Referencia Completa CLI - AlmaGag v3.1
 
-Esta guía documenta todas las opciones de línea de comandos disponibles en AlmaGag v3.0.
+Esta guía documenta todas las opciones de línea de comandos disponibles en AlmaGag.
 
 ## Tabla de Contenidos
 
 - [Sintaxis Básica](#sintaxis-básica)
 - [Opciones de Layout](#opciones-de-layout)
+- [Opciones de Estilo Visual](#opciones-de-estilo-visual)
+- [Parámetros de Centralidad LAF](#parámetros-de-centralidad-laf)
 - [Opciones de Debug](#opciones-de-debug)
 - [Opciones de Exportación](#opciones-de-exportación)
 - [Opciones de Visualización](#opciones-de-visualización)
+- [Resumen Rápido de Parámetros](#resumen-rápido-de-parámetros)
 - [Combinaciones Comunes](#combinaciones-comunes)
 - [Troubleshooting](#troubleshooting)
 
@@ -68,6 +71,105 @@ almagag microservices-architecture.gag --layout-algorithm=laf
 - 87% menos expansiones de canvas
 
 Para más detalles sobre la decisión AUTO vs LAF, consulta [LAYOUT-DECISION-GUIDE.md](./LAYOUT-DECISION-GUIDE.md).
+
+---
+
+## Opciones de Estilo Visual
+
+### `--color-connections`
+
+Asigna un color distinto a cada conexión del diagrama, facilitando la identificación visual de cada línea.
+
+**Comportamiento**:
+- Genera una paleta de colores HSL distribuidos uniformemente (saturation=70%, lightness=45%)
+- Cada conexión recibe un color único aplicado a: trazo de la línea, flecha y círculo de origen
+- Los markers (flechas y círculos) heredan el color de su conexión
+
+**Markers por dirección** (con o sin `--color-connections`):
+
+| Dirección | Origen | Destino |
+|---|---|---|
+| `forward` | Círculo | Flecha |
+| `backward` | Flecha | Círculo |
+| `bidirectional` | Flecha | Flecha |
+| `none` | Sin marker | Sin marker |
+
+**Ejemplos**:
+```bash
+# Conexiones coloreadas para identificación visual
+almagag diagrama.gag --color-connections
+
+# Combinar con LAF para diagramas complejos
+almagag arquitectura.gag --layout-algorithm=laf --color-connections
+
+# Generar versión coloreada para presentaciones
+almagag flow.gag --color-connections --exportpng -o docs/flow-colored.svg
+```
+
+**Cuándo usar**:
+- Diagramas con muchas conexiones que se cruzan
+- Presentaciones donde necesitas señalar conexiones específicas
+- Debugging visual de rutas de conexión
+- Documentación educativa
+
+---
+
+## Parámetros de Centralidad LAF
+
+Estos parámetros ajustan cómo el algoritmo LAF calcula la "importancia" de cada nodo para decidir su posición central o periférica. Solo aplican con `--layout-algorithm=laf`.
+
+### `--centrality-alpha F`
+
+Peso por unidad de distancia en skip connections (conexiones que saltan niveles topológicos).
+
+- **Default**: `0.15`
+- **Efecto**: Valores mayores penalizan más las conexiones largas, favoreciendo nodos centrales con conexiones cortas.
+- **Rango sugerido**: `0.0` - `0.5`
+
+### `--centrality-beta F`
+
+Peso por hijo extra (hub-ness). Controla cuánto se premia a los nodos con muchas conexiones salientes.
+
+- **Default**: `0.10`
+- **Efecto**: Valores mayores mueven los nodos hub hacia el centro del diagrama.
+- **Rango sugerido**: `0.0` - `0.5`
+
+### `--centrality-gamma F`
+
+Peso por fan-in extra. Controla cuánto se premia a los nodos con muchas conexiones entrantes.
+
+- **Default**: `0.15`
+- **Efecto**: `0.0` desactiva el efecto. Valores mayores priorizan nodos con muchas entradas.
+- **Rango sugerido**: `0.0` - `0.5`
+
+### `--centrality-max-score F`
+
+Clamp máximo del score de accesibilidad. Limita el valor máximo del score de centralidad para evitar distorsiones.
+
+- **Default**: `100.0`
+- **Efecto**: Evita que un solo nodo domine el layout por tener scores extremos.
+- **Rango sugerido**: `50.0` - `200.0`
+
+**Ejemplos**:
+```bash
+# Layout LAF con nodos hub más centrales
+almagag arch.gag --layout-algorithm=laf --centrality-beta 0.25
+
+# Desactivar fan-in (solo usar conexiones salientes)
+almagag arch.gag --layout-algorithm=laf --centrality-gamma 0.0
+
+# Ajuste fino completo
+almagag arch.gag --layout-algorithm=laf \
+  --centrality-alpha 0.20 \
+  --centrality-beta 0.15 \
+  --centrality-gamma 0.10 \
+  --centrality-max-score 80.0
+```
+
+**Cuándo ajustar**:
+- Si los nodos más conectados no están suficientemente centrados, aumentar `--centrality-beta`
+- Si las conexiones largas generan muchos cruces, aumentar `--centrality-alpha`
+- Si el layout se ve distorsionado por un nodo dominante, bajar `--centrality-max-score`
 
 ---
 
@@ -378,6 +480,27 @@ almagag ejemplo.gag --layout-algorithm=laf --visualize-growth --exportpng
 
 ---
 
+## Resumen Rápido de Parámetros
+
+| Parámetro | Tipo | Default | Descripción |
+|---|---|---|---|
+| `input_file` | positional | requerido | Archivo `.gag` de entrada |
+| `-o, --output FILE` | string | auto | Ruta de salida del SVG |
+| `--layout-algorithm` | `auto\|laf` | `auto` | Algoritmo de layout |
+| `--color-connections` | flag | off | Colorear cada conexión con color distinto |
+| `--debug` | flag | off | Logs detallados del procesamiento |
+| `--visualdebug` | flag | off | Grilla y badge visual en el SVG |
+| `--exportpng` | flag | off | Exportar a PNG adicional |
+| `--guide-lines Y [Y...]` | int list | off | Líneas horizontales de guía en posiciones Y |
+| `--dump-iterations` | flag | off | Guardar snapshots de iteraciones en CSV |
+| `--visualize-growth` | flag | off | SVG por fase LAF (solo con `laf`) |
+| `--centrality-alpha F` | float | `0.15` | Peso skip-connections (solo LAF) |
+| `--centrality-beta F` | float | `0.10` | Peso hub-ness (solo LAF) |
+| `--centrality-gamma F` | float | `0.15` | Peso fan-in (solo LAF) |
+| `--centrality-max-score F` | float | `100.0` | Clamp máximo de score (solo LAF) |
+
+---
+
 ## Combinaciones Comunes
 
 ### Desarrollo
@@ -398,6 +521,9 @@ almagag arquitectura.gag --layout-algorithm=laf
 
 # Generación con PNG para compartir
 almagag flow.gag --layout-algorithm=laf --exportpng -o docs/images/flow.svg
+
+# Versión coloreada para presentaciones
+almagag flow.gag --layout-algorithm=laf --color-connections -o docs/flow-colored.svg
 ```
 
 ### Comparación AUTO vs LAF
@@ -546,4 +672,4 @@ almagag diagrama.gag --visualize-growth
 
 ---
 
-**AlmaGag v3.0.0** - Sistema de Diagramas de Arquitectura
+**AlmaGag v3.1.0** - Sistema de Diagramas de Arquitectura

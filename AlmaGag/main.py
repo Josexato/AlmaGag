@@ -20,6 +20,7 @@ Ejemplos:
   almagag archivo.gag --debug --guide-lines 186 236                # Con líneas guía
   almagag archivo.gag --layout-algorithm=laf --debug               # Usar LAF (minimiza cruces)
   almagag archivo.gag --layout-algorithm=laf --visualize-growth    # LAF + visualización de fases
+  almagag archivo.gag --layout-algorithm=laf --color-connections   # LAF + conexiones coloreadas
   python -m AlmaGag.main examples/05-arquitectura-gag.gag --debug --visualdebug
         """
     )
