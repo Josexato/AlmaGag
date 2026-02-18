@@ -73,6 +73,11 @@ Ejemplos:
         help="Genera SVGs de cada fase del proceso LAF (solo con --layout-algorithm=laf)"
     )
     parser.add_argument(
+        "--color-connections",
+        action="store_true",
+        help="Colorea cada conexión con un color distinto para facilitar identificación visual"
+    )
+    parser.add_argument(
         "--centrality-alpha",
         type=float,
         default=None,
@@ -124,6 +129,7 @@ Ejemplos:
         output_file=args.output,
         layout_algorithm=args.layout_algorithm,
         visualize_growth=args.visualize_growth,
+        color_connections=args.color_connections,
         **centrality_kwargs
     )
     if not ok:

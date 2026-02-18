@@ -35,7 +35,31 @@ def compute_visual_offset(elem):
     return max(ICON_WIDTH, ICON_HEIGHT) / 2.5  # Para rectángulos u otros
 
 
-def draw_connection_line(dwg, elements_by_id, connection, markers):
+def _apply_direction_markers(attrs, direction, markers):
+    """
+    Aplica markers según la dirección de la conexión.
+
+    - forward: círculo en origen, flecha en destino
+    - backward: flecha en origen, círculo en destino
+    - bidirectional: flechas en ambos extremos
+    """
+    if direction == 'forward':
+        attrs['marker_start'] = markers.get('circle_start', '')
+        attrs['marker_end'] = markers.get('arrow_end', markers.get('forward', ''))
+    elif direction == 'backward':
+        attrs['marker_start'] = markers.get('arrow_start', markers.get('backward', ''))
+        attrs['marker_end'] = markers.get('circle_end', '')
+    elif direction == 'bidirectional':
+        bidi = markers.get('bidirectional')
+        if bidi:
+            attrs['marker_start'] = bidi[0]
+            attrs['marker_end'] = bidi[1]
+        else:
+            attrs['marker_start'] = markers.get('arrow_start', '')
+            attrs['marker_end'] = markers.get('arrow_end', '')
+
+
+def draw_connection_line(dwg, elements_by_id, connection, markers, stroke_color='black'):
     """
     Dibuja solo la línea de conexión, sin etiqueta.
 
@@ -52,6 +76,7 @@ def draw_connection_line(dwg, elements_by_id, connection, markers):
             - 'waypoints' (opcional, legacy): lista de puntos intermedios
             - 'direction' (opcional): dirección de la flecha.
         markers (dict): Diccionario con markers SVG para flechas.
+        stroke_color (str): Color de trazo para la línea (default: 'black').
 
     Returns:
         tuple: (mid_x, mid_y) coordenadas del centro de la línea o None si elementos sin coords
@@ -71,7 +96,7 @@ def draw_connection_line(dwg, elements_by_id, connection, markers):
     # v2.1: Check if connection has computed_path from routing system
     computed_path = connection.get('computed_path')
     if computed_path:
-        return _draw_computed_path(dwg, from_elem, to_elem, connection, computed_path, markers)
+        return _draw_computed_path(dwg, from_elem, to_elem, connection, computed_path, markers, stroke_color)
 
     # Legacy behavior: waypoints or straight line
     # Centro de cada elemento
@@ -107,17 +132,11 @@ def draw_connection_line(dwg, elements_by_id, connection, markers):
         line_attrs = {
             'start': (new_x1, new_y1),
             'end': (new_x2, new_y2),
-            'stroke': 'black',
+            'stroke': stroke_color,
             'stroke_width': 2
         }
 
-        if direction == 'forward':
-            line_attrs['marker_end'] = markers['forward']
-        elif direction == 'backward':
-            line_attrs['marker_start'] = markers['backward']
-        elif direction == 'bidirectional':
-            line_attrs['marker_start'] = markers['bidirectional'][0]
-            line_attrs['marker_end'] = markers['bidirectional'][1]
+        _apply_direction_markers(line_attrs, direction, markers)
 
         dwg.add(dwg.line(**line_attrs))
 
@@ -168,19 +187,13 @@ def draw_connection_line(dwg, elements_by_id, connection, markers):
         # Crear polyline
         polyline_attrs = {
             'points': points,
-            'stroke': 'black',
+            'stroke': stroke_color,
             'stroke_width': 2,
             'fill': 'none'
         }
 
         # Aplicar markers solo en los extremos
-        if direction == 'forward':
-            polyline_attrs['marker_end'] = markers['forward']
-        elif direction == 'backward':
-            polyline_attrs['marker_start'] = markers['backward']
-        elif direction == 'bidirectional':
-            polyline_attrs['marker_start'] = markers['bidirectional'][0]
-            polyline_attrs['marker_end'] = markers['bidirectional'][1]
+        _apply_direction_markers(polyline_attrs, direction, markers)
 
         dwg.add(dwg.polyline(**polyline_attrs))
 
@@ -193,7 +206,7 @@ def draw_connection_line(dwg, elements_by_id, connection, markers):
         return (mid_x, mid_y)
 
 
-def _draw_computed_path(dwg, from_elem, to_elem, connection, computed_path, markers):
+def _draw_computed_path(dwg, from_elem, to_elem, connection, computed_path, markers, stroke_color='black'):
     """
     Dibuja una conexión usando un path pre-computado por el routing system (v2.1).
 
@@ -204,6 +217,7 @@ def _draw_computed_path(dwg, from_elem, to_elem, connection, computed_path, mark
         connection: Conexión con 'direction'
         computed_path: Path dict con 'type' y 'points'
         markers: Markers SVG para flechas
+        stroke_color: Color de trazo (default: 'black')
 
     Returns:
         tuple: (mid_x, mid_y) centro de la conexión
@@ -224,20 +238,20 @@ def _draw_computed_path(dwg, from_elem, to_elem, connection, computed_path, mark
     adjusted_points = _apply_visual_offsets(points, from_elem, to_elem)
 
     if path_type == 'line':
-        return _draw_straight_line(dwg, adjusted_points, direction, markers)
+        return _draw_straight_line(dwg, adjusted_points, direction, markers, stroke_color)
     elif path_type == 'polyline':
         corner_radius = computed_path.get('corner_radius', 0)
-        return _draw_polyline(dwg, adjusted_points, direction, markers, corner_radius)
+        return _draw_polyline(dwg, adjusted_points, direction, markers, corner_radius, stroke_color)
     elif path_type == 'bezier':
         control_points = computed_path.get('control_points', [])
-        return _draw_bezier_curve(dwg, adjusted_points, control_points, direction, markers)
+        return _draw_bezier_curve(dwg, adjusted_points, control_points, direction, markers, stroke_color)
     elif path_type == 'arc':
         arc_center = computed_path.get('arc_center', (0, 0))
         radius = computed_path.get('radius', 50)
-        return _draw_arc(dwg, adjusted_points, arc_center, radius, direction, markers)
+        return _draw_arc(dwg, adjusted_points, arc_center, radius, direction, markers, stroke_color)
     else:
         # Unknown type, fallback to straight line
-        return _draw_straight_line(dwg, adjusted_points, direction, markers)
+        return _draw_straight_line(dwg, adjusted_points, direction, markers, stroke_color)
 
 
 def _apply_visual_offsets(points, from_elem, to_elem):
@@ -291,7 +305,7 @@ def _apply_visual_offsets(points, from_elem, to_elem):
     return adjusted
 
 
-def _draw_straight_line(dwg, points, direction, markers):
+def _draw_straight_line(dwg, points, direction, markers, stroke_color='black'):
     """Dibuja una línea recta entre dos puntos."""
     if len(points) < 2:
         return (0, 0)
@@ -302,18 +316,11 @@ def _draw_straight_line(dwg, points, direction, markers):
     line_attrs = {
         'start': (x1, y1),
         'end': (x2, y2),
-        'stroke': 'black',
+        'stroke': stroke_color,
         'stroke_width': 2
     }
 
-    # Aplicar markers
-    if direction == 'forward':
-        line_attrs['marker_end'] = markers['forward']
-    elif direction == 'backward':
-        line_attrs['marker_start'] = markers['backward']
-    elif direction == 'bidirectional':
-        line_attrs['marker_start'] = markers['bidirectional'][0]
-        line_attrs['marker_end'] = markers['bidirectional'][1]
+    _apply_direction_markers(line_attrs, direction, markers)
 
     dwg.add(dwg.line(**line_attrs))
 
@@ -321,7 +328,7 @@ def _draw_straight_line(dwg, points, direction, markers):
     return (x1 + x2) / 2, (y1 + y2) / 2
 
 
-def _draw_polyline(dwg, points, direction, markers, corner_radius=0):
+def _draw_polyline(dwg, points, direction, markers, corner_radius=0, stroke_color='black'):
     """Dibuja una polyline, opcionalmente con esquinas redondeadas."""
     if len(points) < 2:
         return (0, 0)
@@ -333,19 +340,12 @@ def _draw_polyline(dwg, points, direction, markers, corner_radius=0):
 
     polyline_attrs = {
         'points': points,
-        'stroke': 'black',
+        'stroke': stroke_color,
         'stroke_width': 2,
         'fill': 'none'
     }
 
-    # Aplicar markers
-    if direction == 'forward':
-        polyline_attrs['marker_end'] = markers['forward']
-    elif direction == 'backward':
-        polyline_attrs['marker_start'] = markers['backward']
-    elif direction == 'bidirectional':
-        polyline_attrs['marker_start'] = markers['bidirectional'][0]
-        polyline_attrs['marker_end'] = markers['bidirectional'][1]
+    _apply_direction_markers(polyline_attrs, direction, markers)
 
     dwg.add(dwg.polyline(**polyline_attrs))
 
@@ -355,7 +355,7 @@ def _draw_polyline(dwg, points, direction, markers, corner_radius=0):
     return total_x / len(points), total_y / len(points)
 
 
-def _draw_bezier_curve(dwg, points, control_points, direction, markers):
+def _draw_bezier_curve(dwg, points, control_points, direction, markers, stroke_color='black'):
     """Dibuja una curva de Bézier cúbica."""
     if len(points) < 2:
         return (0, 0)
@@ -377,19 +377,12 @@ def _draw_bezier_curve(dwg, points, control_points, direction, markers):
 
     path_attrs = {
         'd': path_d,
-        'stroke': 'black',
+        'stroke': stroke_color,
         'stroke_width': 2,
         'fill': 'none'
     }
 
-    # Aplicar markers
-    if direction == 'forward':
-        path_attrs['marker_end'] = markers['forward']
-    elif direction == 'backward':
-        path_attrs['marker_start'] = markers['backward']
-    elif direction == 'bidirectional':
-        path_attrs['marker_start'] = markers['bidirectional'][0]
-        path_attrs['marker_end'] = markers['bidirectional'][1]
+    _apply_direction_markers(path_attrs, direction, markers)
 
     dwg.add(dwg.path(**path_attrs))
 
@@ -397,7 +390,7 @@ def _draw_bezier_curve(dwg, points, control_points, direction, markers):
     return (x1 + x2) / 2, (y1 + y2) / 2
 
 
-def _draw_arc(dwg, points, arc_center, radius, direction, markers):
+def _draw_arc(dwg, points, arc_center, radius, direction, markers, stroke_color='black'):
     """Dibuja un arco circular."""
     if len(points) < 2:
         return (0, 0)
@@ -416,19 +409,12 @@ def _draw_arc(dwg, points, arc_center, radius, direction, markers):
 
     path_attrs = {
         'd': path_d,
-        'stroke': 'black',
+        'stroke': stroke_color,
         'stroke_width': 2,
         'fill': 'none'
     }
 
-    # Aplicar markers
-    if direction == 'forward':
-        path_attrs['marker_end'] = markers['forward']
-    elif direction == 'backward':
-        path_attrs['marker_start'] = markers['backward']
-    elif direction == 'bidirectional':
-        path_attrs['marker_start'] = markers['bidirectional'][0]
-        path_attrs['marker_end'] = markers['bidirectional'][1]
+    _apply_direction_markers(path_attrs, direction, markers)
 
     dwg.add(dwg.path(**path_attrs))
 

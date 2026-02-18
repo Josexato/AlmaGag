@@ -1,4 +1,4 @@
-import os, json, svgwrite, logging, csv
+import os, json, svgwrite, logging, csv, colorsys
 from datetime import datetime
 from AlmaGag.config import (
     WIDTH, HEIGHT, ICON_WIDTH, ICON_HEIGHT,
@@ -492,49 +492,100 @@ def draw_debug_free_ranges(dwg, free_ranges, width):
 
     dwg.add(ranges_group)
 
-def setup_arrow_markers(dwg):
+def _generate_color_palette(n):
+    """Genera N colores distinguibles usando HSL con hue distribuido uniformemente."""
+    colors = []
+    for i in range(n):
+        hue = i / max(n, 1)
+        r, g, b = colorsys.hls_to_rgb(hue, 0.45, 0.70)
+        colors.append(f'#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}')
+    return colors
+
+
+def _create_arrow_marker(dwg, marker_id, color, direction='end'):
+    """Crea un marker de flecha triangular."""
+    if direction == 'end':
+        marker = dwg.marker(id=marker_id, insert=(10, 5), size=(10, 10), orient='auto')
+        marker.add(dwg.path(d='M 0 0 L 10 5 L 0 10 z', fill=color))
+    else:
+        marker = dwg.marker(id=marker_id, insert=(0, 5), size=(10, 10), orient='auto')
+        marker.add(dwg.path(d='M 10 0 L 0 5 L 10 10 z', fill=color))
+    dwg.defs.add(marker)
+    return marker
+
+
+def _create_circle_marker(dwg, marker_id, color):
+    """Crea un marker de círculo para el origen de conexiones unidireccionales."""
+    marker = dwg.marker(id=marker_id, insert=(5, 5), size=(10, 10), orient='auto')
+    marker.add(dwg.circle(center=(5, 5), r=4, fill=color))
+    dwg.defs.add(marker)
+    return marker
+
+
+def setup_arrow_markers(dwg, connections=None, color_connections=False):
     """
-    Crea los markers SVG para flechas direccionales.
+    Crea los markers SVG para flechas y círculos direccionales.
 
-    Markers:
-    - arrow-end: flecha para el final de la línea (forward)
-    - arrow-start: flecha para el inicio de la línea (backward)
+    - Conexiones unidireccionales: círculo en origen, flecha en destino.
+    - Conexiones bidireccionales: flechas en ambos extremos.
+    - Si color_connections=True, cada conexión recibe un color distinto.
 
-    Retorna un dict con los markers creados.
+    Retorna:
+        Si color_connections=False: dict global con markers negros.
+        Si color_connections=True: (dict_global_fallback, list_per_connection)
+           donde list_per_connection[i] = {'markers': {...}, 'color': hex_color}
     """
-    # Marker para flecha al final (forward)
-    marker_end = dwg.marker(
-        id='arrow-end',
-        insert=(10, 5),
-        size=(10, 10),
-        orient='auto'
-    )
-    marker_end.add(dwg.path(
-        d='M 0 0 L 10 5 L 0 10 z',
-        fill='black'
-    ))
-    dwg.defs.add(marker_end)
+    # Markers negros por defecto (siempre se crean)
+    arrow_end = _create_arrow_marker(dwg, 'arrow-end', 'black', 'end')
+    arrow_start = _create_arrow_marker(dwg, 'arrow-start', 'black', 'start')
+    circle_start = _create_circle_marker(dwg, 'circle-start', 'black')
+    circle_end = _create_circle_marker(dwg, 'circle-end', 'black')
 
-    # Marker para flecha al inicio (backward)
-    marker_start = dwg.marker(
-        id='arrow-start',
-        insert=(0, 5),
-        size=(10, 10),
-        orient='auto'
-    )
-    marker_start.add(dwg.path(
-        d='M 10 0 L 0 5 L 10 10 z',
-        fill='black'
-    ))
-    dwg.defs.add(marker_start)
-
-    return {
-        'forward': marker_end.get_funciri(),
-        'backward': marker_start.get_funciri(),
-        'bidirectional': (marker_start.get_funciri(), marker_end.get_funciri())
+    default_markers = {
+        'arrow_end': arrow_end.get_funciri(),
+        'arrow_start': arrow_start.get_funciri(),
+        'circle_start': circle_start.get_funciri(),
+        'circle_end': circle_end.get_funciri(),
+        # Compat keys legacy
+        'forward': arrow_end.get_funciri(),
+        'backward': arrow_start.get_funciri(),
+        'bidirectional': (arrow_start.get_funciri(), arrow_end.get_funciri()),
     }
 
-def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False, guide_lines=None, dump_iterations=False, output_file=None, layout_algorithm='auto', visualize_growth=False, **centrality_kwargs):
+    if not color_connections or not connections:
+        return default_markers
+
+    # Generar markers coloreados por conexión
+    n = len(connections)
+    palette = _generate_color_palette(n)
+    per_connection = []
+
+    for i, conn in enumerate(connections):
+        color = palette[i]
+        suffix = f'-c{i}'
+
+        ae = _create_arrow_marker(dwg, f'arrow-end{suffix}', color, 'end')
+        ast = _create_arrow_marker(dwg, f'arrow-start{suffix}', color, 'start')
+        cs = _create_circle_marker(dwg, f'circle-start{suffix}', color)
+        ce = _create_circle_marker(dwg, f'circle-end{suffix}', color)
+
+        per_connection.append({
+            'markers': {
+                'arrow_end': ae.get_funciri(),
+                'arrow_start': ast.get_funciri(),
+                'circle_start': cs.get_funciri(),
+                'circle_end': ce.get_funciri(),
+                # Compat keys legacy
+                'forward': ae.get_funciri(),
+                'backward': ast.get_funciri(),
+                'bidirectional': (ast.get_funciri(), ae.get_funciri()),
+            },
+            'color': color,
+        })
+
+    return default_markers, per_connection
+
+def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False, guide_lines=None, dump_iterations=False, output_file=None, layout_algorithm='auto', visualize_growth=False, color_connections=False, **centrality_kwargs):
     # Configurar logging si debug está activo
     if debug:
         logging.basicConfig(
@@ -705,9 +756,6 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
         draw_guide_lines(dwg, canvas_width, guide_lines)
         logger.debug(f"Líneas de guía dibujadas en Y={guide_lines}")
 
-    # Configurar markers para flechas direccionales
-    markers = setup_arrow_markers(dwg)
-
     # Dibujar franjas libres de redistribución (modo visualdebug)
     if visualdebug:
         if hasattr(optimized_layout, 'debug_free_ranges') and optimized_layout.debug_free_ranges:
@@ -717,6 +765,14 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     # Obtener resultados optimizados
     elements = optimized_layout.elements
     connections = optimized_layout.connections  # Conexiones con rutas optimizadas
+
+    # Configurar markers para flechas direccionales (después de obtener connections)
+    marker_result = setup_arrow_markers(dwg, connections, color_connections)
+    if color_connections and isinstance(marker_result, tuple):
+        markers, per_conn_styles = marker_result
+    else:
+        markers = marker_result
+        per_conn_styles = None
     label_positions = optimized_layout.label_positions
     conn_labels = optimized_layout.connection_labels
     elements_by_id = {e['id']: e for e in elements}
@@ -800,8 +856,14 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
 
     # 2. Dibujar todas las conexiones optimizadas (sin etiquetas)
     conn_centers = {}
-    for conn in connections:  # Usar connections optimizadas, no all_connections
-        center = draw_connection_line(dwg, elements_by_id, conn, markers)
+    for i, conn in enumerate(connections):  # Usar connections optimizadas, no all_connections
+        if per_conn_styles and i < len(per_conn_styles):
+            conn_markers = per_conn_styles[i]['markers']
+            conn_color = per_conn_styles[i]['color']
+        else:
+            conn_markers = markers
+            conn_color = 'black'
+        center = draw_connection_line(dwg, elements_by_id, conn, conn_markers, stroke_color=conn_color)
         key = f"{conn['from']}->{conn['to']}"
         conn_centers[key] = center
 
