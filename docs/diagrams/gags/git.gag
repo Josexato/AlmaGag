@@ -1,0 +1,369 @@
+{
+  "canvas": {
+    "width": 1800,
+    "height": 1200
+  },
+  "elements": [
+    {
+      "id": "legend",
+      "label": "Leyenda",
+      "type": "building",
+      "color": "lightgray",
+      "contains": [
+        { "id": "lg_inspect", "scope": "full" },
+        { "id": "lg_change", "scope": "full" },
+        { "id": "lg_sync", "scope": "full" },
+        { "id": "lg_rescue", "scope": "full" }
+      ]
+    },
+    {
+      "id": "lg_inspect",
+      "label": "Inspección\n(status/log/diff)",
+      "type": "server",
+      "color": "lightblue"
+    },
+    {
+      "id": "lg_change",
+      "label": "Cambio\n(add/commit/merge)",
+      "type": "server",
+      "color": "lightgreen"
+    },
+    {
+      "id": "lg_sync",
+      "label": "Sync\n(fetch/pull/push)",
+      "type": "server",
+      "color": "orange"
+    },
+    {
+      "id": "lg_rescue",
+      "label": "Rescate\n(stash/reset/revert)",
+      "type": "server",
+      "color": "pink"
+    },
+
+    {
+      "id": "wd",
+      "label": "Working Directory\n(tu carpeta)",
+      "type": "building",
+      "color": "lightyellow",
+      "contains": [
+        { "id": "edit", "scope": "full" },
+        { "id": "status", "scope": "full" },
+        { "id": "diff", "scope": "full" },
+        { "id": "restore_file", "scope": "full" },
+        { "id": "stash", "scope": "full" }
+      ]
+    },
+    {
+      "id": "edit",
+      "label": "Editar archivos\n(cambios locales)",
+      "type": "computer",
+      "color": "lightgreen"
+    },
+    {
+      "id": "status",
+      "label": "git status\n(ver estado)",
+      "type": "server",
+      "color": "lightblue"
+    },
+    {
+      "id": "diff",
+      "label": "git diff\n(ver cambios)",
+      "type": "server",
+      "color": "lightblue"
+    },
+    {
+      "id": "restore_file",
+      "label": "git restore <file>\n(descartar cambios)",
+      "type": "server",
+      "color": "pink"
+    },
+    {
+      "id": "stash",
+      "label": "git stash / pop\n(guardar temporal)",
+      "type": "server",
+      "color": "pink"
+    },
+
+    {
+      "id": "staging",
+      "label": "Staging Area\n(Index)",
+      "type": "building",
+      "color": "lightcyan",
+      "contains": [
+        { "id": "add", "scope": "full" },
+        { "id": "unstage", "scope": "full" },
+        { "id": "diff_staged", "scope": "full" }
+      ]
+    },
+    {
+      "id": "add",
+      "label": "git add <file> / .\n(stage)",
+      "type": "server",
+      "color": "lightgreen"
+    },
+    {
+      "id": "unstage",
+      "label": "git restore --staged <file>\n(unstage)",
+      "type": "server",
+      "color": "pink"
+    },
+    {
+      "id": "diff_staged",
+      "label": "git diff --staged\n(ver staged)",
+      "type": "server",
+      "color": "lightblue"
+    },
+
+    {
+      "id": "localrepo",
+      "label": "Local Repo\n(.git)",
+      "type": "building",
+      "color": "lavender",
+      "contains": [
+        { "id": "commit", "scope": "full" },
+        { "id": "log", "scope": "full" },
+        { "id": "branches", "scope": "full" },
+        { "id": "tags", "scope": "full" },
+        { "id": "merge", "scope": "full" },
+        { "id": "rebase", "scope": "full" }
+      ]
+    },
+    {
+      "id": "commit",
+      "label": "git commit -m \"msg\"\n(snapshot)",
+      "type": "server",
+      "color": "lightgreen"
+    },
+    {
+      "id": "log",
+      "label": "git log / show\n(historia)",
+      "type": "server",
+      "color": "lightblue"
+    },
+    {
+      "id": "branches",
+      "label": "git branch\n/ git switch",
+      "type": "server",
+      "color": "lightgreen"
+    },
+    {
+      "id": "tags",
+      "label": "git tag vX.Y.Z\n(versiones)",
+      "type": "server",
+      "color": "lightgreen"
+    },
+    {
+      "id": "merge",
+      "label": "git merge feature\n(no reescribe)",
+      "type": "server",
+      "color": "lightgreen"
+    },
+    {
+      "id": "rebase",
+      "label": "git rebase main\n(reescribe)",
+      "type": "server",
+      "color": "lightgreen"
+    },
+
+    {
+      "id": "remote",
+      "label": "Remote Repo\n(origin)",
+      "type": "cloud",
+      "color": "lightgray",
+      "contains": [
+        { "id": "push", "scope": "full" },
+        { "id": "fetch", "scope": "full" },
+        { "id": "pull", "scope": "full" },
+        { "id": "origin_branches", "scope": "full" },
+        { "id": "pr", "scope": "full" }
+      ]
+    },
+    {
+      "id": "push",
+      "label": "git push origin <branch>\n(subir cambios)",
+      "type": "server",
+      "color": "orange"
+    },
+    {
+      "id": "fetch",
+      "label": "git fetch origin\n(traer refs, NO mezcla)",
+      "type": "server",
+      "color": "orange"
+    },
+    {
+      "id": "pull",
+      "label": "git pull\n(fetch + merge/rebase)",
+      "type": "server",
+      "color": "orange"
+    },
+    {
+      "id": "origin_branches",
+      "label": "origin/main\norigin/feature/*",
+      "type": "server",
+      "color": "orange"
+    },
+    {
+      "id": "pr",
+      "label": "Pull Request / MR\n(revisión + CI + merge)",
+      "type": "server",
+      "color": "lightgreen"
+    },
+
+    {
+      "id": "rescue",
+      "label": "Rescate",
+      "type": "building",
+      "color": "mistyrose",
+      "contains": [
+        { "id": "reset", "scope": "full" },
+        { "id": "revert", "scope": "full" }
+      ]
+    },
+    {
+      "id": "reset",
+      "label": "git reset --soft|mixed|hard\n(mueve HEAD)",
+      "type": "server",
+      "color": "pink"
+    },
+    {
+      "id": "revert",
+      "label": "git revert <commit>\n(nuevo commit inverso)",
+      "type": "server",
+      "color": "pink"
+    }
+  ],
+
+  "connections": [
+    {
+      "from": "edit",
+      "to": "add",
+      "label": "preparar cambios",
+      "direction": "forward",
+      "routing": { "type": "orthogonal" }
+    },
+    {
+      "from": "add",
+      "to": "commit",
+      "label": "confirmar snapshot",
+      "direction": "forward",
+      "routing": { "type": "orthogonal" }
+    },
+
+    {
+      "from": "status",
+      "to": "edit",
+      "label": "inspección",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "diff",
+      "to": "edit",
+      "label": "inspección",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "diff_staged",
+      "to": "add",
+      "label": "inspección",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "log",
+      "to": "commit",
+      "label": "inspección",
+      "direction": "bidirectional"
+    },
+
+    {
+      "from": "commit",
+      "to": "push",
+      "label": "publicar a origin",
+      "direction": "forward",
+      "routing": { "type": "orthogonal" }
+    },
+    {
+      "from": "push",
+      "to": "origin_branches",
+      "label": "actualiza origin/*",
+      "direction": "forward"
+    },
+
+    {
+      "from": "origin_branches",
+      "to": "fetch",
+      "label": "traer refs",
+      "direction": "forward"
+    },
+    {
+      "from": "origin_branches",
+      "to": "pull",
+      "label": "traer + mezclar",
+      "direction": "forward"
+    },
+    {
+      "from": "fetch",
+      "to": "commit",
+      "label": "refs en local",
+      "direction": "forward"
+    },
+    {
+      "from": "pull",
+      "to": "merge",
+      "label": "merge/rebase",
+      "direction": "forward"
+    },
+
+    {
+      "from": "origin_branches",
+      "to": "pr",
+      "label": "crear PR",
+      "direction": "forward",
+      "routing": { "type": "bezier", "curvature": 0.35 }
+    },
+    {
+      "from": "pr",
+      "to": "origin_branches",
+      "label": "merge a main",
+      "direction": "forward",
+      "routing": { "type": "bezier", "curvature": 0.35 }
+    },
+
+    {
+      "from": "edit",
+      "to": "stash",
+      "label": "guardar temporal",
+      "direction": "forward"
+    },
+    {
+      "from": "stash",
+      "to": "edit",
+      "label": "recuperar",
+      "direction": "forward"
+    },
+    {
+      "from": "edit",
+      "to": "restore_file",
+      "label": "descartar local",
+      "direction": "forward"
+    },
+    {
+      "from": "add",
+      "to": "unstage",
+      "label": "sacar del stage",
+      "direction": "forward"
+    },
+    {
+      "from": "commit",
+      "to": "reset",
+      "label": "mover HEAD",
+      "direction": "forward"
+    },
+    {
+      "from": "commit",
+      "to": "revert",
+      "label": "revertir seguro",
+      "direction": "forward"
+    }
+  ]
+}
