@@ -1,0 +1,479 @@
+{
+  "canvas": {
+    "width": 2200,
+    "height": 1800
+  },
+  "elements": [
+    {
+      "id": "title_types",
+      "label": "TIPOS DE ICONOS\n(type)",
+      "type": "building",
+      "color": "lightblue",
+      "contains": [
+        { "id": "ico_server", "scope": "full" },
+        { "id": "ico_cloud", "scope": "full" },
+        { "id": "ico_building", "scope": "full" },
+        { "id": "ico_firewall", "scope": "full" },
+        { "id": "ico_unknown", "scope": "full" }
+      ]
+    },
+    {
+      "id": "ico_server",
+      "label": "type: server\n(rectangulo gradiente)",
+      "type": "server",
+      "color": "lightgreen"
+    },
+    {
+      "id": "ico_cloud",
+      "label": "type: cloud\n(elipse gradiente)",
+      "type": "cloud",
+      "color": "lightblue"
+    },
+    {
+      "id": "ico_building",
+      "label": "type: building\n(cubo 3D isometrico)",
+      "type": "building",
+      "color": "lavender"
+    },
+    {
+      "id": "ico_firewall",
+      "label": "type: firewall\n(hexagonos fuego)",
+      "type": "firewall",
+      "color": "orange"
+    },
+    {
+      "id": "ico_unknown",
+      "label": "type: cualquier otro\n(BWT fallback)",
+      "type": "database",
+      "color": "pink"
+    },
+
+    {
+      "id": "title_directions",
+      "label": "DIRECCIONES\n(direction)",
+      "type": "building",
+      "color": "lightgreen",
+      "contains": [
+        { "id": "dir_a1", "scope": "full" },
+        { "id": "dir_b1", "scope": "full" },
+        { "id": "dir_a2", "scope": "full" },
+        { "id": "dir_b2", "scope": "full" },
+        { "id": "dir_a3", "scope": "full" },
+        { "id": "dir_b3", "scope": "full" },
+        { "id": "dir_a4", "scope": "full" },
+        { "id": "dir_b4", "scope": "full" }
+      ]
+    },
+    {
+      "id": "dir_a1",
+      "label": "origen",
+      "type": "server",
+      "color": "lightblue"
+    },
+    {
+      "id": "dir_b1",
+      "label": "forward\n(circulo->flecha)",
+      "type": "server",
+      "color": "lightgreen"
+    },
+    {
+      "id": "dir_a2",
+      "label": "destino",
+      "type": "server",
+      "color": "lightgreen"
+    },
+    {
+      "id": "dir_b2",
+      "label": "backward\n(flecha<-circulo)",
+      "type": "server",
+      "color": "lightblue"
+    },
+    {
+      "id": "dir_a3",
+      "label": "nodo A",
+      "type": "server",
+      "color": "gold"
+    },
+    {
+      "id": "dir_b3",
+      "label": "bidirectional\n(flecha<->flecha)",
+      "type": "server",
+      "color": "gold"
+    },
+    {
+      "id": "dir_a4",
+      "label": "nodo X",
+      "type": "server",
+      "color": "silver"
+    },
+    {
+      "id": "dir_b4",
+      "label": "none\n(sin marcadores)",
+      "type": "server",
+      "color": "silver"
+    },
+
+    {
+      "id": "title_routing",
+      "label": "TIPOS DE ROUTING\n(routing.type)",
+      "type": "building",
+      "color": "orange",
+      "contains": [
+        { "id": "rt_a1", "scope": "full" },
+        { "id": "rt_b1", "scope": "full" },
+        { "id": "rt_a2", "scope": "full" },
+        { "id": "rt_b2", "scope": "full" },
+        { "id": "rt_a3", "scope": "full" },
+        { "id": "rt_b3", "scope": "full" },
+        { "id": "rt_selfloop", "scope": "full" }
+      ]
+    },
+    {
+      "id": "rt_a1",
+      "label": "straight\n(linea recta)",
+      "type": "server",
+      "color": "lightblue"
+    },
+    {
+      "id": "rt_b1",
+      "label": "destino\nstraight",
+      "type": "server",
+      "color": "lightblue"
+    },
+    {
+      "id": "rt_a2",
+      "label": "orthogonal\n(angulos rectos)",
+      "type": "server",
+      "color": "lightgreen"
+    },
+    {
+      "id": "rt_b2",
+      "label": "destino\northogonal",
+      "type": "server",
+      "color": "lightgreen"
+    },
+    {
+      "id": "rt_a3",
+      "label": "bezier\n(curvatura: 0.35)",
+      "type": "server",
+      "color": "orange"
+    },
+    {
+      "id": "rt_b3",
+      "label": "destino\nbezier",
+      "type": "server",
+      "color": "orange"
+    },
+    {
+      "id": "rt_selfloop",
+      "label": "arc (self-loop)\nradius:50 side:top",
+      "type": "server",
+      "color": "pink"
+    },
+
+    {
+      "id": "title_colors",
+      "label": "COLORES SOPORTADOS\n(color)",
+      "type": "building",
+      "color": "silver",
+      "contains": [
+        { "id": "col_red", "scope": "full" },
+        { "id": "col_green", "scope": "full" },
+        { "id": "col_blue", "scope": "full" },
+        { "id": "col_orange", "scope": "full" },
+        { "id": "col_purple", "scope": "full" },
+        { "id": "col_pink", "scope": "full" },
+        { "id": "col_gold", "scope": "full" },
+        { "id": "col_cyan", "scope": "full" },
+        { "id": "col_hex", "scope": "full" }
+      ]
+    },
+    {
+      "id": "col_red",
+      "label": "red",
+      "type": "server",
+      "color": "red"
+    },
+    {
+      "id": "col_green",
+      "label": "green",
+      "type": "server",
+      "color": "green"
+    },
+    {
+      "id": "col_blue",
+      "label": "blue",
+      "type": "server",
+      "color": "blue"
+    },
+    {
+      "id": "col_orange",
+      "label": "orange",
+      "type": "server",
+      "color": "orange"
+    },
+    {
+      "id": "col_purple",
+      "label": "purple",
+      "type": "server",
+      "color": "purple"
+    },
+    {
+      "id": "col_pink",
+      "label": "pink",
+      "type": "server",
+      "color": "pink"
+    },
+    {
+      "id": "col_gold",
+      "label": "gold",
+      "type": "server",
+      "color": "gold"
+    },
+    {
+      "id": "col_cyan",
+      "label": "cyan",
+      "type": "server",
+      "color": "cyan"
+    },
+    {
+      "id": "col_hex",
+      "label": "#3498DB\n(hex color)",
+      "type": "server",
+      "color": "#3498DB"
+    },
+
+    {
+      "id": "title_container",
+      "label": "CONTENEDORES\n(contains + scope)",
+      "type": "building",
+      "color": "lavender",
+      "contains": [
+        { "id": "cnt_parent", "scope": "full" }
+      ]
+    },
+    {
+      "id": "cnt_parent",
+      "label": "Contenedor padre\npadding:10 aspect_ratio:1.3",
+      "type": "building",
+      "color": "lightblue",
+      "contains": [
+        { "id": "cnt_full", "scope": "full" },
+        { "id": "cnt_border", "scope": "border" }
+      ]
+    },
+    {
+      "id": "cnt_full",
+      "label": "scope: full\n(dentro del borde)",
+      "type": "server",
+      "color": "lightgreen"
+    },
+    {
+      "id": "cnt_border",
+      "label": "scope: border\n(en el borde)",
+      "type": "server",
+      "color": "orange"
+    },
+
+    {
+      "id": "title_props",
+      "label": "PROPIEDADES DE ELEMENTOS\n(element props)",
+      "type": "building",
+      "color": "pink",
+      "contains": [
+        { "id": "prop_normal", "scope": "full" },
+        { "id": "prop_hp", "scope": "full" },
+        { "id": "prop_wp", "scope": "full" },
+        { "id": "prop_priority", "scope": "full" }
+      ]
+    },
+    {
+      "id": "prop_normal",
+      "label": "hp:1.0 wp:1.0\n(tamano base 80x50)",
+      "type": "server",
+      "color": "lightblue"
+    },
+    {
+      "id": "prop_hp",
+      "label": "hp: 1.5\n(alto x1.5 = 75px)",
+      "type": "server",
+      "color": "lightgreen",
+      "hp": 1.5
+    },
+    {
+      "id": "prop_wp",
+      "label": "wp: 1.5\n(ancho x1.5 = 120px)",
+      "type": "server",
+      "color": "orange",
+      "wp": 1.5
+    },
+    {
+      "id": "prop_priority",
+      "label": "label_priority:\nhigh|normal|low",
+      "type": "server",
+      "color": "gold"
+    },
+
+    {
+      "id": "title_canvas",
+      "label": "CANVAS\n(propiedades globales)",
+      "type": "building",
+      "color": "cyan",
+      "contains": [
+        { "id": "canvas_info", "scope": "full" }
+      ]
+    },
+    {
+      "id": "canvas_info",
+      "label": "canvas.width: px\ncanvas.height: px\n(auto-expand si necesario)",
+      "type": "cloud",
+      "color": "lightblue"
+    }
+  ],
+
+  "connections": [
+    {
+      "from": "dir_a1",
+      "to": "dir_b1",
+      "label": "forward",
+      "direction": "forward",
+      "routing": { "type": "straight" }
+    },
+    {
+      "from": "dir_a2",
+      "to": "dir_b2",
+      "label": "backward",
+      "direction": "backward",
+      "routing": { "type": "straight" }
+    },
+    {
+      "from": "dir_a3",
+      "to": "dir_b3",
+      "label": "bidirectional",
+      "direction": "bidirectional",
+      "routing": { "type": "straight" }
+    },
+    {
+      "from": "dir_a4",
+      "to": "dir_b4",
+      "label": "none (sin flechas)",
+      "direction": "none",
+      "routing": { "type": "straight" }
+    },
+
+    {
+      "from": "rt_a1",
+      "to": "rt_b1",
+      "label": "straight",
+      "direction": "forward",
+      "routing": { "type": "straight" }
+    },
+    {
+      "from": "rt_a2",
+      "to": "rt_b2",
+      "label": "orthogonal",
+      "direction": "forward",
+      "routing": { "type": "orthogonal" }
+    },
+    {
+      "from": "rt_a3",
+      "to": "rt_b3",
+      "label": "bezier 0.35",
+      "direction": "forward",
+      "routing": { "type": "bezier", "curvature": 0.35 }
+    },
+    {
+      "from": "rt_selfloop",
+      "to": "rt_selfloop",
+      "label": "arc self-loop",
+      "direction": "forward",
+      "routing": { "type": "arc", "radius": 50, "side": "top" }
+    },
+
+    {
+      "from": "cnt_full",
+      "to": "cnt_border",
+      "label": "conexion interna",
+      "direction": "forward",
+      "routing": { "type": "straight" }
+    },
+
+    {
+      "from": "prop_normal",
+      "to": "prop_hp",
+      "label": "hp escala alto",
+      "direction": "forward"
+    },
+    {
+      "from": "prop_normal",
+      "to": "prop_wp",
+      "label": "wp escala ancho",
+      "direction": "forward"
+    },
+
+    {
+      "from": "ico_server",
+      "to": "ico_cloud",
+      "direction": "forward"
+    },
+    {
+      "from": "ico_cloud",
+      "to": "ico_building",
+      "direction": "forward"
+    },
+    {
+      "from": "ico_building",
+      "to": "ico_firewall",
+      "direction": "forward"
+    },
+    {
+      "from": "ico_firewall",
+      "to": "ico_unknown",
+      "label": "tipo no registrado = BWT",
+      "direction": "forward"
+    },
+
+    {
+      "from": "title_types",
+      "to": "title_directions",
+      "label": "elementos + direcciones",
+      "direction": "forward",
+      "routing": { "type": "orthogonal" }
+    },
+    {
+      "from": "title_directions",
+      "to": "title_routing",
+      "label": "direcciones + routing",
+      "direction": "forward",
+      "routing": { "type": "orthogonal" }
+    },
+    {
+      "from": "title_routing",
+      "to": "title_colors",
+      "label": "routing + colores",
+      "direction": "forward",
+      "routing": { "type": "orthogonal" }
+    },
+    {
+      "from": "title_colors",
+      "to": "title_container",
+      "label": "colores + contenedores",
+      "direction": "forward",
+      "routing": { "type": "orthogonal" }
+    },
+    {
+      "from": "title_container",
+      "to": "title_props",
+      "label": "contenedores + props",
+      "direction": "forward",
+      "routing": { "type": "orthogonal" }
+    },
+    {
+      "from": "title_props",
+      "to": "title_canvas",
+      "label": "props + canvas",
+      "direction": "forward",
+      "routing": { "type": "orthogonal" }
+    }
+  ]
+}
