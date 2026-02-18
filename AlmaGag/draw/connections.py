@@ -29,6 +29,10 @@ def compute_visual_offset(elem):
     Retorna:
         float: Distancia de offset desde el centro del ícono.
     """
+    # Containers: routing already calculated the exact border point
+    if elem.get('contains'):
+        return 0
+
     elem_type = elem.get('type', 'unknown')
     if elem_type == 'cloud':
         return max(ICON_WIDTH, ICON_HEIGHT) / 2  # Para elipses (nubes)

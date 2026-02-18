@@ -119,6 +119,10 @@ class ConnectionRouter(ABC):
         x = element.get('x', 0)
         y = element.get('y', 0)
 
+        # Containers have explicit width/height set by ContainerGrower
+        if 'width' in element and 'height' in element:
+            return Point(x=x + element['width'] / 2, y=y + element['height'] / 2)
+
         # Use sizing calculator if available
         if sizing_calculator:
             width, height = sizing_calculator.get_element_size(element)
@@ -142,6 +146,10 @@ class ConnectionRouter(ABC):
             Tuple[float, float]: (width, height)
         """
         from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
+
+        # Containers have explicit width/height set by ContainerGrower
+        if 'width' in element and 'height' in element:
+            return (element['width'], element['height'])
 
         if sizing_calculator:
             return sizing_calculator.get_element_size(element)

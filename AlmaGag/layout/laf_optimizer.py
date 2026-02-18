@@ -837,6 +837,7 @@ class LAFOptimizer:
         if self.debug:
             print(f"[LAF] Pipeline completo")
 
+        layout.sizing = self.sizing
         return layout
 
     def _update_optimized_layer_order(self, optimized_positions, structure_info, layout):
