@@ -1,7 +1,7 @@
 """
 LAFOptimizer - Layout Abstracto Primero
 
-Coordinador del sistema LAF que ejecuta las 10 fases:
+Coordinador del sistema LAF que ejecuta las 9 fases:
 1. Análisis de estructura (grafo, accesibilidad, centralidad)
 2. Análisis topológico (niveles jerárquicos, longest-path)
 3. Ordenamiento por centralidad (centrales al centro, hojas a extremos)
@@ -13,7 +13,7 @@ Coordinador del sistema LAF que ejecuta las 10 fases:
 9. Routing (paths de conexiones)
 10. Generación de SVG
 
-Version: v1.4 (Sprint 5 + Fase 8 angle-preserving)
+Version: v1.5 (Sprint 5 + Fase 7 angle-preserving)
 """
 
 from typing import List
@@ -35,7 +35,7 @@ class LAFOptimizer:
     """
     Optimizador LAF (Layout Abstracto Primero).
 
-    Ejecuta layout en 10 fases para minimizar cruces y distancias de conectores.
+    Ejecuta layout en 9 fases para minimizar cruces y distancias de conectores.
     Fase 5 (Claude-SolFase5): Optimiza posiciones de nodos primarios para
     minimizar la distancia total de conectores, sin realizar inflación.
     """
@@ -581,7 +581,7 @@ class LAFOptimizer:
         Centra elementos de un nivel horizontalmente en el canvas.
 
         NOTA: Solo se usa en el fallback (sin posiciones de Fase 5).
-        En el flujo normal, Phase 8 usa escala X global en vez de centrado por nivel.
+        En el flujo normal, Phase 7 usa escala X global en vez de centrado por nivel.
 
         Args:
             level_elements: IDs de elementos del nivel (YA ORDENADOS)
@@ -669,17 +669,16 @@ class LAFOptimizer:
 
     def optimize(self, layout):
         """
-        Ejecuta el pipeline LAF de 10 fases.
+        Ejecuta el pipeline LAF de 9 fases.
 
         Fases:
         1-3: Análisis (estructura, topología, centralidad)
         4: Layout abstracto (Sugiyama barycenter)
         5: Optimización de posiciones (layer-offset bisection)
-        6: Inflación (dimensiones reales)
-        7: Crecimiento de contenedores
-        8: Redistribución vertical (escala X global preservando ángulos de Fase 5)
-        9: Routing
-        10: SVG
+        6: Inflación + Crecimiento de contenedores
+        7: Redistribución vertical (escala X global preservando ángulos de Fase 5)
+        8: Routing
+        9: Visualización SVG
 
         Args:
             layout: Layout inicial
@@ -688,7 +687,7 @@ class LAFOptimizer:
             Layout: Layout optimizado
         """
         if self.debug:
-            print("\n[LAF] Pipeline LAF (10 fases)")
+            print("\n[LAF] Pipeline LAF (9 fases)")
 
         # FASE 1: Análisis de estructura
         structure_info = self.structure_analyzer.analyze(layout)
@@ -778,17 +777,12 @@ class LAFOptimizer:
             cross_delta = f" ({crossings}->{optimized_crossings})" if crossings != optimized_crossings else ""
             print(f"[LAF] Fase 5 OK: {len(optimized_positions)} optimizadas, {optimized_crossings} cruces{cross_delta}")
 
-        # FASE 6: Inflación
+        # FASE 6: Inflación + Crecimiento de contenedores
         spacing = self.inflator.inflate_elements(optimized_positions, structure_info, layout)
 
         if self.visualizer:
             self.visualizer.capture_phase6_inflated(layout, spacing)
-        self._dump_layout(layout, "LAF_PHASE_6_INFLATED")
 
-        if self.debug:
-            print(f"[LAF] Fase 6 OK: spacing={spacing:.0f}px")
-
-        # FASE 7: Crecimiento de contenedores
         self.container_grower.grow_containers(structure_info, layout)
         canvas_width, canvas_height = self.container_grower.calculate_final_canvas(
             structure_info, layout
@@ -798,28 +792,28 @@ class LAFOptimizer:
 
         if self.visualizer:
             self.visualizer.capture_phase7_containers(layout)
-        self._dump_layout(layout, "LAF_PHASE_7_GROWN")
+        self._dump_layout(layout, "LAF_PHASE_6_INFLATED_AND_GROWN")
 
         if self.debug:
-            print(f"[LAF] Fase 7 OK: canvas {canvas_width:.0f}x{canvas_height:.0f}px")
+            print(f"[LAF] Fase 6 OK: spacing={spacing:.0f}px, canvas {canvas_width:.0f}x{canvas_height:.0f}px")
 
-        # FASE 8: Redistribución vertical
+        # FASE 7: Redistribución vertical
         self._redistribute_vertical_after_growth(structure_info, layout)
 
         if self.visualizer:
             self.visualizer.capture_phase8_redistributed(layout)
-        self._dump_layout(layout, "LAF_PHASE_8_REDISTRIBUTED")
+        self._dump_layout(layout, "LAF_PHASE_7_REDISTRIBUTED")
 
         if self.debug:
-            print(f"[LAF] Fase 8 OK: redistribución vertical")
+            print(f"[LAF] Fase 7 OK: redistribución vertical")
 
-        # FASE 9: Routing
+        # FASE 8: Routing
         if self.router_manager:
             self.router_manager.calculate_all_paths(layout)
             if self.visualizer:
                 self.visualizer.capture_phase9_routed(layout)
             if self.debug:
-                print(f"[LAF] Fase 9 OK: {len(layout.connections)} conexiones ruteadas")
+                print(f"[LAF] Fase 8 OK: {len(layout.connections)} conexiones ruteadas")
 
         # Colisiones finales
         if self.collision_detector and self.debug:
@@ -827,12 +821,12 @@ class LAFOptimizer:
             if collision_count > 0:
                 print(f"[LAF] WARN: {collision_count} colisiones detectadas")
 
-        # FASE 10: Generar visualizaciones
+        # FASE 9: Generar visualizaciones
         if self.visualizer:
             self.visualizer.capture_phase10_final(layout)
             self.visualizer.generate_all()
             if self.debug:
-                print(f"[LAF] Fase 10 OK: SVGs en debug/growth/")
+                print(f"[LAF] Fase 9 OK: SVGs en debug/growth/")
 
         if self.debug:
             print(f"[LAF] Pipeline completo")
@@ -846,7 +840,7 @@ class LAFOptimizer:
 
         Después de la optimización de posiciones, el orden dentro de cada capa
         puede haber cambiado. Este método actualiza layout.optimized_layer_order
-        para reflejar el nuevo orden, que será usado en Fase 8 (Redistribución).
+        para reflejar el nuevo orden, que será usado en Fase 7 (Redistribución).
 
         Args:
             optimized_positions: {elem_id: (x, y)} posiciones optimizadas

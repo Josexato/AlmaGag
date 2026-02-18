@@ -156,18 +156,18 @@ class ElementInflator:
                 # Asignar dimensiones reales si aún no las tiene
                 if 'width' not in elem or 'height' not in elem:
                     # Elementos normales: ICON_WIDTH x ICON_HEIGHT
-                    # Contenedores: Mantener 1x1 hasta Fase 7
+                    # Contenedores: Mantener 1x1 hasta ContainerGrower
                     if 'contains' not in elem:
                         elem['width'] = ICON_WIDTH
                         elem['height'] = ICON_HEIGHT
-                    # else: Contenedores se expanden en Fase 7
+                    # else: Contenedores se expanden en ContainerGrower
 
     def _calculate_label_positions(self, layout) -> None:
         """
         Calcula posiciones iniciales de etiquetas para contenedores.
 
         IMPORTANTE: NO calcular para elementos primarios, ya que sus posiciones
-        se ajustarán durante el centrado horizontal en Fase 8.5 y el
+        se ajustarán durante el centrado horizontal en Fase 7 y el
         LabelPositionOptimizer las calculará correctamente después.
 
         Args:
@@ -178,7 +178,7 @@ class ElementInflator:
 
         # Solo calcular posiciones para CONTENEDORES
         # Los elementos primarios serán calculados por LabelPositionOptimizer
-        # después del centrado horizontal (Fase 8.5)
+        # después del centrado horizontal (Fase 7)
         for elem in layout.elements:
             if not elem.get('label'):
                 continue
