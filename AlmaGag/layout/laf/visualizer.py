@@ -173,44 +173,53 @@ class GrowthVisualizer:
 
     def capture_phase7_redistributed(
         self,
-        layout
+        layout,
+        structure_info=None
     ) -> None:
         """
         Captura snapshot de Fase 7 (Redistribución vertical).
 
         Args:
             layout: Layout después de redistribución vertical
+            structure_info: Información estructural para NdFn labels
         """
         self.snapshots['phase7'] = {
-            'layout': deepcopy(layout)
+            'layout': deepcopy(layout),
+            'structure_info': structure_info
         }
 
     def capture_phase8_routed(
         self,
-        layout
+        layout,
+        structure_info=None
     ) -> None:
         """
         Captura snapshot de Fase 8 (Routing).
 
         Args:
             layout: Layout con paths de conexiones calculados
+            structure_info: Información estructural para NdFn labels
         """
         self.snapshots['phase8'] = {
-            'layout': deepcopy(layout)
+            'layout': deepcopy(layout),
+            'structure_info': structure_info
         }
 
     def capture_phase9_final(
         self,
-        layout
+        layout,
+        structure_info=None
     ) -> None:
         """
         Captura snapshot de Fase 9 (Generación SVG final).
 
         Args:
             layout: Layout final completo
+            structure_info: Información estructural para NdFn labels
         """
         self.snapshots['phase9'] = {
-            'layout': deepcopy(layout)
+            'layout': deepcopy(layout),
+            'structure_info': structure_info
         }
 
     def generate_all(self) -> None:
@@ -2072,48 +2081,11 @@ class GrowthVisualizer:
         if self.debug:
             print(f"[VISUALIZER] Generado: {filename}")
 
-    def _generate_phase6_inflated_svg(self, output_path: str) -> None:
+    def _draw_elements_with_ndfn(self, dwg, layout, ndfn_labels):
         """
-        Genera SVG de Fase 6: Inflación + Contenedores expandidos.
-        Incluye etiquetas NdFn para cada nodo final.
+        Dibuja todos los elementos del layout con etiquetas NdFn.
+        Contenedores en amarillo semitransparente, elementos normales en azul.
         """
-        snapshot = self.snapshots['phase6']
-        layout = snapshot['layout']
-        spacing = snapshot['spacing']
-        structure_info = snapshot.get('structure_info')
-
-        filename = os.path.join(output_path, "phase6_inflated_grown.svg")
-
-        # Canvas basado en elementos
-        canvas_width = layout.canvas.get('width', 2000)
-        canvas_height = layout.canvas.get('height', 2000)
-
-        dwg = svgwrite.Drawing(filename, size=(canvas_width, canvas_height))
-
-        # Fondo
-        dwg.add(dwg.rect(insert=(0, 0), size=(canvas_width, canvas_height), fill='#ffffff'))
-
-        # Título
-        dwg.add(dwg.text(
-            'LAF Phase 6: Inflation + Container Growth',
-            insert=(20, 30),
-            font_size='20px',
-            font_weight='bold',
-            fill='#212529'
-        ))
-
-        # Métricas
-        dwg.add(dwg.text(
-            f"Spacing: {spacing:.0f}px",
-            insert=(20, 55),
-            font_size='14px',
-            fill='#6c757d'
-        ))
-
-        # Construir mapeo NdFn
-        ndfn_labels = self._build_ndfn_labels(layout, structure_info)
-
-        # Dibujar elementos
         for elem in layout.elements:
             if 'x' not in elem or 'y' not in elem:
                 continue
@@ -2124,7 +2096,6 @@ class GrowthVisualizer:
             h = elem.get('height', ICON_HEIGHT)
             elem_id = elem.get('id', '')
 
-            # Color según tipo
             if 'contains' in elem:
                 fill_color = '#ffc107'
                 stroke_color = '#ff9800'
@@ -2134,7 +2105,6 @@ class GrowthVisualizer:
                 stroke_color = '#084298'
                 opacity = 0.7
 
-            # Rectángulo
             dwg.add(dwg.rect(
                 insert=(x, y),
                 size=(w, h),
@@ -2144,7 +2114,6 @@ class GrowthVisualizer:
                 opacity=opacity
             ))
 
-            # Label del elemento (nombre)
             dwg.add(dwg.text(
                 elem_id,
                 insert=(x + w/2, y + h/2),
@@ -2154,7 +2123,6 @@ class GrowthVisualizer:
                 font_family='monospace'
             ))
 
-            # Etiqueta NdFn
             ndfn = ndfn_labels.get(elem_id, '')
             if ndfn:
                 dwg.add(dwg.text(
@@ -2166,7 +2134,6 @@ class GrowthVisualizer:
                     font_weight='bold'
                 ))
 
-            # Etiqueta NdFn para ícono de contenedor (.1)
             ndfn_icon = ndfn_labels.get(f"{elem_id}__icon", '')
             if ndfn_icon:
                 dwg.add(dwg.text(
@@ -2178,16 +2145,132 @@ class GrowthVisualizer:
                     font_weight='bold'
                 ))
 
-        # Badge
+    def _draw_straight_connections(self, dwg, layout):
+        """
+        Dibuja conexiones como líneas rectas entre centros de elementos.
+        Usado en fases sin routing (6, 7).
+        """
+        import math
+
+        elements_by_id = {e['id']: e for e in layout.elements if 'x' in e}
+
+        for conn in layout.connections:
+            from_id = conn.get('from', '')
+            to_id = conn.get('to', '')
+
+            from_elem = elements_by_id.get(from_id)
+            to_elem = elements_by_id.get(to_id)
+            if not from_elem or not to_elem:
+                continue
+
+            fx = from_elem['x'] + from_elem.get('width', ICON_WIDTH) / 2
+            fy = from_elem['y'] + from_elem.get('height', ICON_HEIGHT) / 2
+            tx = to_elem['x'] + to_elem.get('width', ICON_WIDTH) / 2
+            ty = to_elem['y'] + to_elem.get('height', ICON_HEIGHT) / 2
+
+            dwg.add(dwg.line(
+                start=(fx, fy), end=(tx, ty),
+                stroke='#adb5bd',
+                stroke_width=1.2,
+                opacity=0.5
+            ))
+
+            # Flecha
+            angle = math.atan2(ty - fy, tx - fx)
+            arrow_len = 8
+            arrow_w = 0.4
+            dwg.add(dwg.polygon(
+                points=[
+                    (tx, ty),
+                    (tx - arrow_len * math.cos(angle + arrow_w),
+                     ty - arrow_len * math.sin(angle + arrow_w)),
+                    (tx - arrow_len * math.cos(angle - arrow_w),
+                     ty - arrow_len * math.sin(angle - arrow_w))
+                ],
+                fill='#adb5bd', opacity=0.5
+            ))
+
+    def _draw_routed_connections(self, dwg, layout):
+        """
+        Dibuja conexiones usando computed_path calculado por el router.
+        Usado en fases con routing (8, 9).
+        """
+        import math
+
+        for conn in layout.connections:
+            computed_path = conn.get('computed_path')
+            if not computed_path:
+                continue
+            points = computed_path.get('points', [])
+            if len(points) < 2:
+                continue
+
+            path_str = f"M {points[0][0]} {points[0][1]}"
+            for x, y in points[1:]:
+                path_str += f" L {x} {y}"
+
+            dwg.add(dwg.path(
+                d=path_str,
+                stroke='#6c757d',
+                stroke_width=2,
+                fill='none',
+                opacity=0.6
+            ))
+
+            # Flecha en el punto final
+            if len(points) >= 2:
+                px, py = points[-2]
+                tx, ty = points[-1]
+                angle = math.atan2(ty - py, tx - px)
+                arrow_len = 8
+                arrow_w = 0.4
+                dwg.add(dwg.polygon(
+                    points=[
+                        (tx, ty),
+                        (tx - arrow_len * math.cos(angle + arrow_w),
+                         ty - arrow_len * math.sin(angle + arrow_w)),
+                        (tx - arrow_len * math.cos(angle - arrow_w),
+                         ty - arrow_len * math.sin(angle - arrow_w))
+                    ],
+                    fill='#6c757d', opacity=0.6
+                ))
+
+    def _generate_phase6_inflated_svg(self, output_path: str) -> None:
+        """
+        Genera SVG de Fase 6: Inflación + Contenedores expandidos.
+        """
+        snapshot = self.snapshots['phase6']
+        layout = snapshot['layout']
+        spacing = snapshot['spacing']
+        structure_info = snapshot.get('structure_info')
+
+        filename = os.path.join(output_path, "phase6_inflated_grown.svg")
+
+        canvas_width = layout.canvas.get('width', 2000)
+        canvas_height = layout.canvas.get('height', 2000)
+
+        dwg = svgwrite.Drawing(filename, size=(canvas_width, canvas_height))
+        dwg.add(dwg.rect(insert=(0, 0), size=(canvas_width, canvas_height), fill='#ffffff'))
+
         dwg.add(dwg.text(
-            'Phase 6/9',
-            insert=(canvas_width - 100, 30),
-            font_size='14px',
-            fill='#6c757d'
+            'LAF Phase 6: Inflation + Container Growth',
+            insert=(20, 30), font_size='20px', font_weight='bold', fill='#212529'
+        ))
+        dwg.add(dwg.text(
+            f"Spacing: {spacing:.0f}px",
+            insert=(20, 55), font_size='14px', fill='#6c757d'
+        ))
+
+        ndfn_labels = self._build_ndfn_labels(layout, structure_info)
+        self._draw_straight_connections(dwg, layout)
+        self._draw_elements_with_ndfn(dwg, layout, ndfn_labels)
+
+        dwg.add(dwg.text(
+            'Phase 6/9', insert=(canvas_width - 100, 30),
+            font_size='14px', fill='#6c757d'
         ))
 
         dwg.save()
-
         if self.debug:
             print(f"[VISUALIZER] Generado: {filename}")
 
@@ -2260,6 +2343,7 @@ class GrowthVisualizer:
         """
         snapshot = self.snapshots['phase7']
         layout = snapshot['layout']
+        structure_info = snapshot.get('structure_info')
 
         filename = os.path.join(output_path, "phase7_redistributed.svg")
 
@@ -2267,84 +2351,23 @@ class GrowthVisualizer:
         canvas_height = layout.canvas.get('height', 2000)
 
         dwg = svgwrite.Drawing(filename, size=(canvas_width, canvas_height))
-
-        # Fondo
         dwg.add(dwg.rect(insert=(0, 0), size=(canvas_width, canvas_height), fill='#ffffff'))
 
-        # Título
         dwg.add(dwg.text(
             'LAF Phase 7: Vertical Redistribution',
-            insert=(20, 30),
-            font_size='20px',
-            font_weight='bold',
-            fill='#212529'
+            insert=(20, 30), font_size='20px', font_weight='bold', fill='#212529'
         ))
 
-        # Dibujar layout completo (similar a phase5)
-        # Contenedores
-        for elem in layout.elements:
-            if 'contains' not in elem:
-                continue
+        ndfn_labels = self._build_ndfn_labels(layout, structure_info)
+        self._draw_straight_connections(dwg, layout)
+        self._draw_elements_with_ndfn(dwg, layout, ndfn_labels)
 
-            if 'x' not in elem or 'y' not in elem or 'width' not in elem:
-                continue
-
-            x = elem['x']
-            y = elem['y']
-            w = elem['width']
-            h = elem['height']
-
-            dwg.add(dwg.rect(
-                insert=(x, y),
-                size=(w, h),
-                fill='#e9ecef',
-                stroke='#6c757d',
-                stroke_width=2,
-                opacity=0.5
-            ))
-
-        # Elementos
-        for elem in layout.elements:
-            if 'contains' in elem:
-                continue
-
-            if 'x' not in elem or 'y' not in elem:
-                continue
-
-            x = elem['x']
-            y = elem['y']
-            w = elem.get('width', ICON_WIDTH)
-            h = elem.get('height', ICON_HEIGHT)
-
-            dwg.add(dwg.rect(
-                insert=(x, y),
-                size=(w, h),
-                fill='#0d6efd',
-                stroke='#084298',
-                stroke_width=2,
-                opacity=0.8
-            ))
-
-            elem_id = elem.get('id', '')
-            dwg.add(dwg.text(
-                elem_id,
-                insert=(x + w/2, y + h/2),
-                text_anchor='middle',
-                font_size='10px',
-                fill='white',
-                font_family='monospace'
-            ))
-
-        # Badge
         dwg.add(dwg.text(
-            'Phase 7/9',
-            insert=(canvas_width - 100, 30),
-            font_size='14px',
-            fill='#6c757d'
+            'Phase 7/9', insert=(canvas_width - 100, 30),
+            font_size='14px', fill='#6c757d'
         ))
 
         dwg.save()
-
         if self.debug:
             print(f"[VISUALIZER] Generado: {filename}")
 
@@ -2354,6 +2377,7 @@ class GrowthVisualizer:
         """
         snapshot = self.snapshots['phase8']
         layout = snapshot['layout']
+        structure_info = snapshot.get('structure_info')
 
         filename = os.path.join(output_path, "phase8_routed.svg")
 
@@ -2361,89 +2385,23 @@ class GrowthVisualizer:
         canvas_height = layout.canvas.get('height', 2000)
 
         dwg = svgwrite.Drawing(filename, size=(canvas_width, canvas_height))
-
-        # Fondo
         dwg.add(dwg.rect(insert=(0, 0), size=(canvas_width, canvas_height), fill='#ffffff'))
 
-        # Título
         dwg.add(dwg.text(
             'LAF Phase 8: Connection Routing',
-            insert=(20, 30),
-            font_size='20px',
-            font_weight='bold',
-            fill='#212529'
+            insert=(20, 30), font_size='20px', font_weight='bold', fill='#212529'
         ))
 
-        # Dibujar conexiones primero
-        for conn in layout.connections:
-            if 'path' in conn and conn['path']:
-                points = conn['path']
-                path_str = f"M {points[0][0]} {points[0][1]}"
-                for x, y in points[1:]:
-                    path_str += f" L {x} {y}"
+        ndfn_labels = self._build_ndfn_labels(layout, structure_info)
+        self._draw_routed_connections(dwg, layout)
+        self._draw_elements_with_ndfn(dwg, layout, ndfn_labels)
 
-                dwg.add(dwg.path(
-                    d=path_str,
-                    stroke='#6c757d',
-                    stroke_width=2,
-                    fill='none',
-                    opacity=0.6
-                ))
-
-        # Dibujar contenedores
-        for elem in layout.elements:
-            if 'contains' not in elem:
-                continue
-
-            if 'x' not in elem or 'y' not in elem or 'width' not in elem:
-                continue
-
-            x = elem['x']
-            y = elem['y']
-            w = elem['width']
-            h = elem['height']
-
-            dwg.add(dwg.rect(
-                insert=(x, y),
-                size=(w, h),
-                fill='#e9ecef',
-                stroke='#6c757d',
-                stroke_width=2,
-                opacity=0.5
-            ))
-
-        # Dibujar elementos
-        for elem in layout.elements:
-            if 'contains' in elem:
-                continue
-
-            if 'x' not in elem or 'y' not in elem:
-                continue
-
-            x = elem['x']
-            y = elem['y']
-            w = elem.get('width', ICON_WIDTH)
-            h = elem.get('height', ICON_HEIGHT)
-
-            dwg.add(dwg.rect(
-                insert=(x, y),
-                size=(w, h),
-                fill='#0d6efd',
-                stroke='#084298',
-                stroke_width=2,
-                opacity=0.8
-            ))
-
-        # Badge
         dwg.add(dwg.text(
-            'Phase 8/9',
-            insert=(canvas_width - 100, 30),
-            font_size='14px',
-            fill='#6c757d'
+            'Phase 8/9', insert=(canvas_width - 100, 30),
+            font_size='14px', fill='#6c757d'
         ))
 
         dwg.save()
-
         if self.debug:
             print(f"[VISUALIZER] Generado: {filename}")
 
@@ -2453,6 +2411,7 @@ class GrowthVisualizer:
         """
         snapshot = self.snapshots['phase9']
         layout = snapshot['layout']
+        structure_info = snapshot.get('structure_info')
 
         filename = os.path.join(output_path, "phase9_final.svg")
 
@@ -2460,89 +2419,22 @@ class GrowthVisualizer:
         canvas_height = layout.canvas.get('height', 2000)
 
         dwg = svgwrite.Drawing(filename, size=(canvas_width, canvas_height))
-
-        # Fondo
         dwg.add(dwg.rect(insert=(0, 0), size=(canvas_width, canvas_height), fill='#ffffff'))
 
-        # Título
         dwg.add(dwg.text(
             'LAF Phase 9: SVG Generation (COMPLETE)',
-            insert=(20, 30),
-            font_size='20px',
-            font_weight='bold',
-            fill='#28a745'
+            insert=(20, 30), font_size='20px', font_weight='bold', fill='#28a745'
         ))
 
-        # Dibujar conexiones
-        for conn in layout.connections:
-            if 'path' in conn and conn['path']:
-                points = conn['path']
-                path_str = f"M {points[0][0]} {points[0][1]}"
-                for x, y in points[1:]:
-                    path_str += f" L {x} {y}"
+        ndfn_labels = self._build_ndfn_labels(layout, structure_info)
+        self._draw_routed_connections(dwg, layout)
+        self._draw_elements_with_ndfn(dwg, layout, ndfn_labels)
 
-                dwg.add(dwg.path(
-                    d=path_str,
-                    stroke='#6c757d',
-                    stroke_width=2,
-                    fill='none',
-                    opacity=0.6
-                ))
-
-        # Dibujar contenedores
-        for elem in layout.elements:
-            if 'contains' not in elem:
-                continue
-
-            if 'x' not in elem or 'y' not in elem or 'width' not in elem:
-                continue
-
-            x = elem['x']
-            y = elem['y']
-            w = elem['width']
-            h = elem['height']
-
-            dwg.add(dwg.rect(
-                insert=(x, y),
-                size=(w, h),
-                fill='#e9ecef',
-                stroke='#6c757d',
-                stroke_width=2,
-                opacity=0.5
-            ))
-
-        # Dibujar elementos
-        for elem in layout.elements:
-            if 'contains' in elem:
-                continue
-
-            if 'x' not in elem or 'y' not in elem:
-                continue
-
-            x = elem['x']
-            y = elem['y']
-            w = elem.get('width', ICON_WIDTH)
-            h = elem.get('height', ICON_HEIGHT)
-
-            dwg.add(dwg.rect(
-                insert=(x, y),
-                size=(w, h),
-                fill='#0d6efd',
-                stroke='#084298',
-                stroke_width=2,
-                opacity=0.8
-            ))
-
-        # Badge
         dwg.add(dwg.text(
-            'Phase 9/9 - COMPLETE',
-            insert=(canvas_width - 240, 30),
-            font_size='14px',
-            fill='#28a745',
-            font_weight='bold'
+            'Phase 9/9 - COMPLETE', insert=(canvas_width - 240, 30),
+            font_size='14px', fill='#28a745', font_weight='bold'
         ))
 
         dwg.save()
-
         if self.debug:
             print(f"[VISUALIZER] Generado: {filename}")

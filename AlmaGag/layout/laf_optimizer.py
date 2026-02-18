@@ -273,6 +273,52 @@ class LAFOptimizer:
 
         return groups
 
+    def _compute_ndfn_groups(self, structure_info, layout):
+        """
+        Calcula bounding box y centroide de cada grupo NdFn.
+
+        Agrupa cada elemento primario con todos sus hijos (si es contenedor)
+        y calcula el centro geométrico del grupo completo.
+
+        Returns:
+            Dict[str, dict]: {elem_id: {centroid_x, centroid_y, bbox_width, bbox_height, bbox_x, bbox_y}}
+        """
+        from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
+
+        groups = {}
+        for elem_id in structure_info.primary_elements:
+            elem = layout.elements_by_id.get(elem_id)
+            if not elem:
+                continue
+
+            rects = [(elem.get('x', 0), elem.get('y', 0),
+                      elem.get('width', ICON_WIDTH), elem.get('height', ICON_HEIGHT))]
+
+            node = structure_info.element_tree.get(elem_id)
+            if node and node['children']:
+                for child_id in node['children']:
+                    child = layout.elements_by_id.get(child_id)
+                    if child and 'x' in child:
+                        rects.append((child['x'], child['y'],
+                                      child.get('width', ICON_WIDTH),
+                                      child.get('height', ICON_HEIGHT)))
+
+            min_x = min(r[0] for r in rects)
+            min_y = min(r[1] for r in rects)
+            max_x = max(r[0] + r[2] for r in rects)
+            max_y = max(r[1] + r[3] for r in rects)
+
+            groups[elem_id] = {
+                'centroid_x': (min_x + max_x) / 2,
+                'centroid_y': (min_y + max_y) / 2,
+                'bbox_width': max_x - min_x,
+                'bbox_height': max_y - min_y,
+                'bbox_x': min_x,
+                'bbox_y': min_y
+            }
+
+        return groups
+
     def _redistribute_vertical_after_growth(self, structure_info, layout):
         """
         Redistribuye elementos después del crecimiento de contenedores,
@@ -280,10 +326,9 @@ class LAFOptimizer:
 
         Algoritmo:
         1. Obtener posiciones abstractas de Fase 5 (abstract_x, abstract_y)
-        2. Calcular escala X global = max(element_width + gap) / abstract_gap
-           para todos los pares adyacentes en cada nivel
+        2. Calcular escala X global usando bbox_width de grupos NdFn
         3. Asignar Y secuencial por nivel (max_height + 240px)
-        4. Asignar X = (abstract_x + shift) * global_x_scale + margin
+        4. Posicionar por centroide de grupo NdFn
         5. Centrar globalmente con un dx uniforme
 
         Si no hay posiciones de Fase 5, usa fallback con centrado por nivel.
@@ -336,7 +381,14 @@ class LAFOptimizer:
             self._redistribute_vertical_fallback(structure_info, layout, by_level, TOP_MARGIN, VERTICAL_SPACING)
             return
 
-        # --- Paso 2: Calcular escala X global ---
+        # --- Paso 1.5: Calcular grupos NdFn (centroides + bounding boxes) ---
+        ndfn_groups = self._compute_ndfn_groups(structure_info, layout)
+
+        if self.debug:
+            containers = [eid for eid, g in ndfn_groups.items() if g['bbox_width'] > ICON_WIDTH]
+            print(f"[REDISTRIBUTE] Grupos NdFn: {len(ndfn_groups)} ({len(containers)} contenedores)")
+
+        # --- Paso 2: Calcular escala X global (usando bbox_width de grupos NdFn) ---
         global_x_scale = LAF_SPACING_BASE  # 480px minimum
 
         for level_num in sorted(by_level.keys()):
@@ -344,12 +396,12 @@ class LAFOptimizer:
             if len(level_elements) < 2:
                 continue
 
-            # Collect (abstract_x, real_width) for each element, sorted by abstract_x
+            # Collect (abstract_x, bbox_width) for each group, sorted by abstract_x
             items = []
             for elem_id in level_elements:
                 abs_x = phase5.get(elem_id, (0, 0))[0]
-                elem = layout.elements_by_id.get(elem_id)
-                width = elem.get('width', ICON_WIDTH) if elem else ICON_WIDTH
+                group = ndfn_groups.get(elem_id)
+                width = group['bbox_width'] if group else ICON_WIDTH
                 items.append((abs_x, width, elem_id))
 
             items.sort(key=lambda t: t[0])
@@ -371,7 +423,7 @@ class LAFOptimizer:
         if self.debug:
             print(f"[REDISTRIBUTE] Global X scale: {global_x_scale:.1f}px/unit")
 
-        # --- Paso 3: Asignar Y secuencialmente ---
+        # --- Paso 3: Asignar Y secuencialmente (usando bbox_height de grupos NdFn) ---
         current_y = TOP_MARGIN
         level_y_positions = {}
 
@@ -379,18 +431,20 @@ class LAFOptimizer:
             level_elements = by_level[level_num]
             level_y_positions[level_num] = current_y
 
-            # Compute max height for this level
+            # Compute max height using NdFn group bounding box
             max_height = 0
             for elem_id in level_elements:
-                elem = layout.elements_by_id.get(elem_id)
-                if not elem:
-                    continue
-                elem_height = elem.get('height', ICON_HEIGHT)
-                max_height = max(max_height, elem_height)
+                group = ndfn_groups.get(elem_id)
+                if group:
+                    max_height = max(max_height, group['bbox_height'])
+                else:
+                    elem = layout.elements_by_id.get(elem_id)
+                    if elem:
+                        max_height = max(max_height, elem.get('height', ICON_HEIGHT))
 
             current_y += max_height + VERTICAL_SPACING
 
-        # --- Paso 4: Asignar X con escala global ---
+        # --- Paso 4: Posicionar por centroide de grupo NdFn ---
         # Normalize abstract_x so minimum is 0
         all_abs_x = [phase5.get(eid, (0, 0))[0]
                      for level_elems in by_level.values()
@@ -407,15 +461,23 @@ class LAFOptimizer:
                 if not elem:
                     continue
 
-                abs_x = phase5.get(elem_id, (0, 0))[0]
-                new_x = (abs_x + abs_x_shift) * global_x_scale + LEFT_MARGIN
+                group = ndfn_groups.get(elem_id)
 
-                old_x = elem.get('x', 0)
+                # Posición objetivo del centroide del grupo
+                abs_x = phase5.get(elem_id, (0, 0))[0]
+                target_centroid_x = (abs_x + abs_x_shift) * global_x_scale + LEFT_MARGIN
+
+                # Delta basado en centroide actual del grupo
+                if group:
+                    current_centroid_x = group['centroid_x']
+                else:
+                    current_centroid_x = elem.get('x', 0) + elem.get('width', ICON_WIDTH) / 2
+                dx = target_centroid_x - current_centroid_x
+
                 old_y = elem.get('y', 0)
-                dx = new_x - old_x
                 dy = new_y - old_y
 
-                elem['x'] = new_x
+                elem['x'] = elem.get('x', 0) + dx
                 elem['y'] = new_y
 
                 # Update label
@@ -428,7 +490,7 @@ class LAFOptimizer:
                         baseline
                     )
 
-                # If container, update contained children
+                # If container, update contained children with same delta
                 if 'contains' in elem:
                     node = structure_info.element_tree.get(elem_id)
                     if node and node['children']:
@@ -449,19 +511,18 @@ class LAFOptimizer:
                                         cb
                                     )
 
-        # --- Paso 5: Centrado global único ---
-        # Find x_min across ALL elements (primary only, children follow)
+        # --- Paso 5: Centrado global único (usando bounding boxes de grupos NdFn) ---
+        # Recalcular grupos NdFn después del reposicionamiento
+        ndfn_groups = self._compute_ndfn_groups(structure_info, layout)
         x_min = float('inf')
         x_max = float('-inf')
         for level_elems in by_level.values():
             for elem_id in level_elems:
-                elem = layout.elements_by_id.get(elem_id)
-                if not elem:
+                group = ndfn_groups.get(elem_id)
+                if not group:
                     continue
-                ex = elem.get('x', 0)
-                ew = elem.get('width', ICON_WIDTH)
-                x_min = min(x_min, ex)
-                x_max = max(x_max, ex + ew)
+                x_min = min(x_min, group['bbox_x'])
+                x_max = max(x_max, group['bbox_x'] + group['bbox_width'])
 
         if x_min != float('inf'):
             correction_dx = LEFT_MARGIN - x_min
@@ -798,7 +859,7 @@ class LAFOptimizer:
         self._redistribute_vertical_after_growth(structure_info, layout)
 
         if self.visualizer:
-            self.visualizer.capture_phase7_redistributed(layout)
+            self.visualizer.capture_phase7_redistributed(layout, structure_info)
         self._dump_layout(layout, "LAF_PHASE_7_REDISTRIBUTED")
 
         if self.debug:
@@ -808,7 +869,7 @@ class LAFOptimizer:
         if self.router_manager:
             self.router_manager.calculate_all_paths(layout)
             if self.visualizer:
-                self.visualizer.capture_phase8_routed(layout)
+                self.visualizer.capture_phase8_routed(layout, structure_info)
             if self.debug:
                 print(f"[LAF] Fase 8 OK: {len(layout.connections)} conexiones ruteadas")
 
@@ -820,7 +881,7 @@ class LAFOptimizer:
 
         # FASE 9: Generar visualizaciones
         if self.visualizer:
-            self.visualizer.capture_phase9_final(layout)
+            self.visualizer.capture_phase9_final(layout, structure_info)
             self.visualizer.generate_all()
             if self.debug:
                 print(f"[LAF] Fase 9 OK: SVGs en debug/growth/")
