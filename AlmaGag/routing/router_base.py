@@ -288,7 +288,8 @@ class ConnectionRouter(ABC):
                     container_center,
                     width,
                     height,
-                    other_point
+                    other_point,
+                    extend_by=0
                 )
         else:
             # Not a container - return center
