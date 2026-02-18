@@ -403,6 +403,45 @@ class StructureAnalyzer:
                 max_parent_level = max(info.topological_levels[p] for p in parents)
                 info.topological_levels[elem_id] = max_parent_level + 1
 
+    def _detect_cycle_nodes(
+        self,
+        info: StructureInfo,
+        local_incoming: Dict[str, List[str]]
+    ) -> Set[Tuple[str, str]]:
+        """
+        Detecta aristas que forman parte de ciclos en el grafo de conexiones
+        primarias y retorna el conjunto de back-edges a ignorar.
+
+        Usa DFS con coloreo (WHITE/GRAY/BLACK) para encontrar back-edges.
+
+        Returns:
+            Set de tuplas (parent, child) que son back-edges de ciclos.
+        """
+        WHITE, GRAY, BLACK = 0, 1, 2
+        color = {eid: WHITE for eid in info.primary_elements}
+        back_edges: Set[Tuple[str, str]] = set()
+
+        def dfs(node: str) -> None:
+            color[node] = GRAY
+            for neighbor in info.connection_graph.get(node, []):
+                if neighbor not in color:
+                    continue
+                if color[neighbor] == GRAY:
+                    # Back-edge: neighbor → node en local_incoming
+                    back_edges.add((node, neighbor))
+                elif color[neighbor] == WHITE:
+                    dfs(neighbor)
+            color[node] = BLACK
+
+        for eid in info.primary_elements:
+            if color[eid] == WHITE:
+                dfs(eid)
+
+        if back_edges and self.debug:
+            print(f"  [DEBUG] Ciclos detectados - back-edges ignorados: {back_edges}")
+
+        return back_edges
+
     def _enforce_non_leaf_parent_progression(
         self,
         info: StructureInfo,
@@ -412,10 +451,24 @@ class StructureAnalyzer:
         Garantiza para nodos con hijos (outdeg > 0):
             level(node) >= max(level(parent)) + 1
         aplicando un fixpoint hasta converger.
+
+        Detecta ciclos y excluye back-edges para evitar loops infinitos.
         """
+        # Detectar back-edges de ciclos para excluirlos del fixpoint
+        back_edges = self._detect_cycle_nodes(info, local_incoming)
+
+        max_iterations = len(info.primary_elements) * 2
         changed = True
+        iteration = 0
         while changed:
+            if iteration >= max_iterations:
+                if self.debug:
+                    print(f"  [DEBUG] _enforce_non_leaf_parent_progression: "
+                          f"max iterations ({max_iterations}) alcanzado, "
+                          f"posible ciclo residual")
+                break
             changed = False
+            iteration += 1
             for elem_id in info.primary_elements:
                 outdeg = len(info.connection_graph.get(elem_id, []))
                 if outdeg == 0:
@@ -425,7 +478,15 @@ class StructureAnalyzer:
                 if not parents:
                     continue
 
-                required_level = max(info.topological_levels.get(p, 0) for p in parents) + 1
+                # Filtrar parents que forman back-edges (ciclos)
+                acyclic_parents = [
+                    p for p in parents
+                    if (p, elem_id) not in back_edges
+                ]
+                if not acyclic_parents:
+                    continue
+
+                required_level = max(info.topological_levels.get(p, 0) for p in acyclic_parents) + 1
                 current_level = info.topological_levels.get(elem_id, 0)
 
                 if current_level < required_level:
