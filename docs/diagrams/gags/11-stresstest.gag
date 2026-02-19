@@ -1,0 +1,40 @@
+{
+  "canvas": {},
+  "elements": [
+    { "id": "start", "label": "Inicio", "type": "cloud", "color": "lightgreen" },
+
+    { "id": "init", "label": "Definir N\nlistaPrimos=[]\nn=2", "type": "building", "color": "lightblue" },
+
+    {
+      "id": "for_frame",
+      "label": "FOR: n = 2..N",
+      "type": "firewall",
+      "color": "lightyellow"
+    },
+
+    { "id": "iter", "label": "Iteración (n)", "type": "building", "color": "lightblue" },
+    { "id": "check_prime", "label": "p = isPrime(n)", "type": "building", "color": "lightblue" },
+    { "id": "if_prime", "label": "¿p == True?", "type": "firewall", "color": "khaki" },
+    { "id": "append", "label": "listaPrimos.append(n)", "type": "building", "color": "lightblue" },
+    { "id": "next_n", "label": "n = n + 1", "type": "building", "color": "lightblue" },
+
+    { "id": "end", "label": "Fin\nMostrar listaPrimos", "type": "cloud", "color": "salmon" }
+  ],
+  "connections": [
+    { "from": "start", "to": "init", "label": "flujo" },
+
+    { "from": "init", "to": "iter", "label": "entra al for" },
+
+    { "from": "iter", "to": "check_prime", "label": "flujo" },
+    { "from": "check_prime", "to": "if_prime", "label": "flujo" },
+
+    { "from": "if_prime", "to": "append", "label": "sí" },
+    { "from": "if_prime", "to": "next_n", "label": "no" },
+
+    { "from": "append", "to": "next_n", "label": "flujo" },
+
+    { "from": "next_n", "to": "iter", "label": "loop" },
+
+    { "from": "next_n", "to": "end", "label": "si n > N" }
+  ]
+}
