@@ -27,6 +27,7 @@ CSS_COLORS = {
     'yellow': '#FFFF00', 'orange': '#FFA500', 'purple': '#800080',
     'pink': '#FFC0CB', 'cyan': '#00FFFF', 'white': '#FFFFFF',
     'black': '#000000', 'silver': '#C0C0C0', 'lime': '#00FF00',
+    'lavender': '#E6E6FA', 'lightyellow': '#FFFFE0',
 }
 
 

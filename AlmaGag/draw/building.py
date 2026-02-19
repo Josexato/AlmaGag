@@ -1,99 +1,79 @@
 """
 Dibuja el ícono de tipo 'building' para GAG.
-Basado en building.svg - cubo 3D isométrico.
+Pictograma de edificio con ventanas y puerta.
 """
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
-from AlmaGag.draw.icons import create_gradient
+from AlmaGag.draw.icons import create_gradient, adjust_lightness
+
 
 def draw_building(dwg, x, y, color, element_id):
     """
-    Dibuja un ícono de tipo 'building' como un cubo 3D isométrico.
-    Basado en el diseño de building.svg con perspectiva 3D.
-    Incluye padding interno del 20% de la altura.
+    Dibuja un ícono de tipo 'building' como un edificio con ventanas.
     """
-    # Padding del 20% de la altura del ícono (mantener compatibilidad)
-    padding = ICON_HEIGHT * 0.2  # 50 * 0.2 = 10px
-
-    # Ajustar posición y tamaño con padding
-    icon_x = x + padding
-    icon_y = y + padding
-    icon_width = ICON_WIDTH - (2 * padding)  # 80 - 20 = 60px
-    icon_height = ICON_HEIGHT - (2 * padding)  # 50 - 20 = 30px
-
-    # Crear grupo para el ícono
     g = dwg.g(id=element_id)
 
-    # Área del SVG original que contiene el cubo
-    viewbox_x, viewbox_y = 0.9, 1.4
-    viewbox_w, viewbox_h = 49.8, 43.3
-
-    # Escala para ajustar al tamaño del ícono con padding
-    scale_x = icon_width / viewbox_w
-    scale_y = icon_height / viewbox_h
-
-    # Grupo con transformación para escalar y posicionar el cubo
-    cube_group = dwg.g(transform=f"translate({icon_x},{icon_y}) scale({scale_x},{scale_y}) translate({-viewbox_x},{-viewbox_y})")
-
-    # Crear gradiente basado en el color proporcionado
-    # Los tonos se derivan del color base
     fill = create_gradient(dwg, element_id, color)
+    dark = adjust_lightness(color, 0.5)
+    light = adjust_lightness(color, 1.5)
 
-    # Las 6 caras del cubo 3D isométrico (del SVG original)
-    # Cada cara tiene un path y un fill que varía en luminosidad para dar efecto 3D
+    w = ICON_WIDTH
+    h = ICON_HEIGHT
+    r = 2
 
-    # Cara izquierda (más clara)
-    cube_group.add(dwg.path(
-        d="M 22.754087,32.116749 0.94545599,43.000013 V 4.7289739 L 22.754087,1.5702876 Z",
-        fill="#e9e9ff",
-        stroke="none"
+    # Cuerpo principal del edificio
+    g.add(dwg.rect(
+        insert=(x + 8, y + 4), size=(w - 16, h - 4),
+        rx=r, ry=r,
+        fill=fill, stroke='black', stroke_width=1.2
     ))
 
-    # Cara derecha (oscura)
-    cube_group.add(dwg.path(
-        d="M 50.712576,33.120864 V 1.4628125 L 22.754087,1.5702876 V 32.116749 Z",
-        fill="#353564",
-        stroke="none"
+    # Techo (triángulo)
+    roof_points = [
+        (x + 4, y + 4),
+        (x + w / 2, y - 6),
+        (x + w - 4, y + 4)
+    ]
+    g.add(dwg.polygon(
+        points=roof_points,
+        fill=dark, stroke='black', stroke_width=1.0
     ))
 
-    # Cara inferior (medio-oscura)
-    cube_group.add(dwg.path(
-        d="M 50.712576,33.120864 35.295871,44.770537 0.94545599,43.000013 22.754087,32.116749 Z",
-        fill="#4d4d9f",
-        stroke="none"
+    # Ventanas (2 filas x 3 columnas)
+    win_w, win_h = 10, 7
+    win_color = light
+    cols = [x + 15, x + 35, x + 55]
+    rows = [y + 10, y + 24]
+
+    for row_y in rows:
+        for col_x in cols:
+            g.add(dwg.rect(
+                insert=(col_x, row_y), size=(win_w, win_h),
+                fill=win_color, stroke=dark, stroke_width=0.7
+            ))
+            # Cruz de la ventana
+            g.add(dwg.line(
+                start=(col_x + win_w / 2, row_y),
+                end=(col_x + win_w / 2, row_y + win_h),
+                stroke=dark, stroke_width=0.5
+            ))
+            g.add(dwg.line(
+                start=(col_x, row_y + win_h / 2),
+                end=(col_x + win_w, row_y + win_h / 2),
+                stroke=dark, stroke_width=0.5
+            ))
+
+    # Puerta central
+    door_w, door_h = 10, 12
+    door_x = x + w / 2 - door_w / 2
+    door_y = y + h - door_h
+    g.add(dwg.rect(
+        insert=(door_x, door_y), size=(door_w, door_h),
+        fill=dark, stroke='black', stroke_width=0.8
+    ))
+    # Pomo
+    g.add(dwg.circle(
+        center=(door_x + door_w - 2.5, door_y + door_h / 2),
+        r=1.2, fill=light
     ))
 
-    # Cara superior (azul brillante)
-    cube_group.add(dwg.path(
-        d="M 50.712576,1.4628125 35.295871,4.7384198 0.94545599,4.7289739 22.754087,1.5702876 Z",
-        fill="#1c1ce6",
-        opacity="1",
-        stroke="none"
-    ))
-
-    # Cara frontal (azul medio)
-    cube_group.add(dwg.path(
-        d="M 35.295871,44.770537 V 4.7384198 L 0.94545599,4.7289739 V 43.000013 Z",
-        fill="#1a52ff",
-        opacity="0.96",
-        stroke="none"
-    ))
-
-    # Cara lateral derecha visible (azul claro)
-    cube_group.add(dwg.path(
-        d="M 50.712576,33.120864 35.295871,44.770537 V 4.7384198 L 50.712576,1.4628125 Z",
-        fill="#1c9bd0",
-        stroke="none"
-    ))
-
-    # Añadir el borde general del cubo
-    cube_group.add(dwg.rect(
-        insert=(viewbox_x, viewbox_y),
-        size=(viewbox_w, viewbox_h),
-        fill="none",
-        stroke="#cbcbcb",
-        stroke_width="0.48",
-        opacity="0.67"
-    ))
-
-    g.add(cube_group)
     dwg.add(g)

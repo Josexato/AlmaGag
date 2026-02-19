@@ -1,40 +1,53 @@
 {
-  "canvas": {},
+  "canvas": { "width": 2000, "height": 1200 },
   "elements": [
-    { "id": "start", "label": "Inicio", "type": "cloud", "color": "lightgreen" },
+    { "id": "jose_heraclides", "label": "José Heráclides", "type": "server", "color": "gold" },
+    { "id": "daria", "label": "Daría", "type": "server", "color": "gold" },
 
-    { "id": "init", "label": "Definir N\nlistaPrimos=[]\nn=2", "type": "building", "color": "lightblue" },
+    { "id": "silvia", "label": "Silvia", "type": "serveer", "color": "lightblue" },
+    { "id": "lica", "label": "Lica", "type": "server", "color": "lightblue" },
+    { "id": "patricia", "label": "Patricia", "type": "server", "color": "lightblue" },
+    { "id": "santiago", "label": "Santiago", "type": "server", "color": "lightblue" },
+    { "id": "jose", "label": "José", "type": "server", "color": "lightblue" },
 
-    {
-      "id": "for_frame",
-      "label": "FOR: n = 2..N",
-      "type": "firewall",
-      "color": "lightyellow"
-    },
-
-    { "id": "iter", "label": "Iteración (n)", "type": "building", "color": "lightblue" },
-    { "id": "check_prime", "label": "p = isPrime(n)", "type": "building", "color": "lightblue" },
-    { "id": "if_prime", "label": "¿p == True?", "type": "firewall", "color": "khaki" },
-    { "id": "append", "label": "listaPrimos.append(n)", "type": "building", "color": "lightblue" },
-    { "id": "next_n", "label": "n = n + 1", "type": "building", "color": "lightblue" },
-
-    { "id": "end", "label": "Fin\nMostrar listaPrimos", "type": "cloud", "color": "salmon" }
+    { "id": "sebastian", "label": "Sebastián", "type": "server", "color": "lightgreen" },
+    { "id": "mateo", "label": "Mateo", "type": "server", "color": "lightgreen" },
+    { "id": "pascual", "label": "Pascual", "type": "server", "color": "lightgreen" },
+    { "id": "diego", "label": "Diego", "type": "server", "color": "lightgreen" },
+    { "id": "jose_antonio", "label": "José Antonio", "type": "server", "color": "lightgreen" },
+    { "id": "patricia_hija_santiago", "label": "Patricia\n(hija de Santiago)", "type": "server", "color": "lightgreen" },
+    { "id": "santiagoito", "label": "Santiagoito", "type": "server", "color": "lightgreen" },
+    { "id": "gerardo", "label": "Gerardo", "type": "server", "color": "lightgreen" },
+    { "id": "dante", "label": "Dante", "type": "server", "color": "lightgreen" }
   ],
   "connections": [
-    { "from": "start", "to": "init", "label": "flujo" },
+    { "from": "jose_heraclides", "to": "silvia", "direction": "forward" },
+    { "from": "daria", "to": "silvia", "direction": "forward" },
 
-    { "from": "init", "to": "iter", "label": "entra al for" },
+    { "from": "jose_heraclides", "to": "lica", "direction": "forward" },
+    { "from": "daria", "to": "lica", "direction": "forward" },
 
-    { "from": "iter", "to": "check_prime", "label": "flujo" },
-    { "from": "check_prime", "to": "if_prime", "label": "flujo" },
+    { "from": "jose_heraclides", "to": "patricia", "direction": "forward" },
+    { "from": "daria", "to": "patricia", "direction": "forward" },
 
-    { "from": "if_prime", "to": "append", "label": "sí" },
-    { "from": "if_prime", "to": "next_n", "label": "no" },
+    { "from": "jose_heraclides", "to": "santiago", "direction": "forward" },
+    { "from": "daria", "to": "santiago", "direction": "forward" },
 
-    { "from": "append", "to": "next_n", "label": "flujo" },
+    { "from": "jose_heraclides", "to": "jose", "direction": "forward" },
+    { "from": "daria", "to": "jose", "direction": "forward" },
 
-    { "from": "next_n", "to": "iter", "label": "loop" },
+    { "from": "silvia", "to": "sebastian", "direction": "forward" },
 
-    { "from": "next_n", "to": "end", "label": "si n > N" }
+    { "from": "lica", "to": "mateo", "direction": "forward" },
+    { "from": "lica", "to": "pascual", "direction": "forward" },
+
+    { "from": "patricia", "to": "diego", "direction": "forward" },
+
+    { "from": "santiago", "to": "jose_antonio", "direction": "forward" },
+    { "from": "santiago", "to": "patricia_hija_santiago", "direction": "forward" },
+    { "from": "santiago", "to": "santiagoito", "direction": "forward" },
+
+    { "from": "jose", "to": "gerardo", "direction": "forward" },
+    { "from": "jose", "to": "dante", "direction": "forward" }
   ]
 }
