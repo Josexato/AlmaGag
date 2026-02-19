@@ -489,6 +489,71 @@ class ContainerGrower:
             # Siguiente capa
             current_y = layer_bottom + spacing
 
+    def _measure_placed_content(
+        self,
+        children: List[str],
+        layout,
+        padding: float
+    ) -> Tuple[float, float, float]:
+        """
+        Mide el bounding box real de los elementos posicionados + sus etiquetas.
+
+        Coordenadas locales (relativas al box de contenido del contenedor).
+
+        Args:
+            children: IDs de elementos hijos
+            layout: Layout con elements_by_id y label_positions
+            padding: Padding del contenedor
+
+        Returns:
+            (min_x, max_x, max_y) del contenido colocado (coordenadas locales)
+        """
+        min_x = float('inf')
+        max_x = float('-inf')
+        max_y = float('-inf')
+
+        for child_id in children:
+            child = layout.elements_by_id.get(child_id)
+            if not child or 'x' not in child:
+                continue
+
+            cx = child['x']
+            cy = child['y']
+            cw = child.get('width', ICON_WIDTH)
+            ch = child.get('height', ICON_HEIGHT)
+
+            min_x = min(min_x, cx)
+            max_x = max(max_x, cx + cw)
+            max_y = max(max_y, cy + ch)
+
+            # Considerar etiqueta posicionada
+            if child_id in layout.label_positions:
+                lx, ly, anchor, _ = layout.label_positions[child_id]
+                label_text = child.get('label', '')
+                if label_text:
+                    lines = label_text.split('\n')
+                    label_w = max(len(line) for line in lines) * 8
+                    label_h = len(lines) * 18
+
+                    if anchor == 'middle':
+                        lx1 = lx - label_w / 2
+                        lx2 = lx + label_w / 2
+                    elif anchor == 'end':
+                        lx1 = lx - label_w
+                        lx2 = lx
+                    else:  # 'start'
+                        lx1 = lx
+                        lx2 = lx + label_w
+
+                    min_x = min(min_x, lx1)
+                    max_x = max(max_x, lx2)
+                    max_y = max(max_y, ly + label_h)
+
+        if min_x == float('inf'):
+            return (0, 0, 0)
+
+        return (min_x, max_x, max_y)
+
     def _calculate_content_dimensions(
         self,
         children: List[str],
@@ -652,6 +717,45 @@ class ContainerGrower:
         self._position_contained_elements(
             children, layout, padding, header_height, final_width
         )
+
+        # PASO 4.5: Recalcular bounds reales (íconos + etiquetas posicionadas)
+        # Las etiquetas pueden haberse colocado a la derecha/izquierda y exceder
+        # el ancho estimado en paso 2. Expandir contenedor si es necesario.
+        actual_min_x, actual_max_x, actual_max_y = self._measure_placed_content(
+            children, layout, padding
+        )
+        actual_content_width = actual_max_x - actual_min_x
+        actual_content_height = actual_max_y
+
+        if actual_content_width + (2 * padding) > final_width:
+            old_width = final_width
+            final_width = actual_content_width + (2 * padding)
+
+            # Re-centrar elementos: shift_x para compensar el nuevo ancho
+            # actual_min_x es la x mínima del contenido; queremos que el contenido
+            # quede centrado en el nuevo ancho
+            desired_min_x = (final_width - 2 * padding - actual_content_width) / 2
+            shift_x = desired_min_x - actual_min_x
+            if abs(shift_x) > 0.5:
+                for child_id in children:
+                    child = layout.elements_by_id.get(child_id)
+                    if child and 'x' in child:
+                        child['x'] += shift_x
+                    if child_id in layout.label_positions:
+                        lx, ly, anch, bl = layout.label_positions[child_id]
+                        layout.label_positions[child_id] = (lx + shift_x, ly, anch, bl)
+
+            # Verificar ancho mínimo para etiqueta del contenedor (de nuevo)
+            if container.get('label'):
+                label_text = container['label']
+                lines = label_text.split('\n')
+                max_line_len = max(len(line) for line in lines) if lines else 0
+                lbl_width = max_line_len * 8
+                min_width_for_label = 10 + ICON_WIDTH + 10 + lbl_width + 10
+                final_width = max(final_width, min_width_for_label)
+
+        # Usar la altura real del contenido si es mayor que la estimada
+        content_height = max(content_height, actual_content_height)
 
         # PASO 5: Calcular altura final del contenedor
         final_height = padding + header_height + padding + content_height + padding

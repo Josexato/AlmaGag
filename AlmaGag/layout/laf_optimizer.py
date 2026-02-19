@@ -407,6 +407,7 @@ class LAFOptimizer:
             items.sort(key=lambda t: t[0])
 
             # For each adjacent pair, compute required scale
+            # Scale is applied to centroids, so we need half-widths of both neighbors
             for i in range(len(items) - 1):
                 abs_x_i = items[i][0]
                 abs_x_next = items[i + 1][0]
@@ -415,8 +416,9 @@ class LAFOptimizer:
                 if abstract_gap <= 0:
                     continue  # Same position, skip
 
-                width_i = items[i][1]
-                required_gap = width_i + MIN_HORIZONTAL_GAP
+                half_width_i = items[i][1] / 2
+                half_width_next = items[i + 1][1] / 2
+                required_gap = half_width_i + half_width_next + MIN_HORIZONTAL_GAP
                 required_scale = required_gap / abstract_gap
                 global_x_scale = max(global_x_scale, required_scale)
 
@@ -890,6 +892,7 @@ class LAFOptimizer:
             print(f"[LAF] Pipeline completo")
 
         layout.sizing = self.sizing
+        layout.structure_info = structure_info
         return layout
 
     def _update_optimized_layer_order(self, optimized_positions, structure_info, layout):

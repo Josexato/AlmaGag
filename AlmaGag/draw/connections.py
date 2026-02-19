@@ -238,8 +238,9 @@ def _draw_computed_path(dwg, from_elem, to_elem, connection, computed_path, mark
         y2 = to_elem['y'] + ICON_HEIGHT // 2
         return (x1 + x2) / 2, (y1 + y2) / 2
 
-    # Aplicar offsets visuales para evitar superposición con íconos
-    adjusted_points = _apply_visual_offsets(points, from_elem, to_elem)
+    # Aplicar offsets visuales (skip para self-loops — los puntos ya están en el borde)
+    is_self_loop = from_elem['id'] == to_elem['id']
+    adjusted_points = points if is_self_loop else _apply_visual_offsets(points, from_elem, to_elem)
 
     if path_type == 'line':
         return _draw_straight_line(dwg, adjusted_points, direction, markers, stroke_color)
@@ -408,8 +409,10 @@ def _draw_arc(dwg, points, arc_center, radius, direction, markers, stroke_color=
     # large-arc-flag: 0 si ángulo < 180°, 1 si >= 180°
     # sweep-flag: 1 para sentido horario, 0 para antihorario
 
-    # Para simplificar, usar large-arc=0, sweep=1
-    path_d = f"M {x1},{y1} A {radius},{radius} 0 0,1 {x2},{y2}"
+    # Self-loops: start y end están cerca, necesitan large-arc=1 para el loop completo
+    dist = math.hypot(x2 - x1, y2 - y1)
+    large_arc = 1 if dist < radius * 2 else 0
+    path_d = f"M {x1},{y1} A {radius},{radius} 0 {large_arc},1 {x2},{y2}"
 
     path_attrs = {
         'd': path_d,
@@ -446,7 +449,8 @@ def draw_connection_label(dwg, connection, position):
         text_anchor="middle",
         font_size="12px",
         font_family="Arial, sans-serif",
-        fill="gray"
+        fill="gray",
+        filter='url(#text-glow)'
     ))
 
 

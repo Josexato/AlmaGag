@@ -1,4 +1,5 @@
 import os, json, svgwrite, logging, csv, colorsys
+from svgwrite.container import Group
 from datetime import datetime
 from AlmaGag.config import (
     WIDTH, HEIGHT, ICON_WIDTH, ICON_HEIGHT,
@@ -15,6 +16,25 @@ from AlmaGag.debug import add_debug_badge, convert_svg_to_png
 
 # Logger global para AlmaGag
 logger = logging.getLogger('AlmaGag')
+
+
+class DrawingGroupProxy:
+    """Proxy that redirects add() to a Group while delegating factory methods to Drawing.
+
+    Used to wrap SVG elements in <g> groups with <desc> metadata for NdFn labels.
+    Factory methods (rect, text, linearGradient, defs, etc.) go to the real Drawing,
+    while add() puts elements into the group.
+    """
+
+    def __init__(self, dwg, group):
+        self._dwg = dwg
+        self._group = group
+
+    def add(self, element):
+        return self._group.add(element)
+
+    def __getattr__(self, name):
+        return getattr(self._dwg, name)
 
 def dump_layout_table(optimized_layout, elements_by_id, containers, phase="FINAL", csv_file=None):
     """
@@ -737,9 +757,17 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
         canvas_height = final_canvas['height']
         print(f"     - Canvas expandido a {canvas_width}x{canvas_height}")
 
-    # 6. Crear SVG
-    dwg = svgwrite.Drawing(output_svg, size=(canvas_width, canvas_height))
+    # 6. Crear SVG (debug=False: svgwrite validator rejects SVG2 attrs like paint-order)
+    dwg = svgwrite.Drawing(output_svg, size=(canvas_width, canvas_height), debug=False)
     dwg.viewbox(0, 0, canvas_width, canvas_height)
+
+    # Filtro global de glow blanco para etiquetas (Gaussian blur)
+    text_glow = dwg.filter(id='text-glow', x='-20%', y='-20%', width='140%', height='140%')
+    text_glow.feGaussianBlur(in_='SourceGraphic', stdDeviation=2, result='blur')
+    text_glow.feFlood(flood_color='white', flood_opacity=1, result='color')
+    text_glow.feComposite(in_='color', in2='blur', operator='in', result='shadow')
+    text_glow.feMerge(layernames=['shadow', 'shadow', 'SourceGraphic'])
+    dwg.defs.add(text_glow)
 
     # Agregar franja de debug PRIMERO (debe estar debajo de todo)
     if visualdebug:
@@ -785,12 +813,59 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     if debug and csv_file:
         dump_layout_table(optimized_layout, elements_by_id, containers, phase="OPTIMIZED", csv_file=csv_file)
 
+    # === Construir etiquetas NdFn para debug ===
+    ndfn_labels = {}
+    if visualdebug and hasattr(optimized_layout, 'structure_info') and optimized_layout.structure_info:
+        si = optimized_layout.structure_info
+        ndpr_map = {eid: nid.replace('NdPr', '') for eid, nid in si.primary_node_ids.items()}
+        container_children = {}
+        for eid, elem in elements_by_id.items():
+            if 'contains' in elem and elem['contains']:
+                container_children[eid] = [
+                    item['id'] if isinstance(item, dict) else item
+                    for item in elem['contains']
+                ]
+        aaa = 1
+        for eid in si.primary_elements:
+            xxx = ndpr_map.get(eid, '000')
+            node_type = si.primary_node_types.get(eid, 'Simple')
+            is_container = eid in container_children
+            is_virtual = node_type == 'Contenedor Virtual'
+            ndfn_labels[eid] = f"NdFn.{aaa:03d}.{xxx}.0"
+            aaa += 1
+            if is_container:
+                if not is_virtual:
+                    ndfn_labels[f"{eid}__icon"] = f"NdFn.{aaa:03d}.{xxx}.1"
+                    aaa += 1
+                sub_idx = 2
+                for child_id in container_children[eid]:
+                    ndfn_labels[child_id] = f"NdFn.{aaa:03d}.{xxx}.{sub_idx}"
+                    aaa += 1
+                    sub_idx += 1
+        logger.debug(f"[NdFn] {len(ndfn_labels)} etiquetas generadas para visualdebug")
+
+    def _ndfn_wrap(target, elem_id, ndfn_labels):
+        """Wrap drawing target in a <g> with <desc> if NdFn label exists.
+
+        Returns (draw_target, group_or_None). If wrapping, caller must
+        add group_or_None to dwg after drawing.
+        """
+        ndfn = ndfn_labels.get(elem_id, '')
+        if not ndfn:
+            return target, None
+        g = target.g(id=f'ndfn-{elem_id}')
+        g.set_desc(desc=f'{ndfn} | {elem_id}')
+        return DrawingGroupProxy(target, g), g
+
     # === Renderizado en orden correcto ===
     # 0. Dibujar todos los contenedores (solo fondo, sin ícono ni labels)
     for container in containers:
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"[RECT] {container['id']}: ({container.get('x', 0):.1f}, {container.get('y', 0):.1f}) {container.get('width', 0):.1f}x{container.get('height', 0):.1f}")
-        draw_container(dwg, container, elements_by_id, draw_label=False, layout_algorithm=layout_algorithm, draw_icon=False)
+        draw_target, ndfn_group = _ndfn_wrap(dwg, container['id'], ndfn_labels)
+        draw_container(draw_target, container, elements_by_id, draw_label=False, layout_algorithm=layout_algorithm, draw_icon=False)
+        if ndfn_group is not None:
+            dwg.add(ndfn_group)
 
     # 1. Dibujar todos los íconos normales (sin etiquetas)
     logger.debug(f"\n[DIBUJAR ELEMENTOS] Total: {len(normal_elements)}")
@@ -798,7 +873,10 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
         if 'x' in elem and 'y' in elem:
             logger.debug(f"  {elem['id']}: ({elem['x']:.1f}, {elem['y']:.1f}) "
                        f"size({elem.get('width', ICON_WIDTH):.1f} x {elem.get('height', ICON_HEIGHT):.1f})")
-        draw_icon_shape(dwg, elem)
+        draw_target, ndfn_group = _ndfn_wrap(dwg, elem['id'], ndfn_labels)
+        draw_icon_shape(draw_target, elem)
+        if ndfn_group is not None:
+            dwg.add(ndfn_group)
 
     # 1.5. Dibujar íconos de contenedores (encima de elementos contenidos)
     for container in containers:
@@ -834,25 +912,32 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"[ICON] {container_id}: container=({container_x:.1f}, {container_y:.1f}), icon=({icon_x:.1f}, {icon_y:.1f})")
 
+        # Wrap container icon in NdFn group if label exists
+        icon_ndfn_key = f"{container_id}__icon"
+        draw_target, ndfn_group = _ndfn_wrap(dwg, icon_ndfn_key, ndfn_labels)
+
         # Dibujar ícono directamente
         try:
             import importlib
             icon_module = importlib.import_module(f'AlmaGag.draw.{icon_type}')
             draw_func = getattr(icon_module, f'draw_{icon_type}')
             icon_elem_id = f"{container_id}_icon"
-            draw_func(dwg, icon_x, icon_y, color, icon_elem_id)
+            draw_func(draw_target, icon_x, icon_y, color, icon_elem_id)
         except (ImportError, AttributeError) as e:
             # Fallback: dibujar rectángulo simple
             from AlmaGag.draw.icons import create_gradient
-            gradient_id = create_gradient(dwg, container_id, color)
+            gradient_id = create_gradient(draw_target, container_id, color)
             icon_size = min(ICON_WIDTH, ICON_HEIGHT) * 0.6
-            dwg.add(dwg.rect(
+            draw_target.add(draw_target.rect(
                 insert=(icon_x, icon_y),
                 size=(icon_size, icon_size),
                 fill=gradient_id,
                 stroke='black',
                 opacity=1.0
             ))
+
+        if ndfn_group is not None:
+            dwg.add(ndfn_group)
 
     # 2. Dibujar todas las conexiones optimizadas (sin etiquetas)
     conn_centers = {}
@@ -863,7 +948,29 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
         else:
             conn_markers = markers
             conn_color = 'black'
-        center = draw_connection_line(dwg, elements_by_id, conn, conn_markers, stroke_color=conn_color)
+
+        # Wrap connection in <g> with <desc> if visualdebug
+        conn_ndfn_group = None
+        draw_target = dwg
+        if ndfn_labels:
+            from_ndfn = ndfn_labels.get(conn['from'], conn['from'])
+            to_ndfn = ndfn_labels.get(conn['to'], conn['to'])
+            # Extract AAA numbers for concise id
+            from_aaa = from_ndfn.split('.')[1] if '.' in from_ndfn else conn['from']
+            to_aaa = to_ndfn.split('.')[1] if '.' in to_ndfn else conn['to']
+            conn_id = f"conn-{from_aaa}-to-{to_aaa}"
+            conn_ndfn_group = dwg.g(id=conn_id)
+            label = conn.get('label', '')
+            desc_text = f"From {from_ndfn} to {to_ndfn}"
+            if label:
+                desc_text += f" | {label}"
+            conn_ndfn_group.set_desc(desc=desc_text)
+            draw_target = DrawingGroupProxy(dwg, conn_ndfn_group)
+
+        center = draw_connection_line(draw_target, elements_by_id, conn, conn_markers, stroke_color=conn_color)
+        if conn_ndfn_group is not None:
+            dwg.add(conn_ndfn_group)
+
         key = f"{conn['from']}->{conn['to']}"
         conn_centers[key] = center
 
@@ -898,10 +1005,18 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
                     category="connection"
                 ))
 
-    # Etiquetas de elementos normales (incluye elementos dentro de contenedores)
+    # Identificar elementos contenidos (sus etiquetas ya fueron posicionadas
+    # por ContainerGrower con detección de colisiones interna)
+    contained_element_ids = set()
+    for container in containers:
+        for item in container.get('contains', []):
+            cid = item['id'] if isinstance(item, dict) else item
+            contained_element_ids.add(cid)
+
+    # Etiquetas de elementos normales (excluye contenidos — ya posicionados por ContainerGrower)
     for elem in elements:
-        # Solo agregar elementos que NO son contenedores
-        if 'contains' not in elem and elem.get('label') and 'x' in elem and 'y' in elem:
+        # Solo agregar elementos que NO son contenedores NI están contenidos
+        if 'contains' not in elem and elem['id'] not in contained_element_ids and elem.get('label') and 'x' in elem and 'y' in elem:
             elem_id = elem['id']
             elem_width = elem.get('width', ICON_WIDTH)
             elem_height = elem.get('height', ICON_HEIGHT)
@@ -962,7 +1077,8 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
                         text_anchor=optimized_pos.anchor,
                         font_size="14px",
                         font_family="Arial, sans-serif",
-                        fill="black"
+                        fill="black",
+                        filter='url(#text-glow)'
                     ))
             else:
                 # Fallback: usar posición antigua del layout
@@ -982,7 +1098,8 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
                     text_anchor=optimized_pos.anchor,
                     font_size="12px",
                     font_family="Arial, sans-serif",
-                    fill="gray"
+                    fill="gray",
+                    filter='url(#text-glow)'
                 ))
             else:
                 # Fallback a método antiguo
@@ -1072,7 +1189,8 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
                         font_size="16px",
                         font_family="Arial, sans-serif",
                         font_weight="bold",
-                        fill="black"
+                        fill="black",
+                        filter='url(#text-glow)'
                     ))
 
     # ============================================================================
@@ -1147,6 +1265,39 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
             ))
 
             logger.debug(f"    {elem_id}: nivel={level}, pos=({elem_x:.0f}, {elem_y:.0f}), size=({elem_width:.0f}x{elem_height:.0f})")
+
+    # Agregar etiquetas NdFn como anotaciones visibles (solo visualdebug)
+    if ndfn_labels:
+        for elem in elements:
+            eid = elem.get('id', '')
+            if 'x' not in elem or 'y' not in elem:
+                continue
+            x = elem['x']
+            y = elem['y']
+
+            ndfn = ndfn_labels.get(eid, '')
+            if ndfn:
+                dwg.add(dwg.text(
+                    ndfn,
+                    insert=(x + 2, y + 8),
+                    font_size='7px',
+                    fill='red',
+                    font_family='monospace',
+                    font_weight='bold',
+                    opacity=0.8
+                ))
+
+            ndfn_icon = ndfn_labels.get(f"{eid}__icon", '')
+            if ndfn_icon:
+                dwg.add(dwg.text(
+                    ndfn_icon,
+                    insert=(x + 2, y + 16),
+                    font_size='7px',
+                    fill='#e85d04',
+                    font_family='monospace',
+                    font_weight='bold',
+                    opacity=0.8
+                ))
 
     dwg.save()
     print(f"[OK] Diagrama generado exitosamente: {output_svg}")

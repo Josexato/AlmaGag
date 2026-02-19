@@ -321,7 +321,8 @@ def draw_icon_label(dwg, element, position_info):
             text_anchor=anchor,
             font_size="14px",
             font_family="Arial, sans-serif",
-            fill="black"
+            fill="black",
+            filter='url(#text-glow)'
         ))
 
 

@@ -65,6 +65,20 @@ def calculate_container_bounds(container, elements_by_id):
         max_x = max(max_x, elem_x + elem_w)
         max_y = max(max_y, elem_y + elem_h)
 
+        # Considerar etiqueta del elemento contenido
+        if elem.get('label'):
+            lines = elem['label'].split('\n')
+            label_w = max(len(line) for line in lines) * 8  # ~8px/char
+            label_h = len(lines) * 18  # 18px/line
+            # Etiqueta centrada debajo del elemento (posición por defecto)
+            label_cx = elem_x + elem_w / 2
+            label_y = elem_y + elem_h + 15  # 15px gap
+            label_x1 = label_cx - label_w / 2
+            label_x2 = label_cx + label_w / 2
+            min_x = min(min_x, label_x1)
+            max_x = max(max_x, label_x2)
+            max_y = max(max_y, label_y + label_h)
+
     # Aplicar padding
     min_x -= padding
     min_y -= padding
