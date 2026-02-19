@@ -65,6 +65,12 @@ PENALTY_COLLISION_LINE = 75                # Collision with connection line
 PENALTY_DENSITY_LOCAL = 60                 # Per nearby label
 DENSITY_SEARCH_RADIUS = ICON_WIDTH * 0.9375  # 75px - search radius for local density
 
+# Connection corner radius (50% of smallest icon dimension)
+CORNER_RADIUS_DEFAULT = min(ICON_WIDTH, ICON_HEIGHT) * 0.5  # 25px
+
+# Parallel segment separation
+SEGMENT_SEPARATION_SPACING = ICON_WIDTH * 0.1  # 8px - spacing between parallel segments
+
 # Connection label
 CONNECTION_BBOX_PADDING = ICON_WIDTH * 0.1  # 8px - padding around connection line
 

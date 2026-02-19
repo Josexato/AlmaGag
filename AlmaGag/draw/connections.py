@@ -15,7 +15,7 @@ Fecha: 2026-01-08
 """
 
 import math
-from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
+from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT, CORNER_RADIUS_DEFAULT
 
 
 def compute_visual_offset(elem):
@@ -334,14 +334,12 @@ def _draw_straight_line(dwg, points, direction, markers, stroke_color='black'):
 
 
 def _draw_polyline(dwg, points, direction, markers, corner_radius=0, stroke_color='black'):
-    """Dibuja una polyline, opcionalmente con esquinas redondeadas."""
+    """Dibuja una polyline, opcionalmente con esquinas redondeadas via SVG path Q curves."""
     if len(points) < 2:
         return (0, 0)
 
-    if corner_radius > 0:
-        # TODO: Implementar corner radius con path SVG
-        # Por ahora, usar polyline sharp
-        pass
+    if corner_radius > 0 and len(points) > 2:
+        return _draw_rounded_polyline(dwg, points, direction, markers, corner_radius, stroke_color)
 
     polyline_attrs = {
         'points': points,
@@ -353,6 +351,64 @@ def _draw_polyline(dwg, points, direction, markers, corner_radius=0, stroke_colo
     _apply_direction_markers(polyline_attrs, direction, markers)
 
     dwg.add(dwg.polyline(**polyline_attrs))
+
+    # Calcular centro (promedio de puntos)
+    total_x = sum(p[0] for p in points)
+    total_y = sum(p[1] for p in points)
+    return total_x / len(points), total_y / len(points)
+
+
+def _draw_rounded_polyline(dwg, points, direction, markers, corner_radius, stroke_color='black'):
+    """Dibuja polyline con esquinas redondeadas usando SVG path con curvas cuadraticas (Q)."""
+    # Construir SVG path: M start L...Q...L... end
+    x0, y0 = points[0]
+    path_d = f"M {x0:.1f},{y0:.1f}"
+
+    for i in range(1, len(points) - 1):
+        # Punto anterior, actual (vertice), siguiente
+        px, py = points[i - 1]
+        vx, vy = points[i]
+        nx, ny = points[i + 1]
+
+        # Vectores de entrada y salida
+        in_dx, in_dy = vx - px, vy - py
+        out_dx, out_dy = nx - vx, ny - vy
+
+        in_len = math.hypot(in_dx, in_dy)
+        out_len = math.hypot(out_dx, out_dy)
+
+        if in_len == 0 or out_len == 0:
+            path_d += f" L {vx:.1f},{vy:.1f}"
+            continue
+
+        # Radio efectivo: no puede ser mayor que la mitad de cualquier segmento adyacente
+        r = min(corner_radius, in_len / 2, out_len / 2)
+
+        # Punto donde empieza la curva (sobre el segmento de entrada, a distancia r del vertice)
+        sx = vx - (in_dx / in_len) * r
+        sy = vy - (in_dy / in_len) * r
+
+        # Punto donde termina la curva (sobre el segmento de salida, a distancia r del vertice)
+        ex = vx + (out_dx / out_len) * r
+        ey = vy + (out_dy / out_len) * r
+
+        # L hasta inicio de curva, Q con vertice como control point hasta fin de curva
+        path_d += f" L {sx:.1f},{sy:.1f} Q {vx:.1f},{vy:.1f} {ex:.1f},{ey:.1f}"
+
+    # Linea final al ultimo punto
+    xn, yn = points[-1]
+    path_d += f" L {xn:.1f},{yn:.1f}"
+
+    path_attrs = {
+        'd': path_d,
+        'stroke': stroke_color,
+        'stroke_width': 2,
+        'fill': 'none'
+    }
+
+    _apply_direction_markers(path_attrs, direction, markers)
+
+    dwg.add(dwg.path(**path_attrs))
 
     # Calcular centro (promedio de puntos)
     total_x = sum(p[0] for p in points)
