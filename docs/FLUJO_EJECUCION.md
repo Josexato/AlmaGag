@@ -57,7 +57,7 @@ Sistema anterior basado en detección de colisiones
 
 ---
 
-## Flujo LAF (Layout Abstracto Primero)
+## Flujo LAF (Layout Abstracto Primero) — 9 Fases
 
 ### Phase 1: Structure Analysis
 
@@ -66,7 +66,7 @@ Sistema anterior basado en detección de colisiones
 **Responsabilidades:**
 1. **Build Element Tree** - Identifica elementos primarios vs contenidos
 2. **Build Connection Graph** - Grafo dirigido de conexiones
-3. **Calculate Topological Levels** - BFS para asignar niveles
+3. **Calculate Topological Levels** - BFS para asignar niveles (longest-path)
 4. **Calculate Accessibility Scores** - Score de importancia de nodos
 5. **Group by Type** - Agrupa elementos por tipo
 
@@ -86,14 +86,9 @@ for neighbor in successors(current):
     )
 ```
 
-**Accessibility Scores:**
-- `W_hijos` (hub-ness): Nodos con más hijos tienen mayor score
-- `W_precedence` (skip connections): Padres de niveles distantes
-- `W_fanin` (opcional): Múltiples padres en mismo nivel
+### Phase 2: Topological Analysis (Visualización)
 
-### Phase 2: Topological Analysis
-
-**Archivo:** Visualización en `laf_optimizer.py` (líneas 610-640)
+**Archivo:** Visualización en `laf_optimizer.py`
 
 **Responsabilidades:**
 1. **Mostrar Niveles Topológicos** - Distribución de elementos por nivel
@@ -102,42 +97,22 @@ for neighbor in successors(current):
 
 **Output:** Debug info + `phase2_topology.svg`
 
-**Visualización SVG:**
-- **Niveles Horizontales:** Elementos organizados en filas por nivel topológico
-- **Color Coding por Score:**
-  - 🔴 **Rojo** (score > 0.05): Elementos muy importantes (hubs principales)
-  - 🟡 **Amarillo** (0.02 - 0.05): Elementos importantes
-  - 🔵 **Azul** (< 0.02): Elementos normales
-- **Labels:** Muestran ID del elemento y score (si > 0)
-- **Leyenda:** Explica el significado de los colores
+**Color Coding por Score:**
+- **Rojo** (score > 0.05): Elementos muy importantes (hubs principales)
+- **Amarillo** (0.02 - 0.05): Elementos importantes
+- **Azul** (< 0.02): Elementos normales
 
-**Debug Output:**
-```
-[LAF] FASE 2: Análisis topológico
---------------------------------------------------------------
-[LAF] Niveles topológicos:
-      Nivel 0: input, layout_module-stage, optimizer
-      Nivel 1: main, render, label_position_optimizer
-      Nivel 2: generator
-      Nivel 3: svgwrite
+### Phase 3: Centrality Ordering
 
-[LAF] Scores de accesibilidad:
-      optimizer: 0.0450 (nivel 0)
-      render: 0.0320 (nivel 1)
-      layout_module-stage: 0.0210 (nivel 0)
+**Archivo:** `AlmaGag/layout/laf_optimizer.py`
 
-[LAF] [OK] Análisis topológico completado
-      - 30 elementos con niveles
-      - 5 elementos con accessibility score > 0
-```
+**Responsabilidades:**
+1. **Ordenar por centralidad** - Scores de importancia para positioning
+2. **Preparar entrada para Abstract Placement**
 
-**Propósito:**
-Esta fase hace visibles los cálculos que ya se hacían en Fase 1 pero estaban "ocultos". Permite entender:
-- Cómo se distribuyen los elementos en niveles
-- Qué elementos son más importantes (mayor score)
-- La topología del grafo antes del layout abstracto
+**Output:** Orden de centralidad + `phase3_centrality.svg`
 
-### Phase 3: Abstract Placement
+### Phase 4: Abstract Placement
 
 **Archivo:** `AlmaGag/layout/laf/abstract_placer.py:AbstractPlacer`
 
@@ -149,7 +124,7 @@ Esta fase hace visibles los cálculos que ya se hacían en Fase 1 pero estaban "
    - Tipo de elemento (agrupación)
 3. **Positioning** - Distribuir uniformemente en cada capa
 
-**Output:** `abstract_positions` - Posiciones como puntos de 1px
+**Output:** `abstract_positions` - Posiciones como puntos de 1px + `phase4_abstract.svg`
 
 **Barycenter Bidireccional:**
 ```python
@@ -163,151 +138,110 @@ barycenter_backward = avg([pos(child) for child in children])
 barycenter_final = (barycenter_forward + barycenter_backward) / 2
 ```
 
-**Integración de Accessibility Score:**
-```python
-# Atraer nodos importantes al centro
-center_x = canvas_width / 2
-score_influence = SCORE_CENTER_INFLUENCE  # 0.3
+### Phase 5: Position Optimization
 
-adjusted_x = (
-    barycenter_x * (1 - score_influence * score) +
-    center_x * (score_influence * score)
-)
-```
+**Archivo:** `AlmaGag/layout/laf/position_optimizer.py:PositionOptimizer`
 
-### Phase 4: Inflation
+**Responsabilidades:**
+1. **Layer-offset bisection** - Minimizar distancia ponderada de conectores
+2. **Forward + backward iterations** - Convergencia < 0.001
+3. **Preservar orden relativo** del barycenter
 
-**Archivo:** `AlmaGag/layout/laf/inflator.py:ElementInflator`
+**Output:** Posiciones optimizadas + `phase5_optimized.svg`
+
+### Phase 6: Inflation + Container Growth (fusionadas)
+
+**Archivos:**
+- `AlmaGag/layout/laf/inflator.py:ElementInflator`
+- `AlmaGag/layout/laf/container_grower.py:ContainerGrower`
 
 **Responsabilidades:**
 1. **Convert Abstract → Real** - Mapear posiciones abstractas a píxeles reales
-2. **Apply Spacing** - Separación horizontal y vertical entre elementos
-3. **Position Labels** - Calcular posición de etiquetas de elementos
-4. **Calculate Real Dimensions** - Ancho y alto reales de cada elemento
+2. **Apply Spacing** - Separación horizontal y vertical
+3. **Calculate Real Dimensions** - Ancho y alto reales
+4. **Expand Containers** - Bottom-up, ajustar a contenido
+5. **Position Children** - Grid horizontal dentro de contenedores
+6. **_measure_placed_content()** - Post-check de bounds reales incluyendo labels
+7. **Step 4.5 expansion** - Expandir si labels exceden estimación
 
-**Output:** Layout con posiciones reales (x, y) y dimensiones (width, height)
-
-**Cálculo de Dimensiones:**
-```python
-# Para iconos simples
-width = ICON_WIDTH (default: 80px)
-height = ICON_HEIGHT (default: 50px)
-
-# Para elementos con etiqueta
-label_height = len(lines) * LINE_HEIGHT
-total_height = icon_height + LABEL_MARGIN + label_height
-```
-
-### Phase 5: Container Growth
-
-**Archivo:** `AlmaGag/layout/laf/container_grower.py:ContainerGrower`
-
-**Responsabilidades:**
-1. **Expand Containers** - Calcular dimensiones de contenedores
-2. **Fit Contents** - Asegurar que contengan todos sus elementos
-3. **Recursive Growth** - Expandir contenedores anidados
-4. **Adjust Positions** - Reposicionar elementos afectados
-
-**Output:** Layout con contenedores expandidos
+**Output:** Layout con posiciones reales y contenedores expandidos + `phase6_inflated.svg`
 
 **Algoritmo de Crecimiento:**
 ```python
 for container in containers (bottom-up):
-    # Calcular bounding box de contenidos
-    min_x = min(child.x for child in contents)
-    max_x = max(child.x + child.width for child in contents)
-    min_y = min(child.y for child in contents)
-    max_y = max(child.y + child.height for child in contents)
-
+    # Posicionar hijos en grid horizontal
+    # Calcular bounding box incluyendo labels
     # Aplicar padding
-    container.width = (max_x - min_x) + 2 * PADDING
-    container.height = (max_y - min_y) + 2 * PADDING
+    # _measure_placed_content() → verificar bounds reales
+    # Expandir si labels exceden estimación (step 4.5)
 ```
 
-### Phase 6: Vertical Redistribution
+### Phase 7: Vertical Redistribution
 
-**Archivo:** `AlmaGag/layout/laf_optimizer.py:_redistribute_vertically()`
+**Archivo:** `AlmaGag/layout/laf_optimizer.py:_redistribute_vertical_after_growth()`
 
 **Responsabilidades:**
 1. **Vertical Redistribution** - Espaciado uniforme entre niveles
-2. **Horizontal Centering** - Centrar elementos dentro de cada nivel
-3. **Preserve Order** - Mantener orden optimizado de Phase 3
+2. **Horizontal X Scale** - `half_width_i + half_width_next + MIN_GAP`
+3. **Global Centering** - Centrar usando bounding boxes de grupos NdFn
+4. **Preserve Order** - Mantener orden optimizado de Phase 4
 
-**Output:** Layout final con distribución óptima
+**Output:** Layout redistribuido + `phase7_redistributed.svg`
 
-**Centrado Horizontal:**
-```python
-for level in levels:
-    elements = elements_in_level(level)
-    total_width = sum(elem.width for elem in elements)
-    spacing = calculate_spacing(elements)
-
-    # Centrar el grupo
-    start_x = (canvas_width - total_width - spacing) / 2
-
-    for elem in elements:
-        elem.x = start_x
-        start_x += elem.width + spacing
-```
-
-### Phase 7: Routing
+### Phase 8: Routing
 
 **Archivo:** `AlmaGag/routing/router_manager.py:RouterManager`
 
 **Responsabilidades:**
-1. **Calculate Paths** - Calcular trayectorias de conexiones
-2. **Avoid Collisions** - Evitar solapamiento con elementos
-3. **Route Types** - Orthogonal, curved, direct
-4. **Waypoints** - Puntos intermedios para rutas complejas
+1. **Calculate Paths** - Trayectorias de conexiones
+2. **Self-loop Detection** - Arcos para `from == to` con `large-arc-flag=1`
+3. **Container Border Routing** - Conexiones a bordes de contenedores
+4. **Route Types** - Orthogonal, curved, direct, arc
 
-**Output:** Lista de paths SVG para cada conexión
+**Output:** Lista de computed_paths + `phase8_routed.svg`
 
-### Phase 8: Visualization (Opcional)
-
-**Archivo:** `AlmaGag/layout/laf/visualizer.py:GrowthVisualizer`
-
-**Solo si:** `--visualize-growth` está activado
-
-**Genera:**
-- `debug/growth/{diagram}/phase1_structure.svg`
-- `debug/growth/{diagram}/phase2_topology.svg` ⭐ NUEVO
-- `debug/growth/{diagram}/phase3_abstract.svg`
-- `debug/growth/{diagram}/phase4_inflated.svg`
-- `debug/growth/{diagram}/phase5_containers.svg`
-- `debug/growth/{diagram}/phase6_redistributed.svg` ⭐ NUEVO
-- `debug/growth/{diagram}/phase7_routed.svg` ⭐ NUEVO
-- `debug/growth/{diagram}/phase8_final.svg` ⭐ NUEVO
-
-**Cambios en v3.0:**
-- Se agregó Phase 2 (Topological Analysis) para visualizar niveles y scores
-- Se renumeraron todas las fases (eliminando 4.5)
-- Se agregaron fases 6, 7, 8 para visualizar redistribución, routing y final
-
-### Phase 8 (Alternative): SVG Generation
+### Phase 9: SVG Generation
 
 **Archivo:** `AlmaGag/generator.py:generate_svg()`
 
 **Responsabilidades:**
-1. **Create SVG Canvas** - Crear documento SVG
-2. **Draw Elements** - Dibujar iconos y contenedores
-3. **Draw Connections** - Dibujar líneas/paths
-4. **Draw Labels** - Dibujar texto de etiquetas
-5. **Apply Visual Debug** - Si `--visualdebug`:
-   - Grilla de referencia
-   - Números de nivel en rojo
-   - Bounding boxes punteados
-   - Badge de debug
-6. **Save SVG** - Escribir archivo
+1. **Create SVG Canvas** - Documento SVG con `debug=False`
+2. **Define Filters** - Gaussian blur text glow (`feGaussianBlur`)
+3. **NdFn Metadata** - Wrapping en `<g>` con `<desc>` (via `DrawingGroupProxy`)
+4. **Draw Containers** - Rectángulos redondeados con gradiente
+5. **Draw Icons** - Shapes con gradientes
+6. **Draw Connections** - Líneas/paths/arcos, coloreadas opcional
+7. **Draw Labels** - Texto con `filter="url(#text-glow)"`
+8. **Optimize Labels** - Reposicionar labels (excluir contenidos)
+9. **Visual Debug** - Si `--visualdebug`: grilla, niveles, badges
+10. **Save SVG** - Escribir archivo
 
-**Output:** Archivo SVG final
+**Output:** Archivo SVG final + `phase9_final.svg`
 
-### Phase 8: PNG Export (Opcional)
+### PNG Export (Opcional)
 
 **Solo si:** `--exportpng` está activado
 
 **Responsabilidades:**
-- Convertir SVG a PNG usando librería externa
+- Convertir SVG a PNG usando Chrome/Edge headless
 - Guardar en `debug/outputs/{name}.png`
+
+### Visualización del Proceso (Opcional)
+
+**Solo si:** `--visualize-growth` está activado
+
+**Archivo:** `AlmaGag/layout/laf/visualizer.py:GrowthVisualizer`
+
+**Genera 9 SVGs** en `debug/growth/{diagram}/`:
+1. `phase1_structure.svg` - Árbol de elementos con métricas
+2. `phase2_topology.svg` - Niveles topológicos y scores
+3. `phase3_centrality.svg` - Ordenamiento por centralidad
+4. `phase4_abstract.svg` - Posiciones abstractas (puntos)
+5. `phase5_optimized.svg` - Posiciones optimizadas
+6. `phase6_inflated.svg` - Inflación + contenedores expandidos
+7. `phase7_redistributed.svg` - Redistribución vertical
+8. `phase8_routed.svg` - Routing de conexiones
+9. `phase9_final.svg` - Layout final completo
 
 ---
 
@@ -401,9 +335,14 @@ En `debug/`:
 
 En `debug/growth/{diagram}/`:
 - `phase1_structure.svg` - Análisis estructural
-- `phase2_abstract.svg` - Layout abstracto + número de cruces
-- `phase3_inflated.svg` - Layout inflado
-- `phase4_final.svg` - Layout final
+- `phase2_topology.svg` - Niveles topológicos + scores
+- `phase3_centrality.svg` - Ordenamiento por centralidad
+- `phase4_abstract.svg` - Layout abstracto + cruces
+- `phase5_optimized.svg` - Posiciones optimizadas
+- `phase6_inflated.svg` - Inflación + contenedores
+- `phase7_redistributed.svg` - Redistribución vertical
+- `phase8_routed.svg` - Routing de conexiones
+- `phase9_final.svg` - Layout final
 
 ---
 
@@ -451,5 +390,5 @@ Si los elementos no caben en el canvas inicial, se expande automáticamente.
 
 ---
 
-**Última actualización:** 2026-02-06
-**Versión del sistema:** v3.0+
+**Última actualización:** 2026-02-19
+**Versión del sistema:** v3.2.0 (LAF 9 fases)

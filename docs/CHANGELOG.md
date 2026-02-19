@@ -4,6 +4,78 @@ Todas las mejoras notables de AlmaGag están documentadas en este archivo.
 
 ---
 
+## [3.2.0] - 2026-02-19
+
+### 🎉 Características Principales
+
+#### LAF v2.0 — Pipeline de 9 fases (consolidado)
+- **Refactor:** Fusión de Fase 6 (Inflation) y Fase 7 (Container Growth) en una sola Fase 6
+- **Nuevo:** Fase 3 (Centrality Ordering) separada del Abstract Placement
+- **Resultado:** Pipeline más limpio de 9 fases: Structure → Topology → Centrality → Abstract → Optimization → Inflation+Growth → Redistribution → Routing → Generation
+
+#### Metadata SVG con NdFn descriptors
+- **Nuevo:** Elementos `<desc>` en SVG2 con etiquetas NdFn para cada ícono, contenedor y conexión
+- **Nuevo:** Clase `DrawingGroupProxy` que envuelve elementos en `<g>` con metadatos sin romper gradientes
+- **Nuevo:** Helper `_ndfn_wrap()` para wrapping transparente de elementos
+- **Nuevo:** Conexiones etiquetadas como `"From NdFn.AAA.XXX.S to NdFn.BBB.YYY.T | label"`
+
+#### Gaussian blur text glow
+- **Nuevo:** Filtro SVG `feGaussianBlur` para halo blanco difuso en todas las etiquetas
+- **Mejora:** Legibilidad de texto sobre fondos complejos (gradientes, conexiones superpuestas)
+- **Implementación:** Un solo `<filter>` en `<defs>`, referenciado por todos los `<text>` vía `filter="url(#text-glow)"`
+
+#### Conexiones coloreadas
+- **Nuevo:** Flag `--color-connections` para colorear cada conexión con un color único
+- **Nuevo:** Marcadores de origen circulares en el punto de salida de cada conexión
+
+### 🐛 Correcciones
+
+#### Labels escapando contenedores (Critical Fix)
+- **Corregido:** El optimizador de labels ya no mueve etiquetas de elementos contenidos fuera de sus contenedores
+- **Solución:** Exclusión de `contained_element_ids` del optimizador + `_measure_placed_content()` en ContainerGrower
+
+#### Solapamiento de elementos en redistribución (Critical Fix)
+- **Corregido:** La fórmula de escala X en redistribución usaba solo el ancho del elemento izquierdo
+- **Solución:** Ahora usa `half_width_i + half_width_next + MIN_HORIZONTAL_GAP` para calcular separación correcta
+
+#### Self-loops invisibles
+- **Corregido:** Arcos de self-loop (from == to) se renderizaban como líneas planas
+- **Solución:** `large-arc-flag=1` dinámico cuando `dist < radius * 2`, skip de visual offsets para self-loops
+
+#### Container bounds con labels
+- **Corregido:** `calculate_container_bounds()` ahora incluye bounding boxes de etiquetas de elementos contenidos
+
+### 📦 Archivos Modificados
+
+**Core Rendering:**
+- `AlmaGag/generator.py` — DrawingGroupProxy, _ndfn_wrap, desc elements, Gaussian blur filter, contained exclusion
+- `AlmaGag/draw/icons.py` — Blur filter en labels de íconos
+- `AlmaGag/draw/connections.py` — Self-loop fix, blur filter en labels, colored connections
+- `AlmaGag/draw/container.py` — Label bounds en calculate_container_bounds
+
+**LAF Pipeline:**
+- `AlmaGag/layout/laf_optimizer.py` — 9 fases, half-width fix en redistribución
+- `AlmaGag/layout/laf/container_grower.py` — _measure_placed_content, step 4.5 expansion
+- `AlmaGag/layout/laf/visualizer.py` — 9 SVGs, NdFn labels en fases 6-9
+
+### 📊 Métricas de Mejora
+
+| Métrica | v3.1.0 | v3.2.0 | Delta |
+|---------|--------|--------|-------|
+| Fases LAF | 10 | 9 | Consolidado |
+| SVGs de visualización | 10 | 9 | Consolidado |
+| Labels fuera de contenedores | Sí | No | FIX |
+| Self-loops visibles | No | Sí | FIX |
+| Solapamiento redistribución | Sí | No | FIX |
+| Metadata SVG (desc) | No | Sí | NEW |
+| Text glow | No | Sí | NEW |
+
+### 🔧 Breaking Changes
+
+- `svgwrite.Drawing` ahora siempre usa `debug=False` (necesario para atributos SVG2 como `paint-order`)
+
+---
+
 ## [3.1.0] - 2026-02-17
 
 ### 🎉 Características Principales

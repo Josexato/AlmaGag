@@ -4,15 +4,15 @@
 
 Reorganización completa del sistema de layout de AlmaGag para minimizar cruces de conectores mediante un enfoque jerárquico inspirado en Sugiyama.
 
-**Estado**: Sprint 7 de 7 completado (100% implementado) ✅
+**Estado**: Sprint 8 de 8 completado (100% implementado) ✅
 
 **Resultados finales**:
 - **-87% de cruces de conectores** (15 → 2) en diagrama de prueba
 - **-24% de colisiones** (50 → 38) vs sistema actual
-- **Sistema LAF completamente funcional** (10 fases)
-- **Visualización del proceso** implementada (10 SVGs por diagrama)
+- **Sistema LAF completamente funcional** (9 fases consolidadas)
+- **Visualización del proceso** implementada (9 SVGs por diagrama)
 - **Position optimization** con layer-offset bisection (Fase 5)
-- **Escala X global** preservando ángulos del layout abstracto (Fase 8)
+- **Metadata SVG** con descriptores NdFn y Gaussian blur text glow
 
 ---
 
@@ -44,63 +44,67 @@ El sistema actual de AlmaGag calculaba posiciones con geometría real desde el i
 
 ## Solución LAF
 
-### Nuevo Flujo (10 Fases - actualizado en Sprint 7)
+### Nuevo Flujo (9 Fases - consolidado en Sprint 8)
 
 ```
 FASE 1: STRUCTURE ANALYSIS
 ├─ Construir árbol de elementos
 ├─ Analizar grafo de conexiones
-└─ Calcular métricas recursivas
+├─ Calcular métricas recursivas
+└─ Niveles topológicos + accessibility scores
 
 FASE 2: TOPOLOGY ANALYSIS
-├─ Niveles topológicos (longest-path)
-├─ Accessibility scores
-└─ Visualización con color coding
+├─ Visualización de niveles topológicos
+├─ Accessibility scores con color coding
+└─ Debug output de distribución por nivel
 
-FASE 3: ABSTRACT PLACEMENT
+FASE 3: CENTRALITY ORDERING
+├─ Ordenamiento por centralidad
+└─ Scores de importancia para positioning
+
+FASE 4: ABSTRACT PLACEMENT
 ├─ Elementos = puntos de 1px
 ├─ Layering (por nivel topológico)
 ├─ Ordering (barycenter + tipo)
 └─ Minimizar cruces explícitamente
-
-FASE 4: INFLATION
-├─ Spacing proporcional
-├─ Asignar dimensiones reales
-└─ Calcular posiciones de etiquetas
 
 FASE 5: POSITION OPTIMIZATION
 ├─ Layer-offset bisection
 ├─ Minimizar distancia ponderada de conectores
 └─ Forward + backward, convergencia < 0.001
 
-FASE 6: CONTAINER GROWTH
+FASE 6: INFLATION + CONTAINER GROWTH (fusionadas)
+├─ Spacing proporcional + dimensiones reales
 ├─ Expandir contenedores bottom-up
-└─ Posicionar elementos contenidos
+├─ Posicionar elementos contenidos
+├─ _measure_placed_content() post-check
+└─ Calcular posiciones de etiquetas
 
 FASE 7: VERTICAL REDISTRIBUTION
 ├─ Redistribuir tras crecimiento
-└─ Mantener proporciones relativas
+├─ Escala X con half-widths de grupos NdFn
+└─ Centrado global usando bounding boxes
 
-FASE 8: GLOBAL X SCALE
-├─ Factor único preservando ángulos
-└─ Calculado desde anchos de elementos
-
-FASE 9: ROUTING
+FASE 8: ROUTING
 ├─ Calcular paths de conexiones
+├─ Self-loop detection + arc routing
 └─ Routing con bordes de contenedores
 
-FASE 10: SVG GENERATION
+FASE 9: SVG GENERATION
 ├─ Canvas ajustado dinámicamente
+├─ NdFn metadata (<desc> elements)
+├─ Gaussian blur text glow filter
 └─ Render final
 ```
 
 **Beneficios**:
-- Routing solo 2 veces (vs 5+)
+- Routing solo 1 vez (vs 5+)
 - Topología optimizada antes de geometría
 - Falsos positivos eliminados
 - Cruces minimizados explícitamente
 - Position optimization preserva ángulos del layout abstracto
-- Escala X global evita distorsión
+- Metadata SVG con descriptores NdFn para trazabilidad
+- Gaussian blur para legibilidad de texto
 
 ---
 
@@ -313,8 +317,8 @@ almagag archivo.gag --layout-algorithm=laf --visualize-growth --debug
 | **Colisiones** | 50* | 38 | ≤40 | ✅ 24% mejora |
 | **Falsos positivos** | 24-32 | 0 | 0 | ✅ 100% eliminados |
 | **Routing calls** | 5+ | 2 | 2 | ✅ Objetivo cumplido |
-| **Sistema LAF** | - | Completo (Fases 1-4) | 4 fases | ✅ 100% core |
-| **Visualización** | - | 4 SVGs/diagrama | Sí | ✅ 100% implementado |
+| **Sistema LAF** | - | Completo (9 fases) | 9 fases | ✅ 100% core |
+| **Visualización** | - | 9 SVGs/diagrama | Sí | ✅ 100% implementado |
 
 *Después de fix de parent-child (Sprint 1: 69 → 50)
 
@@ -402,19 +406,23 @@ AlmaGag/
 │   ├── auto_optimizer.py         # ✅ AutoLayoutOptimizer v4.0
 │   ├── auto_positioner.py        # ✅ Barycenter + position optimization
 │   ├── graph_analysis.py         # ✅ Topología + centralidad + resolución
-│   ├── laf_optimizer.py          # ✅ Coordinador LAF v1.4 (10 fases)
+│   ├── laf_optimizer.py          # ✅ Coordinador LAF v2.0 (9 fases)
 │   ├── laf/
 │   │   ├── __init__.py           # ✅ Exports
 │   │   ├── README.md             # ✅ Documentación técnica
 │   │   ├── structure_analyzer.py # ✅ Fase 1: Structure Analysis
-│   │   ├── abstract_placer.py    # ✅ Fase 3: Abstract Placement
+│   │   ├── abstract_placer.py    # ✅ Fase 4: Abstract Placement
 │   │   ├── position_optimizer.py # ✅ Fase 5: Position Optimization
-│   │   ├── inflator.py           # ✅ Fase 4: Inflation
-│   │   ├── container_grower.py   # ✅ Fase 6: Container Growth
-│   │   └── visualizer.py         # ✅ 10 SVGs de visualización
+│   │   ├── inflator.py           # ✅ Fase 6: Inflation (fusionada)
+│   │   ├── container_grower.py   # ✅ Fase 6: Container Growth (fusionada)
+│   │   └── visualizer.py         # ✅ 9 SVGs de visualización
 │   ├── collision.py              # ✅ Detección de colisiones
 │   └── ...
-├── generator.py                  # ✅ Orquestador (auto/laf)
+├── generator.py                  # ✅ Orquestador (auto/laf) + NdFn metadata
+├── draw/
+│   ├── icons.py                  # ✅ Dispatcher + gradientes + blur glow
+│   ├── connections.py            # ✅ Self-loops + colored connections
+│   └── container.py              # ✅ Label-aware bounds
 ├── main.py                       # ✅ CLI (--layout-algorithm)
 └── docs/
     └── LAF-PROGRESS.md           # ✅ Este archivo
@@ -471,22 +479,24 @@ AlmaGag/
 
 ## Conclusión
 
-**Estado**: 100% completado (7 de 7 sprints) - **Proyecto LAF Finalizado ✅**
+**Estado**: 100% completado (8 de 8 sprints) - **Proyecto LAF Finalizado ✅**
 
 **Logros Finales**:
-- ✅ Sistema LAF completo en 10 Fases
+- ✅ Sistema LAF completo en 9 Fases (consolidadas)
 - ✅ -87% cruces de conectores (15 → 2)
 - ✅ -24% colisiones (50 → 38)
 - ✅ -100% falsos positivos eliminados
-- ✅ -60% routing recalculado (5+ → 2 veces)
+- ✅ -80% routing recalculado (5+ → 1 vez)
 - ✅ Position optimization con layer-offset bisection (Fase 5)
-- ✅ Escala X global preservando ángulos (Fase 8)
+- ✅ Metadata SVG con descriptores NdFn (`<desc>` elements)
+- ✅ Gaussian blur text glow para legibilidad
+- ✅ Self-loop arc rendering
+- ✅ Colored connections con marcadores de origen
 - ✅ CLI integrado: `--layout-algorithm=laf`
-- ✅ Visualización del proceso: `--visualize-growth` (10 SVGs)
+- ✅ Visualización del proceso: `--visualize-growth` (9 SVGs)
 - ✅ Arquitectura modular y extensible (8 módulos LAF)
-- ✅ Spacing proporcional basado en ICON_WIDTH
-- ✅ Contenedores con dimensiones dinámicas
-- ✅ Propagación de coordenadas globales
+- ✅ Contenedores label-aware con post-expansion check
+- ✅ Redistribución con half-widths para spacing correcto
 
 ---
 
@@ -595,4 +605,61 @@ AlmaGag/
 - `laf/visualizer.py`: 10 métodos de captura y generación SVG
 - `laf/structure_analyzer.py`: Debug output mejorado
 
-**Última actualización**: 2026-02-17 (Sprint 7 completado - Sistema de 10 fases ✅)
+**Última actualización**: 2026-02-17 (Sprint 7 completado)
+
+---
+
+## Sprint 8: Consolidación, Metadata SVG y Polish Visual (2026-02-19)
+
+**Objetivo**: Consolidar pipeline a 9 fases, agregar metadata SVG para trazabilidad, mejorar legibilidad visual y corregir bugs críticos.
+
+### Cambios Implementados
+
+**1. Consolidación del Pipeline a 9 Fases**
+- Fusión de Fase 6 (Inflation) y Fase 7 (Container Growth) en una sola Fase 6
+- Separación de Fase 3 (Centrality Ordering) del Abstract Placement
+- Renumeración: Fases 7-9 = Redistribution, Routing, SVG Generation
+- 9 SVGs de visualización (vs 10 anterior)
+
+**2. Metadata SVG con NdFn Descriptors**
+- Elementos `<desc>` en SVG2 para cada ícono, contenedor y conexión
+- Clase `DrawingGroupProxy` para wrapping en `<g>` sin romper `dwg.linearGradient()`
+- Helper `_ndfn_wrap()` para wrapping transparente
+- Conexiones: `"From NdFn.AAA.XXX.S to NdFn.BBB.YYY.T | label"`
+
+**3. Gaussian Blur Text Glow**
+- Filtro `feGaussianBlur` con `stdDeviation=2` para halo blanco difuso
+- Un solo `<filter>` en `<defs>`, referenciado por todos los `<text>`
+- Drawing siempre con `debug=False` para compatibilidad SVG2
+
+**4. Correcciones Críticas**
+- Labels escapando contenedores → exclusión de `contained_element_ids` del optimizador
+- Solapamiento en redistribución → fórmula `half_width_i + half_width_next + gap`
+- Self-loops invisibles → `large-arc-flag=1` dinámico + skip visual offsets
+- Container bounds → incluyen bounding boxes de labels de elementos contenidos
+- ContainerGrower → `_measure_placed_content()` + step 4.5 expansion
+
+**5. Conexiones Coloreadas**
+- Flag `--color-connections` para colorear cada conexión con color único
+- Marcadores de origen circulares
+
+### Archivos Modificados
+
+**Código (7 archivos)**:
+- `generator.py`: DrawingGroupProxy, _ndfn_wrap, desc elements, blur filter, contained exclusion
+- `draw/icons.py`: Blur filter en labels
+- `draw/connections.py`: Self-loop fix, blur filter, colored connections
+- `draw/container.py`: Label-aware bounds
+- `layout/laf_optimizer.py`: 9 fases, half-width redistribution fix
+- `layout/laf/container_grower.py`: _measure_placed_content, step 4.5
+- `layout/laf/visualizer.py`: 9 SVGs, NdFn labels en fases 6-9
+
+### Beneficios
+
+✅ **Trazabilidad**: Metadata NdFn en SVG permite inspección y debugging
+✅ **Legibilidad**: Gaussian blur mejora lectura de texto sobre fondos complejos
+✅ **Estabilidad**: 4 bugs críticos corregidos (labels, overlap, self-loops, bounds)
+✅ **Simplicidad**: Pipeline consolidado de 9 fases (vs 10)
+✅ **Diagnóstico**: Conexiones coloreadas facilitan seguimiento visual
+
+**Última actualización**: 2026-02-19 (Sprint 8 completado - Sistema de 9 fases ✅)

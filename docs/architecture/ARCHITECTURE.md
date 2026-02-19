@@ -1,11 +1,11 @@
 # Arquitectura de AlmaGag
 
-**Versión del Código**: v2.1 + SDJF v2.0
-**Fecha**: 2026-01-08
+**Versión del Código**: v3.2.0 + SDJF v2.0
+**Fecha**: 2026-02-19
 
 ## Visión General
 
-AlmaGag es un generador de diagramas SVG que transforma archivos JSON (formato SDJF) en gráficos vectoriales mediante un pipeline de procesamiento modular.
+AlmaGag es un generador de diagramas SVG que transforma archivos JSON (formato SDJF) en gráficos vectoriales mediante un pipeline de procesamiento modular. Soporta dos algoritmos de layout: **AUTO** (legacy, basado en colisiones) y **LAF** (recomendado, Layout Abstracto Primero con 9 fases).
 
 ## Diagrama de Arquitectura
 
@@ -22,29 +22,42 @@ AlmaGag es un generador de diagramas SVG que transforma archivos JSON (formato S
        v
 ┌─────────────┐
 │  main.py    │  CLI entry point
-│             │
 └──────┬──────┘
        │
        v
-┌─────────────────────────────────────────────┐
-│  generator.py                                │
-│  ┌────────────────────────────────────────┐ │
-│  │  1. Parse JSON → Layout (inmutable)    │ │
-│  │  2. AutoLayoutOptimizer.optimize()     │ │
-│  │     ├─ Auto-positioning (SDJF v2.0)    │ │
-│  │     ├─ Graph analysis                  │ │
-│  │     ├─ Collision detection             │ │
-│  │     └─ Iterative optimization          │ │
-│  │  3. Create SVG canvas + markers        │ │
-│  │  4. Render (shapes → lines → labels)   │ │
-│  └────────────────────────────────────────┘ │
-└──────┬──────────────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│  generator.py  (Orquestador)                         │
+│  ┌───────────────────────────────────────────────┐  │
+│  │  1. Parse JSON → Layout (inmutable)           │  │
+│  │  2. Selección de algoritmo:                   │  │
+│  │     ├─ LAF: LAFOptimizer (9 fases)            │  │
+│  │     └─ AUTO: AutoLayoutOptimizer (legacy)     │  │
+│  │  3. Create SVG canvas + filters (blur glow)   │  │
+│  │  4. NdFn metadata wrapping (DrawingGroupProxy)│  │
+│  │  5. Render: containers → icons → connections  │  │
+│  │  6. Labels con filter="url(#text-glow)"       │  │
+│  │  7. Label optimization (excluir contenidos)   │  │
+│  └───────────────────────────────────────────────┘  │
+└──────┬──────────────────────────────────────────────┘
        │
        v
 ┌─────────────┐
-│ archivo.svg │
-│  (output)   │
+│ archivo.svg │  (con <desc> NdFn metadata)
 └─────────────┘
+```
+
+### Pipeline LAF (9 Fases)
+
+```
+Fase 1: Structure Analysis    → structure_analyzer.py
+Fase 2: Topology Analysis     → laf_optimizer.py (viz)
+Fase 3: Centrality Ordering   → laf_optimizer.py
+Fase 4: Abstract Placement    → abstract_placer.py
+Fase 5: Position Optimization → position_optimizer.py
+Fase 6: Inflation + Growth    → inflator.py + container_grower.py
+Fase 7: Redistribution        → laf_optimizer.py
+Fase 8: Routing               → router_manager.py
+Fase 9: SVG Generation        → generator.py
 ```
 
 ## Módulos Principales
@@ -53,19 +66,15 @@ AlmaGag es un generador de diagramas SVG que transforma archivos JSON (formato S
 
 **Responsabilidad:** Punto de entrada CLI
 
-```python
-def main():
-    if len(sys.argv) < 2:
-        print("Uso: almagag archivo.gag")
-        sys.exit(1)
-
-    input_file = sys.argv[1]
-    generate_diagram(input_file)
-```
-
-**Funcionalidad:**
-- Parsea argumentos de línea de comando
-- Invoca `generator.generate_diagram()`
+**Argumentos principales:**
+- `archivo.gag` - Archivo de entrada (SDJF JSON)
+- `--layout-algorithm={auto|laf}` - Selección de algoritmo (default: auto)
+- `-o output.svg` - Archivo de salida
+- `--debug` - Logs detallados
+- `--visualdebug` - Elementos visuales de debug (grilla, niveles, NdFn labels)
+- `--visualize-growth` - Genera 9 SVGs de cada fase LAF
+- `--color-connections` - Conexiones con colores únicos
+- `--exportpng` - Exporta también a PNG
 
 ---
 
@@ -471,13 +480,52 @@ class GraphAnalyzer:
 
 ---
 
-### 5. Módulo `draw/`
+### 5. Módulo `layout/laf/` (LAF Pipeline v2.0)
+
+**Responsabilidad:** Layout jerárquico de 9 fases minimizando cruces
+
+**Módulos:**
+- `structure_analyzer.py` - Fase 1: Árbol, grafo, niveles, scores
+- `abstract_placer.py` - Fase 4: Sugiyama-style placement
+- `position_optimizer.py` - Fase 5: Layer-offset bisection
+- `inflator.py` - Fase 6: Abstract → real coordinates
+- `container_grower.py` - Fase 6: Bottom-up expansion, label-aware
+- `visualizer.py` - 9 SVGs de debug del proceso
+
+**Coordinador:** `layout/laf_optimizer.py:LAFOptimizer`
+
+```python
+class LAFOptimizer:
+    def optimize(self, layout):
+        # Fase 1: Structure Analysis
+        structure_info = self.analyzer.analyze(layout)
+        # Fase 2: Topology Analysis (visualización)
+        # Fase 3: Centrality Ordering
+        # Fase 4: Abstract Placement (Sugiyama)
+        abstract_positions = self.placer.place_elements(structure_info)
+        # Fase 5: Position Optimization (bisection)
+        optimized = self.position_optimizer.optimize(abstract_positions)
+        # Fase 6: Inflation + Container Growth
+        self.inflator.inflate(optimized, structure_info, layout)
+        self.grower.grow_containers(structure_info, layout)
+        # Fase 7: Vertical Redistribution
+        self._redistribute_vertical_after_growth(structure_info, layout)
+        # Fase 8: Routing
+        # Fase 9: SVG Generation (en generator.py)
+        return layout
+```
+
+**Resultado:** -87% cruces, -24% colisiones vs sistema AUTO
+
+---
+
+### 6. Módulo `draw/`
 
 **Responsabilidad:** Renderizado SVG
 
 #### `draw/icons.py`
 
-**Dispatcher de íconos + sistema de gradientes**
+**Dispatcher de íconos + sistema de gradientes + blur glow**
 
 ```python
 def create_gradient(dwg, element_id, base_color):
@@ -692,36 +740,47 @@ Parse → Layout → Optimize → Create Canvas → Render → Save
 ```
 AlmaGag/
 ├── main.py                 # CLI entry point
-├── generator.py            # Orquestador principal
+├── generator.py            # Orquestador + NdFn metadata + blur filter
 ├── config.py               # Constantes globales
 │
-├── layout/                 # Módulo de Layout y Optimización (v2.1)
+├── layout/                 # Módulo de Layout y Optimización
 │   ├── __init__.py
 │   ├── layout.py           # Clase Layout (inmutable)
 │   ├── optimizer_base.py   # Interfaz LayoutOptimizer
-│   ├── auto_optimizer.py   # AutoLayoutOptimizer v2.1
+│   ├── auto_optimizer.py   # AutoLayoutOptimizer v4.0 (legacy)
+│   ├── auto_positioner.py  # AutoLayoutPositioner v4.0
+│   ├── laf_optimizer.py    # LAFOptimizer v2.0 (9 fases, recomendado)
 │   ├── sizing.py           # SizingCalculator (SDJF v2.0)
-│   ├── auto_positioner.py  # AutoLayoutPositioner (SDJF v2.0)
 │   ├── geometry.py         # GeometryCalculator
-│   ├── collision.py        # CollisionDetector
-│   └── graph_analysis.py   # GraphAnalyzer
+│   ├── collision.py        # CollisionDetector (skip parent-child)
+│   ├── graph_analysis.py   # GraphAnalyzer + topología + centralidad
+│   └── laf/                # Módulos del pipeline LAF
+│       ├── __init__.py
+│       ├── README.md             # Documentación técnica LAF
+│       ├── structure_analyzer.py # Fase 1: Estructura + niveles + scores
+│       ├── abstract_placer.py    # Fase 4: Sugiyama-style placement
+│       ├── position_optimizer.py # Fase 5: Layer-offset bisection
+│       ├── inflator.py           # Fase 6: Inflación
+│       ├── container_grower.py   # Fase 6: Crecimiento + label-aware
+│       └── visualizer.py         # 9 SVGs de visualización
+│
+├── routing/                # Módulo de routing de conexiones
+│   └── router_manager.py   # Self-loops, container borders, arc/ortho/direct
 │
 ├── draw/                   # Módulo de renderizado SVG
 │   ├── __init__.py
-│   ├── icons.py            # Dispatcher + gradientes
-│   ├── connections.py      # Líneas + waypoints
-│   ├── container.py        # Contenedores (v2.0)
+│   ├── icons.py            # Dispatcher + gradientes + blur glow
+│   ├── connections.py      # Líneas + self-loops + colored connections
+│   ├── container.py        # Contenedores + label-aware bounds
 │   ├── bwt.py              # Banana With Tape (fallback)
-│   ├── server.py           # Ícono tipo server
-│   ├── firewall.py         # Ícono tipo firewall
-│   ├── building.py         # Ícono tipo building
-│   └── cloud.py            # Ícono tipo cloud
+│   ├── server.py, cloud.py, building.py, firewall.py, ...
+│   └── (nuevos tipos via dynamic import)
 │
 └── docs/                   # Documentación
     ├── spec/               # Especificaciones SDJF
-    ├── examples/           # Archivos .gag y .svg
     ├── architecture/       # Arquitectura del código
-    └── guides/             # Guías de uso
+    ├── guides/             # Guías de uso + CLI reference
+    └── diagrams/           # .gag fuentes + .svg generados
 ```
 
 ---
@@ -857,5 +916,5 @@ svgwrite>=1.4.3     # Generación de SVG
 
 ---
 
-**Última actualización**: 2026-01-08
-**Versión documentada**: AlmaGag v2.1 + SDJF v2.0
+**Última actualización**: 2026-02-19
+**Versión documentada**: AlmaGag v3.2.0 + SDJF v2.0 | LAF Pipeline 9 fases

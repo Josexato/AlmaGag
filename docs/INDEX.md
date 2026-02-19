@@ -1,7 +1,7 @@
 # Índice de Documentación - AlmaGag
 
-**Versión**: v3.0.0 (código) + SDJF v3.0 (estándar)
-**Actualizado**: 2026-01-21
+**Versión**: v3.2.0 (código) + SDJF v2.0 (estándar)
+**Actualizado**: 2026-02-19
 
 ---
 
@@ -71,7 +71,7 @@ Esta es la guía completa de documentación de AlmaGag, organizada por tipo de d
 |-----------|-------|-------------|
 | [Guía de Decisión](guides/LAYOUT-DECISION-GUIDE.md) | Todos | ¿Cuándo usar AUTO vs LAF? Árbol de decisión simple |
 | [Comparación Técnica LAF](LAF-COMPARISON.md) | Avanzado | Análisis profundo con métricas y benchmarks |
-| [Progreso LAF](LAF-PROGRESS.md) | Técnico | Historia de desarrollo en 5 sprints |
+| [Progreso LAF](LAF-PROGRESS.md) | Técnico | Historia de desarrollo en 8 sprints |
 | [Referencia CLI](guides/CLI-REFERENCE.md) | Todos | Documentación completa de opciones de línea de comandos |
 
 ### ¿Cuándo usar qué?
@@ -317,4 +317,4 @@ Este proyecto es parte de ALMA. Para reportar bugs o sugerir mejoras, abre un is
 ---
 
 **AlmaGag** - Generación automática de diagramas con layout jerárquico inteligente (AUTO/LAF) y routing declarativo
-**Versión**: v3.0.0 + SDJF v3.0 | **Actualizado**: 2026-01-21
+**Versión**: v3.2.0 + SDJF v2.0 | **Actualizado**: 2026-02-19
