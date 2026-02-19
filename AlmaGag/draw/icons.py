@@ -13,11 +13,54 @@ Fecha: 2025-07-06
 """
 
 import importlib
+from xml.etree import ElementTree as ET
 from AlmaGag.config import (
     ICON_WIDTH, ICON_HEIGHT,
     LABEL_OFFSET_BOTTOM, LABEL_OFFSET_SIDE,
     TEXT_LINE_HEIGHT, TEXT_CHAR_WIDTH
 )
+
+
+# ============================================================================
+# SOPORTE PARA ICONOS SVG EMBEBIDOS (.gag format)
+# ============================================================================
+
+class RawSVGElement:
+    """Adapter para inyectar XML raw en svgwrite (implementa get_xml())."""
+    elementname = 'g'
+
+    def __init__(self, svg_string):
+        self._xml = ET.fromstring(svg_string)
+
+    def get_xml(self):
+        return self._xml
+
+
+def draw_embedded_icon(dwg, x, y, color, element_id, svg_string):
+    """
+    Renderiza un icono SVG embebido en la posicion (x, y).
+
+    Parsea el SVG string, extrae viewBox para calcular escala uniforme
+    a ICON_WIDTH x ICON_HEIGHT, y lo envuelve en <g transform="translate scale">.
+    """
+    wrapped = svg_string.strip()
+
+    if wrapped.startswith('<svg'):
+        tmp = ET.fromstring(wrapped)
+        vb = tmp.get('viewBox', f'0 0 {ICON_WIDTH} {ICON_HEIGHT}')
+        parts = vb.split()
+        orig_w, orig_h = float(parts[2]), float(parts[3])
+        scale_x = ICON_WIDTH / orig_w
+        scale_y = ICON_HEIGHT / orig_h
+        scale = min(scale_x, scale_y)
+        transform = f'translate({x},{y}) scale({scale})'
+        inner_xml = ''.join(ET.tostring(child, encoding='unicode') for child in tmp)
+        g_str = f'<g id="{element_id}" transform="{transform}">{inner_xml}</g>'
+    else:
+        transform = f'translate({x},{y})'
+        g_str = f'<g id="{element_id}" transform="{transform}">{wrapped}</g>'
+
+    dwg.add(RawSVGElement(g_str))
 
 # Diccionario de colores CSS nombrados a valores hex
 CSS_COLORS = {
@@ -255,40 +298,38 @@ def calculate_label_position(element, all_elements, preferred='bottom'):
     return get_text_coords(element, preferred, num_lines)
 
 
-def draw_icon_shape(dwg, element):
+def draw_icon_shape(dwg, element, embedded_icons=None):
     """
     Dibuja solo la forma del ícono, sin etiqueta.
 
     Parámetros:
         dwg (svgwrite.Drawing): Objeto de dibujo SVG.
-        element (dict): Elemento con las claves:
-            - 'x' (int, opcional): coordenada X del ícono.
-            - 'y' (int, opcional): coordenada Y del ícono.
-            - 'type' (str): tipo del ícono ('server', 'cloud', etc).
-            - 'color' (str, opcional): color de relleno (por defecto: 'gray').
+        element (dict): Elemento con 'x', 'y', 'type', 'color'.
+        embedded_icons (dict, opcional): Iconos SVG embebidos {type: svg_string}.
 
     Comportamiento:
-        - Si el tipo es válido y el módulo correspondiente existe:
-            → llama a draw_<type>(dwg, x, y, color).
-        - Si el tipo no existe o hay error:
-            → se dibuja el ícono por defecto (plátano con cinta).
-        - Si el elemento no tiene coordenadas, no se dibuja (se omite).
+        - Si el tipo coincide con un icono embebido → renderiza SVG inline.
+        - Si el tipo es un módulo Python válido → llama a draw_<type>().
+        - Si nada funciona → dibuja ícono por defecto (plátano con cinta).
     """
-    # Validar coordenadas
     x = element.get('x')
     y = element.get('y')
 
     if x is None or y is None:
-        # Elemento sin coordenadas, no dibujar (debería haber sido posicionado por auto-layout)
         elem_id = element.get('id', 'unknown')
         print(f"[WARN] Element {elem_id} sin coordenadas, omitiendo")
         return
 
     elem_type = element.get('type', 'unknown')
     color = element.get('color', 'gray')
-
     element_id = element.get('id', f'{elem_type}_{x}_{y}')
 
+    # Prioridad 1: icono SVG embebido (.gag format)
+    if embedded_icons and elem_type in embedded_icons:
+        draw_embedded_icon(dwg, x, y, color, element_id, embedded_icons[elem_type])
+        return
+
+    # Prioridad 2: módulo Python (draw/{type}.py)
     try:
         module = importlib.import_module(f'AlmaGag.draw.{elem_type}')
         draw_func = getattr(module, f'draw_{elem_type}')

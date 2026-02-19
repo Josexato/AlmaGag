@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Script para regenerar toda la documentación en SVG desde archivos .gag
+Script para regenerar toda la documentación en SVG desde archivos .sdjf y .gag
 
 Uso:
     python scripts/generate_docs.py [--verbose]
 
 El script:
-1. Busca todos los .gag en docs/diagrams/gags/
+1. Busca todos los .sdjf y .gag en docs/diagrams/gags/
 2. Genera cada uno con AlmaGag
 3. Mueve los SVG resultantes a docs/diagrams/svgs/
 4. Muestra un reporte de lo generado
@@ -132,14 +132,14 @@ def main():
     # Cambiar al directorio raíz del proyecto
     os.chdir(project_root)
 
-    # Buscar todos los archivos .gag
-    gag_files = sorted(gags_dir.glob("*.gag"))
+    # Buscar todos los archivos .sdjf y .gag
+    gag_files = sorted(list(gags_dir.glob("*.sdjf")) + list(gags_dir.glob("*.gag")))
 
     if not gag_files:
-        print_error(f"No se encontraron archivos .gag en {gags_dir}")
+        print_error(f"No se encontraron archivos .sdjf/.gag en {gags_dir}")
         sys.exit(1)
 
-    print_info(f"Encontrados {len(gag_files)} archivos .gag en {gags_dir.relative_to(project_root)}")
+    print_info(f"Encontrados {len(gag_files)} archivos en {gags_dir.relative_to(project_root)}")
     print()
 
     # Contadores

@@ -10,23 +10,23 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Ejemplos:
-  almagag archivo.gag
-  almagag archivo.gag --debug                                      # Texto de depuración
-  almagag archivo.gag --visualdebug                                # Grilla y badge visual
-  almagag archivo.gag --exportpng                                  # Exportar a PNG
-  almagag archivo.gag -o docs/diagrams/svgs/diagram.svg            # Especificar salida
-  almagag archivo.gag -o output/diagram.svg --exportpng            # Salida + PNG
-  almagag archivo.gag --debug --visualdebug --exportpng            # Todo habilitado
-  almagag archivo.gag --debug --guide-lines 186 236                # Con líneas guía
-  almagag archivo.gag --layout-algorithm=laf --debug               # Usar LAF (minimiza cruces)
-  almagag archivo.gag --layout-algorithm=laf --visualize-growth    # LAF + visualización de fases
-  almagag archivo.gag --layout-algorithm=laf --color-connections   # LAF + conexiones coloreadas
-  python -m AlmaGag.main examples/05-arquitectura-gag.gag --debug --visualdebug
+  almagag archivo.sdjf
+  almagag archivo.sdjf --debug                                     # Texto de depuración
+  almagag archivo.sdjf --visualdebug                               # Grilla y badge visual
+  almagag archivo.sdjf --exportpng                                 # Exportar a PNG
+  almagag archivo.sdjf -o docs/diagrams/svgs/diagram.svg           # Especificar salida
+  almagag archivo.gag                                              # Formato .gag (con iconos SVG embebidos)
+  almagag archivo.sdjf --debug --visualdebug --exportpng           # Todo habilitado
+  almagag archivo.sdjf --debug --guide-lines 186 236               # Con líneas guía
+  almagag archivo.sdjf --layout-algorithm=laf --debug              # Usar LAF (minimiza cruces)
+  almagag archivo.sdjf --layout-algorithm=laf --visualize-growth   # LAF + visualización de fases
+  almagag archivo.sdjf --layout-algorithm=laf --color-connections  # LAF + conexiones coloreadas
+  python -m AlmaGag.main examples/05-arquitectura-gag.sdjf --debug --visualdebug
         """
     )
     parser.add_argument(
         "input_file",
-        help="Archivo .gag (JSON SDJF) de entrada"
+        help="Archivo .sdjf o .gag de entrada (SDJF puro o con iconos embebidos)"
     )
     parser.add_argument(
         "--debug",

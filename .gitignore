@@ -46,7 +46,9 @@ graph_output.txt
 nul
 
 # Test files
+test-*.sdjf
 test-*.gag
+tests/*.sdjf
 tests/*.gag
 
 # Office files

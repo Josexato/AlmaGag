@@ -634,6 +634,11 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
         print(f"[ERROR] Error al leer el JSON: {e}")
         return False
 
+    # Extraer iconos SVG embebidos (formato .gag extendido)
+    embedded_icons = data.get('icons', None)
+    if embedded_icons:
+        print(f"[OK] {len(embedded_icons)} icono(s) SVG embebido(s) detectado(s)")
+
     # Determinar ruta de salida
     if output_file:
         # Usar la ruta proporcionada
@@ -874,7 +879,7 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
             logger.debug(f"  {elem['id']}: ({elem['x']:.1f}, {elem['y']:.1f}) "
                        f"size({elem.get('width', ICON_WIDTH):.1f} x {elem.get('height', ICON_HEIGHT):.1f})")
         draw_target, ndfn_group = _ndfn_wrap(dwg, elem['id'], ndfn_labels)
-        draw_icon_shape(draw_target, elem)
+        draw_icon_shape(draw_target, elem, embedded_icons=embedded_icons)
         if ndfn_group is not None:
             dwg.add(ndfn_group)
 
@@ -917,24 +922,28 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
         draw_target, ndfn_group = _ndfn_wrap(dwg, icon_ndfn_key, ndfn_labels)
 
         # Dibujar ícono directamente
-        try:
-            import importlib
-            icon_module = importlib.import_module(f'AlmaGag.draw.{icon_type}')
-            draw_func = getattr(icon_module, f'draw_{icon_type}')
-            icon_elem_id = f"{container_id}_icon"
-            draw_func(draw_target, icon_x, icon_y, color, icon_elem_id)
-        except (ImportError, AttributeError) as e:
-            # Fallback: dibujar rectángulo simple
-            from AlmaGag.draw.icons import create_gradient
-            gradient_id = create_gradient(draw_target, container_id, color)
-            icon_size = min(ICON_WIDTH, ICON_HEIGHT) * 0.6
-            draw_target.add(draw_target.rect(
-                insert=(icon_x, icon_y),
-                size=(icon_size, icon_size),
-                fill=gradient_id,
-                stroke='black',
-                opacity=1.0
-            ))
+        icon_elem_id = f"{container_id}_icon"
+        if embedded_icons and icon_type in embedded_icons:
+            from AlmaGag.draw.icons import draw_embedded_icon
+            draw_embedded_icon(draw_target, icon_x, icon_y, color, icon_elem_id, embedded_icons[icon_type])
+        else:
+            try:
+                import importlib
+                icon_module = importlib.import_module(f'AlmaGag.draw.{icon_type}')
+                draw_func = getattr(icon_module, f'draw_{icon_type}')
+                draw_func(draw_target, icon_x, icon_y, color, icon_elem_id)
+            except (ImportError, AttributeError) as e:
+                # Fallback: dibujar rectángulo simple
+                from AlmaGag.draw.icons import create_gradient
+                gradient_id = create_gradient(draw_target, container_id, color)
+                icon_size = min(ICON_WIDTH, ICON_HEIGHT) * 0.6
+                draw_target.add(draw_target.rect(
+                    insert=(icon_x, icon_y),
+                    size=(icon_size, icon_size),
+                    fill=gradient_id,
+                    stroke='black',
+                    opacity=1.0
+                ))
 
         if ndfn_group is not None:
             dwg.add(ndfn_group)

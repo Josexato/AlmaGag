@@ -59,14 +59,14 @@ def main():
         clean_svgs(examples_dir)
         print()
 
-    # Obtener todos los archivos .gag
-    gag_files = sorted(examples_dir.glob("*.gag"))
+    # Obtener todos los archivos .sdjf y .gag
+    gag_files = sorted(list(examples_dir.glob("*.sdjf")) + list(examples_dir.glob("*.gag")))
 
     if not gag_files:
-        print("[WARN] No se encontraron archivos .gag en examples/")
+        print("[WARN] No se encontraron archivos .sdjf/.gag en examples/")
         sys.exit(0)
 
-    print(f"[INFO] Encontrados {len(gag_files)} archivos .gag\n")
+    print(f"[INFO] Encontrados {len(gag_files)} archivos\n")
     print("=" * 70)
 
     # Cambiar al directorio raíz para que debug/outputs/ funcione

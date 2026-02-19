@@ -1,0 +1,55 @@
+{
+  "icons": {
+    "sensor": "<svg viewBox='0 0 80 50'><rect x='10' y='5' width='60' height='40' rx='8' fill='currentColor' stroke='black' stroke-width='2'/><circle cx='30' cy='25' r='6' fill='white'/><circle cx='50' cy='25' r='6' fill='white'/><line x1='25' y1='38' x2='55' y2='38' stroke='black' stroke-width='2'/></svg>",
+    "antena": "<svg viewBox='0 0 80 50'><line x1='40' y1='5' x2='40' y2='35' stroke='black' stroke-width='3'/><line x1='25' y1='15' x2='40' y2='5' stroke='black' stroke-width='2'/><line x1='55' y1='15' x2='40' y2='5' stroke='black' stroke-width='2'/><circle cx='40' cy='5' r='4' fill='red'/><rect x='20' y='35' width='40' height='12' rx='3' fill='currentColor' stroke='black' stroke-width='1.5'/></svg>",
+    "cam": "<svg viewBox='0 0 80 50'><rect x='5' y='12' width='50' height='30' rx='4' fill='currentColor' stroke='black' stroke-width='2'/><polygon points='55,17 75,8 75,42 55,37' fill='currentColor' stroke='black' stroke-width='2'/><circle cx='25' cy='27' r='8' fill='white' stroke='black' stroke-width='1.5'/><circle cx='25' cy='27' r='3' fill='black'/></svg>"
+  },
+  "canvas": { "width": 1200, "height": 600 },
+  "elements": [
+    {
+      "id": "sensor1",
+      "type": "sensor",
+      "label": "Sensor Temp\nZona Norte",
+      "color": "gold"
+    },
+    {
+      "id": "sensor2",
+      "type": "sensor",
+      "label": "Sensor Humedad\nZona Sur",
+      "color": "lightgreen"
+    },
+    {
+      "id": "antena1",
+      "type": "antena",
+      "label": "Antena WiFi\nEdificio A",
+      "color": "lightblue"
+    },
+    {
+      "id": "cam1",
+      "type": "cam",
+      "label": "Camara IP\nEntrada",
+      "color": "tomato"
+    },
+    {
+      "id": "srv",
+      "type": "server",
+      "label": "Servidor Central",
+      "color": "silver",
+      "label_priority": "high",
+      "hp": 1.5
+    },
+    {
+      "id": "db1",
+      "type": "database",
+      "label": "Base de Datos\nSensores",
+      "color": "orange"
+    }
+  ],
+  "connections": [
+    { "from": "sensor1", "to": "antena1", "direction": "forward", "label": "2.4GHz" },
+    { "from": "sensor2", "to": "antena1", "direction": "forward", "label": "2.4GHz" },
+    { "from": "cam1", "to": "antena1", "direction": "forward", "label": "5GHz" },
+    { "from": "antena1", "to": "srv", "direction": "forward", "label": "Ethernet", "routing": {"type": "orthogonal"} },
+    { "from": "srv", "to": "db1", "direction": "forward", "label": "SQL", "routing": {"type": "orthogonal"} }
+  ]
+}

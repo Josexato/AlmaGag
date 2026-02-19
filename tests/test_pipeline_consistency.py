@@ -23,7 +23,7 @@ from AlmaGag.generator import generate_diagram
 
 def test_no_duplicate_container_labels():
     """Verifica que cada label de contenedor aparece exactamente 1 vez"""
-    test_file = "examples/05-arquitectura-gag.gag"
+    test_file = "examples/05-arquitectura-gag.sdjf"
 
     if not os.path.exists(test_file):
         pytest.skip(f"{test_file} no encontrado")
@@ -54,7 +54,7 @@ def test_no_duplicate_container_labels():
 
 def test_container_labels_inside_header():
     """Verifica que labels de contenedores están dentro del header reservado"""
-    test_file = "examples/05-arquitectura-gag.gag"
+    test_file = "examples/05-arquitectura-gag.sdjf"
 
     if not os.path.exists(test_file):
         pytest.skip(f"{test_file} no encontrado")
