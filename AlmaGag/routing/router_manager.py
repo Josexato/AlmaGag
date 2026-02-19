@@ -90,6 +90,10 @@ class ConnectionRouterManager:
         routing = self._get_routing_config(connection)
         router_type = routing.get('type', self.default_router)
 
+        # Self-loops require arc router
+        if connection['from'] == connection['to'] and router_type == 'straight':
+            router_type = 'arc'
+
         # Get appropriate router
         router = self.routers.get(router_type, self.routers[self.default_router])
 
