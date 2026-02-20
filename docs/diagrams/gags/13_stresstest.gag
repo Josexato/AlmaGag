@@ -1,0 +1,82 @@
+{
+  "icons": {
+    "father": "<svg viewBox='0 0 80 50'><circle cx='40' cy='15' r='8' fill='white'/><rect x='30' y='24' width='20' height='16' rx='4' fill='white'/><rect x='36' y='28' width='8' height='12' fill='currentColor'/></svg>",
+    "mother": "<svg viewBox='0 0 80 50'><circle cx='40' cy='15' r='8' fill='white'/><path d='M30 26 Q40 20 50 26 L45 40 L35 40 Z' fill='white'/></svg>",
+    "child": "<svg viewBox='0 0 80 50'><circle cx='40' cy='17' r='6' fill='white'/><rect x='34' y='24' width='12' height='14' rx='3' fill='white'/></svg>",
+    "marriage": "<svg viewBox='0 0 80 50'><circle cx='30' cy='25' r='10' fill='none' stroke='white' stroke-width='3'/><circle cx='50' cy='25' r='10' fill='none' stroke='white' stroke-width='3'/></svg>"
+  },
+
+  "canvas": {
+    "width": 1600,
+    "height": 1000
+  },
+
+  "elements": [
+
+    { "id": "jose_heraclides", "type": "father", "label": "José Heráclides", "color": "blue", "label_priority": "high" },
+    { "id": "daria", "type": "mother", "label": "Daría", "color": "purple", "label_priority": "high" },
+    { "id": "union_padres", "type": "marriage", "color": "gold" },
+
+    { "id": "silvia", "type": "mother", "label": "Silvia", "color": "pink" },
+    { "id": "lika", "type": "mother", "label": "Lika", "color": "lavender" },
+    { "id": "patricia", "type": "mother", "label": "Patricia", "color": "lightgreen" },
+    { "id": "santiago", "type": "father", "label": "Santiago", "color": "green" },
+    { "id": "jose", "type": "father", "label": "José", "color": "gold", "label_priority": "high" },
+
+    { "id": "martin", "type": "father", "label": "Martín", "color": "blue" },
+    { "id": "ricardo", "type": "father", "label": "Ricardo", "color": "gray" },
+    { "id": "claudia", "type": "mother", "label": "Claudia", "color": "tomato" },
+    { "id": "leila", "type": "mother", "label": "Leila", "color": "cyan" },
+
+    { "id": "union_lika", "type": "marriage", "color": "gold" },
+    { "id": "union_patricia", "type": "marriage", "color": "gold" },
+    { "id": "union_jose", "type": "marriage", "color": "gold" },
+    { "id": "union_santiago", "type": "marriage", "color": "gold" },
+
+    { "id": "sebastian", "type": "child", "label": "Sebastián", "color": "lightblue" },
+    { "id": "mateo", "type": "child", "label": "Mateo", "color": "lightyellow" },
+    { "id": "pascual", "type": "child", "label": "Pascual", "color": "lightgreen" },
+    { "id": "diego", "type": "child", "label": "Diego", "color": "orange" },
+    { "id": "jose_antonio", "type": "child", "label": "José Antonio", "color": "lime" },
+    { "id": "patricia_hija", "type": "child", "label": "Patricia", "color": "pink" },
+    { "id": "santiaguito", "type": "child", "label": "Santiaguito", "color": "yellow" },
+    { "id": "gerardo", "type": "child", "label": "Gerardo", "color": "lightblue" },
+    { "id": "dante", "type": "child", "label": "Dante", "color": "lightgreen" }
+
+  ],
+
+  "connections": [
+
+    { "from": "jose_heraclides", "to": "union_padres", "routing": {"type": "orthogonal"} },
+    { "from": "daria", "to": "union_padres", "routing": {"type": "orthogonal"} },
+
+    { "from": "union_padres", "to": "silvia", "routing": {"type": "orthogonal"} },
+    { "from": "union_padres", "to": "lika", "routing": {"type": "orthogonal"} },
+    { "from": "union_padres", "to": "patricia", "routing": {"type": "orthogonal"} },
+    { "from": "union_padres", "to": "santiago", "routing": {"type": "orthogonal"} },
+    { "from": "union_padres", "to": "jose", "routing": {"type": "orthogonal"} },
+
+    { "from": "silvia", "to": "sebastian", "routing": {"type": "orthogonal"} },
+
+    { "from": "lika", "to": "union_lika", "routing": {"type": "orthogonal"} },
+    { "from": "martin", "to": "union_lika", "routing": {"type": "orthogonal"} },
+    { "from": "union_lika", "to": "mateo", "routing": {"type": "orthogonal"} },
+    { "from": "union_lika", "to": "pascual", "routing": {"type": "orthogonal"} },
+
+    { "from": "patricia", "to": "union_patricia", "routing": {"type": "orthogonal"} },
+    { "from": "ricardo", "to": "union_patricia", "routing": {"type": "orthogonal"} },
+    { "from": "union_patricia", "to": "diego", "routing": {"type": "orthogonal"} },
+
+    { "from": "jose", "to": "union_jose", "routing": {"type": "orthogonal"} },
+    { "from": "claudia", "to": "union_jose", "routing": {"type": "orthogonal"} },
+    { "from": "union_jose", "to": "gerardo", "routing": {"type": "orthogonal"} },
+    { "from": "union_jose", "to": "dante", "routing": {"type": "orthogonal"} },
+
+    { "from": "santiago", "to": "union_santiago", "routing": {"type": "orthogonal"} },
+    { "from": "leila", "to": "union_santiago", "routing": {"type": "orthogonal"} },
+    { "from": "union_santiago", "to": "jose_antonio", "routing": {"type": "orthogonal"} },
+    { "from": "union_santiago", "to": "patricia_hija", "routing": {"type": "orthogonal"} },
+    { "from": "union_santiago", "to": "santiaguito", "routing": {"type": "orthogonal"} }
+
+  ]
+}
