@@ -10,6 +10,7 @@ Este módulo detecta colisiones entre:
 
 from typing import List, Tuple
 from AlmaGag.layout.geometry import GeometryCalculator
+from AlmaGag.utils import extract_item_id
 
 
 class CollisionDetector:
@@ -51,7 +52,7 @@ class CollisionDetector:
         # Verificar si elem1 contiene a elem2
         if elem1 and 'contains' in elem1:
             contains = [
-                item['id'] if isinstance(item, dict) else item
+                extract_item_id(item)
                 for item in elem1['contains']
             ]
             if id2 in contains:
@@ -60,7 +61,7 @@ class CollisionDetector:
         # Verificar si elem2 contiene a elem1
         if elem2 and 'contains' in elem2:
             contains = [
-                item['id'] if isinstance(item, dict) else item
+                extract_item_id(item)
                 for item in elem2['contains']
             ]
             if id1 in contains:

@@ -10,6 +10,7 @@ del grafo de elementos y conexiones:
 """
 
 from typing import Dict, List
+from AlmaGag.utils import extract_item_id
 
 
 class GraphAnalyzer:
@@ -200,7 +201,7 @@ class GraphAnalyzer:
                 continue
             container_id = elem['id']
             for ref in elem.get('contains', []):
-                child_id = ref['id'] if isinstance(ref, dict) else ref
+                child_id = extract_item_id(ref)
                 child_to_parent[child_id] = container_id
 
         def resolve(elem_id):

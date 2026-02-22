@@ -11,8 +11,9 @@ Autor: José + ALMA
 Fecha: 2026-01-07
 """
 
-from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT, CONTAINER_PADDING
+from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT, CONTAINER_PADDING, TEXT_CHAR_WIDTH, TEXT_LINE_HEIGHT
 from AlmaGag.draw.icons import create_gradient
+from AlmaGag.utils import extract_item_id, calculate_label_dimensions
 import importlib
 
 
@@ -49,7 +50,7 @@ def calculate_container_bounds(container, elements_by_id):
 
     for item in contains:
         # Soportar formato dict {"id": "...", "scope": "..."} o string directo
-        elem_id = item['id'] if isinstance(item, dict) else item
+        elem_id = extract_item_id(item)
 
         if elem_id not in elements_by_id:
             continue
@@ -67,9 +68,7 @@ def calculate_container_bounds(container, elements_by_id):
 
         # Considerar etiqueta del elemento contenido
         if elem.get('label'):
-            lines = elem['label'].split('\n')
-            label_w = max(len(line) for line in lines) * 8  # ~8px/char
-            label_h = len(lines) * 18  # 18px/line
+            label_w, label_h, lines = calculate_label_dimensions(elem['label'])
             # Etiqueta centrada debajo del elemento (posición por defecto)
             label_cx = elem_x + elem_w / 2
             label_y = elem_y + elem_h + 15  # 15px gap
@@ -206,7 +205,7 @@ def draw_container(dwg, container, elements_by_id, draw_label=True, layout_algor
             # CRÍTICO: El contenedor YA tiene espacio reservado arriba (container_calculator expandió y hacia arriba)
             # Dibujar label DENTRO del header reservado, no fuera
             lines = label.split('\n')
-            label_height = len(lines) * 18 + 10
+            label_height = len(lines) * TEXT_LINE_HEIGHT + 10
 
             label_x = x + width / 2
             # label_y_base: dentro del header reservado
@@ -215,7 +214,7 @@ def draw_container(dwg, container, elements_by_id, draw_label=True, layout_algor
             for i, line in enumerate(lines):
                 dwg.add(dwg.text(
                     line,
-                    insert=(label_x, label_y_base - (len(lines) - 1 - i) * 18),
+                    insert=(label_x, label_y_base - (len(lines) - 1 - i) * TEXT_LINE_HEIGHT),
                     text_anchor="middle",
                     font_size="16px",
                     font_family="Arial, sans-serif",

@@ -16,6 +16,7 @@ Fecha: 2026-01-09
 
 from typing import Dict, List, Tuple
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
+from AlmaGag.utils import extract_item_id
 
 
 class ContainerCalculator:
@@ -72,7 +73,7 @@ class ContainerCalculator:
 
         for item in contains:
             # Soportar formato dict {"id": "...", "scope": "..."} o string directo
-            elem_id = item['id'] if isinstance(item, dict) else item
+            elem_id = extract_item_id(item)
 
             if elem_id not in layout.elements_by_id:
                 continue

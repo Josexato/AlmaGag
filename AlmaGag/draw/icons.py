@@ -19,6 +19,7 @@ from AlmaGag.config import (
     LABEL_OFFSET_BOTTOM, LABEL_OFFSET_SIDE,
     TEXT_LINE_HEIGHT, TEXT_CHAR_WIDTH
 )
+from AlmaGag.utils import calculate_label_dimensions
 
 
 # ============================================================================
@@ -160,7 +161,7 @@ def get_text_coords(element, position, num_lines=1):
         return (center_x, y + ICON_HEIGHT + 20, 'middle', 'bottom')
     elif position == 'top':
         # Ajustar hacia arriba según número de líneas
-        text_y = y - 10 - ((num_lines - 1) * 18)
+        text_y = y - 10 - ((num_lines - 1) * TEXT_LINE_HEIGHT)
         return (center_x, text_y, 'middle', 'top')
     elif position == 'right':
         return (x + ICON_WIDTH + 15, center_y, 'start', 'right')
@@ -182,9 +183,7 @@ def get_text_bbox(element, position, num_lines=1):
 
     # Estimación del ancho del texto (aproximado)
     label = element.get('label', '')
-    max_line_len = max((len(line) for line in label.split('\n')), default=0)
-    text_width = max_line_len * 8  # ~8px por caracter en Arial 14px
-    text_height = num_lines * 18
+    text_width, text_height, _ = calculate_label_dimensions(label)
 
     # Calcular bbox según anchor
     if anchor == 'middle':
@@ -359,7 +358,7 @@ def draw_icon_label(dwg, element, position_info):
     for i, line in enumerate(lines):
         dwg.add(dwg.text(
             line,
-            insert=(text_x, text_y + (i * 18)),
+            insert=(text_x, text_y + (i * TEXT_LINE_HEIGHT)),
             text_anchor=anchor,
             font_size="14px",
             font_family="Arial, sans-serif",

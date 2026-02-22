@@ -25,6 +25,7 @@ from AlmaGag.config import (
     CANVAS_MARGIN_XLARGE, CANVAS_MARGIN_LARGE, CANVAS_MARGIN_SMALL,
     MOVEMENT_THRESHOLD, MOVEMENT_MAX_DISTANCE, MOVEMENT_DEFAULT_DY
 )
+from AlmaGag.utils import extract_item_id
 
 
 class AutoLayoutOptimizer(LayoutOptimizer):
@@ -176,7 +177,7 @@ class AutoLayoutOptimizer(LayoutOptimizer):
                 del elem['_resolved']
                 # También resetear coordenadas locales de elementos contenidos
                 for ref in elem.get('contains', []):
-                    ref_id = ref['id'] if isinstance(ref, dict) else ref
+                    ref_id = extract_item_id(ref)
                     contained = current.elements_by_id.get(ref_id)
                     if contained:
                         if '_local_x' in contained:
@@ -793,7 +794,7 @@ class AutoLayoutOptimizer(LayoutOptimizer):
                 del elem['_resolved']
                 # También resetear coordenadas locales de elementos contenidos
                 for ref in elem.get('contains', []):
-                    ref_id = ref['id'] if isinstance(ref, dict) else ref
+                    ref_id = extract_item_id(ref)
                     contained = layout.elements_by_id.get(ref_id)
                     if contained:
                         if '_local_x' in contained:

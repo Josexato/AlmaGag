@@ -11,6 +11,7 @@ Date: 2026-01-17
 
 from dataclasses import dataclass, field
 from typing import Dict, List, Tuple, Optional, Set
+from AlmaGag.utils import extract_item_id
 
 
 @dataclass
@@ -157,7 +158,7 @@ class StructureAnalyzer:
 
             container_id = elem['id']
             for item in elem['contains']:
-                child_id = item['id'] if isinstance(item, dict) else item
+                child_id = extract_item_id(item)
                 if child_id in info.element_tree:
                     info.element_tree[child_id]['parent'] = container_id
                     info.element_tree[container_id]['children'].append(child_id)

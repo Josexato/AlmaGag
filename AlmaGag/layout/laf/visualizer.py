@@ -14,6 +14,7 @@ import svgwrite
 from typing import Dict, List, Tuple
 from copy import deepcopy
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
+from AlmaGag.utils import extract_item_id
 
 
 class GrowthVisualizer:
@@ -2303,7 +2304,7 @@ class GrowthVisualizer:
             if 'contains' in elem and elem['contains']:
                 children = []
                 for item in elem['contains']:
-                    child_id = item['id'] if isinstance(item, dict) else item
+                    child_id = extract_item_id(item)
                     children.append(child_id)
                 container_children[elem_id] = children
 

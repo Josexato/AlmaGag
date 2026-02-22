@@ -29,6 +29,7 @@ from AlmaGag.config import (
     TOP_MARGIN_DEBUG, TOP_MARGIN_NORMAL,
     LAF_VERTICAL_SPACING
 )
+from AlmaGag.utils import extract_item_id
 
 logger = logging.getLogger('AlmaGag.AutoPositioner')
 
@@ -859,7 +860,7 @@ class AutoLayoutPositioner:
             container: Contenedor a resolver
         """
         # Obtener elementos contenidos
-        contained_ids = [ref['id'] if isinstance(ref, dict) else ref for ref in container['contains']]
+        contained_ids = [extract_item_id(ref) for ref in container['contains']]
         contained_elements = [layout.elements_by_id[id] for id in contained_ids if id in layout.elements_by_id]
 
         if not contained_elements:
@@ -998,7 +999,7 @@ class AutoLayoutPositioner:
         """
         # Buscar en las referencias del contenedor
         for ref in container.get('contains', []):
-            ref_id = ref['id'] if isinstance(ref, dict) else ref
+            ref_id = extract_item_id(ref)
             if ref_id == elem['id']:
                 if isinstance(ref, dict):
                     return ref.get('scope', 'full')
@@ -1113,7 +1114,7 @@ class AutoLayoutPositioner:
         for elem in layout.elements:
             if 'contains' in elem:
                 for ref in elem['contains']:
-                    ref_id = ref['id'] if isinstance(ref, dict) else ref
+                    ref_id = extract_item_id(ref)
                     contained_ids.add(ref_id)
 
         # Contenedores resueltos + elementos sin padre
@@ -1147,7 +1148,7 @@ class AutoLayoutPositioner:
                 logger.debug(f"  Conversión local -> global:")
 
                 for ref in container['contains']:
-                    ref_id = ref['id'] if isinstance(ref, dict) else ref
+                    ref_id = extract_item_id(ref)
                     elem = layout.elements_by_id.get(ref_id)
                     if elem and '_local_x' in elem:
                         local_x = elem['_local_x']

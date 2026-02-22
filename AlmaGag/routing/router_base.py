@@ -11,6 +11,7 @@ Date: 2026-01-08
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import List, Optional, Tuple, Any
+from AlmaGag.utils import extract_item_id
 
 
 @dataclass
@@ -174,7 +175,7 @@ class ConnectionRouter(ABC):
                 contains_list = container['contains']
                 for item in contains_list:
                     # Handle both string IDs and dict format
-                    item_id = item['id'] if isinstance(item, dict) else item
+                    item_id = extract_item_id(item)
                     if item_id == element_id:
                         return container
         return None

@@ -13,6 +13,7 @@ from AlmaGag.draw.icons import draw_icon_shape, draw_icon_label
 from AlmaGag.draw.connections import draw_connection_line, draw_connection_label
 from AlmaGag.draw.container import draw_container
 from AlmaGag.debug import add_debug_badge, convert_svg_to_png
+from AlmaGag.utils import extract_item_id
 
 # Logger global para AlmaGag
 logger = logging.getLogger('AlmaGag')
@@ -77,7 +78,7 @@ def dump_layout_table(optimized_layout, elements_by_id, containers, phase="FINAL
     contained_elements = set()
     for container in containers:
         for item in container.get('contains', []):
-            item_id = item['id'] if isinstance(item, dict) else item
+            item_id = extract_item_id(item)
             contained_elements.add(item_id)
 
     # Procesar solo elementos primarios (no contenidos)
@@ -183,7 +184,7 @@ def dump_layout_table(optimized_layout, elements_by_id, containers, phase="FINAL
             child_index = 1  # Empezar en 1 (00 es contenedor, 01 es ícono del contenedor)
             for ref in element.get('contains', []):
                 child_index += 1  # Incrementar para cada hijo
-                ref_id = ref['id'] if isinstance(ref, dict) else ref
+                ref_id = extract_item_id(ref)
                 contained_elem = elements_by_id.get(ref_id)
 
                 if contained_elem:
@@ -827,7 +828,7 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
         for eid, elem in elements_by_id.items():
             if 'contains' in elem and elem['contains']:
                 container_children[eid] = [
-                    item['id'] if isinstance(item, dict) else item
+                    extract_item_id(item)
                     for item in elem['contains']
                 ]
         aaa = 1
@@ -1019,7 +1020,7 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     contained_element_ids = set()
     for container in containers:
         for item in container.get('contains', []):
-            cid = item['id'] if isinstance(item, dict) else item
+            cid = extract_item_id(item)
             contained_element_ids.add(cid)
 
     # Etiquetas de elementos normales (excluye contenidos — ya posicionados por ContainerGrower)
@@ -1161,7 +1162,7 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
                 if contains:
                     logger.debug(f"\n  3) ELEMENTOS INTERNOS: {len(contains)}")
                     for idx, ref in enumerate(contains, 1):
-                        ref_id = ref['id'] if isinstance(ref, dict) else ref
+                        ref_id = extract_item_id(ref)
                         elem = elements_by_id.get(ref_id)
                         if elem and 'x' in elem:
                             elem_local_x = elem['x'] - container_x
@@ -1212,7 +1213,7 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
         contained_ids = set()
         for container in containers:
             for item in container.get('contains', []):
-                elem_id = item['id'] if isinstance(item, dict) else item
+                elem_id = extract_item_id(item)
                 contained_ids.add(elem_id)
 
         # Identificar elementos primarios (no contenidos)
