@@ -13,6 +13,9 @@ Fecha: 2025-07-06
 """
 
 import importlib
+import logging
+
+logger = logging.getLogger('AlmaGag')
 from xml.etree import ElementTree as ET
 from AlmaGag.config import (
     ICON_WIDTH, ICON_HEIGHT,
@@ -316,7 +319,7 @@ def draw_icon_shape(dwg, element, embedded_icons=None):
 
     if x is None or y is None:
         elem_id = element.get('id', 'unknown')
-        print(f"[WARN] Element {elem_id} sin coordenadas, omitiendo")
+        logger.warning(f"Element {elem_id} sin coordenadas, omitiendo")
         return
 
     elem_type = element.get('type', 'unknown')
@@ -333,8 +336,8 @@ def draw_icon_shape(dwg, element, embedded_icons=None):
         module = importlib.import_module(f'AlmaGag.draw.{elem_type}')
         draw_func = getattr(module, f'draw_{elem_type}')
         draw_func(dwg, x, y, color, element_id)
-    except Exception as e:
-        print(f"[WARN] No se pudo dibujar '{elem_type}', se usará ícono por defecto. Error: {e}")
+    except (ImportError, AttributeError) as e:
+        logger.warning(f"No se pudo dibujar '{elem_type}', se usará ícono por defecto. Error: {e}")
         from AlmaGag.draw.bwt import draw_bwt
         draw_bwt(dwg, x, y)
 

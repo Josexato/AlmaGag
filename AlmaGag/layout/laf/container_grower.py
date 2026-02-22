@@ -9,9 +9,12 @@ Version: v1.0
 Date: 2026-01-17
 """
 
+import logging
 from typing import Dict, List, Tuple
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 from AlmaGag.layout.laf.structure_analyzer import StructureInfo
+
+logger = logging.getLogger('AlmaGag')
 
 
 class ContainerGrower:
@@ -761,7 +764,7 @@ class ContainerGrower:
         final_height = padding + header_height + padding + content_height + padding
 
         if self.debug:
-            print(f"  {container_id}: {final_width:.0f}x{final_height:.0f}px ({len(children)} hijos)")
+            logger.debug(f"  {container_id}: {final_width:.0f}x{final_height:.0f}px ({len(children)} hijos)")
 
         # Asignar dimensiones finales
         container['width'] = final_width

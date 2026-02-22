@@ -105,7 +105,7 @@ class LAFOptimizer:
                 from AlmaGag.generator import dump_layout_table
                 containers = [e for e in layout.elements if 'contains' in e]
                 dump_layout_table(layout, layout.elements_by_id, containers, phase=phase_name)
-            except Exception as e:
+            except (ImportError, KeyError, TypeError, ValueError, OSError) as e:
                 logger.warning(f"[LAF] No se pudo hacer dump de layout: {e}")
 
     def _write_abstract_positions_to_layout(self, abstract_positions, layout):
@@ -363,7 +363,7 @@ class LAFOptimizer:
                 by_level[actual_level] = layer_elements.copy()
 
             if self.debug:
-                print(f"[REDISTRIBUTE] Orden optimizado (Fase 5): {len(by_level)} niveles")
+                logger.debug(f"[REDISTRIBUTE] Orden optimizado (Fase 5): {len(by_level)} niveles")
         else:
             for elem_id in structure_info.primary_elements:
                 level = structure_info.topological_levels.get(elem_id, 0)
@@ -372,7 +372,7 @@ class LAFOptimizer:
                 by_level[level].append(elem_id)
 
             if self.debug:
-                print(f"[REDISTRIBUTE] ADVERTENCIA: No se encontró orden optimizado, usando orden por defecto")
+                logger.debug(f"[REDISTRIBUTE] ADVERTENCIA: No se encontró orden optimizado, usando orden por defecto")
 
         # --- Check if we have Phase 5 positions ---
         phase5 = getattr(layout, '_phase5_positions', None)
@@ -386,7 +386,7 @@ class LAFOptimizer:
 
         if self.debug:
             containers = [eid for eid, g in ndfn_groups.items() if g['bbox_width'] > ICON_WIDTH]
-            print(f"[REDISTRIBUTE] Grupos NdFn: {len(ndfn_groups)} ({len(containers)} contenedores)")
+            logger.debug(f"[REDISTRIBUTE] Grupos NdFn: {len(ndfn_groups)} ({len(containers)} contenedores)")
 
         # --- Paso 2: Calcular escala X global (usando bbox_width de grupos NdFn) ---
         global_x_scale = LAF_SPACING_BASE  # 480px minimum
@@ -423,7 +423,7 @@ class LAFOptimizer:
                 global_x_scale = max(global_x_scale, required_scale)
 
         if self.debug:
-            print(f"[REDISTRIBUTE] Global X scale: {global_x_scale:.1f}px/unit")
+            logger.debug(f"[REDISTRIBUTE] Global X scale: {global_x_scale:.1f}px/unit")
 
         # --- Paso 3: Asignar Y secuencialmente (usando bbox_height de grupos NdFn) ---
         current_y = TOP_MARGIN
@@ -532,7 +532,7 @@ class LAFOptimizer:
                 self._apply_global_dx(correction_dx, by_level, layout, structure_info)
 
         if self.debug:
-            print(f"[REDISTRIBUTE] OK: {len(by_level)} niveles, altura={current_y:.0f}px")
+            logger.debug(f"[REDISTRIBUTE] OK: {len(by_level)} niveles, altura={current_y:.0f}px")
 
         # --- Paso 6: Recalcular canvas ---
         canvas_width, canvas_height = self.container_grower.calculate_final_canvas(
@@ -543,7 +543,7 @@ class LAFOptimizer:
         layout.canvas['height'] = canvas_height
 
         if self.debug:
-            print(f"[REDISTRIBUTE] Canvas final: {canvas_width:.0f}x{canvas_height:.0f}px")
+            logger.debug(f"[REDISTRIBUTE] Canvas final: {canvas_width:.0f}x{canvas_height:.0f}px")
 
     def _apply_global_dx(self, dx, by_level, layout, structure_info):
         """Apply a uniform horizontal shift to ALL elements."""
@@ -750,7 +750,7 @@ class LAFOptimizer:
             Layout: Layout optimizado
         """
         if self.debug:
-            print("\n[LAF] Pipeline LAF (9 fases)")
+            logger.debug("\n[LAF] Pipeline LAF (9 fases)")
 
         # FASE 1: Análisis de estructura
         structure_info = self.structure_analyzer.analyze(layout)
@@ -762,12 +762,12 @@ class LAFOptimizer:
         if self.debug:
             scored_count = sum(1 for v in structure_info.accessibility_scores.values() if v > 0)
             max_score = max(structure_info.accessibility_scores.values()) if scored_count else 0
-            print(f"[LAF] Fase 1 OK: {len(structure_info.primary_elements)} primarios, "
+            logger.debug(f"[LAF] Fase 1 OK: {len(structure_info.primary_elements)} primarios, "
                   f"{len(structure_info.container_metrics)} contenedores, "
                   f"{len(structure_info.connection_sequences)} conexiones")
 
             # Tabla compacta de nodos primarios
-            print(f"  {'ID':<8} {'Tipo':<12} {'Elemento':<28} Nv  Hijos  Score")
+            logger.debug(f"  {'ID':<8} {'Tipo':<12} {'Elemento':<28} Nv  Hijos  Score")
             for elem_id in structure_info.primary_elements:
                 nid = structure_info.primary_node_ids.get(elem_id, "?")
                 ntype = structure_info.primary_node_types.get(elem_id, "?")
@@ -776,7 +776,7 @@ class LAFOptimizer:
                 sc = structure_info.accessibility_scores.get(elem_id, 0.0)
                 name = elem_id[:28] if len(elem_id) <= 28 else elem_id[:25] + "..."
                 sc_str = f"{sc:.4f}" if sc > 0 else "-"
-                print(f"  {nid:<8} {ntype:<12} {name:<28} {str(lv):<3} {ch:<6} {sc_str}")
+                logger.debug(f"  {nid:<8} {ntype:<12} {name:<28} {str(lv):<3} {ch:<6} {sc_str}")
 
         self._populate_layout_analysis(layout, structure_info)
         self._dump_layout(layout, "LAF_PHASE_1_STRUCTURE")
@@ -791,7 +791,7 @@ class LAFOptimizer:
             for eid, lv in structure_info.topological_levels.items():
                 by_level.setdefault(lv, []).append(eid)
             levels_str = " | ".join(f"{lv}:{','.join(by_level[lv])}" for lv in sorted(by_level))
-            print(f"[LAF] Fase 2 OK: {levels_str}")
+            logger.debug(f"[LAF] Fase 2 OK: {levels_str}")
 
         # FASE 3: Ordenamiento por centralidad
         centrality_order = self._order_by_centrality(structure_info)
@@ -801,7 +801,7 @@ class LAFOptimizer:
         self._dump_layout(layout, "LAF_PHASE_3_CENTRALITY")
 
         if self.debug:
-            print(f"[LAF] Fase 3 OK: {len(centrality_order)} niveles ordenados por centralidad")
+            logger.debug(f"[LAF] Fase 3 OK: {len(centrality_order)} niveles ordenados por centralidad")
 
         # FASE 4: Layout abstracto
         abstract_positions = self.abstract_placer.place_elements(
@@ -817,7 +817,7 @@ class LAFOptimizer:
         self._dump_layout(layout, "LAF_PHASE_4_ABSTRACT")
 
         if self.debug:
-            print(f"[LAF] Fase 4 OK: {len(abstract_positions)} posiciones, {crossings} cruces")
+            logger.debug(f"[LAF] Fase 4 OK: {len(abstract_positions)} posiciones, {crossings} cruces")
 
         # FASE 5: Optimización de posiciones (Claude-SolFase5)
         optimized_positions = self.position_optimizer.optimize_positions(
@@ -838,7 +838,7 @@ class LAFOptimizer:
 
         if self.debug:
             cross_delta = f" ({crossings}->{optimized_crossings})" if crossings != optimized_crossings else ""
-            print(f"[LAF] Fase 5 OK: {len(optimized_positions)} optimizadas, {optimized_crossings} cruces{cross_delta}")
+            logger.debug(f"[LAF] Fase 5 OK: {len(optimized_positions)} optimizadas, {optimized_crossings} cruces{cross_delta}")
 
         # FASE 6: Inflación + Crecimiento de contenedores
         spacing = self.inflator.inflate_elements(optimized_positions, structure_info, layout)
@@ -855,7 +855,7 @@ class LAFOptimizer:
         self._dump_layout(layout, "LAF_PHASE_6_INFLATED_AND_GROWN")
 
         if self.debug:
-            print(f"[LAF] Fase 6 OK: spacing={spacing:.0f}px, canvas {canvas_width:.0f}x{canvas_height:.0f}px")
+            logger.debug(f"[LAF] Fase 6 OK: spacing={spacing:.0f}px, canvas {canvas_width:.0f}x{canvas_height:.0f}px")
 
         # FASE 7: Redistribución vertical
         self._redistribute_vertical_after_growth(structure_info, layout)
@@ -865,7 +865,7 @@ class LAFOptimizer:
         self._dump_layout(layout, "LAF_PHASE_7_REDISTRIBUTED")
 
         if self.debug:
-            print(f"[LAF] Fase 7 OK: redistribución vertical")
+            logger.debug(f"[LAF] Fase 7 OK: redistribución vertical")
 
         # FASE 8: Routing
         if self.router_manager:
@@ -873,23 +873,23 @@ class LAFOptimizer:
             if self.visualizer:
                 self.visualizer.capture_phase8_routed(layout, structure_info)
             if self.debug:
-                print(f"[LAF] Fase 8 OK: {len(layout.connections)} conexiones ruteadas")
+                logger.debug(f"[LAF] Fase 8 OK: {len(layout.connections)} conexiones ruteadas")
 
         # Colisiones finales
         if self.collision_detector and self.debug:
             collision_count, _ = self.collision_detector.detect_all_collisions(layout)
             if collision_count > 0:
-                print(f"[LAF] WARN: {collision_count} colisiones detectadas")
+                logger.warning(f"[LAF] {collision_count} colisiones detectadas")
 
         # FASE 9: Generar visualizaciones
         if self.visualizer:
             self.visualizer.capture_phase9_final(layout, structure_info)
             self.visualizer.generate_all()
             if self.debug:
-                print(f"[LAF] Fase 9 OK: SVGs en debug/growth/")
+                logger.debug(f"[LAF] Fase 9 OK: SVGs en debug/growth/")
 
         if self.debug:
-            print(f"[LAF] Pipeline completo")
+            logger.debug(f"[LAF] Pipeline completo")
 
         layout.sizing = self.sizing
         layout.structure_info = structure_info
@@ -927,7 +927,7 @@ class LAFOptimizer:
         layout.optimized_layer_order = new_order
 
         if self.debug:
-            print(f"[LAF] optimized_layer_order actualizado con orden de Claude-SolFase5")
+            logger.debug(f"[LAF] optimized_layer_order actualizado con orden de Claude-SolFase5")
 
     def _order_by_centrality(self, structure_info):
         """

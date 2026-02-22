@@ -10,11 +10,14 @@ Date: 2026-02-15
 """
 
 import os
+import logging
 import svgwrite
 from typing import Dict, List, Tuple
 from copy import deepcopy
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 from AlmaGag.utils import extract_item_id
+
+logger = logging.getLogger('AlmaGag')
 
 
 class GrowthVisualizer:
@@ -229,7 +232,7 @@ class GrowthVisualizer:
         """
         if not self.snapshots:
             if self.debug:
-                print(f"[VISUALIZER] Warning: No hay snapshots capturados")
+                logger.warning(f"[VISUALIZER] No hay snapshots capturados")
             return
 
         # Crear directorio de salida
@@ -238,7 +241,7 @@ class GrowthVisualizer:
         os.makedirs(output_path, exist_ok=True)
 
         if self.debug:
-            print(f"\n[VISUALIZER] Generando visualizaciones en: {output_path}")
+            logger.debug(f"[VISUALIZER] Generando visualizaciones en: {output_path}")
 
         # Generar cada fase
         if 'phase1' in self.snapshots:
@@ -269,7 +272,7 @@ class GrowthVisualizer:
             self._generate_phase9_final_svg(output_path)
 
         if self.debug:
-            print(f"[VISUALIZER] Generación completada: {len(self.snapshots)} fases")
+            logger.debug(f"[VISUALIZER] Generación completada: {len(self.snapshots)} fases")
 
     def _generate_phase1_svg(self, output_path: str) -> None:
         """
@@ -426,7 +429,7 @@ class GrowthVisualizer:
         dwg.save()
 
         if self.debug:
-            print(f"[VISUALIZER] Generado: {filename}")
+            logger.debug(f"[VISUALIZER] Generado: {filename}")
 
     def _draw_colored_connections(self, dwg, node_positions, connection_graph, node_radius=12):
         """
@@ -1129,7 +1132,7 @@ class GrowthVisualizer:
         dwg.save()
 
         if self.debug:
-            print(f"[VISUALIZER] Generado: {filename}")
+            logger.debug(f"[VISUALIZER] Generado: {filename}")
 
     def _generate_phase3_centrality_svg(self, output_path: str) -> None:
         """
@@ -1139,7 +1142,7 @@ class GrowthVisualizer:
         """
         if 'phase3' not in self.snapshots:
             if self.debug:
-                print(f"[VISUALIZER] No hay datos de Phase 3 para generar")
+                logger.warning(f"[VISUALIZER] No hay datos de Phase 3 para generar")
             return
 
         phase3_data = self.snapshots.get('phase3', {})
@@ -1148,7 +1151,7 @@ class GrowthVisualizer:
 
         if not structure_info or not centrality_order:
             if self.debug:
-                print(f"[VISUALIZER] Datos incompletos para Phase 3")
+                logger.warning(f"[VISUALIZER] Datos incompletos para Phase 3")
             return
 
         filename = os.path.join(output_path, 'phase3_centrality.svg')
@@ -1394,7 +1397,7 @@ class GrowthVisualizer:
         dwg.save()
 
         if self.debug:
-            print(f"[VISUALIZER] Generado: {filename}")
+            logger.debug(f"[VISUALIZER] Generado: {filename}")
 
     def _generate_phase4_abstract_svg(self, output_path: str) -> None:
         """
@@ -1667,7 +1670,7 @@ class GrowthVisualizer:
         dwg.save()
 
         if self.debug:
-            print(f"[VISUALIZER] Generado: {filename}")
+            logger.debug(f"[VISUALIZER] Generado: {filename}")
 
     def _generate_phase5_optimized_svg(self, output_path: str) -> None:
         """
@@ -2080,7 +2083,7 @@ class GrowthVisualizer:
         dwg.save()
 
         if self.debug:
-            print(f"[VISUALIZER] Generado: {filename}")
+            logger.debug(f"[VISUALIZER] Generado: {filename}")
 
     def _draw_elements_with_ndfn(self, dwg, layout, ndfn_labels):
         """
@@ -2273,7 +2276,7 @@ class GrowthVisualizer:
 
         dwg.save()
         if self.debug:
-            print(f"[VISUALIZER] Generado: {filename}")
+            logger.debug(f"[VISUALIZER] Generado: {filename}")
 
     def _build_ndfn_labels(self, layout, structure_info):
         """
@@ -2370,7 +2373,7 @@ class GrowthVisualizer:
 
         dwg.save()
         if self.debug:
-            print(f"[VISUALIZER] Generado: {filename}")
+            logger.debug(f"[VISUALIZER] Generado: {filename}")
 
     def _generate_phase8_routed_svg(self, output_path: str) -> None:
         """
@@ -2404,7 +2407,7 @@ class GrowthVisualizer:
 
         dwg.save()
         if self.debug:
-            print(f"[VISUALIZER] Generado: {filename}")
+            logger.debug(f"[VISUALIZER] Generado: {filename}")
 
     def _generate_phase9_final_svg(self, output_path: str) -> None:
         """
@@ -2438,4 +2441,4 @@ class GrowthVisualizer:
 
         dwg.save()
         if self.debug:
-            print(f"[VISUALIZER] Generado: {filename}")
+            logger.debug(f"[VISUALIZER] Generado: {filename}")

@@ -10,9 +10,12 @@ Los optimizadores son responsables de:
 5. Retornar el mejor layout encontrado
 """
 
+import logging
 from abc import ABC, abstractmethod
 from typing import Optional
 from AlmaGag.layout.layout import Layout
+
+logger = logging.getLogger('AlmaGag')
 
 
 class LayoutOptimizer(ABC):
@@ -100,4 +103,4 @@ class LayoutOptimizer(ABC):
             message: Mensaje a imprimir
         """
         if self.verbose:
-            print(f"[{self.__class__.__name__}] {message}")
+            logger.debug(f"[{self.__class__.__name__}] {message}")

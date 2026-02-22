@@ -11,8 +11,12 @@ Autor: José + ALMA
 Fecha: 2026-01-07
 """
 
+import logging
+
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT, CONTAINER_PADDING, TEXT_CHAR_WIDTH, TEXT_LINE_HEIGHT
 from AlmaGag.draw.icons import create_gradient
+
+logger = logging.getLogger('AlmaGag')
 from AlmaGag.utils import extract_item_id, calculate_label_dimensions
 import importlib
 
@@ -149,7 +153,7 @@ def draw_container(dwg, container, elements_by_id, draw_label=True, layout_algor
         y = bounds['y']
         width = bounds['width']
         height = bounds['height']
-        print(f"[CALC_BOUNDS] {container['id']}: calculated=({x:.1f}, {y:.1f}) vs container=({container.get('x', 'N/A')}, {container.get('y', 'N/A')})")
+        logger.debug(f"[CALC_BOUNDS] {container['id']}: calculated=({x:.1f}, {y:.1f}) vs container=({container.get('x', 'N/A')}, {container.get('y', 'N/A')})")
 
     # Calcular radio de bordes redondeados (5% del lado más corto)
     radius = min(width, height) * 0.05

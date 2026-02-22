@@ -9,9 +9,12 @@ Version: v1.0
 Date: 2026-01-17
 """
 
+import logging
 from dataclasses import dataclass, field
 from typing import Dict, List, Tuple, Optional, Set
 from AlmaGag.utils import extract_item_id
+
+logger = logging.getLogger('AlmaGag')
 
 
 @dataclass
@@ -439,7 +442,7 @@ class StructureAnalyzer:
                 dfs(eid)
 
         if back_edges and self.debug:
-            print(f"  [DEBUG] Ciclos detectados - back-edges ignorados: {back_edges}")
+            logger.debug(f"  Ciclos detectados - back-edges ignorados: {back_edges}")
 
         return back_edges
 
@@ -464,7 +467,7 @@ class StructureAnalyzer:
         while changed:
             if iteration >= max_iterations:
                 if self.debug:
-                    print(f"  [DEBUG] _enforce_non_leaf_parent_progression: "
+                    logger.debug(f"  _enforce_non_leaf_parent_progression: "
                           f"max iterations ({max_iterations}) alcanzado, "
                           f"posible ciclo residual")
                 break
@@ -717,23 +720,23 @@ class StructureAnalyzer:
 
     def _print_debug_info(self, info: StructureInfo) -> None:
         """Imprime información de debug sobre la estructura."""
-        print(f"\n[STRUCTURE] Análisis completado:")
-        print(f"  - Elementos primarios: {len(info.primary_elements)}")
-        print(f"  - Contenedores: {len(info.container_metrics)}")
+        logger.debug(f"\n[STRUCTURE] Análisis completado:")
+        logger.debug(f"  - Elementos primarios: {len(info.primary_elements)}")
+        logger.debug(f"  - Contenedores: {len(info.container_metrics)}")
 
         if info.container_metrics:
             max_contained = max(m['total_icons'] for m in info.container_metrics.values())
-            print(f"  - Max contenido: {max_contained} íconos")
+            logger.debug(f"  - Max contenido: {max_contained} íconos")
 
-        print(f"  - Conexiones: {len(info.connection_sequences)}")
-        print(f"  - Tipos de elementos: {list(info.element_types.keys())}")
-        print(f"  - Hojas detectadas: {len(info.leaf_nodes)}")
-        print(f"  - Hojas terminales: {len(info.terminal_leaf_nodes)}")
+        logger.debug(f"  - Conexiones: {len(info.connection_sequences)}")
+        logger.debug(f"  - Tipos de elementos: {list(info.element_types.keys())}")
+        logger.debug(f"  - Hojas detectadas: {len(info.leaf_nodes)}")
+        logger.debug(f"  - Hojas terminales: {len(info.terminal_leaf_nodes)}")
 
         # Niveles topológicos
         if info.topological_levels:
             max_level = max(info.topological_levels.values())
-            print(f"  - Niveles topológicos: {max_level + 1}")
+            logger.debug(f"  - Niveles topológicos: {max_level + 1}")
 
             # Distribución por nivel
             by_level = {}
@@ -742,21 +745,21 @@ class StructureAnalyzer:
                     by_level[level] = []
                 by_level[level].append(elem_id)
 
-            print(f"  - Distribución por nivel:")
+            logger.debug(f"  - Distribución por nivel:")
             for level in sorted(by_level.keys()):
                 count = len(by_level[level])
-                print(f"      Nivel {level}: {count} elementos")
+                logger.debug(f"      Nivel {level}: {count} elementos")
 
         # Accessibility scores
         if info.accessibility_scores:
             scored_count = sum(1 for v in info.accessibility_scores.values() if v > 0)
             if scored_count:
                 max_score = max(info.accessibility_scores.values())
-                print(f"  - Nodos con score > 0: {scored_count}, max score: {max_score:.4f}")
+                logger.debug(f"  - Nodos con score > 0: {scored_count}, max score: {max_score:.4f}")
 
                 # Top 3 elementos con mayor score
                 scored = {k: v for k, v in info.accessibility_scores.items() if v > 0}
                 top_3 = sorted(scored.items(), key=lambda x: x[1], reverse=True)[:3]
-                print(f"  - Top 3 elementos por accessibility score:")
+                logger.debug(f"  - Top 3 elementos por accessibility score:")
                 for elem_id, score in top_3:
-                    print(f"      {elem_id}: {score:.4f}")
+                    logger.debug(f"      {elem_id}: {score:.4f}")

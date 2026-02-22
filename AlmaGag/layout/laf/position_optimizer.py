@@ -105,7 +105,7 @@ class PositionOptimizer:
         )
 
         if self.debug:
-            print(f"[POSOPT] {len(primary_positions)} nodos, {len(layers)} capas, dist_inicial={initial_distance:.2f}")
+            logger.debug(f"[POSOPT] {len(primary_positions)} nodos, {len(layers)} capas, dist_inicial={initial_distance:.2f}")
 
         # Iteración de optimización por desplazamiento decimal de capa.
         # Se preserva el orden relativo de Fase 4 (baricentro), y en Fase 5
@@ -153,7 +153,7 @@ class PositionOptimizer:
             # Verificar convergencia
             if improvement < convergence_threshold or not moved:
                 if self.debug:
-                    print(f"[POSOPT] Convergencia en iteración {iteration + 1}, dist={new_distance:.2f}")
+                    logger.debug(f"[POSOPT] Convergencia en iteración {iteration + 1}, dist={new_distance:.2f}")
                 break
 
             prev_distance = new_distance
@@ -167,7 +167,7 @@ class PositionOptimizer:
         reduction_pct = (reduction / initial_distance * 100) if initial_distance > 0 else 0
 
         if self.debug:
-            print(f"[POSOPT] Reducción: {reduction:.2f} ({reduction_pct:.1f}%)")
+            logger.debug(f"[POSOPT] Reducción: {reduction:.2f} ({reduction_pct:.1f}%)")
 
         # Recalcular posiciones de elementos contenidos
         self._update_contained_positions(

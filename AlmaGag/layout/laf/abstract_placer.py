@@ -11,8 +11,11 @@ Version: v1.0
 Date: 2026-01-17
 """
 
+import logging
 from typing import Dict, List, Tuple, Set
 from AlmaGag.layout.laf.structure_analyzer import StructureInfo
+
+logger = logging.getLogger('AlmaGag')
 
 
 class AbstractPlacer:
@@ -111,7 +114,7 @@ class AbstractPlacer:
         if self.debug:
             for idx, layer in enumerate(layers):
                 if len(layer) > 1:
-                    print(f"  Capa {idx}: {' -> '.join(layer)}")
+                    logger.debug(f"  Capa {idx}: {' -> '.join(layer)}")
 
         return positions
 
@@ -226,23 +229,6 @@ class AbstractPlacer:
                         layers[layer_idx],
                         structure_info,
                     )
-
-            # DESHABILITADO: Aplicar optimal_distribution después del barycenter
-            # crea conflicto entre dos optimizaciones diferentes.
-            # El barycenter YA usa el orden de Fase 3 (centrality_order) como
-            # punto de partida, por lo que respeta la centralidad mientras
-            # minimiza cruces. Aplicar optimal_distribution después rompe ese balance.
-            #
-            # if iteration == iterations - 1:
-            #     temp_positions = self._get_temp_positions(layers)
-            #     for layer_idx in range(1, len(layers)):
-            #         if len(layers[layer_idx]) >= 3:
-            #             self._apply_optimal_distribution(
-            #                 layers[layer_idx],
-            #                 temp_positions,
-            #                 structure_info,
-            #                 layout
-            #             )
 
             pass  # orden final se muestra en place_elements
 

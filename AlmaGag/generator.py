@@ -1,4 +1,10 @@
-import os, json, svgwrite, logging, csv, colorsys
+import os
+import json
+import csv
+import logging
+import colorsys
+
+import svgwrite
 from svgwrite.container import Group
 from datetime import datetime
 from AlmaGag.config import (
@@ -385,7 +391,7 @@ def _save_to_csv(rows, csv_file):
             writer.writerows(rows)
 
         logger.debug(f"[CSV] Datos guardados en: {csv_file} ({len(rows)} filas)")
-    except Exception as e:
+    except (IOError, OSError) as e:
         logger.error(f"[CSV] Error al guardar CSV: {e}")
 
 def draw_grid(dwg, width, height, grid_size=20):
@@ -619,11 +625,11 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
         logger.debug("MODO DEBUG ACTIVADO")
         logger.debug("="*70)
     else:
-        logging.basicConfig(level=logging.WARNING)
-        logger.setLevel(logging.WARNING)
+        logging.basicConfig(level=logging.INFO)
+        logger.setLevel(logging.INFO)
 
     if not os.path.exists(json_file):
-        print(f"[ERROR] Archivo no encontrado: {json_file}")
+        logger.error(f"Archivo no encontrado: {json_file}")
         return False
 
     logger.debug(f"Leyendo archivo: {json_file}")
@@ -631,14 +637,14 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     try:
         with open(json_file, 'r', encoding='utf-8') as f:
             data = json.load(f)
-    except Exception as e:
-        print(f"[ERROR] Error al leer el JSON: {e}")
+    except (json.JSONDecodeError, FileNotFoundError, OSError) as e:
+        logger.error(f"Error al leer el JSON: {e}")
         return False
 
     # Extraer iconos SVG embebidos (formato .gag extendido)
     embedded_icons = data.get('icons', None)
     if embedded_icons:
-        print(f"[OK] {len(embedded_icons)} icono(s) SVG embebido(s) detectado(s)")
+        logger.info(f"{len(embedded_icons)} icono(s) SVG embebido(s) detectado(s)")
 
     # Determinar ruta de salida
     if output_file:
@@ -749,19 +755,19 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     remaining = optimized_layout._collision_count if optimized_layout._collision_count is not None else 0
 
     if remaining > 0:
-        print(f"[WARN] AutoLayout v2.1: {remaining} colisiones detectadas")
+        logger.warning(f"AutoLayout v2.1: {remaining} colisiones detectadas")
     else:
-        print(f"[OK] AutoLayout v2.1: 0 colisiones detectadas")
+        logger.info(f"AutoLayout v2.1: 0 colisiones detectadas")
 
-    print(f"     - {num_levels} niveles, {num_groups} grupo(s)")
-    print(f"     - Prioridades: {high_priority} high, {normal_priority} normal, {low_priority} low")
+    logger.info(f"     - {num_levels} niveles, {num_groups} grupo(s)")
+    logger.info(f"     - Prioridades: {high_priority} high, {normal_priority} normal, {low_priority} low")
 
     # 5. Obtener canvas final (puede haber sido expandido)
     final_canvas = optimized_layout.canvas
     if final_canvas['width'] > canvas_width or final_canvas['height'] > canvas_height:
         canvas_width = final_canvas['width']
         canvas_height = final_canvas['height']
-        print(f"     - Canvas expandido a {canvas_width}x{canvas_height}")
+        logger.info(f"     - Canvas expandido a {canvas_width}x{canvas_height}")
 
     # 6. Crear SVG (debug=False: svgwrite validator rejects SVG2 attrs like paint-order)
     dwg = svgwrite.Drawing(output_svg, size=(canvas_width, canvas_height), debug=False)
@@ -1310,7 +1316,7 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
                 ))
 
     dwg.save()
-    print(f"[OK] Diagrama generado exitosamente: {output_svg}")
+    logger.info(f"Diagrama generado exitosamente: {output_svg}")
 
     # Convertir automáticamente a PNG si se especifica la opción
     if exportpng:

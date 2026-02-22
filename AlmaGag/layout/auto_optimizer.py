@@ -9,9 +9,12 @@ Pipeline de optimización:
    elementos, o expansión de canvas (max 10 iteraciones)
 """
 
+import logging
 from copy import deepcopy
 from typing import List, Tuple, Optional
 from AlmaGag.layout.optimizer_base import LayoutOptimizer
+
+logger = logging.getLogger('AlmaGag')
 from AlmaGag.layout.layout import Layout
 from AlmaGag.layout.sizing import SizingCalculator
 from AlmaGag.layout.auto_positioner import AutoLayoutPositioner
@@ -370,9 +373,9 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         # Guardar dump final si está habilitado
         if dumper:
             dump_path = dumper.save(best_layout, min_collisions)
-            print(f"[DUMP] Iteraciones guardadas en: {dump_path}")
-            print(f"       Total iteraciones: {len(dumper.iterations) - 1}")
-            print(f"       Colisiones: {initial_collisions} -> {min_collisions}")
+            logger.info(f"[DUMP] Iteraciones guardadas en: {dump_path}")
+            logger.info(f"       Total iteraciones: {len(dumper.iterations) - 1}")
+            logger.info(f"       Colisiones: {initial_collisions} -> {min_collisions}")
 
         return best_layout
 

@@ -9,9 +9,12 @@ Version: v1.0
 Date: 2026-01-17
 """
 
+import logging
 from typing import Dict, Tuple
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT, TOP_MARGIN_DEBUG, TOP_MARGIN_NORMAL
 from AlmaGag.layout.laf.structure_analyzer import StructureInfo
+
+logger = logging.getLogger('AlmaGag')
 
 
 class ElementInflator:
@@ -59,8 +62,8 @@ class ElementInflator:
         spacing = self.calculate_spacing(structure_info)
 
         if self.debug:
-            print(f"[INFLATOR] Spacing calculado: {spacing:.1f}px")
-            print(f"           Formula: MAX(20*{ICON_WIDTH}, 3*max_contained*{ICON_WIDTH})")
+            logger.debug(f"[INFLATOR] Spacing calculado: {spacing:.1f}px")
+            logger.debug(f"           Formula: MAX(20*{ICON_WIDTH}, 3*max_contained*{ICON_WIDTH})")
 
         # Fase 6.2: Asignar posiciones reales
         self._assign_real_positions(
@@ -70,14 +73,14 @@ class ElementInflator:
         )
 
         if self.debug:
-            print(f"[INFLATOR] Posiciones reales asignadas: {len(abstract_positions)} elementos")
+            logger.debug(f"[INFLATOR] Posiciones reales asignadas: {len(abstract_positions)} elementos")
 
         # Fase 6.3: Calcular posiciones de etiquetas
         if self.label_optimizer:
             self._calculate_label_positions(layout)
 
             if self.debug:
-                print(f"[INFLATOR] Etiquetas calculadas: {len(layout.label_positions)} elementos")
+                logger.debug(f"[INFLATOR] Etiquetas calculadas: {len(layout.label_positions)} elementos")
 
         return spacing
 
@@ -138,7 +141,7 @@ class ElementInflator:
 
         if self.debug:
             margin_type = "DEBUG (80px)" if self.visualdebug else "NORMAL (20px)"
-            print(f"[INFLATOR] TOP_MARGIN: {TOP_MARGIN:.0f}px ({margin_type})")
+            logger.debug(f"[INFLATOR] TOP_MARGIN: {TOP_MARGIN:.0f}px ({margin_type})")
 
         for elem_id, (abstract_x, abstract_y) in abstract_positions.items():
             # Convertir a coordenadas reales

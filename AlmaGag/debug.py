@@ -11,7 +11,10 @@ Fecha: 2026-01-09
 """
 
 import os
+import logging
 from datetime import datetime
+
+logger = logging.getLogger('AlmaGag')
 
 
 def get_gag_version() -> str:
@@ -24,7 +27,7 @@ def get_gag_version() -> str:
     try:
         from importlib.metadata import version
         return version("AlmaGag")
-    except Exception:
+    except ImportError:
         # Fallback si no se puede obtener desde metadata
         return "3.0.0"
 
@@ -151,10 +154,10 @@ def convert_svg_to_png(svg_path: str, scale: float = 2.0) -> None:
                 break
 
         if chrome_exe is None:
-            print("[WARN] Chrome/Edge no encontrado. PNG no generado.")
-            print("      Alternativas:")
-            print("      1. Instalar Chrome: https://www.google.com/chrome/")
-            print("      2. Instalar Cairo + GTK: https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases")
+            logger.warning("Chrome/Edge no encontrado. PNG no generado.")
+            logger.warning("  Alternativas:")
+            logger.warning("  1. Instalar Chrome: https://www.google.com/chrome/")
+            logger.warning("  2. Instalar Cairo + GTK: https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases")
             return
 
         # Ejecutar Chrome en modo headless para captura
@@ -170,15 +173,15 @@ def convert_svg_to_png(svg_path: str, scale: float = 2.0) -> None:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
 
         if result.returncode == 0 and os.path.exists(png_path):
-            print(f"[OK] PNG generado: {png_path}")
+            logger.info(f"PNG generado: {png_path}")
         else:
-            print(f"[ERROR] Chrome falló al generar PNG")
+            logger.error(f"Chrome falló al generar PNG")
             if result.stderr:
-                print(f"      {result.stderr}")
+                logger.error(f"  {result.stderr}")
 
     except FileNotFoundError:
-        print("[ERROR] Archivo SVG no encontrado")
+        logger.error("Archivo SVG no encontrado")
     except subprocess.TimeoutExpired:
-        print("[ERROR] Timeout al ejecutar Chrome")
-    except Exception as e:
-        print(f"[ERROR] No se pudo convertir a PNG: {e}")
+        logger.error("Timeout al ejecutar Chrome")
+    except (ValueError, OSError, ET.ParseError) as e:
+        logger.error(f"No se pudo convertir a PNG: {e}")
