@@ -340,6 +340,9 @@ class AbstractPlacer:
 
         current_layer.sort(key=get_sort_key)
 
+        # Keep TOI virtual container members adjacent after sorting
+        self._enforce_toi_container_adjacency(current_layer, structure_info)
+
     def _position_hub_containers_in_center(
         self,
         current_layer: List[str],
@@ -527,6 +530,55 @@ class AbstractPlacer:
             return barycenters.get(elem_id, len(next_layer) / 2)
 
         current_layer.sort(key=get_sort_key)
+
+        # Keep TOI virtual container members adjacent after sorting
+        self._enforce_toi_container_adjacency(current_layer, structure_info)
+
+    def _enforce_toi_container_adjacency(
+        self,
+        layer: List[str],
+        structure_info: StructureInfo
+    ) -> None:
+        """
+        Ensure members of the same TOI virtual container are adjacent in the layer.
+
+        For each virtual container, collects its members present in this layer
+        and clusters them together around their median position.
+
+        Args:
+            layer: Current layer to adjust (modified in-place)
+            structure_info: StructureInfo with toi_virtual_containers
+        """
+        if not structure_info.toi_virtual_containers:
+            return
+
+        layer_set = set(layer)
+
+        for vc in structure_info.toi_virtual_containers:
+            # Find members of this container present in this layer
+            members_in_layer = [m for m in vc['members'] if m in layer_set]
+
+            if len(members_in_layer) <= 1:
+                continue
+
+            # Find their current positions
+            positions = [layer.index(m) for m in members_in_layer]
+
+            # Check if already contiguous
+            positions.sort()
+            if positions[-1] - positions[0] == len(positions) - 1:
+                continue  # already contiguous
+
+            # Remove members from layer, preserving their relative order
+            members_ordered = sorted(members_in_layer, key=lambda m: layer.index(m))
+            for m in members_ordered:
+                layer.remove(m)
+
+            # Insert them contiguously at the median original position
+            median_pos = positions[len(positions) // 2]
+            insert_at = min(median_pos, len(layer))
+            for i, m in enumerate(members_ordered):
+                layer.insert(insert_at + i, m)
 
     def _get_temp_positions(self, layers: List[List[str]]) -> Dict[str, Tuple[int, int]]:
         """

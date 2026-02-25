@@ -1,9 +1,9 @@
 {
   "icons": {
-    "father": "<svg viewBox='0 0 80 50'><circle cx='40' cy='15' r='8' fill='white'/><rect x='30' y='24' width='20' height='16' rx='4' fill='white'/><rect x='36' y='28' width='8' height='12' fill='currentColor'/></svg>",
-    "mother": "<svg viewBox='0 0 80 50'><circle cx='40' cy='15' r='8' fill='white'/><path d='M30 26 Q40 20 50 26 L45 40 L35 40 Z' fill='white'/></svg>",
-    "child": "<svg viewBox='0 0 80 50'><circle cx='40' cy='17' r='6' fill='white'/><rect x='34' y='24' width='12' height='14' rx='3' fill='white'/></svg>",
-    "marriage": "<svg viewBox='0 0 80 50'><circle cx='30' cy='25' r='10' fill='none' stroke='white' stroke-width='3'/><circle cx='50' cy='25' r='10' fill='none' stroke='white' stroke-width='3'/></svg>"
+    "father": "<svg viewBox='0 0 80 50'><circle cx='40' cy='15' r='8' fill='white' stroke='currentColor' stroke-width='2'/><rect x='30' y='24' width='20' height='16' rx='4' fill='currentColor'/><rect x='38' y='28' width='4' height='10' fill='white'/></svg>",
+    "mother": "<svg viewBox='0 0 80 50'><circle cx='40' cy='15' r='8' fill='white' stroke='currentColor' stroke-width='2'/><path d='M30 26 Q40 20 50 26 L45 40 L35 40 Z' fill='currentColor'/></svg>",
+    "child": "<svg viewBox='0 0 80 50'><circle cx='40' cy='17' r='6' fill='white' stroke='currentColor' stroke-width='2'/><rect x='34' y='24' width='12' height='14' rx='3' fill='currentColor'/></svg>",
+    "marriage": "<svg viewBox='0 0 80 50'><circle cx='30' cy='25' r='10' fill='none' stroke='currentColor' stroke-width='3'/><circle cx='50' cy='25' r='10' fill='none' stroke='currentColor' stroke-width='3'/></svg>"
   },
 
   "canvas": {

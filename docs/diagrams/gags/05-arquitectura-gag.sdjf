@@ -1,18 +1,18 @@
 {
   "canvas": {
-    "width": 1400,
-    "height": 1100
+    "width": 1600,
+    "height": 1000
   },
   "elements": [
     {
       "id": "input",
       "type": "building",
-      "label": "archivo.gag\n(JSON SDJF v3.0)"
+      "label": "archivo.gag/.sdjf\n(JSON SDJF v3.0)"
     },
     {
       "id": "main",
       "type": "server",
-      "label": "main.py\n(CLI)"
+      "label": "main.py\n(CLI + args)"
     },
     {
       "id": "generator",
@@ -20,166 +20,164 @@
       "label": "generator.py\n(orquestador)"
     },
     {
-      "id": "svgwrite",
-      "type": "cloud",
-      "label": "svgwrite\n(librería externa)"
-    },
-    {
-      "id": "layout_module-stage",
-      "type": "firewall",
-      "label": "Layout Module\n(jerárquico v4.0)",
-      "contains": ["layout", "sizing", "positioner"]
+      "id": "config",
+      "type": "building",
+      "label": "config.py\nconstantes globales"
     },
     {
       "id": "layout",
       "type": "server",
-      "label": "Layout\nPatrón Inmutable"
+      "label": "Layout\n(data container)"
+    },
+    {
+      "id": "svgwrite",
+      "type": "cloud",
+      "label": "svgwrite\n(lib externa)"
+    },
+
+    {
+      "id": "shared_deps-stage",
+      "type": "firewall",
+      "label": "Shared Dependencies",
+      "contains": ["sizing", "geometry_calc", "collision_det"]
     },
     {
       "id": "sizing",
       "type": "building",
-      "label": "SizingCalculator\nhp/wp"
+      "label": "SizingCalculator"
     },
     {
-      "id": "positioner",
+      "id": "geometry_calc",
       "type": "building",
-      "label": "AutoLayoutPositioner\nLayout jerárquico"
+      "label": "GeometryCalculator"
     },
     {
-      "id": "optimizer",
+      "id": "collision_det",
+      "type": "building",
+      "label": "CollisionDetector"
+    },
+
+    {
+      "id": "auto_path-stage",
+      "type": "firewall",
+      "label": "Auto Layout Path",
+      "contains": ["auto_optimizer", "graph_analyzer", "auto_positioner", "container_calc"]
+    },
+    {
+      "id": "auto_optimizer",
       "type": "server",
-      "label": "AutoLayoutOptimizer\nv4.0 Jerárquico\n(algoritmo AUTO)"
+      "label": "AutoLayoutOptimizer\nv2.1 Jerárquico"
+    },
+    {
+      "id": "graph_analyzer",
+      "type": "building",
+      "label": "GraphAnalyzer"
+    },
+    {
+      "id": "auto_positioner",
+      "type": "building",
+      "label": "AutoPositioner"
+    },
+    {
+      "id": "container_calc",
+      "type": "building",
+      "label": "ContainerCalculator"
+    },
+
+    {
+      "id": "laf_path-stage",
+      "type": "firewall",
+      "label": "LAF Layout Path",
+      "contains": ["laf_optimizer", "laf_pipeline"]
     },
     {
       "id": "laf_optimizer",
       "type": "server",
-      "label": "LAFOptimizer\nv1.4 (10 fases)\n(algoritmo LAF)"
+      "label": "LAFOptimizer\nv1.5 (9 fases)"
     },
     {
-      "id": "label_position_optimizer",
+      "id": "laf_pipeline",
       "type": "building",
-      "label": "LabelPositionOptimizer\nScoring + Greedy"
+      "label": "LAF Pipeline\n1.Structure → 2.Topology\n3.Centrality → 4.Placement\n5.Optimize → 6.Inflate\n7.Redistribute → 8.Route\n9.Visualize"
     },
+
     {
-      "id": "laf_module-stage",
-      "type": "firewall",
-      "label": "LAF Module\n(--layout-algorithm=laf)",
-      "contains": ["structure_analyzer", "topology_viz", "centrality_order", "abstract_placer", "position_optimizer", "inflator", "container_grower", "xscale"]
-    },
-    {
-      "id": "structure_analyzer",
+      "id": "growth_visualizer",
       "type": "building",
-      "label": "StructureAnalyzer\nFase 1: Estructura"
+      "label": "GrowthVisualizer\n9 SVGs debug"
     },
-    {
-      "id": "topology_viz",
-      "type": "building",
-      "label": "Topology Analysis\nFase 2: Niveles topológicos"
-    },
-    {
-      "id": "centrality_order",
-      "type": "building",
-      "label": "Centrality Ordering\nFase 3: Orden por centralidad"
-    },
-    {
-      "id": "abstract_placer",
-      "type": "building",
-      "label": "AbstractPlacer\nFase 4: Sugiyama barycenter"
-    },
-    {
-      "id": "inflator",
-      "type": "building",
-      "label": "Inflator\nFase 6: Dimensiones reales"
-    },
-    {
-      "id": "container_grower",
-      "type": "building",
-      "label": "ContainerGrower\nFase 7: Expansión bottom-up"
-    },
-    {
-      "id": "position_optimizer",
-      "type": "building",
-      "label": "PositionOptimizer\nFase 5: Layer-offset"
-    },
-    {
-      "id": "xscale",
-      "type": "building",
-      "label": "Global X Scale\nFase 8: Preserva ángulos"
-    },
+
     {
       "id": "routing_module-stage",
       "type": "firewall",
       "label": "Routing Module",
-      "contains": ["router_mgr", "routers"]
+      "contains": ["router_mgr", "routers", "port_assign", "vis_graph"]
     },
     {
       "id": "router_mgr",
       "type": "server",
-      "label": "RouterManager\nCoordinador"
+      "label": "RouterManager"
     },
     {
       "id": "routers",
       "type": "cloud",
-      "label": "5 Routers\nstraight/orthogonal\nbezier/arc/manual"
+      "label": "5 Routers"
     },
     {
-      "id": "analysis_module-stage",
-      "type": "firewall",
-      "label": "Analysis Module",
-      "contains": ["geometry", "graph", "collision"]
-    },
-    {
-      "id": "geometry",
+      "id": "port_assign",
       "type": "building",
-      "label": "GeometryCalculator\nbboxes\nintersecciones"
+      "label": "PortAssignment"
     },
     {
-      "id": "graph",
+      "id": "vis_graph",
       "type": "building",
-      "label": "GraphAnalyzer\ntopología + centralidad\nniveles\nresolución conexiones"
+      "label": "VisibilityGraph\nA* pathfinding"
     },
+
     {
-      "id": "collision",
+      "id": "label_optimizer",
       "type": "building",
-      "label": "CollisionDetector\ndetect_all()\ncount()"
+      "label": "LabelPositionOptimizer\nv3.0"
     },
+
     {
       "id": "render",
       "type": "server",
-      "label": "Renderizado SVG\n(6 fases secuenciales)"
+      "label": "Renderizado SVG"
     },
     {
       "id": "draw_module-stage",
       "type": "firewall",
-      "label": "Draw Module",
-      "contains": ["icons", "connections", "labels", "containers"]
+      "label": "Draw Module (6 fases)",
+      "contains": ["draw_containers", "draw_icons", "draw_connections", "draw_labels"]
     },
     {
-      "id": "icons",
+      "id": "draw_containers",
       "type": "building",
-      "label": "icons.py\nFases 1-1.5: Shapes\n4 tipos + BWT"
+      "label": "container.py\nFase 0"
     },
     {
-      "id": "connections",
+      "id": "draw_icons",
       "type": "building",
-      "label": "connections.py\nFase 2: Lines + Paths\nRouting types"
+      "label": "icons.py\nFases 1-1.5"
     },
     {
-      "id": "labels",
+      "id": "draw_connections",
       "type": "building",
-      "label": "labels\nFase 2.5-3: Text\nOptimización + Render"
+      "label": "connections.py\nFase 2"
     },
     {
-      "id": "containers",
+      "id": "draw_labels",
       "type": "building",
-      "label": "container.py\nFase 0: Fondo\nAgrupación visual"
+      "label": "labels.py\nFases 2.5-3"
     },
     {
       "id": "output",
       "type": "building",
-      "label": "archivo.svg\n(Salida vectorial)"
+      "label": "archivo.svg\n(salida)"
     }
   ],
+
   "connections": [
     {
       "from": "input",
@@ -195,46 +193,94 @@
     },
     {
       "from": "generator",
+      "to": "layout",
+      "label": "Layout()",
+      "direction": "forward"
+    },
+    {
+      "from": "generator",
       "to": "svgwrite",
       "label": "Drawing()",
       "direction": "forward"
     },
     {
+      "from": "config",
+      "to": "generator",
+      "label": "constantes",
+      "direction": "forward"
+    },
+
+    {
+      "from": "sizing",
+      "to": "geometry_calc",
+      "direction": "forward"
+    },
+    {
+      "from": "geometry_calc",
+      "to": "collision_det",
+      "direction": "forward"
+    },
+
+    {
       "from": "generator",
-      "to": "layout",
-      "label": "Layout(...)",
+      "to": "auto_optimizer",
+      "label": "if --layout-algorithm=auto",
       "direction": "forward"
     },
     {
-      "from": "layout",
-      "to": "sizing",
-      "label": "usa",
-      "direction": "forward"
-    },
-    {
-      "from": "layout",
-      "to": "positioner",
-      "label": "usa",
-      "direction": "forward"
-    },
-    {
-      "from": "layout",
-      "to": "optimizer",
-      "label": "if --layout-algorithm=auto\noptimize()",
-      "direction": "forward"
-    },
-    {
-      "from": "layout",
+      "from": "generator",
       "to": "laf_optimizer",
-      "label": "if --layout-algorithm=laf\noptimize()",
+      "label": "if --layout-algorithm=laf",
+      "direction": "forward"
+    },
+
+    {
+      "from": "auto_optimizer",
+      "to": "graph_analyzer",
       "direction": "forward"
     },
     {
-      "from": "optimizer",
-      "to": "router_mgr",
-      "label": "calculate_all_paths()",
+      "from": "auto_optimizer",
+      "to": "auto_positioner",
       "direction": "forward"
     },
+    {
+      "from": "auto_optimizer",
+      "to": "container_calc",
+      "direction": "forward"
+    },
+    {
+      "from": "auto_optimizer",
+      "to": "collision_det",
+      "label": "evaluate()",
+      "direction": "forward"
+    },
+    {
+      "from": "auto_optimizer",
+      "to": "router_mgr",
+      "label": "paths()",
+      "direction": "forward"
+    },
+
+    {
+      "from": "laf_optimizer",
+      "to": "laf_pipeline",
+      "label": "pipeline",
+      "direction": "forward"
+    },
+    {
+      "from": "laf_pipeline",
+      "to": "router_mgr",
+      "label": "Fase 8: paths()",
+      "direction": "forward"
+    },
+    {
+      "from": "laf_optimizer",
+      "to": "growth_visualizer",
+      "label": "snapshots",
+      "direction": "forward"
+    },
+
     {
       "from": "router_mgr",
       "to": "routers",
@@ -242,187 +288,50 @@
       "direction": "forward"
     },
     {
-      "from": "optimizer",
-      "to": "geometry",
-      "label": "usa",
+      "from": "router_mgr",
+      "to": "port_assign",
       "direction": "forward"
     },
     {
-      "from": "optimizer",
-      "to": "graph",
-      "label": "analyze()",
+      "from": "router_mgr",
+      "to": "vis_graph",
       "direction": "forward"
     },
+
     {
-      "from": "optimizer",
-      "to": "collision",
-      "label": "evaluate()",
-      "direction": "forward"
-    },
-    {
-      "from": "collision",
-      "to": "geometry",
-      "label": "usa bboxes",
-      "direction": "forward"
-    },
-    {
-      "from": "sizing",
-      "to": "geometry",
-      "label": "calcula tamaños",
-      "direction": "forward"
-    },
-    {
-      "from": "laf_optimizer",
-      "to": "structure_analyzer",
-      "label": "fase 1",
-      "direction": "forward"
-    },
-    {
-      "from": "structure_analyzer",
-      "to": "topology_viz",
-      "label": "estructura",
-      "direction": "forward"
-    },
-    {
-      "from": "topology_viz",
-      "to": "centrality_order",
-      "label": "niveles",
-      "direction": "forward"
-    },
-    {
-      "from": "centrality_order",
-      "to": "abstract_placer",
-      "label": "orden por centralidad",
-      "direction": "forward"
-    },
-    {
-      "from": "abstract_placer",
-      "to": "position_optimizer",
-      "label": "posiciones abstractas",
-      "direction": "forward"
-    },
-    {
-      "from": "position_optimizer",
-      "to": "inflator",
-      "label": "posiciones optimizadas",
-      "direction": "forward"
-    },
-    {
-      "from": "inflator",
-      "to": "container_grower",
-      "label": "dimensiones reales",
-      "direction": "forward"
-    },
-    {
-      "from": "container_grower",
-      "to": "xscale",
-      "label": "escala global",
-      "direction": "forward"
-    },
-    {
-      "from": "laf_optimizer",
-      "to": "router_mgr",
-      "label": "routing DUAL\n(2 pasadas)",
-      "direction": "forward"
-    },
-    {
-      "from": "laf_optimizer",
-      "to": "graph",
-      "label": "analyze()",
-      "direction": "forward"
-    },
-    {
-      "from": "laf_optimizer",
-      "to": "geometry",
-      "label": "usa",
-      "direction": "forward"
-    },
-    {
-      "from": "optimizer",
+      "from": "auto_optimizer",
       "to": "render",
-      "label": "layout optimizado\n(AUTO)",
+      "label": "layout optimizado",
       "direction": "forward"
     },
     {
       "from": "laf_optimizer",
       "to": "render",
-      "label": "layout optimizado\n(LAF)",
+      "label": "layout optimizado",
+      "direction": "forward"
+    },
+
+    {
+      "from": "generator",
+      "to": "label_optimizer",
+      "label": "instancia",
       "direction": "forward"
     },
     {
-      "from": "optimizer",
-      "to": "label_position_optimizer",
-      "label": "optimiza etiquetas",
-      "direction": "forward"
-    },
-    {
-      "from": "laf_optimizer",
-      "to": "label_position_optimizer",
-      "label": "optimiza etiquetas",
-      "direction": "forward"
-    },
-    {
-      "from": "label_position_optimizer",
+      "from": "label_optimizer",
       "to": "render",
-      "label": "posiciones finales",
+      "label": "optimiza labels",
+      "direction": "forward"
+    },
+
+    {
+      "from": "render",
+      "to": "draw_module-stage",
+      "label": "6 fases",
       "direction": "forward"
     },
     {
       "from": "render",
-      "to": "containers",
-      "label": "fase 0: fondo",
-      "direction": "forward"
-    },
-    {
-      "from": "render",
-      "to": "icons",
-      "label": "fase 1-1.5: shapes",
-      "direction": "forward"
-    },
-    {
-      "from": "render",
-      "to": "connections",
-      "label": "fase 2: líneas",
-      "direction": "forward"
-    },
-    {
-      "from": "render",
-      "to": "labels",
-      "label": "fase 2.5-3: texto",
-      "direction": "forward"
-    },
-    {
-      "from": "connections",
-      "to": "router_mgr",
-      "label": "lee computed_path",
-      "direction": "forward"
-    },
-    {
-      "from": "icons",
-      "to": "output",
-      "label": "dwg.add()",
-      "direction": "forward"
-    },
-    {
-      "from": "connections",
-      "to": "output",
-      "label": "dwg.add()",
-      "direction": "forward"
-    },
-    {
-      "from": "labels",
-      "to": "output",
-      "label": "dwg.add()",
-      "direction": "forward"
-    },
-    {
-      "from": "containers",
-      "to": "output",
-      "label": "dwg.add()",
-      "direction": "forward"
-    },
-    {
-      "from": "output",
       "to": "output",
       "label": "dwg.save()",
       "direction": "forward"

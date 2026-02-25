@@ -395,16 +395,15 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         for conn in layout.connections:
             if conn.get('label'):
                 key = f"{conn['from']}->{conn['to']}"
-                layout.connection_labels[key] = self.geometry.get_connection_center(
-                    layout,
-                    conn
-                )
+                center = self.geometry.get_connection_center(layout, conn)
+                if center:
+                    layout.connection_labels[key] = center
 
-        # Filtrar contenedores SIN dimensiones calculadas
-        # (Contenedores con dimensiones se tratan como elementos normales)
+        # Filtrar elementos que ya tienen posiciones calculadas
+        # (excluir contenedores sin dimensiones y elementos sin coordenadas)
         normal_elements = [
             e for e in layout.elements
-            if 'contains' not in e or e.get('_is_container_calculated', False)
+            if 'x' in e and ('contains' not in e or e.get('_is_container_calculated', False))
         ]
 
         # Ordenar elementos por prioridad (high primero)

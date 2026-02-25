@@ -181,6 +181,10 @@ class GeometryCalculator:
         if not from_elem or not to_elem:
             return None
 
+        # Skip if elements don't have positions yet (e.g. contained elements)
+        if 'x' not in from_elem or 'x' not in to_elem:
+            return None
+
         # Calcular centro del elemento 'from' usando sizing si está disponible
         if self.sizing:
             from_width, from_height = self.sizing.get_element_size(from_elem)

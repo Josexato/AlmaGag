@@ -108,6 +108,39 @@ class GraphAnalyzer:
             if not changed:
                 break
 
+        # Relocate minor source nodes (spouses/in-laws) to co-parent's level.
+        # Among source nodes, only those with the largest descendant tree stay
+        # at level 0. Others are placed at the same level as the other parent
+        # of their shared child node.
+        if len(roots) > 1:
+            def _count_desc(start):
+                vis = set()
+                q = [start]
+                while q:
+                    nd = q.pop()
+                    if nd in vis:
+                        continue
+                    vis.add(nd)
+                    for nb in outgoing.get(nd, []):
+                        if nb not in vis:
+                            q.append(nb)
+                return len(vis) - 1
+
+            desc_counts = {r: _count_desc(r) for r in roots}
+            max_desc = max(desc_counts.values())
+            minor_sources = [r for r in roots if desc_counts[r] < max_desc]
+
+            for src in minor_sources:
+                co_parent_level = None
+                for child in outgoing.get(src, []):
+                    for op in incoming.get(child, []):
+                        if op != src:
+                            lvl = levels.get(op, 0)
+                            if co_parent_level is None or lvl > co_parent_level:
+                                co_parent_level = lvl
+                if co_parent_level is not None:
+                    levels[src] = co_parent_level
+
         # Leaf correction: leaves align to dominant parent's level
         for e_id in elem_ids:
             if outgoing.get(e_id):

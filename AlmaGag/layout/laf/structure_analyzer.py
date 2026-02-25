@@ -33,9 +33,18 @@ class StructureInfo:
         element_types: {type: [ids]} (agrupados por tipo)
         connection_sequences: [(from, to, order)] (orden de conexión)
         primary_node_ids: {elem_id: "NdPr001"} IDs únicos para nodos primarios
-        primary_node_types: {elem_id: "Simple|Contenedor|Contenedor Virtual"} Tipo de nodo primario
+        primary_node_types: {elem_id: "Simple|Contenedor|Contenedor Virtual|TOI"} Tipo de nodo primario
         leaf_nodes: {elem_id} Nodos hoja (outdegree=0) en el grafo de conexiones
         terminal_leaf_nodes: {elem_id} Hojas terminales (sin hermanos con ramas activas)
+        source_nodes: Set of element IDs that have no incoming edges
+        ancestor_nodes: Set of source nodes with the largest descendant tree per group
+        toi_nodes: Set of source nodes that are NOT ancestors (TOI = "tío")
+        toi_virtual_containers: List of {id, members, toi_id, pivot_id} virtual family groups
+        element_to_toi_container: {elem_id: container_index} maps members to their virtual container
+        ndpr_elements: List of NdPr node IDs (collapsed view for phases 1-5)
+        ndpr_topological_levels: {ndpr_id: level} levels for NdPr nodes only
+        ndpr_connection_graph: {ndpr_id: [ndpr_ids]} abstract connections between NdPr nodes
+        element_to_ndpr: {elem_id: ndpr_id} maps every element to its NdPr representative
     """
     element_tree: Dict[str, Dict] = field(default_factory=dict)
     primary_elements: List[str] = field(default_factory=list)
@@ -50,6 +59,15 @@ class StructureInfo:
     primary_node_types: Dict[str, str] = field(default_factory=dict)
     leaf_nodes: Set[str] = field(default_factory=set)
     terminal_leaf_nodes: Set[str] = field(default_factory=set)
+    source_nodes: Set[str] = field(default_factory=set)
+    ancestor_nodes: Set[str] = field(default_factory=set)
+    toi_nodes: Set[str] = field(default_factory=set)
+    toi_virtual_containers: List[Dict] = field(default_factory=list)
+    element_to_toi_container: Dict[str, int] = field(default_factory=dict)
+    ndpr_elements: List[str] = field(default_factory=list)
+    ndpr_topological_levels: Dict[str, int] = field(default_factory=dict)
+    ndpr_connection_graph: Dict[str, List[str]] = field(default_factory=dict)
+    element_to_ndpr: Dict[str, str] = field(default_factory=dict)
 
 
 class StructureAnalyzer:
@@ -116,8 +134,14 @@ class StructureAnalyzer:
         # Calcular niveles topológicos
         self._calculate_topological_levels(layout, info)
 
+        # Detectar nodos origen, ancestros, TOI y contenedores virtuales TOI
+        self._detect_toi_virtual_containers(info)
+
         # Clasificar y asignar IDs a nodos primarios
         self._classify_primary_nodes(layout, info)
+
+        # Construir grafo abstracto NdPr (vista colapsada para fases 1-5)
+        self._build_ndpr_abstract_graph(info)
 
         # Calcular scores de accesibilidad intra-nivel
         self._calculate_accessibility_scores(
@@ -384,6 +408,12 @@ class StructureAnalyzer:
                 if from_id not in local_incoming[to_id]:
                     local_incoming[to_id].append(from_id)
 
+        # Relocate minor source nodes (spouses/in-laws) to their partner's level.
+        # Among all source nodes (no incoming edges), only those with the largest
+        # descendant tree stay at level 0. Others are placed at the same level as
+        # the other parent of their shared child node.
+        self._relocate_minor_sources(info, local_incoming)
+
         # Correccion de consistencia para nodos no-hoja:
         # todo nodo con hijos debe estar al menos un nivel sobre su padre dominante.
         # Esto corrige casos donde BFS actualiza un padre tarde y no reprocesa hijos.
@@ -497,14 +527,186 @@ class StructureAnalyzer:
                     info.topological_levels[elem_id] = required_level
                     changed = True
 
+    def _relocate_minor_sources(
+        self,
+        info: StructureInfo,
+        local_incoming: Dict[str, List[str]]
+    ) -> None:
+        """
+        Among source nodes (no incoming edges, level 0), only those with the
+        largest descendant tree stay at level 0.  The rest ('minor sources',
+        typically spouses/in-laws) are relocated to the same level as the other
+        parent of their shared child node.
+
+        If a minor source has no co-parent (i.e. it is the sole parent of its
+        children), it is treated as the root of an independent group and stays
+        at level 0.
+        """
+        # 1. Identify source nodes (no incoming edges)
+        source_nodes = [
+            eid for eid in info.primary_elements
+            if not local_incoming.get(eid)
+        ]
+
+        if len(source_nodes) <= 1:
+            return
+
+        # 2. Count descendants reachable from each source via connection_graph
+        def _count_descendants(start: str) -> int:
+            visited = set()
+            queue = [start]
+            while queue:
+                node = queue.pop()
+                if node in visited:
+                    continue
+                visited.add(node)
+                for neighbor in info.connection_graph.get(node, []):
+                    if neighbor not in visited:
+                        queue.append(neighbor)
+            return len(visited) - 1  # exclude the start node itself
+
+        desc_counts = {eid: _count_descendants(eid) for eid in source_nodes}
+        max_desc = max(desc_counts.values())
+
+        # 3. Major sources stay at level 0; collect minor sources
+        minor_sources = [
+            eid for eid in source_nodes
+            if desc_counts[eid] < max_desc
+        ]
+
+        if not minor_sources:
+            return
+
+        # 4. For each minor source, find the co-parent's level
+        for src in minor_sources:
+            children = info.connection_graph.get(src, [])
+            co_parent_level = None
+
+            for child in children:
+                # Other parents of this child (besides src)
+                other_parents = [
+                    p for p in local_incoming.get(child, [])
+                    if p != src
+                ]
+                for op in other_parents:
+                    lvl = info.topological_levels.get(op, 0)
+                    if co_parent_level is None or lvl > co_parent_level:
+                        co_parent_level = lvl
+
+            if co_parent_level is not None:
+                # Place at same level as co-parent
+                info.topological_levels[src] = co_parent_level
+            # else: independent group root → stays at level 0
+
+    def _detect_toi_virtual_containers(self, info: StructureInfo) -> None:
+        """
+        Detect source nodes, ancestors, TOI nodes, and build virtual containers.
+
+        Terminology:
+        - Nodos origen: elements with no incoming edges
+        - Ancestros: source nodes with the largest descendant tree (per group)
+        - TOI ("tío"): source nodes that are NOT ancestors
+        - Virtual container: for each child that has a TOI parent, group
+          ALL of that child's parents + ALL of that child's descendants
+
+        The virtual container ensures the family unit stays together in layout.
+        """
+        # 1. Identify source nodes (nodos origen)
+        info.source_nodes = set(
+            eid for eid in info.primary_elements
+            if not info.incoming_graph.get(eid)
+        )
+
+        if len(info.source_nodes) <= 1:
+            info.ancestor_nodes = set(info.source_nodes)
+            return
+
+        # 2. Count descendants for each source node
+        def _count_descendants(start: str) -> int:
+            visited = set()
+            queue = [start]
+            while queue:
+                node = queue.pop()
+                if node in visited:
+                    continue
+                visited.add(node)
+                for nb in info.connection_graph.get(node, []):
+                    if nb not in visited:
+                        queue.append(nb)
+            return len(visited) - 1
+
+        def _get_all_descendants(start: str) -> Set[str]:
+            visited = set()
+            queue = [start]
+            while queue:
+                node = queue.pop()
+                if node in visited:
+                    continue
+                visited.add(node)
+                for nb in info.connection_graph.get(node, []):
+                    if nb not in visited:
+                        queue.append(nb)
+            visited.discard(start)
+            return visited
+
+        desc_counts = {eid: _count_descendants(eid) for eid in info.source_nodes}
+        max_desc = max(desc_counts.values())
+
+        # 3. Ancestors = source nodes with max descendants; TOI = the rest
+        info.ancestor_nodes = {
+            eid for eid in info.source_nodes
+            if desc_counts[eid] == max_desc
+        }
+        info.toi_nodes = info.source_nodes - info.ancestor_nodes
+
+        if not info.toi_nodes:
+            return
+
+        # 4. For each child that has a TOI parent, create a virtual container
+        #    containing all parents of that child + all descendants of that child
+        seen_pivots = set()  # avoid duplicates if multiple TOIs share a child
+
+        for toi_id in info.toi_nodes:
+            children_of_toi = info.connection_graph.get(toi_id, [])
+
+            for pivot_id in children_of_toi:
+                if pivot_id in seen_pivots:
+                    continue
+                seen_pivots.add(pivot_id)
+
+                # Collect all parents of this pivot node
+                parents = set(info.incoming_graph.get(pivot_id, []))
+
+                # Collect all descendants of this pivot node
+                descendants = _get_all_descendants(pivot_id)
+
+                # Virtual container members: parents + pivot + descendants
+                members = parents | {pivot_id} | descendants
+
+                container_idx = len(info.toi_virtual_containers)
+                info.toi_virtual_containers.append({
+                    'id': f'_toi_vc_{container_idx}',
+                    'toi_id': toi_id,
+                    'pivot_id': pivot_id,
+                    'members': members,
+                })
+
+                for member_id in members:
+                    info.element_to_toi_container[member_id] = container_idx
+
     def _classify_primary_nodes(self, layout, info: StructureInfo) -> None:
         """
-        Asigna IDs únicos y clasifica cada nodo primario.
+        Asigna IDs únicos (NdPr) y clasifica cada nodo primario.
 
-        Tipos:
-        - Simple: Nodo sin hijos (no es contenedor)
-        - Contenedor: Nodo que contiene otros elementos
+        Todo contenedor (virtual o real) es un NdPr, salvo que esté
+        dentro de otro contenedor.
+
+        Tipos de nodo:
+        - Simple: Nodo sin hijos, no contenido en ningún contenedor
+        - Contenedor: Nodo que contiene otros elementos (real)
         - Contenedor Virtual: Nodo parte de un ciclo detectado
+        - Contenedor Virtual TOI: Contenedor virtual generado por detección TOI
+        - TOI: Nodo origen que no es ancestro (contenido en su VC TOI)
 
         Args:
             layout: Layout con elements
@@ -516,28 +718,148 @@ class StructureAnalyzer:
             if elem_id not in info.topological_levels:
                 nodes_without_level.add(elem_id)
 
-        # Asignar IDs secuenciales y clasificar
-        node_counter = 1
+        # Build set of elements that are inside any container (real or virtual)
+        # so they don't get their own NdPr
+        contained_elements = set()
+
+        # Elements inside real containers
         for elem_id in info.primary_elements:
-            # Asignar ID único
+            if info.element_tree[elem_id]['parent'] is not None:
+                contained_elements.add(elem_id)
+
+        # Elements inside TOI virtual containers (members of VCs)
+        for vc in info.toi_virtual_containers:
+            for member_id in vc['members']:
+                contained_elements.add(member_id)
+
+        # Determine which TOI VCs are nested inside another container
+        # (if all members are inside a real container, the VC is nested)
+        nested_vcs = set()
+        for vc_idx, vc in enumerate(info.toi_virtual_containers):
+            for member_id in vc['members']:
+                tree_node = info.element_tree.get(member_id, {})
+                parent = tree_node.get('parent')
+                if parent is not None:
+                    # This VC has a member inside a real container → VC is nested
+                    nested_vcs.add(vc_idx)
+                    break
+
+        # Assign NdPr IDs: first to elements, then to TOI virtual containers
+        node_counter = 1
+
+        for elem_id in info.primary_elements:
+            # Skip elements contained inside any container (real or virtual TOI)
+            if elem_id in contained_elements:
+                # Classify but don't assign NdPr
+                if elem_id in info.toi_nodes:
+                    info.primary_node_types[elem_id] = "TOI"
+                elif elem_id in info.element_to_toi_container:
+                    info.primary_node_types[elem_id] = "TOI Virtual"
+                else:
+                    info.primary_node_types[elem_id] = "Simple"
+                continue
+
+            # Assign NdPr ID
             node_id = f"NdPr{node_counter:03d}"
             info.primary_node_ids[elem_id] = node_id
+            node_counter += 1
 
-            # Clasificar por tipo
+            # Classify
             if elem_id in nodes_without_level:
-                # Parte de un ciclo
                 node_type = "Contenedor Virtual"
             elif info.element_tree[elem_id]['is_container']:
-                # Es un contenedor real
                 node_type = "Contenedor"
             else:
-                # Nodo simple
                 node_type = "Simple"
 
             info.primary_node_types[elem_id] = node_type
+
+        # Assign NdPr IDs to TOI virtual containers (unless nested)
+        for vc_idx, vc in enumerate(info.toi_virtual_containers):
+            if vc_idx in nested_vcs:
+                continue
+
+            node_id = f"NdPr{node_counter:03d}"
+            vc_id = vc['id']
+            info.primary_node_ids[vc_id] = node_id
+            info.primary_node_types[vc_id] = "Contenedor Virtual TOI"
             node_counter += 1
 
-        pass  # clasificación completada, debug se muestra en laf_optimizer
+    def _build_ndpr_abstract_graph(self, info: StructureInfo) -> None:
+        """
+        Build abstract NdPr-only view: collapsed levels and connection graph.
+
+        Maps every element to its NdPr representative:
+        - Elements with their own NdPr → themselves
+        - Elements inside a TOI VC → the VC's id
+        - Elements inside a real container → the container's id
+
+        Then builds:
+        - ndpr_elements: ordered list of NdPr node IDs
+        - ndpr_topological_levels: level for each NdPr node
+        - ndpr_connection_graph: connections between NdPr nodes (no self-loops)
+        """
+        # 1. Map every element to its NdPr representative
+        for elem_id in info.primary_elements:
+            if elem_id in info.primary_node_ids:
+                # This element IS a NdPr
+                info.element_to_ndpr[elem_id] = elem_id
+            elif elem_id in info.element_to_toi_container:
+                # Inside a TOI VC
+                vc_idx = info.element_to_toi_container[elem_id]
+                vc_id = info.toi_virtual_containers[vc_idx]['id']
+                info.element_to_ndpr[elem_id] = vc_id
+            else:
+                # Inside a real container - find parent with NdPr
+                current = elem_id
+                tree_node = info.element_tree.get(current, {})
+                parent = tree_node.get('parent')
+                while parent and parent not in info.primary_node_ids:
+                    tree_node = info.element_tree.get(parent, {})
+                    parent = tree_node.get('parent')
+                if parent:
+                    info.element_to_ndpr[elem_id] = parent
+                else:
+                    info.element_to_ndpr[elem_id] = elem_id
+
+        # 2. Build ndpr_elements list (ordered by NdPr ID)
+        info.ndpr_elements = sorted(
+            info.primary_node_ids.keys(),
+            key=lambda eid: info.primary_node_ids[eid]
+        )
+
+        # 3. Assign levels to NdPr nodes
+        for ndpr_id in info.ndpr_elements:
+            if ndpr_id.startswith('_toi_vc_'):
+                # VC level = min level of its members
+                vc_idx = int(ndpr_id.split('_')[-1])
+                vc = info.toi_virtual_containers[vc_idx]
+                member_levels = [
+                    info.topological_levels.get(m, 0)
+                    for m in vc['members']
+                ]
+                info.ndpr_topological_levels[ndpr_id] = min(member_levels)
+            else:
+                # Regular element keeps its level
+                info.ndpr_topological_levels[ndpr_id] = info.topological_levels.get(ndpr_id, 0)
+
+        # 4. Build abstract connection graph between NdPr nodes
+        for ndpr_id in info.ndpr_elements:
+            info.ndpr_connection_graph[ndpr_id] = []
+
+        seen_edges = set()
+        for from_id, to_list in info.connection_graph.items():
+            ndpr_from = info.element_to_ndpr.get(from_id, from_id)
+            for to_id in to_list:
+                ndpr_to = info.element_to_ndpr.get(to_id, to_id)
+                # Skip self-loops (internal connections within same NdPr)
+                if ndpr_from == ndpr_to:
+                    continue
+                edge = (ndpr_from, ndpr_to)
+                if edge not in seen_edges:
+                    seen_edges.add(edge)
+                    if ndpr_from in info.ndpr_connection_graph:
+                        info.ndpr_connection_graph[ndpr_from].append(ndpr_to)
 
     def _build_incoming_graph(self, info: StructureInfo) -> None:
         """

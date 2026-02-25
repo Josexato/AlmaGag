@@ -283,9 +283,12 @@ class GrowthVisualizer:
 
         filename = os.path.join(output_path, "phase1_structure.svg")
 
-        # Canvas pequeño para visualización
+        # Canvas dinámico: altura basada en cantidad de NdPr + VCs
         canvas_width = 800
-        canvas_height = 600
+        ndpr_count = len(structure_info.primary_node_ids)
+        vc_count = len(structure_info.toi_virtual_containers)
+        # ~200px header + 16px per NdPr + 14px per VC detail + 80px legend
+        canvas_height = max(600, 200 + (ndpr_count + vc_count) * 18 + 100)
 
         dwg = svgwrite.Drawing(filename, size=(canvas_width, canvas_height))
 
@@ -323,10 +326,10 @@ class GrowthVisualizer:
             ))
             y += 25
 
-        # Tabla de nodos primarios
+        # Tabla de nodos primarios (NdPr)
         y += 20
         dwg.add(dwg.text(
-            'Primary Nodes:',
+            'Primary Nodes (NdPr):',
             insert=(40, y),
             font_size='16px',
             font_weight='bold',
@@ -336,7 +339,7 @@ class GrowthVisualizer:
 
         # Header de tabla
         dwg.add(dwg.text(
-            'ID         Type              Element',
+            'ID         Type                      Element',
             insert=(60, y),
             font_size='11px',
             fill='#495057',
@@ -345,37 +348,43 @@ class GrowthVisualizer:
         ))
         y += 18
 
-        # Mostrar solo los primeros 15 elementos para que quepan en el SVG
-        displayed_count = 0
-        max_display = 15
+        # Color map for node types
+        type_colors = {
+            'Simple': '#6c757d',
+            'Contenedor': '#0d6efd',
+            'Contenedor Virtual TOI': '#9b59b6',
+            'Contenedor Virtual': '#dc3545',
+        }
 
-        for elem_id in structure_info.primary_elements:
+        # Build sorted NdPr list (all entries that have a NdPr ID)
+        ndpr_entries = sorted(
+            structure_info.primary_node_ids.items(),
+            key=lambda x: x[1]  # sort by NdPr001, NdPr002, ...
+        )
+
+        displayed_count = 0
+        max_display = 20
+
+        for entry_id, node_id in ndpr_entries:
             if displayed_count >= max_display:
+                remaining = len(ndpr_entries) - max_display
                 dwg.add(dwg.text(
-                    f"... y {len(structure_info.primary_elements) - max_display} más",
+                    f"... y {remaining} más",
                     insert=(60, y),
                     font_size='11px',
                     fill='#6c757d',
                     font_family='monospace',
                     font_style='italic'
                 ))
+                y += 16
                 break
 
-            node_id = structure_info.primary_node_ids.get(elem_id, "N/A")
-            node_type = structure_info.primary_node_types.get(elem_id, "N/A")
+            node_type = structure_info.primary_node_types.get(entry_id, "N/A")
+            color = type_colors.get(node_type, '#6c757d')
 
-            # Color según tipo
-            if node_type == "Simple":
-                color = '#6c757d'  # Gris
-            elif node_type == "Contenedor":
-                color = '#0d6efd'  # Azul
-            else:  # Contenedor Virtual
-                color = '#dc3545'  # Rojo
-
-            # Truncar elem_id si es muy largo
-            elem_display = elem_id if len(elem_id) <= 20 else elem_id[:17] + "..."
-
-            text = f"{node_id}  {node_type:<16}  {elem_display}"
+            # For TOI VCs, show member count
+            entry_display = entry_id if len(entry_id) <= 20 else entry_id[:17] + "..."
+            text = f"{node_id}  {node_type:<24}  {entry_display}"
 
             dwg.add(dwg.text(
                 text,
@@ -386,6 +395,26 @@ class GrowthVisualizer:
             ))
             y += 16
             displayed_count += 1
+
+            # For TOI VCs, show contained members indented
+            if node_type == 'Contenedor Virtual TOI':
+                # Find the VC by id
+                for vc in structure_info.toi_virtual_containers:
+                    if vc['id'] == entry_id:
+                        members_sorted = sorted(vc['members'])
+                        members_str = ', '.join(members_sorted)
+                        if len(members_str) > 55:
+                            members_str = members_str[:52] + '...'
+                        dwg.add(dwg.text(
+                            f"         └ {members_str}",
+                            insert=(60, y),
+                            font_size='10px',
+                            fill='#b07dd6',
+                            font_family='monospace'
+                        ))
+                        y += 14
+                        displayed_count += 1
+                        break
 
         # Leyenda de colores
         y += 10
@@ -401,6 +430,7 @@ class GrowthVisualizer:
         legend_items = [
             ('Simple', '#6c757d'),
             ('Contenedor', '#0d6efd'),
+            ('CV TOI', '#9b59b6'),
             ('Contenedor Virtual', '#dc3545')
         ]
 
@@ -645,10 +675,12 @@ class GrowthVisualizer:
 
         filename = os.path.join(output_path, "phase2_topology.svg")
 
-        # Organizar elementos por nivel primero para calcular dimensiones
+        # Organizar NdPr por nivel (vista colapsada)
         by_level = {}
         max_level = 0
-        for elem_id, level in structure_info.topological_levels.items():
+        use_ndpr = bool(structure_info.ndpr_topological_levels)
+        levels_source = structure_info.ndpr_topological_levels if use_ndpr else structure_info.topological_levels
+        for elem_id, level in levels_source.items():
             if level not in by_level:
                 by_level[level] = []
             by_level[level].append(elem_id)
@@ -703,7 +735,8 @@ class GrowthVisualizer:
         # Lista de todas las conexiones con sus coordenadas
         connections = []
 
-        for from_id, to_list in structure_info.connection_graph.items():
+        conn_graph = structure_info.ndpr_connection_graph if use_ndpr else structure_info.connection_graph
+        for from_id, to_list in conn_graph.items():
             if from_id not in node_positions:
                 continue
 
@@ -949,27 +982,43 @@ class GrowthVisualizer:
                 node_x, node_y = node_positions[elem_id]
                 score = structure_info.accessibility_scores.get(elem_id, 0)
                 node_id = structure_info.primary_node_ids.get(elem_id, "N/A")
-                elem_level = structure_info.topological_levels.get(elem_id, 0)
+                node_type = structure_info.primary_node_types.get(elem_id, "Simple")
+                elem_level = levels_source.get(elem_id, 0)
+                is_vc = node_type == 'Contenedor Virtual TOI'
 
-                # Color según score
-                if score > 0.05:
+                # Color según tipo de nodo
+                if is_vc:
+                    color = '#9b59b6'  # Púrpura para VCs TOI
+                elif score > 0.05:
                     color = '#dc3545'  # Rojo - Alto
                 elif score > 0.02:
                     color = '#ffc107'  # Amarillo - Medio
                 else:
                     color = '#0d6efd'  # Azul - Bajo/Normal
 
-                # Dibujar nodo (círculo)
-                dwg.add(dwg.circle(
-                    center=(node_x, node_y),
-                    r=node_radius,
-                    fill=color,
-                    opacity=0.8,
-                    stroke='#212529',
-                    stroke_width=2
-                ))
+                # Dibujar nodo: rectángulo redondeado para VCs, círculo para el resto
+                if is_vc:
+                    vc_w, vc_h = node_radius * 2.5, node_radius * 1.8
+                    dwg.add(dwg.rect(
+                        insert=(node_x - vc_w / 2, node_y - vc_h / 2),
+                        size=(vc_w, vc_h),
+                        rx=8, ry=8,
+                        fill=color,
+                        opacity=0.8,
+                        stroke='#212529',
+                        stroke_width=2
+                    ))
+                else:
+                    dwg.add(dwg.circle(
+                        center=(node_x, node_y),
+                        r=node_radius,
+                        fill=color,
+                        opacity=0.8,
+                        stroke='#212529',
+                        stroke_width=2
+                    ))
 
-                # ID del nodo primario ARRIBA del círculo con nivel
+                # ID del nodo primario ARRIBA del nodo con nivel
                 node_label = f"{node_id} [L{elem_level}]"
                 dwg.add(dwg.text(
                     node_label,
@@ -981,8 +1030,18 @@ class GrowthVisualizer:
                     font_weight='bold'
                 ))
 
-                # Nombre del elemento DEBAJO del círculo (en gris)
-                label = elem_id if len(elem_id) <= 18 else elem_id[:15] + '...'
+                # Nombre DEBAJO del nodo
+                if is_vc:
+                    # For VCs, show member count
+                    for vc in structure_info.toi_virtual_containers:
+                        if vc['id'] == elem_id:
+                            label = f"VC ({len(vc['members'])} elem)"
+                            break
+                    else:
+                        label = elem_id
+                else:
+                    label = elem_id if len(elem_id) <= 18 else elem_id[:15] + '...'
+
                 dwg.add(dwg.text(
                     label,
                     insert=(node_x, node_y + node_radius + 16),
@@ -992,8 +1051,25 @@ class GrowthVisualizer:
                     font_family='monospace'
                 ))
 
-                # Mostrar score DENTRO del círculo si > 0
-                if score > 0:
+                # Mostrar score o member count DENTRO del nodo
+                if is_vc:
+                    for vc in structure_info.toi_virtual_containers:
+                        if vc['id'] == elem_id:
+                            # Show TOI name inside VC
+                            toi_label = vc.get('toi_id', '')
+                            if len(toi_label) > 10:
+                                toi_label = toi_label[:8] + '..'
+                            dwg.add(dwg.text(
+                                toi_label,
+                                insert=(node_x, node_y + 4),
+                                font_size='9px',
+                                fill='white',
+                                text_anchor='middle',
+                                font_weight='bold',
+                                font_family='monospace'
+                            ))
+                            break
+                elif score > 0:
                     dwg.add(dwg.text(
                         f'{score:.3f}',
                         insert=(node_x, node_y + 4),
@@ -1134,6 +1210,79 @@ class GrowthVisualizer:
         if self.debug:
             logger.debug(f"[VISUALIZER] Generado: {filename}")
 
+    def _build_ndpr_positions(self, raw_positions, structure_info):
+        """
+        Collapse raw element positions into NdPr-level positions.
+
+        Simple NdPr nodes keep their position. TOI VCs get the centroid
+        of their member positions.
+
+        Returns: {ndpr_id: (x, y)}
+        """
+        ndpr_pos = {}
+
+        for ndpr_id in structure_info.ndpr_elements:
+            node_type = structure_info.primary_node_types.get(ndpr_id, 'Simple')
+
+            if node_type == 'Contenedor Virtual TOI':
+                # Centroid of member positions
+                for vc in structure_info.toi_virtual_containers:
+                    if vc['id'] == ndpr_id:
+                        member_positions = [
+                            raw_positions[m]
+                            for m in vc['members']
+                            if m in raw_positions
+                        ]
+                        if member_positions:
+                            cx = sum(p[0] for p in member_positions) / len(member_positions)
+                            cy = sum(p[1] for p in member_positions) / len(member_positions)
+                            ndpr_pos[ndpr_id] = (cx, cy)
+                        break
+            elif ndpr_id in raw_positions:
+                ndpr_pos[ndpr_id] = raw_positions[ndpr_id]
+
+        return ndpr_pos
+
+    def _draw_ndpr_node(self, dwg, ndpr_id, cx, cy, structure_info, radius=12,
+                        color_fn=None):
+        """
+        Draw a single NdPr node: rounded rect for VCs, circle for others.
+
+        Args:
+            color_fn: Optional callable(ndpr_id, structure_info) -> fill_color.
+                      If None, uses default type-based coloring.
+        """
+        node_type = structure_info.primary_node_types.get(ndpr_id, 'Simple')
+        is_vc = node_type == 'Contenedor Virtual TOI'
+        node_id = structure_info.primary_node_ids.get(ndpr_id, ndpr_id)
+
+        if color_fn:
+            fill_color = color_fn(ndpr_id, structure_info)
+        elif is_vc:
+            fill_color = '#9b59b6'
+        elif node_type == 'Contenedor':
+            fill_color = '#ffc107'
+        else:
+            fill_color = '#0d6efd'
+
+        if is_vc:
+            vc_w, vc_h = radius * 2.5, radius * 1.8
+            dwg.add(dwg.rect(
+                insert=(cx - vc_w / 2, cy - vc_h / 2),
+                size=(vc_w, vc_h),
+                rx=8, ry=8,
+                fill=fill_color, opacity=0.8,
+                stroke='#212529', stroke_width=2
+            ))
+        else:
+            dwg.add(dwg.circle(
+                center=(cx, cy), r=radius,
+                fill=fill_color, opacity=0.8,
+                stroke='#212529', stroke_width=2
+            ))
+
+        return node_id, is_vc
+
     def _generate_phase3_centrality_svg(self, output_path: str) -> None:
         """
         Genera SVG de Fase 3: Ordenamiento por centralidad.
@@ -1156,24 +1305,50 @@ class GrowthVisualizer:
 
         filename = os.path.join(output_path, 'phase3_centrality.svg')
 
+        # Collapse centrality_order to NdPr level
+        use_ndpr = bool(structure_info.ndpr_elements)
+        if use_ndpr:
+            # Build NdPr-level centrality: aggregate scores per NdPr per level
+            ndpr_scores = {}  # {ndpr_id: max_score}
+            for level, elements in centrality_order.items():
+                for elem_id, score in elements:
+                    ndpr_id = structure_info.element_to_ndpr.get(elem_id, elem_id)
+                    if ndpr_id not in ndpr_scores or score > ndpr_scores[ndpr_id]:
+                        ndpr_scores[ndpr_id] = score
+
+            # Build NdPr centrality_order using ndpr_topological_levels
+            ndpr_centrality = {}
+            for ndpr_id in structure_info.ndpr_elements:
+                level = structure_info.ndpr_topological_levels.get(ndpr_id, 0)
+                score = ndpr_scores.get(ndpr_id, 0.0)
+                if level not in ndpr_centrality:
+                    ndpr_centrality[level] = []
+                ndpr_centrality[level].append((ndpr_id, score))
+
+            # Sort each level by score descending
+            for level in ndpr_centrality:
+                ndpr_centrality[level].sort(key=lambda x: x[1], reverse=True)
+
+            display_order = ndpr_centrality
+            conn_graph = structure_info.ndpr_connection_graph
+        else:
+            display_order = centrality_order
+            conn_graph = structure_info.connection_graph
+
         # Calcular espacio vertical por nivel
         start_y = 120
         level_height = 100
-        bottom_margin = 200  # Espacio para leyenda
+        bottom_margin = 200
 
-        # Calcular número de niveles
-        max_level = max(centrality_order.keys()) if centrality_order else 0
+        max_level = max(display_order.keys()) if display_order else 0
 
-        # Calcular dimensiones del canvas dinámicamente
         canvas_width = 1200
         canvas_height = start_y + (max_level + 1) * level_height + bottom_margin
 
         dwg = svgwrite.Drawing(filename, size=(canvas_width, canvas_height))
 
-        # Fondo
         dwg.add(dwg.rect(insert=(0, 0), size=(canvas_width, canvas_height), fill='#f8f9fa'))
 
-        # Título
         dwg.add(dwg.text(
             'LAF Phase 3: Centrality Ordering',
             insert=(20, 30),
@@ -1182,22 +1357,20 @@ class GrowthVisualizer:
             fill='#212529'
         ))
 
-        # Descripción
         dwg.add(dwg.text(
-            f'Elements ordered by accessibility score within each level',
+            f'NdPr nodes ordered by accessibility score within each level',
             insert=(20, 55),
             font_size='14px',
             fill='#6c757d'
         ))
 
-        # Primero calcular todas las posiciones de nodos para luego dibujar conexiones
+        node_radius = 15
         all_node_positions = {}
 
-        for level in sorted(centrality_order.keys()):
-            elements = centrality_order[level]
+        for level in sorted(display_order.keys()):
+            elements = display_order[level]
             y = start_y + level * level_height
 
-            # Barra de fondo para el nivel
             bar_color = '#e3f2fd' if level % 2 == 0 else '#f1f8e9'
             dwg.add(dwg.rect(
                 insert=(10, y - 40),
@@ -1209,7 +1382,6 @@ class GrowthVisualizer:
                 stroke_dasharray='5,5'
             ))
 
-            # Label del nivel
             dwg.add(dwg.text(
                 f'Level {level}',
                 insert=(20, y - 15),
@@ -1218,55 +1390,34 @@ class GrowthVisualizer:
                 fill='#495057'
             ))
 
-            # Calcular posiciones para los elementos (distribución horizontal)
             num_elements = len(elements)
             if num_elements > 0:
                 spacing = min(80, (canvas_width - 100) / num_elements)
-                canvas_center_x = canvas_width / 2  # 600
+                canvas_center_x = canvas_width / 2
 
-                # Identificar elementos centrales (score máximo)
                 max_score = max(score for _, score in elements) if elements else 0
                 central_elements = [(idx, elem_id, score) for idx, (elem_id, score)
                                    in enumerate(elements) if score == max_score and score > 0]
 
-                # Si hay elementos centrales, centrarlos en el canvas
                 if central_elements:
-                    # Calcular posiciones centradas para elementos centrales
                     num_centrals = len(central_elements)
                     central_start_x = canvas_center_x - ((num_centrals - 1) * spacing) / 2
-
-                    # Mapear índices a posiciones
                     positions = {}
-
-                    # Colocar elementos centrales
                     for i, (idx, _, _) in enumerate(central_elements):
                         positions[idx] = central_start_x + i * spacing
-
-                    # Colocar elementos no-centrales a los lados
                     non_central_indices = [idx for idx in range(num_elements)
                                           if idx not in positions]
-
                     if non_central_indices:
-                        # Elementos a la izquierda de centrales
-                        left_count = sum(1 for idx in non_central_indices
-                                        if idx < min(positions.keys()))
-                        # Elementos a la derecha de centrales
-                        right_count = len(non_central_indices) - left_count
-
                         left_side_x = min(positions.values()) - spacing
                         right_side_x = max(positions.values()) + spacing
-
                         for idx in non_central_indices:
                             if idx < min(positions.keys()):
-                                # A la izquierda
                                 positions[idx] = left_side_x
                                 left_side_x -= spacing
                             else:
-                                # A la derecha
                                 positions[idx] = right_side_x
                                 right_side_x += spacing
                 else:
-                    # Sin elementos centrales (todos score=0): distribución uniforme
                     start_x = (canvas_width - (num_elements - 1) * spacing) / 2
                     positions = {idx: start_x + idx * spacing for idx in range(num_elements)}
 
@@ -1276,43 +1427,40 @@ class GrowthVisualizer:
 
         # Dibujar conexiones con colores por origen
         self._draw_colored_connections(dwg, all_node_positions,
-                                       structure_info.connection_graph, node_radius=15)
+                                       conn_graph, node_radius=node_radius)
 
-        # Dibujar nodos encima de las conexiones
-        for level in sorted(centrality_order.keys()):
-            elements = centrality_order[level]
+        # Dibujar nodos NdPr
+        for level in sorted(display_order.keys()):
+            elements = display_order[level]
             for elem_id, score in elements:
                 if elem_id not in all_node_positions:
                     continue
                 x, y = all_node_positions[elem_id]
 
-                node_id = structure_info.primary_node_ids.get(elem_id, "N/A")
-                elem_level = structure_info.topological_levels.get(elem_id, level)
+                node_type = structure_info.primary_node_types.get(elem_id, 'Simple')
+                is_vc = node_type == 'Contenedor Virtual TOI'
+                elem_level = (structure_info.ndpr_topological_levels if use_ndpr
+                              else structure_info.topological_levels).get(elem_id, level)
 
-                # Color según score
-                if score > 0.05:
-                    color = '#dc3545'  # Rojo - Alto
+                # Color: VC purple, else score-based
+                if is_vc:
+                    color = '#9b59b6'
+                elif score > 0.05:
+                    color = '#dc3545'
                 elif score > 0.02:
-                    color = '#ffc107'  # Amarillo - Medio
+                    color = '#ffc107'
                 else:
-                    color = '#0d6efd'  # Azul - Bajo/Normal
+                    color = '#0d6efd'
 
-                # Dibujar nodo (círculo)
-                radius = 15 if score > 0.02 else 12  # Nodos importantes más grandes
-                dwg.add(dwg.circle(
-                    center=(x, y),
-                    r=radius,
-                    fill=color,
-                    opacity=0.8,
-                    stroke='#212529',
-                    stroke_width=2
-                ))
+                self._draw_ndpr_node(dwg, elem_id, x, y, structure_info,
+                                     radius=node_radius,
+                                     color_fn=lambda eid, si, c=color: c)
 
-                # ID del nodo con nivel
+                node_id = structure_info.primary_node_ids.get(elem_id, "N/A")
                 node_label = f"{node_id} [L{elem_level}]"
                 dwg.add(dwg.text(
                     node_label,
-                    insert=(x, y - radius - 5),
+                    insert=(x, y - node_radius - 5),
                     font_size='10px',
                     fill='#212529',
                     text_anchor='middle',
@@ -1320,8 +1468,24 @@ class GrowthVisualizer:
                     font_weight='bold'
                 ))
 
-                # Score (si > 0)
-                if score > 0:
+                # Inside label
+                if is_vc:
+                    for vc in structure_info.toi_virtual_containers:
+                        if vc['id'] == elem_id:
+                            toi_label = vc.get('toi_id', '')
+                            if len(toi_label) > 10:
+                                toi_label = toi_label[:8] + '..'
+                            dwg.add(dwg.text(
+                                toi_label,
+                                insert=(x, y + 4),
+                                font_size='8px',
+                                fill='white',
+                                text_anchor='middle',
+                                font_weight='bold',
+                                font_family='monospace'
+                            ))
+                            break
+                elif score > 0:
                     dwg.add(dwg.text(
                         f'{score:.3f}',
                         insert=(x, y + 4),
@@ -1332,11 +1496,19 @@ class GrowthVisualizer:
                         font_weight='bold'
                     ))
 
-                # Nombre del elemento (debajo)
-                label = elem_id if len(elem_id) <= 12 else elem_id[:9] + '...'
+                # Label below
+                if is_vc:
+                    for vc in structure_info.toi_virtual_containers:
+                        if vc['id'] == elem_id:
+                            label = f"VC ({len(vc['members'])} elem)"
+                            break
+                    else:
+                        label = elem_id
+                else:
+                    label = elem_id if len(elem_id) <= 12 else elem_id[:9] + '...'
                 dwg.add(dwg.text(
                     label,
-                    insert=(x, y + radius + 15),
+                    insert=(x, y + node_radius + 15),
                     font_size='9px',
                     fill='#6c757d',
                     text_anchor='middle',
@@ -1356,7 +1528,8 @@ class GrowthVisualizer:
         legend_items = [
             ('High (>0.05)', '#dc3545'),
             ('Medium (0.02-0.05)', '#ffc107'),
-            ('Low (<0.02)', '#0d6efd')
+            ('Low (<0.02)', '#0d6efd'),
+            ('CV TOI', '#9b59b6')
         ]
 
         for i, (label, color) in enumerate(legend_items):
@@ -1377,10 +1550,9 @@ class GrowthVisualizer:
                 fill='#495057'
             ))
 
-        # Nota sobre ordenamiento
         dwg.add(dwg.text(
-            'Elements ordered: Higher scores toward center, lower scores toward edges',
-            insert=(20, legend_y + 80),
+            'NdPr nodes ordered: Higher scores toward center, lower scores toward edges',
+            insert=(20, legend_y + 80 + 20),
             font_size='11px',
             fill='#6c757d',
             font_style='italic'
@@ -1401,10 +1573,8 @@ class GrowthVisualizer:
 
     def _generate_phase4_abstract_svg(self, output_path: str) -> None:
         """
-        Genera SVG de Fase 4: Layout abstracto (puntos).
-
-        Muestra solo elementos PRIMARIOS. Los contenedores se marcan con "TBG"
-        (To Be Grown) para indicar que crecerán en fases posteriores.
+        Genera SVG de Fase 4: Layout abstracto (NdPr nodes only).
+        VCs shown as rounded rectangles with centroid of member positions.
         """
         snapshot = self.snapshots['phase4']
         abstract_positions = snapshot['abstract_positions']
@@ -1414,29 +1584,38 @@ class GrowthVisualizer:
 
         filename = os.path.join(output_path, "phase4_abstract.svg")
 
-        # Filtrar solo elementos PRIMARIOS
-        primary_positions = {
-            elem_id: pos for elem_id, pos in abstract_positions.items()
-            if elem_id in structure_info.primary_elements
-        }
+        # Build NdPr positions (collapse VCs to centroids)
+        use_ndpr = bool(structure_info.ndpr_elements)
+        if use_ndpr:
+            # Filter raw positions to primary elements only
+            raw_positions = {
+                eid: pos for eid, pos in abstract_positions.items()
+                if eid in structure_info.primary_elements
+            }
+            ndpr_positions = self._build_ndpr_positions(raw_positions, structure_info)
+            conn_graph = structure_info.ndpr_connection_graph
+        else:
+            ndpr_positions = {
+                eid: pos for eid, pos in abstract_positions.items()
+                if eid in structure_info.primary_elements
+            }
+            conn_graph = structure_info.connection_graph
 
-        # Calcular bounds del layout abstracto
-        if not primary_positions:
+        if not ndpr_positions:
             return
 
-        min_x = min(x for x, y in primary_positions.values())
-        max_x = max(x for x, y in primary_positions.values())
-        min_y = min(y for x, y in primary_positions.values())
-        max_y = max(y for x, y in primary_positions.values())
+        min_x = min(x for x, y in ndpr_positions.values())
+        max_x = max(x for x, y in ndpr_positions.values())
+        min_y = min(y for x, y in ndpr_positions.values())
+        max_y = max(y for x, y in ndpr_positions.values())
 
-        # Escalar al canvas con más espacio horizontal
         padding = 150
-        canvas_width = 1600  # Aumentado de 1000 a 1600
-        canvas_height = 1000  # Aumentado de 800 a 1000
+        canvas_width = 1600
+        canvas_height = 1000
 
         scale_x = (canvas_width - 2 * padding) / max(1, max_x - min_x)
         scale_y = (canvas_height - 2 * padding) / max(1, max_y - min_y)
-        scale = min(scale_x, scale_y, 120)  # Aumentado de 50 a 120px por unidad
+        scale = min(scale_x, scale_y, 120)
 
         def to_canvas(ax, ay):
             cx = padding + (ax - min_x) * scale
@@ -1444,11 +1623,8 @@ class GrowthVisualizer:
             return (cx, cy)
 
         dwg = svgwrite.Drawing(filename, size=(canvas_width, canvas_height))
-
-        # Fondo
         dwg.add(dwg.rect(insert=(0, 0), size=(canvas_width, canvas_height), fill='#f8f9fa'))
 
-        # Título
         dwg.add(dwg.text(
             'LAF Phase 4: Abstract Layout',
             insert=(20, 30),
@@ -1457,7 +1633,6 @@ class GrowthVisualizer:
             fill='#212529'
         ))
 
-        # Métricas
         dwg.add(dwg.text(
             f"Crossings: {crossings}",
             insert=(20, 55),
@@ -1466,88 +1641,43 @@ class GrowthVisualizer:
             font_weight='bold'
         ))
 
-        # Crear mapa de elemento contenido -> contenedor padre
-        contained_to_parent = {}
-        for elem_id in structure_info.primary_elements:
-            node = structure_info.element_tree.get(elem_id, {})
-            children = node.get('children', [])
-            for child_id in children:
-                contained_to_parent[child_id] = elem_id
+        # Canvas positions
+        canvas_positions = {eid: to_canvas(*pos) for eid, pos in ndpr_positions.items()}
 
-        # Construir grafo de conexiones mapeado a primarios (sin duplicados)
-        primary_conn_graph = {}
-        drawn_connections = set()
-        for conn in connections:
-            from_id = conn['from']
-            to_id = conn['to']
+        # Draw connections
+        self._draw_colored_connections(dwg, canvas_positions, conn_graph, node_radius=14)
 
-            # Mapear a elementos primarios si son contenidos
-            if from_id not in primary_positions and from_id in contained_to_parent:
-                from_id = contained_to_parent[from_id]
-            if to_id not in primary_positions and to_id in contained_to_parent:
-                to_id = contained_to_parent[to_id]
-
-            if from_id in primary_positions and to_id in primary_positions:
-                conn_key = (from_id, to_id)
-                if conn_key not in drawn_connections:
-                    drawn_connections.add(conn_key)
-                    if from_id not in primary_conn_graph:
-                        primary_conn_graph[from_id] = []
-                    primary_conn_graph[from_id].append(to_id)
-
-        # Posiciones en canvas para las conexiones
-        canvas_positions = {eid: to_canvas(*pos) for eid, pos in primary_positions.items()}
-
-        # Dibujar conexiones con colores por origen
-        self._draw_colored_connections(dwg, canvas_positions, primary_conn_graph, node_radius=14)
-
-        # Dibujar elementos primarios (puntos con información detallada)
-        for elem_id, (ax, ay) in primary_positions.items():
+        # Draw NdPr nodes
+        node_radius = 14
+        for ndpr_id, (ax, ay) in ndpr_positions.items():
             cx, cy = to_canvas(ax, ay)
+            node_type = structure_info.primary_node_types.get(ndpr_id, 'Simple')
+            is_vc = node_type == 'Contenedor Virtual TOI'
+            is_container = node_type == 'Contenedor'
+            score = structure_info.accessibility_scores.get(ndpr_id, 0.0)
 
-            # Verificar si es contenedor (tiene elementos dentro)
-            node = structure_info.element_tree.get(elem_id, {})
-            is_container = bool(node.get('children', []))
-
-            # Obtener scores
-            accessibility_score = structure_info.accessibility_scores.get(elem_id, 0.0)
-
-            # Color según tipo y score
-            if is_container:
-                fill_color = '#ffc107'  # Amarillo para contenedores
-                stroke_color = '#ff9800'
-                radius = 14
-            elif accessibility_score > 0.02:
-                fill_color = '#dc3545'  # Rojo para alta centralidad
-                stroke_color = '#b02a37'
-                radius = 12
-            elif accessibility_score > 0:
-                fill_color = '#fd7e14'  # Naranja para centralidad media
-                stroke_color = '#dc6a00'
-                radius = 11
+            # Color
+            if is_vc:
+                fill_color = '#9b59b6'
+            elif is_container:
+                fill_color = '#ffc107'
+            elif score > 0.02:
+                fill_color = '#dc3545'
+            elif score > 0:
+                fill_color = '#fd7e14'
             else:
-                fill_color = '#0d6efd'  # Azul para elementos simples
-                stroke_color = '#084298'
-                radius = 10
+                fill_color = '#0d6efd'
 
-            # Punto (círculo más grande)
-            dwg.add(dwg.circle(
-                center=(cx, cy),
-                r=radius,
-                fill=fill_color,
-                stroke=stroke_color,
-                stroke_width=2.5,
-                opacity=0.9
-            ))
+            self._draw_ndpr_node(dwg, ndpr_id, cx, cy, structure_info,
+                                 radius=node_radius,
+                                 color_fn=lambda eid, si, c=fill_color: c)
 
-            # Obtener información del nodo
-            node_id = structure_info.primary_node_ids.get(elem_id, elem_id)
-            elem_name = elem_id if len(elem_id) <= 15 else elem_id[:12] + '...'
+            node_id = structure_info.primary_node_ids.get(ndpr_id, ndpr_id)
 
             # ARRIBA: NdPrXXX
             dwg.add(dwg.text(
                 node_id,
-                insert=(cx, cy - radius - 8),
+                insert=(cx, cy - node_radius - 8),
                 font_size='11px',
                 fill='#212529',
                 font_family='monospace',
@@ -1555,8 +1685,24 @@ class GrowthVisualizer:
                 text_anchor='middle'
             ))
 
-            # CENTRO: Badge "TBG" para contenedores o score para otros
-            if is_container:
+            # CENTRO: label inside node
+            if is_vc:
+                for vc in structure_info.toi_virtual_containers:
+                    if vc['id'] == ndpr_id:
+                        toi_label = vc.get('toi_id', '')
+                        if len(toi_label) > 10:
+                            toi_label = toi_label[:8] + '..'
+                        dwg.add(dwg.text(
+                            toi_label,
+                            insert=(cx, cy + 4),
+                            font_size='8px',
+                            fill='white',
+                            text_anchor='middle',
+                            font_family='monospace',
+                            font_weight='bold'
+                        ))
+                        break
+            elif is_container:
                 dwg.add(dwg.text(
                     'TBG',
                     insert=(cx, cy + 4),
@@ -1566,9 +1712,9 @@ class GrowthVisualizer:
                     font_family='monospace',
                     font_weight='bold'
                 ))
-            elif accessibility_score > 0:
+            elif score > 0:
                 dwg.add(dwg.text(
-                    f'{accessibility_score:.3f}',
+                    f'{score:.3f}',
                     insert=(cx, cy + 4),
                     font_size='8px',
                     fill='white',
@@ -1577,20 +1723,30 @@ class GrowthVisualizer:
                     font_weight='bold'
                 ))
 
-            # ABAJO: Nombre del elemento
+            # ABAJO: Name / VC info
+            if is_vc:
+                for vc in structure_info.toi_virtual_containers:
+                    if vc['id'] == ndpr_id:
+                        elem_name = f"VC ({len(vc['members'])} elem)"
+                        break
+                else:
+                    elem_name = ndpr_id
+            else:
+                elem_name = ndpr_id if len(ndpr_id) <= 15 else ndpr_id[:12] + '...'
+
             dwg.add(dwg.text(
                 elem_name,
-                insert=(cx, cy + radius + 18),
+                insert=(cx, cy + node_radius + 18),
                 font_size='10px',
                 fill='#495057',
                 font_family='monospace',
                 text_anchor='middle'
             ))
 
-            # MÁS ABAJO: Posición abstracta (x, y)
+            # Position
             dwg.add(dwg.text(
                 f'({ax:.1f}, {ay})',
-                insert=(cx, cy + radius + 30),
+                insert=(cx, cy + node_radius + 30),
                 font_size='9px',
                 fill='#6c757d',
                 font_family='monospace',
@@ -1606,38 +1762,11 @@ class GrowthVisualizer:
             fill='#6c757d'
         ))
 
-        # Leyenda de información mostrada
+        # Legend
         legend_y = canvas_height - 120
         dwg.add(dwg.text(
-            'Node Information:',
-            insert=(20, legend_y),
-            font_size='14px',
-            font_weight='bold',
-            fill='#212529'
-        ))
-
-        legend_items = [
-            ('Top: NdPrXXX (Primary Node ID)', '#212529'),
-            ('Center: Accessibility Score or TBG badge', '#495057'),
-            ('Below: Element Name', '#495057'),
-            ('Bottom: (x, y) Abstract Position', '#6c757d')
-        ]
-
-        for i, (label, color) in enumerate(legend_items):
-            y = legend_y + 20 + i * 18
-            dwg.add(dwg.text(
-                f'• {label}',
-                insert=(30, y),
-                font_size='11px',
-                fill=color,
-                font_family='sans-serif'
-            ))
-
-        # Leyenda de colores
-        color_legend_x = 400
-        dwg.add(dwg.text(
             'Node Colors:',
-            insert=(color_legend_x, legend_y),
+            insert=(20, legend_y),
             font_size='14px',
             font_weight='bold',
             fill='#212529'
@@ -1647,13 +1776,14 @@ class GrowthVisualizer:
             ('High centrality (>0.02)', '#dc3545'),
             ('Medium centrality (>0)', '#fd7e14'),
             ('Simple element', '#0d6efd'),
-            ('Container (TBG)', '#ffc107')
+            ('Container (TBG)', '#ffc107'),
+            ('CV TOI', '#9b59b6')
         ]
 
         for i, (label, color) in enumerate(color_items):
             y = legend_y + 20 + i * 18
             dwg.add(dwg.circle(
-                center=(color_legend_x + 10, y - 4),
+                center=(30, y - 4),
                 r=5,
                 fill=color,
                 stroke='#212529',
@@ -1661,7 +1791,7 @@ class GrowthVisualizer:
             ))
             dwg.add(dwg.text(
                 label,
-                insert=(color_legend_x + 25, y),
+                insert=(45, y),
                 font_size='11px',
                 fill='#495057',
                 font_family='sans-serif'
@@ -1674,10 +1804,8 @@ class GrowthVisualizer:
 
     def _generate_phase5_optimized_svg(self, output_path: str) -> None:
         """
-        Genera SVG de Fase 5: Posiciones optimizadas (Claude-SolFase5).
-
-        Muestra solo elementos PRIMARIOS con posiciones optimizadas para
-        minimizar la distancia total de conectores.
+        Genera SVG de Fase 5: Posiciones optimizadas (NdPr nodes only).
+        VCs shown as rounded rectangles with centroid of member positions.
         """
         snapshot = self.snapshots['phase5']
         optimized_positions = snapshot['optimized_positions']
@@ -1687,24 +1815,32 @@ class GrowthVisualizer:
 
         filename = os.path.join(output_path, "phase5_optimized.svg")
 
-        # Filtrar solo elementos PRIMARIOS
-        primary_positions = {
-            elem_id: pos for elem_id, pos in optimized_positions.items()
-            if elem_id in structure_info.primary_elements
-        }
+        # Build NdPr positions
+        use_ndpr = bool(structure_info.ndpr_elements)
+        if use_ndpr:
+            raw_positions = {
+                eid: pos for eid, pos in optimized_positions.items()
+                if eid in structure_info.primary_elements
+            }
+            ndpr_positions = self._build_ndpr_positions(raw_positions, structure_info)
+            conn_graph = structure_info.ndpr_connection_graph
+        else:
+            ndpr_positions = {
+                eid: pos for eid, pos in optimized_positions.items()
+                if eid in structure_info.primary_elements
+            }
+            conn_graph = structure_info.connection_graph
 
-        if not primary_positions:
+        if not ndpr_positions:
             return
 
-        # Calcular bounds
-        min_x = min(x for x, y in primary_positions.values())
-        max_x = max(x for x, y in primary_positions.values())
-        min_y = min(y for x, y in primary_positions.values())
-        max_y = max(y for x, y in primary_positions.values())
+        min_x = min(x for x, y in ndpr_positions.values())
+        max_x = max(x for x, y in ndpr_positions.values())
+        min_y = min(y for x, y in ndpr_positions.values())
+        max_y = max(y for x, y in ndpr_positions.values())
 
-        # Escalar al canvas dinámicamente según contenido.
         padding = 180
-        scale = 200  # px por unidad abstracta
+        scale = 200
 
         canvas_width = max(800, int(2 * padding + (max_x - min_x) * scale))
         canvas_height = max(600, int(2 * padding + (max_y - min_y) * scale))
@@ -1715,11 +1851,8 @@ class GrowthVisualizer:
             return (cx, cy)
 
         dwg = svgwrite.Drawing(filename, size=(canvas_width, canvas_height))
-
-        # Fondo
         dwg.add(dwg.rect(insert=(0, 0), size=(canvas_width, canvas_height), fill='#f0fff0'))
 
-        # Título
         dwg.add(dwg.text(
             'LAF Phase 5: Position Optimization (Claude-SolFase5)',
             insert=(20, 30),
@@ -1728,7 +1861,6 @@ class GrowthVisualizer:
             fill='#212529'
         ))
 
-        # Métricas
         dwg.add(dwg.text(
             f"Crossings: {crossings}",
             insert=(20, 55),
@@ -1745,281 +1877,35 @@ class GrowthVisualizer:
             font_style='italic'
         ))
 
-        # Crear mapa de elemento contenido -> contenedor padre
-        contained_to_parent = {}
-        for elem_id in structure_info.primary_elements:
-            node = structure_info.element_tree.get(elem_id, {})
-            children = node.get('children', [])
-            for child_id in children:
-                contained_to_parent[child_id] = elem_id
+        # Canvas positions
+        canvas_positions = {eid: to_canvas(*pos) for eid, pos in ndpr_positions.items()}
 
-        # Dibujar conexiones agregadas por par de nodos primarios,
-        # mostrando dirección y cantidad de conexiones agrupadas.
-        import math
+        # Draw connections with colored arrows
+        self._draw_colored_connections(dwg, canvas_positions, conn_graph, node_radius=14)
 
-        directed_counts = {}  # {(from_primary, to_primary): count}
-        for conn in connections:
-            from_id = conn['from']
-            to_id = conn['to']
-
-            if from_id not in primary_positions and from_id in contained_to_parent:
-                from_id = contained_to_parent[from_id]
-            if to_id not in primary_positions and to_id in contained_to_parent:
-                to_id = contained_to_parent[to_id]
-
-            if from_id in primary_positions and to_id in primary_positions and from_id != to_id:
-                key = (from_id, to_id)
-                directed_counts[key] = directed_counts.get(key, 0) + 1
-
-        def draw_arrowhead(tip_x, tip_y, angle, color):
-            arrow_length = 10
-            arrow_width = 0.45
-            base1_x = tip_x - arrow_length * math.cos(angle + arrow_width)
-            base1_y = tip_y - arrow_length * math.sin(angle + arrow_width)
-            base2_x = tip_x - arrow_length * math.cos(angle - arrow_width)
-            base2_y = tip_y - arrow_length * math.sin(angle - arrow_width)
-            dwg.add(dwg.polygon(
-                points=[(tip_x, tip_y), (base1_x, base1_y), (base2_x, base2_y)],
-                fill=color,
-                opacity=0.85,
-                stroke=color,
-                stroke_width=0.5
-            ))
-
-        # Precalcular radio de cada nodo primario.
-        node_radius_map = {}
-        for elem_id in primary_positions:
-            node = structure_info.element_tree.get(elem_id, {})
-            is_container = bool(node.get('children', []))
-            node_radius_map[elem_id] = 14 if is_container else 10
-
-        # --- Fase 1: recopilar todas las líneas direccionales a dibujar ---
-        # Cada entrada: {from_id, to_id, count, src_canvas, dst_canvas,
-        #                src_radius, dst_radius, angle, bidir_side}
-        draw_list = []
-
-        processed_pairs = set()
-        for from_id, to_id in sorted(directed_counts.keys()):
-            pair_key = tuple(sorted([from_id, to_id]))
-            if pair_key in processed_pairs:
-                continue
-            processed_pairs.add(pair_key)
-
-            a, b = pair_key
-            count_ab = directed_counts.get((a, b), 0)
-            count_ba = directed_counts.get((b, a), 0)
-
-            ax, ay = to_canvas(*primary_positions[a])
-            bx, by = to_canvas(*primary_positions[b])
-
-            dx = bx - ax
-            dy = by - ay
-            length = math.hypot(dx, dy)
-            if length < 1e-6:
-                continue
-
-            bidirectional = count_ab > 0 and count_ba > 0
-            bidir_offset = 5.0 if bidirectional else 0.0
-
-            r_a = node_radius_map.get(a, 10)
-            r_b = node_radius_map.get(b, 10)
-
-            if count_ab > 0:
-                angle_ab = math.atan2(dy, dx)
-                draw_list.append({
-                    'from_id': a, 'to_id': b, 'count': count_ab,
-                    'src_canvas': (ax, ay), 'dst_canvas': (bx, by),
-                    'src_radius': r_a, 'dst_radius': r_b,
-                    'angle': angle_ab, 'bidir_offset': bidir_offset,
-                    'bidir_side': 1,
-                })
-            if count_ba > 0:
-                angle_ba = math.atan2(-dy, -dx)
-                draw_list.append({
-                    'from_id': b, 'to_id': a, 'count': count_ba,
-                    'src_canvas': (bx, by), 'dst_canvas': (ax, ay),
-                    'src_radius': r_b, 'dst_radius': r_a,
-                    'angle': angle_ba, 'bidir_offset': bidir_offset,
-                    'bidir_side': -1,
-                })
-
-        # --- Fase 2: detectar grupos colineales por nodo origen ---
-        # Dos líneas son colineales si salen del mismo nodo con ángulo similar.
-        ANGLE_THRESHOLD = 0.25  # radianes (~14°)
-
-        by_origin = {}
-        for idx, item in enumerate(draw_list):
-            origin = item['from_id']
-            by_origin.setdefault(origin, []).append(idx)
-
-        collinear_offsets = {}  # {idx: (dx, dy)}
-        COLLINEAR_SPACING = 25.0  # Más separación para scale=200px/unit
-
-        for origin, indices in by_origin.items():
-            if len(indices) < 2:
-                continue
-
-            visited = set()
-            for i_pos, i_idx in enumerate(indices):
-                if i_idx in visited:
-                    continue
-                group = [i_idx]
-                a1 = draw_list[i_idx]['angle']
-
-                for j_pos in range(i_pos + 1, len(indices)):
-                    j_idx = indices[j_pos]
-                    if j_idx in visited:
-                        continue
-                    a2 = draw_list[j_idx]['angle']
-                    diff = abs(a1 - a2)
-                    if diff > math.pi:
-                        diff = 2 * math.pi - diff
-                    if diff < ANGLE_THRESHOLD:
-                        group.append(j_idx)
-                        visited.add(j_idx)
-
-                if len(group) < 2:
-                    continue
-                visited.add(i_idx)
-
-                # Ordenar de forma estable y distribuir simétricamente.
-                ordered = sorted(group, key=lambda idx: draw_list[idx]['to_id'])
-                count = len(ordered)
-                center = (count - 1) / 2.0
-
-                for order_pos, g_idx in enumerate(ordered):
-                    multiplier = order_pos - center
-                    angle = draw_list[g_idx]['angle']
-                    # Vector normal perpendicular a la conexión.
-                    perp_x = -math.sin(angle)
-                    perp_y = math.cos(angle)
-                    collinear_offsets[g_idx] = (
-                        perp_x * multiplier * COLLINEAR_SPACING,
-                        perp_y * multiplier * COLLINEAR_SPACING,
-                    )
-
-        # Asignar colores por nodo origen
-        _origin_colors = [
-            '#E53935', '#1E88E5', '#43A047', '#FB8C00', '#8E24AA',
-            '#00ACC1', '#D81B60', '#7CB342', '#3949AB', '#F4511E',
-            '#00897B', '#C0CA33', '#5E35B1', '#039BE5', '#e53935',
-            '#6D4C41', '#546E7A', '#FFB300', '#1565C0', '#2E7D32',
-        ]
-        _origin_color_map = {}
-        _color_idx = 0
-        for _oid in sorted(set(item['from_id'] for item in draw_list)):
-            _origin_color_map[_oid] = _origin_colors[_color_idx % len(_origin_colors)]
-            _color_idx += 1
-
-        # --- Fase 3: dibujar todas las líneas con offsets aplicados ---
-        for idx, item in enumerate(draw_list):
-            src_x, src_y = item['src_canvas']
-            dst_x, dst_y = item['dst_canvas']
-
-            # Offset bidireccional (paralelo).
-            dx = dst_x - src_x
-            dy = dst_y - src_y
-            seg_len = math.hypot(dx, dy)
-            if seg_len < 1e-6:
-                continue
-            ux = dx / seg_len
-            uy = dy / seg_len
-            nx = -uy
-            ny = ux
-
-            bidir_off = item['bidir_offset'] * item['bidir_side']
-            sx = src_x + nx * bidir_off
-            sy = src_y + ny * bidir_off
-            ex = dst_x + nx * bidir_off
-            ey = dst_y + ny * bidir_off
-
-            # Offset colineal (perpendicular adicional).
-            col_dx, col_dy = collinear_offsets.get(idx, (0.0, 0.0))
-            sx += col_dx
-            sy += col_dy
-            ex += col_dx
-            ey += col_dy
-
-            # Recalcular dirección final tras offsets.
-            dir_x = ex - sx
-            dir_y = ey - sy
-            seg_len2 = math.hypot(dir_x, dir_y)
-            if seg_len2 < 1e-6:
-                continue
-            dux = dir_x / seg_len2
-            duy = dir_y / seg_len2
-
-            # Recortar al borde de cada nodo.
-            edge_sx = sx + dux * item['src_radius']
-            edge_sy = sy + duy * item['src_radius']
-            edge_ex = ex - dux * item['dst_radius']
-            edge_ey = ey - duy * item['dst_radius']
-
-            # Color por nodo origen
-            _conn_color = _origin_color_map.get(item['from_id'], '#495057')
-
-            # Círculo de origen en el borde del nodo fuente.
-            dwg.add(dwg.circle(
-                center=(edge_sx, edge_sy),
-                r=3,
-                fill=_conn_color,
-                opacity=0.85
-            ))
-
-            dwg.add(dwg.line(
-                start=(edge_sx, edge_sy),
-                end=(edge_ex, edge_ey),
-                stroke=_conn_color,
-                stroke_width=1.8,
-                opacity=0.7
-            ))
-
-            angle = math.atan2(duy, dux)
-            draw_arrowhead(edge_ex, edge_ey, angle, _conn_color)
-
-            # Etiqueta de conteo en el punto medio.
-            mid_x = (edge_sx + edge_ex) / 2
-            mid_y = (edge_sy + edge_ey) / 2
-            label_side = 12 if item['bidir_side'] >= 0 else -12
-            dwg.add(dwg.text(
-                f"x{item['count']}",
-                insert=(mid_x + nx * label_side, mid_y + ny * label_side),
-                font_size='10px',
-                font_weight='bold',
-                fill=_conn_color,
-                font_family='monospace',
-                text_anchor='middle'
-            ))
-
-        # Dibujar nodos
-        for elem_id, (ax, ay) in primary_positions.items():
+        # Draw NdPr nodes
+        node_radius = 14
+        for ndpr_id, (ax, ay) in ndpr_positions.items():
             cx, cy = to_canvas(ax, ay)
+            node_type = structure_info.primary_node_types.get(ndpr_id, 'Simple')
+            is_vc = node_type == 'Contenedor Virtual TOI'
+            is_container = node_type == 'Contenedor'
 
-            node = structure_info.element_tree.get(elem_id, {})
-            is_container = bool(node.get('children', []))
-
-            if is_container:
+            if is_vc:
+                fill_color = '#9b59b6'
+            elif is_container:
                 fill_color = '#ffc107'
-                stroke_color = '#ff9800'
-                radius = 14
             else:
                 fill_color = '#28a745'
-                stroke_color = '#1b5e20'
-                radius = 10
 
-            dwg.add(dwg.circle(
-                center=(cx, cy),
-                r=radius,
-                fill=fill_color,
-                stroke=stroke_color,
-                stroke_width=2.5,
-                opacity=0.9
-            ))
+            self._draw_ndpr_node(dwg, ndpr_id, cx, cy, structure_info,
+                                 radius=node_radius,
+                                 color_fn=lambda eid, si, c=fill_color: c)
 
-            node_id = structure_info.primary_node_ids.get(elem_id, elem_id)
+            node_id = structure_info.primary_node_ids.get(ndpr_id, ndpr_id)
             dwg.add(dwg.text(
                 node_id,
-                insert=(cx, cy - radius - 8),
+                insert=(cx, cy - node_radius - 8),
                 font_size='11px',
                 fill='#212529',
                 font_family='monospace',
@@ -2027,7 +1913,24 @@ class GrowthVisualizer:
                 text_anchor='middle'
             ))
 
-            if is_container:
+            # Inside label
+            if is_vc:
+                for vc in structure_info.toi_virtual_containers:
+                    if vc['id'] == ndpr_id:
+                        toi_label = vc.get('toi_id', '')
+                        if len(toi_label) > 10:
+                            toi_label = toi_label[:8] + '..'
+                        dwg.add(dwg.text(
+                            toi_label,
+                            insert=(cx, cy + 4),
+                            font_size='8px',
+                            fill='white',
+                            text_anchor='middle',
+                            font_family='monospace',
+                            font_weight='bold'
+                        ))
+                        break
+            elif is_container:
                 dwg.add(dwg.text(
                     'TBG',
                     insert=(cx, cy + 4),
@@ -2038,22 +1941,32 @@ class GrowthVisualizer:
                     font_weight='bold'
                 ))
 
-            elem_name = elem_id if len(elem_id) <= 15 else elem_id[:12] + '...'
+            # Name below
+            if is_vc:
+                for vc in structure_info.toi_virtual_containers:
+                    if vc['id'] == ndpr_id:
+                        elem_name = f"VC ({len(vc['members'])} elem)"
+                        break
+                else:
+                    elem_name = ndpr_id
+            else:
+                elem_name = ndpr_id if len(ndpr_id) <= 15 else ndpr_id[:12] + '...'
+
             dwg.add(dwg.text(
                 elem_name,
-                insert=(cx, cy + radius + 18),
+                insert=(cx, cy + node_radius + 18),
                 font_size='10px',
                 fill='#495057',
                 font_family='monospace',
                 text_anchor='middle'
             ))
 
-            # Score de centralidad
-            score = structure_info.accessibility_scores.get(elem_id, 0.0)
+            # Score
+            score = structure_info.accessibility_scores.get(ndpr_id, 0.0)
             score_text = f'c={score:.3f}' if score > 0 else 'c=0'
             dwg.add(dwg.text(
                 score_text,
-                insert=(cx, cy + radius + 30),
+                insert=(cx, cy + node_radius + 30),
                 font_size='9px',
                 fill='#dc3545' if score > 0.05 else '#6c757d',
                 font_family='monospace',
@@ -2061,9 +1974,10 @@ class GrowthVisualizer:
                 font_weight='bold' if score > 0.05 else 'normal'
             ))
 
+            # Position
             dwg.add(dwg.text(
                 f'({ax:.1f}, {ay})',
-                insert=(cx, cy + radius + 42),
+                insert=(cx, cy + node_radius + 42),
                 font_size='9px',
                 fill='#6c757d',
                 font_family='monospace',
