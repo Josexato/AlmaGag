@@ -55,20 +55,17 @@ class PositionOptimizer:
         structure_info: StructureInfo,
         layout,
         max_iterations: int = 20,
-        convergence_threshold: float = 0.001
+        convergence_threshold: float = 0.001,
+        connection_graph: Dict[str, List[str]] = None,
+        topological_levels: Dict[str, int] = None
     ) -> Dict[str, Tuple[float, float]]:
         """
-        Optimiza las posiciones abstractas de los nodos primarios para
-        minimizar la distancia total de conectores.
+        Optimiza las posiciones abstractas para minimizar la distancia total
+        de conectores.
 
-        Algoritmo (gradiente sobre baricentro ponderado):
-        1. Construir mapa de adyacencia entre nodos primarios
-        2. Para cada iteración:
-           a. Para cada nodo, calcular posición X óptima como la mediana
-              ponderada de las posiciones de sus vecinos conectados
-           b. Mantener posición Y fija (nivel topológico)
-           c. Resolver conflictos manteniendo orden relativo
-        3. Parar cuando la mejora sea menor que el umbral
+        Cuando connection_graph se provee (modo NdPr), construye adyacencia
+        directamente desde el grafo y usa topological_levels para capas.
+        Todos los elementos de entrada se tratan como primarios (sin contenidos).
 
         Args:
             abstract_positions: {element_id: (x, y)} posiciones del Phase 4
@@ -76,28 +73,42 @@ class PositionOptimizer:
             layout: Layout con connections
             max_iterations: Máximo de iteraciones de optimización
             convergence_threshold: Umbral de convergencia (cambio mínimo)
+            connection_graph: Grafo de conexiones explícito (modo NdPr)
+            topological_levels: Niveles topológicos explícitos (modo NdPr)
 
         Returns:
             Dict[str, Tuple[float, float]]: Posiciones optimizadas
         """
-        # Separar posiciones primarias de contenidas
-        primary_positions = {}
-        contained_positions = {}
+        ndpr_mode = connection_graph is not None
 
-        for elem_id, pos in abstract_positions.items():
-            if elem_id in structure_info.primary_elements:
-                primary_positions[elem_id] = pos
-            else:
-                contained_positions[elem_id] = pos
+        if ndpr_mode:
+            # En modo NdPr, TODOS los elementos son "primarios"
+            primary_positions = dict(abstract_positions)
+            contained_positions = {}
+        else:
+            # Separar posiciones primarias de contenidas
+            primary_positions = {}
+            contained_positions = {}
+            for elem_id, pos in abstract_positions.items():
+                if elem_id in structure_info.primary_elements:
+                    primary_positions[elem_id] = pos
+                else:
+                    contained_positions[elem_id] = pos
 
         if not primary_positions:
             return abstract_positions
 
-        # Construir mapa de adyacencia primario (con pesos de conexión)
-        adjacency = self._build_primary_adjacency(structure_info, layout)
+        # Construir mapa de adyacencia
+        if ndpr_mode:
+            adjacency = self._build_adjacency_from_graph(connection_graph)
+        else:
+            adjacency = self._build_primary_adjacency(structure_info, layout)
 
-        # Organizar nodos por capas (niveles topológicos)
-        layers = self._organize_by_layers(primary_positions, structure_info)
+        # Organizar nodos por capas
+        if ndpr_mode:
+            layers = self._organize_by_levels(primary_positions, topological_levels)
+        else:
+            layers = self._organize_by_layers(primary_positions, structure_info)
 
         # Calcular distancia total inicial
         initial_distance = self._calculate_total_distance(
@@ -108,8 +119,6 @@ class PositionOptimizer:
             logger.debug(f"[POSOPT] {len(primary_positions)} nodos, {len(layers)} capas, dist_inicial={initial_distance:.2f}")
 
         # Iteración de optimización por desplazamiento decimal de capa.
-        # Se preserva el orden relativo de Fase 4 (baricentro), y en Fase 5
-        # solo se traslada cada capa en X para minimizar distancia total.
         base_positions = dict(primary_positions)
         layer_offsets = {level: 0.0 for level in layers.keys()}
         optimized = self._apply_layer_offsets(base_positions, layers, layer_offsets)
@@ -169,16 +178,80 @@ class PositionOptimizer:
         if self.debug:
             logger.debug(f"[POSOPT] Reducción: {reduction:.2f} ({reduction_pct:.1f}%)")
 
-        # Recalcular posiciones de elementos contenidos
-        self._update_contained_positions(
-            optimized, contained_positions, abstract_positions, structure_info
-        )
+        # Recalcular posiciones de elementos contenidos (solo modo normal)
+        if not ndpr_mode:
+            self._update_contained_positions(
+                optimized, contained_positions, abstract_positions, structure_info
+            )
 
         # Combinar posiciones optimizadas con contenidas
         result = dict(optimized)
         result.update(contained_positions)
 
         return result
+
+    def _build_adjacency_from_graph(
+        self,
+        connection_graph: Dict[str, List[str]]
+    ) -> Dict[str, List[Tuple[str, int]]]:
+        """
+        Construye mapa de adyacencia bidireccional desde un connection_graph directo.
+
+        Cada arista del grafo se cuenta como peso 1.
+
+        Args:
+            connection_graph: {from_id: [to_ids]}
+
+        Returns:
+            {node_id: [(neighbor_id, weight), ...]} bidireccional
+        """
+        edge_counts: Dict[Tuple[str, str], int] = {}
+
+        for from_id, targets in connection_graph.items():
+            for to_id in targets:
+                if from_id == to_id:
+                    continue
+                key = tuple(sorted([from_id, to_id]))
+                edge_counts[key] = edge_counts.get(key, 0) + 1
+
+        adjacency: Dict[str, List[Tuple[str, int]]] = {}
+        for node_id in connection_graph:
+            adjacency[node_id] = []
+
+        for (a, b), weight in edge_counts.items():
+            adjacency.setdefault(a, []).append((b, weight))
+            adjacency.setdefault(b, []).append((a, weight))
+
+        return adjacency
+
+    def _organize_by_levels(
+        self,
+        positions: Dict[str, Tuple[float, float]],
+        topological_levels: Dict[str, int]
+    ) -> Dict[int, List[str]]:
+        """
+        Organiza nodos por capas usando niveles topológicos explícitos.
+
+        Args:
+            positions: Posiciones actuales
+            topological_levels: {node_id: level}
+
+        Returns:
+            {level: [node_ids]} ordenado por posición X actual
+        """
+        layers: Dict[int, List[str]] = {}
+
+        for elem_id in positions:
+            level = topological_levels.get(elem_id, 0)
+            if level not in layers:
+                layers[level] = []
+            layers[level].append(elem_id)
+
+        # Ordenar cada capa por posición X actual
+        for level in layers:
+            layers[level].sort(key=lambda nid: positions[nid][0])
+
+        return layers
 
     def _build_primary_adjacency(
         self,

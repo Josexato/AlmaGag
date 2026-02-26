@@ -24,10 +24,12 @@
     { "id": "jose", "type": "father", "label": "José", "color": "gold", "label_priority": "high" },
 
     { "id": "martin", "type": "father", "label": "Martín", "color": "blue" },
+    { "id": "elmer", "type": "father", "label": "Elmer", "color": "blue" },
     { "id": "ricardo", "type": "father", "label": "Ricardo", "color": "gray" },
     { "id": "claudia", "type": "mother", "label": "Claudia", "color": "tomato" },
     { "id": "leila", "type": "mother", "label": "Leila", "color": "cyan" },
 
+    { "id": "union_silvia", "type": "union", "color": "gold" },
     { "id": "union_lika", "type": "marriage", "color": "gold" },
     { "id": "union_patricia", "type": "marriage", "color": "gold" },
     { "id": "union_jose", "type": "marriage", "color": "gold" },
@@ -56,10 +58,12 @@
     { "from": "union_padres", "to": "santiago", "routing": {"type": "orthogonal"} },
     { "from": "union_padres", "to": "jose", "routing": {"type": "orthogonal"} },
 
-    { "from": "silvia", "to": "sebastian", "routing": {"type": "orthogonal"} },
+    { "from": "silvia", "to": "union_silvia", "routing": {"type": "orthogonal"} },
+    { "from": "elmer", "to": "union_silvia", "routing": {"type": "orthogonal"} },
 
     { "from": "lika", "to": "union_lika", "routing": {"type": "orthogonal"} },
     { "from": "martin", "to": "union_lika", "routing": {"type": "orthogonal"} },
+    { "from": "union_silvia", "to": "sebastian", "routing": {"type": "orthogonal"} },
     { "from": "union_lika", "to": "mateo", "routing": {"type": "orthogonal"} },
     { "from": "union_lika", "to": "pascual", "routing": {"type": "orthogonal"} },
 

@@ -41,6 +41,7 @@ class AbstractPlacer:
             debug: Si True, imprime logs de debug
         """
         self.debug = debug
+        self._connection_graph = None  # Set during place_elements when in NdPr mode
 
     def _calculate_centrality_weight(self, accessibility_score: float) -> float:
         """
@@ -73,30 +74,38 @@ class AbstractPlacer:
         self,
         structure_info: StructureInfo,
         layout,
-        centrality_order: Dict[int, List[Tuple[str, float]]] = None
+        centrality_order: Dict[int, List[Tuple[str, float]]] = None,
+        connection_graph: Dict[str, List[str]] = None
     ) -> Dict[str, Tuple[int, int]]:
         """
-        Calcula posiciones abstractas (x, y) para TODOS los elementos.
+        Calcula posiciones abstractas (x, y) para elementos.
+
+        Cuando connection_graph se provee (modo NdPr), trabaja sobre nodos NdPr
+        usando el grafo abstracto directamente. No genera posiciones de elementos
+        contenidos ni aplica adjacencia TOI.
 
         Algoritmo:
-        1. Agrupar elementos primarios por nivel topológico (capas horizontales)
+        1. Agrupar elementos por nivel topológico (capas horizontales)
            - Si centrality_order está disponible (Fase 3), usar ese orden inicial
         2. Dentro de cada capa, ordenar por tipo + barycenter
         3. Aplicar barycenter heuristic para minimizar cruces
         4. Distribuir simétricamente dentro de cada capa
-        5. Asignar posiciones abstractas a elementos contenidos (grid horizontal)
+        5. (Solo modo normal) Asignar posiciones a elementos contenidos
 
         Args:
             structure_info: Información estructural del diagrama
             layout: Layout con connections
             centrality_order: Orden de Fase 3 {level: [(elem_id, score), ...]}
+            connection_graph: Grafo de conexiones explícito (modo NdPr).
+                              Si se provee, se usa en vez de layout.connections.
 
         Returns:
             {element_id: (abstract_x, abstract_y)}
-            - abstract_x, abstract_y son flotantes/enteros
-            - Incluye TODOS los elementos (primarios y contenidos)
         """
-        # Fase 1: Layering (asignar elementos primarios a capas)
+        # Guardar connection_graph para uso en métodos internos
+        self._connection_graph = connection_graph
+
+        # Fase 1: Layering (asignar elementos a capas)
         layers = self._assign_layers(structure_info, centrality_order)
 
         # Step 2: Ordering (ordenar dentro de capas)
@@ -105,16 +114,20 @@ class AbstractPlacer:
         # Guardar orden optimizado para Fase 7 (Redistribución)
         layout.optimized_layer_order = [layer.copy() for layer in layers]
 
-        # Fase 3: Positioning (asignar coordenadas abstractas a primarios)
+        # Fase 3: Positioning (asignar coordenadas abstractas)
         positions = self._assign_abstract_positions(layers)
 
-        # Fase 4: Positioning de elementos contenidos (grid horizontal)
-        self._assign_contained_positions(positions, structure_info, layout)
+        # Fase 4: Positioning de elementos contenidos (solo modo normal)
+        if not connection_graph:
+            self._assign_contained_positions(positions, structure_info, layout)
 
         if self.debug:
             for idx, layer in enumerate(layers):
                 if len(layer) > 1:
                     logger.debug(f"  Capa {idx}: {' -> '.join(layer)}")
+
+        # Limpiar estado temporal
+        self._connection_graph = None
 
         return positions
 
@@ -176,16 +189,16 @@ class AbstractPlacer:
 
         Modifica layers in-place.
 
-        NUEVO: Barycenter bidireccional con múltiples iteraciones.
-        - Forward barycenter: considera capa anterior
-        - Backward barycenter: considera capa siguiente
-        - Iteraciones: repite proceso para refinar orden
+        En modo NdPr (self._connection_graph set), usa el grafo abstracto
+        directamente en vez de layout.connections.
 
         Args:
             layers: Lista de capas a ordenar
             structure_info: Información estructural
             layout: Layout con connections
         """
+        ndpr_mode = self._connection_graph is not None
+
         # Primera capa: ordenar por tipo + cantidad de conexiones
         if layers:
             self._order_first_layer(layers[0], structure_info)
@@ -244,6 +257,8 @@ class AbstractPlacer:
             layer: Lista de element_ids a ordenar (modifica in-place)
             structure_info: Información estructural
         """
+        conn_graph = self._connection_graph if self._connection_graph is not None else structure_info.connection_graph
+
         # Obtener tipo y cantidad de conexiones de cada elemento
         def get_sort_key(elem_id: str) -> Tuple[str, int]:
             # Tipo del elemento
@@ -254,7 +269,7 @@ class AbstractPlacer:
                     break
 
             # Cantidad de conexiones (salientes)
-            conn_count = len(structure_info.connection_graph.get(elem_id, []))
+            conn_count = len(conn_graph.get(elem_id, []))
 
             return (elem_type, -conn_count)  # Negativo para ordenar desc
 
@@ -270,8 +285,8 @@ class AbstractPlacer:
         """
         Ordena capa usando forward barycenter (considera capa anterior).
 
-        MEJORADO: Para contenedores, también considera conexiones entrantes
-        a sus hijos desde otros elementos del mismo nivel.
+        En modo NdPr (self._connection_graph set), usa el grafo abstracto
+        para calcular barycenters en vez de layout.connections.
 
         Args:
             current_layer: Capa actual a ordenar (modifica in-place)
@@ -279,6 +294,8 @@ class AbstractPlacer:
             structure_info: Información estructural
             layout: Layout con connections
         """
+        ndpr_mode = self._connection_graph is not None
+
         # Crear mapa de posiciones de capa anterior
         prev_positions = {elem_id: idx for idx, elem_id in enumerate(previous_layer)}
 
@@ -288,28 +305,27 @@ class AbstractPlacer:
         # Calcular barycenter para cada elemento (PRIMERA PASADA)
         barycenters = {}
         for elem_id in current_layer:
-            barycenter = self._calculate_barycenter(
-                elem_id,
-                current_layer,
-                prev_positions,
-                structure_info,
-                layout
-            )
+            if ndpr_mode:
+                barycenter = self._calculate_barycenter_from_graph(
+                    elem_id, current_layer, prev_positions, self._connection_graph
+                )
+            else:
+                barycenter = self._calculate_barycenter(
+                    elem_id, current_layer, prev_positions, structure_info, layout
+                )
             barycenters[elem_id] = barycenter
 
         # SEGUNDA PASADA: Recalcular barycenters de contenedores usando
         # los barycenters de otros elementos (no sus posiciones)
-        for elem_id in current_layer:
-            container_node = structure_info.element_tree.get(elem_id)
-            if container_node and container_node['is_container'] and container_node['children']:
-                barycenter = self._calculate_container_barycenter(
-                    elem_id,
-                    current_layer,
-                    barycenters,  # Usar barycenters en lugar de posiciones
-                    structure_info,
-                    layout
-                )
-                barycenters[elem_id] = barycenter
+        # En modo NdPr, VCs son nodos atómicos → no necesita segunda pasada
+        if not ndpr_mode:
+            for elem_id in current_layer:
+                container_node = structure_info.element_tree.get(elem_id)
+                if container_node and container_node['is_container'] and container_node['children']:
+                    barycenter = self._calculate_container_barycenter(
+                        elem_id, current_layer, barycenters, structure_info, layout
+                    )
+                    barycenters[elem_id] = barycenter
 
         # ALGORITMO HÍBRIDO: Mezclar barycenter de conexiones con atracción al centro
         # según accessibility score
@@ -341,7 +357,9 @@ class AbstractPlacer:
         current_layer.sort(key=get_sort_key)
 
         # Keep TOI virtual container members adjacent after sorting
-        self._enforce_toi_container_adjacency(current_layer, structure_info)
+        # (not needed in NdPr mode - VCs are single nodes)
+        if not ndpr_mode:
+            self._enforce_toi_container_adjacency(current_layer, structure_info)
 
     def _position_hub_containers_in_center(
         self,
@@ -352,9 +370,11 @@ class AbstractPlacer:
         """
         Post-procesa la capa para mover contenedores "hub" al centro.
 
-        Un contenedor es un "hub" si recibe conexiones desde múltiples
-        elementos del mismo nivel (2 o más fuentes). Estos contenedores
+        Un contenedor/VC es un "hub" si recibe conexiones desde múltiples
+        elementos del mismo nivel (2 o más fuentes). Estos nodos
         deben estar en el centro para minimizar cruces.
+
+        En modo NdPr, usa self._connection_graph directamente.
 
         Args:
             current_layer: Capa ordenada (modifica in-place)
@@ -364,36 +384,48 @@ class AbstractPlacer:
         if len(current_layer) < 3:
             return  # No tiene sentido centrar con menos de 3 elementos
 
-        for elem_id in current_layer:
-            # Verificar si es contenedor
-            container_node = structure_info.element_tree.get(elem_id)
-            if not container_node or not container_node['is_container'] or not container_node['children']:
-                continue
+        ndpr_mode = self._connection_graph is not None
+        layer_set = set(current_layer)
 
-            children = set(container_node['children'])
+        for elem_id in list(current_layer):
+            if ndpr_mode:
+                # En modo NdPr: un nodo es hub si recibe 2+ conexiones
+                # desde otros nodos de la misma capa
+                sources = set()
+                for from_id, targets in self._connection_graph.items():
+                    if from_id in layer_set and from_id != elem_id:
+                        if elem_id in targets:
+                            sources.add(from_id)
+            else:
+                # Verificar si es contenedor
+                container_node = structure_info.element_tree.get(elem_id)
+                if not container_node or not container_node['is_container'] or not container_node['children']:
+                    continue
 
-            # Contar fuentes únicas de conexión desde el mismo nivel
-            sources = set()
-            for conn in layout.connections:
-                from_id = conn['from']
-                to_id = conn['to']
+                children = set(container_node['children'])
 
-                # Si conecta a un hijo de este contenedor
-                if to_id in children:
-                    # Resolver from a primario
-                    from_primary_id = from_id
-                    if from_id not in structure_info.primary_elements:
-                        from_node = structure_info.element_tree.get(from_id)
-                        while from_node and from_node['parent']:
-                            from_parent = from_node['parent']
-                            if from_parent in structure_info.primary_elements:
-                                from_primary_id = from_parent
-                                break
-                            from_node = structure_info.element_tree.get(from_parent)
+                # Contar fuentes únicas de conexión desde el mismo nivel
+                sources = set()
+                for conn in layout.connections:
+                    from_id = conn['from']
+                    to_id = conn['to']
 
-                    # Si la fuente está en el mismo nivel
-                    if from_primary_id in current_layer and from_primary_id != elem_id:
-                        sources.add(from_primary_id)
+                    # Si conecta a un hijo de este contenedor
+                    if to_id in children:
+                        # Resolver from a primario
+                        from_primary_id = from_id
+                        if from_id not in structure_info.primary_elements:
+                            from_node = structure_info.element_tree.get(from_id)
+                            while from_node and from_node['parent']:
+                                from_parent = from_node['parent']
+                                if from_parent in structure_info.primary_elements:
+                                    from_primary_id = from_parent
+                                    break
+                                from_node = structure_info.element_tree.get(from_parent)
+
+                        # Si la fuente está en el mismo nivel
+                        if from_primary_id in layer_set and from_primary_id != elem_id:
+                            sources.add(from_primary_id)
 
             # Si tiene 2+ fuentes, es un hub: moverlo al centro
             if len(sources) >= 2:
@@ -416,11 +448,11 @@ class AbstractPlacer:
         Post-procesa la capa para colocar hojas adyacentes a su padre gráfico,
         en el lado opuesto al centro de la capa.
 
-        Una hoja es un nodo con outdegree = 0 en connection_graph.
+        Una hoja es un nodo con outdegree = 0 en el grafo de conexiones.
         Su padre gráfico es quien tiene una arista apuntando a la hoja
-        (connection_graph[parent] contiene la hoja) y está en la misma capa.
+        y está en la misma capa.
 
-        Regla: centro → padre → hoja  (hoja más lejos del centro que el padre).
+        En modo NdPr, usa self._connection_graph en vez de structure_info.connection_graph.
 
         Args:
             current_layer: Capa ordenada (modifica in-place)
@@ -429,6 +461,7 @@ class AbstractPlacer:
         if len(current_layer) < 2:
             return
 
+        conn_graph = self._connection_graph if self._connection_graph is not None else structure_info.connection_graph
         center = (len(current_layer) - 1) / 2.0
 
         # Identificar hojas en esta capa y su padre gráfico dentro de la misma capa.
@@ -436,7 +469,7 @@ class AbstractPlacer:
         leaf_to_parent = {}  # {leaf_id: parent_id}
 
         for elem_id in current_layer:
-            outdeg = len(structure_info.connection_graph.get(elem_id, []))
+            outdeg = len(conn_graph.get(elem_id, []))
             if outdeg != 0:
                 continue
             # Contenedores con alta centralidad no son hojas (deben quedarse al centro)
@@ -447,7 +480,7 @@ class AbstractPlacer:
             for candidate in current_layer:
                 if candidate == elem_id:
                     continue
-                children_of_candidate = structure_info.connection_graph.get(candidate, [])
+                children_of_candidate = conn_graph.get(candidate, [])
                 if elem_id in children_of_candidate:
                     leaf_to_parent[elem_id] = candidate
                     break  # tomar el primer padre encontrado
@@ -492,9 +525,7 @@ class AbstractPlacer:
         """
         Ordena capa usando backward barycenter (considera capa siguiente).
 
-        El barycenter de un nodo es el promedio de posiciones de sus vecinos
-        en la capa siguiente. Útil para refinar el orden considerando
-        conexiones hacia adelante.
+        En modo NdPr, usa self._connection_graph directamente.
 
         Args:
             current_layer: Capa actual a ordenar (modifica in-place)
@@ -502,19 +533,22 @@ class AbstractPlacer:
             structure_info: Información estructural
             layout: Layout con connections
         """
+        ndpr_mode = self._connection_graph is not None
+
         # Crear mapa de posiciones de capa siguiente
         next_positions = {elem_id: idx for idx, elem_id in enumerate(next_layer)}
 
         # Calcular barycenter backward para cada elemento
         barycenters = {}
         for elem_id in current_layer:
-            barycenter = self._calculate_barycenter_backward(
-                elem_id,
-                current_layer,
-                next_positions,
-                structure_info,
-                layout
-            )
+            if ndpr_mode:
+                barycenter = self._calculate_barycenter_backward_from_graph(
+                    elem_id, current_layer, next_positions, self._connection_graph
+                )
+            else:
+                barycenter = self._calculate_barycenter_backward(
+                    elem_id, current_layer, next_positions, structure_info, layout
+                )
             barycenters[elem_id] = barycenter
 
         # ALGORITMO HÍBRIDO también en backward: mezclar barycenter con atracción al centro
@@ -532,7 +566,9 @@ class AbstractPlacer:
         current_layer.sort(key=get_sort_key)
 
         # Keep TOI virtual container members adjacent after sorting
-        self._enforce_toi_container_adjacency(current_layer, structure_info)
+        # (not needed in NdPr mode)
+        if not ndpr_mode:
+            self._enforce_toi_container_adjacency(current_layer, structure_info)
 
     def _enforce_toi_container_adjacency(
         self,
@@ -914,6 +950,89 @@ class AbstractPlacer:
                 barycenter = 0.0
 
         return barycenter
+
+    def _calculate_barycenter_from_graph(
+        self,
+        elem_id: str,
+        current_layer: List[str],
+        prev_positions: Dict[str, int],
+        connection_graph: Dict[str, List[str]]
+    ) -> float:
+        """
+        Calcula forward barycenter usando un connection_graph directo (modo NdPr).
+
+        Busca nodos en la capa anterior que apuntan a elem_id (forward),
+        y nodos en la misma capa que apuntan a elem_id (same-level).
+
+        Args:
+            elem_id: ID del nodo NdPr
+            current_layer: Nodos de la capa actual
+            prev_positions: {elem_id: idx} de la capa anterior
+            connection_graph: {from_id: [to_ids]}
+
+        Returns:
+            float: barycenter position
+        """
+        current_positions = {e: idx for idx, e in enumerate(current_layer)}
+
+        prev_neighbor_positions = []
+        same_level_positions = []
+
+        for from_id, targets in connection_graph.items():
+            if elem_id not in targets:
+                continue
+            if from_id in prev_positions:
+                prev_neighbor_positions.append(prev_positions[from_id])
+            elif from_id in current_positions and from_id != elem_id:
+                same_level_positions.append(current_positions[from_id])
+
+        # Weighted combination: 70% prev layer, 30% same level
+        total_weight = 0.0
+        weighted_sum = 0.0
+
+        if prev_neighbor_positions:
+            avg = sum(prev_neighbor_positions) / len(prev_neighbor_positions)
+            weighted_sum += avg * 0.7 * len(prev_neighbor_positions)
+            total_weight += 0.7 * len(prev_neighbor_positions)
+
+        if same_level_positions:
+            avg = sum(same_level_positions) / len(same_level_positions)
+            weighted_sum += avg * 0.3 * len(same_level_positions)
+            total_weight += 0.3 * len(same_level_positions)
+
+        if total_weight > 0:
+            return weighted_sum / total_weight
+        else:
+            return len(current_layer) / 2.0
+
+    def _calculate_barycenter_backward_from_graph(
+        self,
+        elem_id: str,
+        current_layer: List[str],
+        next_positions: Dict[str, int],
+        connection_graph: Dict[str, List[str]]
+    ) -> float:
+        """
+        Calcula backward barycenter usando un connection_graph directo (modo NdPr).
+
+        Busca nodos en la capa siguiente a los que elem_id apunta.
+
+        Args:
+            elem_id: ID del nodo NdPr
+            current_layer: Nodos de la capa actual
+            next_positions: {elem_id: idx} de la capa siguiente
+            connection_graph: {from_id: [to_ids]}
+
+        Returns:
+            float: barycenter position
+        """
+        targets = connection_graph.get(elem_id, [])
+        neighbor_positions = [next_positions[t] for t in targets if t in next_positions]
+
+        if neighbor_positions:
+            return sum(neighbor_positions) / len(neighbor_positions)
+        else:
+            return len(next_positions) / 2.0 if next_positions else 0.0
 
     def _assign_abstract_positions(
         self,

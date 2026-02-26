@@ -1214,11 +1214,19 @@ class GrowthVisualizer:
         """
         Collapse raw element positions into NdPr-level positions.
 
-        Simple NdPr nodes keep their position. TOI VCs get the centroid
-        of their member positions.
+        If positions are already NdPr-level (all keys are NdPr IDs),
+        return them directly without computing centroids.
+
+        Otherwise, simple NdPr nodes keep their position and TOI VCs
+        get the centroid of their member positions.
 
         Returns: {ndpr_id: (x, y)}
         """
+        # Check if positions are already NdPr-level
+        ndpr_set = set(structure_info.ndpr_elements)
+        if ndpr_set and all(k in ndpr_set for k in raw_positions):
+            return dict(raw_positions)
+
         ndpr_pos = {}
 
         for ndpr_id in structure_info.ndpr_elements:
@@ -1586,13 +1594,17 @@ class GrowthVisualizer:
 
         # Build NdPr positions (collapse VCs to centroids)
         use_ndpr = bool(structure_info.ndpr_elements)
+        ndpr_set = set(structure_info.ndpr_elements)
         if use_ndpr:
-            # Filter raw positions to primary elements only
-            raw_positions = {
-                eid: pos for eid, pos in abstract_positions.items()
-                if eid in structure_info.primary_elements
-            }
-            ndpr_positions = self._build_ndpr_positions(raw_positions, structure_info)
+            # Check if positions are already NdPr-level
+            if all(k in ndpr_set for k in abstract_positions):
+                ndpr_positions = dict(abstract_positions)
+            else:
+                raw_positions = {
+                    eid: pos for eid, pos in abstract_positions.items()
+                    if eid in structure_info.primary_elements
+                }
+                ndpr_positions = self._build_ndpr_positions(raw_positions, structure_info)
             conn_graph = structure_info.ndpr_connection_graph
         else:
             ndpr_positions = {
@@ -1817,12 +1829,17 @@ class GrowthVisualizer:
 
         # Build NdPr positions
         use_ndpr = bool(structure_info.ndpr_elements)
+        ndpr_set = set(structure_info.ndpr_elements)
         if use_ndpr:
-            raw_positions = {
-                eid: pos for eid, pos in optimized_positions.items()
-                if eid in structure_info.primary_elements
-            }
-            ndpr_positions = self._build_ndpr_positions(raw_positions, structure_info)
+            # Check if positions are already NdPr-level
+            if all(k in ndpr_set for k in optimized_positions):
+                ndpr_positions = dict(optimized_positions)
+            else:
+                raw_positions = {
+                    eid: pos for eid, pos in optimized_positions.items()
+                    if eid in structure_info.primary_elements
+                }
+                ndpr_positions = self._build_ndpr_positions(raw_positions, structure_info)
             conn_graph = structure_info.ndpr_connection_graph
         else:
             ndpr_positions = {
