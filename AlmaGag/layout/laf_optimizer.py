@@ -925,6 +925,10 @@ class LAFOptimizer:
         puede haber cambiado. Este método actualiza layout.optimized_layer_order
         para reflejar el nuevo orden, que será usado en Fase 7 (Redistribución).
 
+        Cuando las posiciones vienen de una expansión NdPr→elementos, reconstruye
+        las capas desde cero usando topological_levels, ya que las capas originales
+        contenían NdPr IDs que ya no existen en las posiciones expandidas.
+
         Args:
             optimized_positions: {elem_id: (x, y)} posiciones optimizadas
             structure_info: Información estructural
@@ -933,18 +937,36 @@ class LAFOptimizer:
         if not hasattr(layout, 'optimized_layer_order') or not layout.optimized_layer_order:
             return
 
-        # Reconstruir optimized_layer_order con el nuevo orden X
-        new_order = []
+        # Check if existing layers match the positions (NdPr expansion may have
+        # replaced VC IDs with member element IDs)
+        existing_ids = set()
         for layer in layout.optimized_layer_order:
-            # Filtrar elementos que estén en las posiciones optimizadas
-            layer_with_pos = [
-                (elem_id, optimized_positions.get(elem_id, (0, 0))[0])
-                for elem_id in layer
-                if elem_id in optimized_positions
-            ]
-            # Ordenar por posición X optimizada
-            layer_with_pos.sort(key=lambda x: x[1])
-            new_order.append([elem_id for elem_id, _ in layer_with_pos])
+            existing_ids.update(layer)
+        position_ids = set(optimized_positions.keys())
+
+        if not existing_ids.issubset(position_ids):
+            # NdPr expansion: rebuild layers from topological_levels
+            by_level = {}
+            for elem_id, (x, y) in optimized_positions.items():
+                level = structure_info.topological_levels.get(elem_id, 0)
+                by_level.setdefault(level, []).append((elem_id, x))
+
+            new_order = []
+            for level in sorted(by_level.keys()):
+                layer_elems = by_level[level]
+                layer_elems.sort(key=lambda t: t[1])
+                new_order.append([elem_id for elem_id, _ in layer_elems])
+        else:
+            # Standard case: same elements, just re-sort by X
+            new_order = []
+            for layer in layout.optimized_layer_order:
+                layer_with_pos = [
+                    (elem_id, optimized_positions.get(elem_id, (0, 0))[0])
+                    for elem_id in layer
+                    if elem_id in optimized_positions
+                ]
+                layer_with_pos.sort(key=lambda x: x[1])
+                new_order.append([elem_id for elem_id, _ in layer_with_pos])
 
         layout.optimized_layer_order = new_order
 
@@ -1111,9 +1133,12 @@ class LAFOptimizer:
         for vc in structure_info.toi_virtual_containers:
             vc_map[vc['id']] = vc
 
-        # Horizontal offset for contained/VC-member elements
-        horizontal_offset = 0.15
-        vertical_offset = 0.3
+        # Horizontal and vertical offset between expanded elements (abstract units).
+        # Phase 7 uses global_x_scale >= 480px/unit → 0.4 * 480 = 192px (≥ ICON_WIDTH + gap).
+        # Phase 7 uses VERTICAL_SPACING = 240px for levels, and vertical_factor varies,
+        # so 1.0 abstract Y unit maps to a full level separation.
+        horizontal_offset = 0.4
+        vertical_offset = 1.0
 
         for ndpr_id, (nx, ny) in ndpr_positions.items():
             if ndpr_id in vc_map:
