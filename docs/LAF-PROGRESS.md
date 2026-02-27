@@ -4,12 +4,14 @@
 
 Reorganización completa del sistema de layout de AlmaGag para minimizar cruces de conectores mediante un enfoque jerárquico inspirado en Sugiyama.
 
-**Estado**: Sprint 8 de 8 completado (100% implementado) ✅
+**Estado**: Sprint 10 completado ✅
 
 **Resultados finales**:
 - **-87% de cruces de conectores** (15 → 2) en diagrama de prueba
-- **-24% de colisiones** (50 → 38) vs sistema actual
-- **Sistema LAF completamente funcional** (9 fases consolidadas)
+- **0 colisiones** en stresstest (27 elementos, 26 conexiones, 5 VCs)
+- **NdPr abstract graph**: Fases 3-5 operan sobre 8 NdPr nodes (3 niveles) en vez de 27 elementos (5 niveles)
+- **Fase 5.5**: Expansion de NdPr a elementos individuales con offsets proporcionales
+- **Sistema LAF completamente funcional** (9 fases + 5.5 consolidadas)
 - **Visualización del proceso** implementada (9 SVGs por diagrama)
 - **Position optimization** con layer-offset bisection (Fase 5)
 - **Metadata SVG** con descriptores NdFn y Gaussian blur text glow
@@ -663,3 +665,72 @@ AlmaGag/
 ✅ **Diagnóstico**: Conexiones coloreadas facilitan seguimiento visual
 
 **Última actualización**: 2026-02-19 (Sprint 8 completado - Sistema de 9 fases ✅)
+
+---
+
+## Sprint 9: TOI Virtual Containers y NdPr Abstract Graph (2026-02-26)
+
+**Objetivo**: Fases 3-5 operan sobre el grafo abstracto NdPr en lugar de elementos individuales, reduciendo 27 nodos a 8 NdPr nodes para barycenter y optimización.
+
+### Cambios Implementados
+
+**1. Fase 1: Detección de TOI Virtual Containers**
+- StructureAnalyzer detecta patrones TOI (elementos que comparten pivot) y crea VCs
+- Nuevos campos en StructureInfo: `toi_virtual_containers`, `ndpr_elements`, `ndpr_topological_levels`, `ndpr_connection_graph`, `element_to_ndpr`
+- `_build_ndpr_abstract_graph()`: colapsa elementos en NdPr representatives
+
+**2. Fases 3-5: Modo NdPr**
+- `_order_by_centrality`: usa `ndpr_elements` y `ndpr_connection_graph`; VC score = max(scores de miembros)
+- `abstract_placer.place_elements`: acepta `connection_graph` para barycenter directo sobre NdPr
+- `position_optimizer.optimize_positions`: acepta `connection_graph` y `topological_levels` para optimización NdPr
+
+**3. Fase 5.5: Expansión NdPr → Elementos**
+- Nuevo método `_expand_ndpr_to_elements` en laf_optimizer.py
+- VCs: distribuir miembros por sub-nivel topológico con offsets
+- Simples: copiar posición directamente
+- Contenedores reales: posicionar hijos
+
+**4. Visualizer NdPr-aware**
+- `_build_ndpr_positions()` detecta posiciones NdPr-level y las retorna directamente
+- Fases 4-5 muestran los 8 NdPr nodes correctamente (incluyendo VCs)
+
+### Archivos Modificados
+
+**Código (4 archivos)**:
+- `laf_optimizer.py`: `_order_by_centrality` NdPr, `_expand_ndpr_to_elements`, pipeline fase 5.5
+- `abstract_placer.py`: Modo NdPr con `connection_graph`, barycenter graph-based
+- `position_optimizer.py`: Modo NdPr con `connection_graph` y `topological_levels`
+- `visualizer.py`: Detección NdPr-level en fases 4-5
+
+### Resultados
+
+- 13-stresstest: 27 elementos → 8 NdPr (3 niveles), 1 cruce, 30 colisiones (pre-existentes en expansión)
+- 05-arquitectura: 15 elementos → 2 NdPr, retrocompatible
+- 03-conexiones: 4 elementos → 4 NdPr (sin VCs), retrocompatible
+
+---
+
+## Sprint 10: Fix Colisiones en Expansión NdPr (2026-02-27)
+
+**Objetivo**: Resolver 30 colisiones causadas por offsets insuficientes en la expansión NdPr y capas corruptas en optimized_layer_order.
+
+### Cambios Implementados
+
+**1. Offsets de Expansión Corregidos**
+- `horizontal_offset`: 0.15 → 0.4 (0.4 × 480px = 192px > ICON_WIDTH de 80px)
+- `vertical_offset`: 0.3 → 1.0 (1 abstract unit = 1 nivel topológico completo)
+
+**2. Reconstrucción de optimized_layer_order**
+- `_update_optimized_layer_order` detecta cuando VC IDs no coinciden con posiciones expandidas
+- Reconstruye capas desde `topological_levels` en lugar de filtrar capas existentes
+- Restaura los 5 niveles correctos (antes colapsaba a 2)
+
+### Resultados
+
+| Diagrama | Colisiones antes | Colisiones después |
+|----------|------------------|--------------------|
+| 13-stresstest | 30 | **0** |
+| 05-arquitectura | 342 | **10** |
+| 03-conexiones | 0 | **0** |
+
+**Última actualización**: 2026-02-27 (Sprint 10 completado - NdPr expansion sin colisiones ✅)

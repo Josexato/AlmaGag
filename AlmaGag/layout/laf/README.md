@@ -22,26 +22,36 @@ FASE 1: STRUCTURE ANALYSIS          → structure_analyzer.py
 ├─ Construir arbol de elementos
 ├─ Analizar grafo de conexiones
 ├─ Calcular niveles topologicos (longest-path)
-└─ Calcular accessibility scores
+├─ Calcular accessibility scores
+├─ Detectar TOI Virtual Containers (VCs)
+└─ Construir grafo abstracto NdPr (Nodo Primario)
 
 FASE 2: TOPOLOGY ANALYSIS           → laf_optimizer.py (visualizacion)
 ├─ Visualizar niveles y scores
 └─ Color coding: rojo (hub) / amarillo (importante) / azul (normal)
 
 FASE 3: CENTRALITY ORDERING         → laf_optimizer.py
-├─ Ordenamiento por centralidad
+├─ Ordenamiento por centralidad sobre NdPr (si disponible)
+├─ VCs: score = max(accessibility_scores de miembros)
 └─ Preparar entrada para abstract placement
 
 FASE 4: ABSTRACT PLACEMENT          → abstract_placer.py
-├─ Elementos = puntos de 1px
-├─ Layering (por nivel topologico)
-├─ Ordering (barycenter bidireccional + tipo)
+├─ NdPr nodes = puntos de 1px (modo NdPr)
+├─ Layering (por nivel topologico NdPr)
+├─ Ordering (barycenter bidireccional sobre ndpr_connection_graph)
 └─ Minimizar cruces explicitamente
 
 FASE 5: POSITION OPTIMIZATION       → position_optimizer.py
-├─ Layer-offset bisection
+├─ Layer-offset bisection sobre NdPr
 ├─ Minimizar distancia ponderada de conectores
 └─ Forward + backward, convergencia < 0.001
+
+FASE 5.5: NdPr EXPANSION            → laf_optimizer.py
+├─ Expandir NdPr a elementos individuales
+├─ VCs: distribuir miembros por sub-nivel topologico
+├─ Simples: copiar posicion directamente
+├─ Reconstruir optimized_layer_order por topological_levels
+└─ Offsets: 0.4 horizontal, 1.0 vertical (abstract units)
 
 FASE 6: INFLATION + CONTAINER GROWTH → inflator.py + container_grower.py
 ├─ Spacing proporcional + dimensiones reales
@@ -74,18 +84,20 @@ AlmaGag/layout/laf/
 ├── __init__.py              # Exports y version
 ├── README.md                # Este archivo
 ├── structure_analyzer.py    # Fase 1: Analisis de estructura
-│   ├── StructureInfo        # Dataclass con metadata
-│   └── StructureAnalyzer    # Arbol + grafo + metricas
+│   ├── StructureInfo        # Dataclass con metadata (incl. NdPr fields)
+│   └── StructureAnalyzer    # Arbol + grafo + metricas + TOI VCs + NdPr graph
 ├── abstract_placer.py       # Fase 4: Layout abstracto
 │   └── AbstractPlacer       # Sugiyama-style placement + count_crossings
+│                            # Soporta modo NdPr (connection_graph param)
 ├── position_optimizer.py    # Fase 5: Optimizacion de posiciones
 │   └── PositionOptimizer    # Layer-offset bisection
+│                            # Soporta modo NdPr (connection_graph + levels params)
 ├── inflator.py              # Fase 6: Inflacion
 │   └── ElementInflator      # Abstract → real coordinates
 ├── container_grower.py      # Fase 6: Crecimiento de contenedores
 │   └── ContainerGrower      # Bottom-up expansion + label-aware bounds
 └── visualizer.py            # 9 SVGs de visualizacion
-    └── GrowthVisualizer     # Snapshots de cada fase
+    └── GrowthVisualizer     # Snapshots de cada fase (NdPr-aware)
 
 AlmaGag/layout/
 ├── laf_optimizer.py         # Coordinador LAF v2.0 (9 fases)
@@ -95,12 +107,20 @@ AlmaGag/layout/
 
 ## Resultados
 
+### Diagrama: 13-stresstest.gag (27 elementos, 26 conexiones, 5 VCs)
+
+| Metrica | Sin NdPr | Con NdPr | Mejora |
+|---------|----------|----------|--------|
+| **Nodos en Fases 3-5** | 27 (5 niveles) | **8 NdPr (3 niveles)** | **-70%** |
+| **Colisiones** | 30 | **0** | **-100%** |
+| **Cruces** | 1 | **1** | = |
+
 ### Diagrama: 05-arquitectura-gag.gag
 
 | Metrica | Sistema Auto | LAF | Mejora |
 |---------|-------------|-----|--------|
 | **Cruces de conectores** | ~15 | **2** | **-87%** |
-| **Colisiones** | 50 | 38 | **-24%** |
+| **Colisiones** | 50 | 10 | **-80%** |
 | **Routing calls** | 5+ | 1 | **-80%** |
 | **Falsos positivos** | 24-32 | 0 | **-100%** |
 
@@ -157,6 +177,30 @@ barycenter_final = (forward + backward) / 2
 # Convergencia: delta < 0.001
 ```
 
+### NdPr Abstraction (Fases 3-5)
+
+```python
+# Fase 1 detecta TOI Virtual Containers y construye grafo NdPr:
+# 27 elementos (5 niveles) → 8 NdPr nodes (3 niveles)
+#   - NdPr simples: jose_heraclides, daria, union_padres
+#   - NdPr VCs: _toi_vc_0..4 (agrupan 4-6 elementos cada uno)
+#
+# Fases 3-5 operan sobre 8 NdPr usando ndpr_connection_graph
+# Fase 5.5 expande NdPr → 27 posiciones individuales
+```
+
+### NdPr Expansion (Fase 5.5)
+
+```python
+# Para cada NdPr:
+#   - Simple: copiar posicion directamente
+#   - VC: distribuir miembros agrupados por sub-nivel topologico
+#     - Sub-nivel 0: parejas (e.g., patricia + ricardo) centradas en anchor
+#     - Sub-nivel 1: uniones (e.g., union_patricia) una fila abajo
+#     - Sub-nivel 2: hijos (e.g., diego) dos filas abajo
+#   - Offsets: 0.4 horizontal, 1.0 vertical (abstract units)
+```
+
 ### Container Growth (Fase 6)
 
 ```python
@@ -188,6 +232,8 @@ required_gap = half_width_i + half_width_next + MIN_HORIZONTAL_GAP
 | 6 | 2026-02-08 | Renumeracion + Fase 2 | Fases 2, 3 |
 | 7 | 2026-02-17 | Position optimization + X scale | Fase 5 |
 | 8 | 2026-02-19 | Consolidacion + metadata + fixes | 9 fases |
+| 9 | 2026-02-26 | TOI VCs, NdPr abstract graph | Fases 1, 3-5, 5.5 |
+| 10 | 2026-02-27 | NdPr expansion collision fix | Fase 5.5, 7 |
 
 ## Referencias
 

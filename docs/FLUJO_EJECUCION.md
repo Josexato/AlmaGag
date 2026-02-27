@@ -72,6 +72,12 @@ Sistema anterior basado en detección de colisiones
 
 **Output:** `StructureInfo` con toda la metadata estructural
 
+**Detección de TOI Virtual Containers:**
+- Identifica patrones TOI (elementos que comparten un nodo pivot)
+- Crea Virtual Containers (VCs) que agrupan 4-6 elementos relacionados
+- Construye grafo abstracto NdPr: `ndpr_elements`, `ndpr_topological_levels`, `ndpr_connection_graph`
+- Ejemplo: 27 elementos (5 niveles) → 8 NdPr nodes (3 niveles)
+
 **Algoritmo de Niveles Topológicos:**
 ```python
 # Forward pass con BFS
@@ -107,8 +113,9 @@ for neighbor in successors(current):
 **Archivo:** `AlmaGag/layout/laf_optimizer.py`
 
 **Responsabilidades:**
-1. **Ordenar por centralidad** - Scores de importancia para positioning
-2. **Preparar entrada para Abstract Placement**
+1. **Ordenar por centralidad** sobre NdPr nodes (si disponible)
+2. **VCs:** score = max(accessibility_scores de miembros)
+3. **Preparar entrada para Abstract Placement**
 
 **Output:** Orden de centralidad + `phase3_centrality.svg`
 
@@ -116,12 +123,14 @@ for neighbor in successors(current):
 
 **Archivo:** `AlmaGag/layout/laf/abstract_placer.py:AbstractPlacer`
 
+**Modo NdPr** (cuando `connection_graph` se proporciona):
+- Opera sobre 8 NdPr nodes en lugar de 27 elementos individuales
+- Usa `ndpr_connection_graph` para barycenter directo
+- No genera posiciones de contenidos ni aplica adjacencia TOI
+
 **Responsabilidades:**
-1. **Layering** - Asignar elementos a capas por nivel topológico
-2. **Ordering** - Ordenar dentro de capas usando:
-   - Barycenter heuristic (promedio de posición de vecinos)
-   - Accessibility scores (atracción al centro)
-   - Tipo de elemento (agrupación)
+1. **Layering** - Asignar NdPr nodes a capas por nivel topológico
+2. **Ordering** - Ordenar dentro de capas usando barycenter sobre `ndpr_connection_graph`
 3. **Positioning** - Distribuir uniformemente en cada capa
 
 **Output:** `abstract_positions` - Posiciones como puntos de 1px + `phase4_abstract.svg`
@@ -142,12 +151,26 @@ barycenter_final = (barycenter_forward + barycenter_backward) / 2
 
 **Archivo:** `AlmaGag/layout/laf/position_optimizer.py:PositionOptimizer`
 
+**Modo NdPr:** Recibe `connection_graph` y `topological_levels` explícitos. Todos los NdPr nodes son "primarios" (sin contenidos).
+
 **Responsabilidades:**
 1. **Layer-offset bisection** - Minimizar distancia ponderada de conectores
 2. **Forward + backward iterations** - Convergencia < 0.001
 3. **Preservar orden relativo** del barycenter
 
 **Output:** Posiciones optimizadas + `phase5_optimized.svg`
+
+### Phase 5.5: NdPr Expansion
+
+**Archivo:** `AlmaGag/layout/laf_optimizer.py:_expand_ndpr_to_elements()`
+
+**Responsabilidades:**
+1. **Expandir NdPr → elementos** - Convierte 8 posiciones NdPr a 27 posiciones individuales
+2. **VCs:** Distribuir miembros por sub-nivel topológico (offsets: 0.4 horizontal, 1.0 vertical)
+3. **Simples:** Copiar posición directamente
+4. **Reconstruir `optimized_layer_order`** desde `topological_levels`
+
+**Output:** `expanded_positions` - 27 posiciones de elementos individuales
 
 ### Phase 6: Inflation + Container Growth (fusionadas)
 
@@ -262,6 +285,13 @@ class StructureInfo:
     topological_levels: Dict[str, int]      # Nivel de cada elemento
     accessibility_scores: Dict[str, float]  # Score de accesibilidad
     element_types: Dict[str, List[str]]     # Elementos por tipo
+
+    # NdPr (Nodo Primario) - Grafo abstracto
+    toi_virtual_containers: List[Dict]      # VCs: {id, members, toi_id, pivot_id}
+    ndpr_elements: List[str]                # IDs de NdPr nodes ordenados
+    ndpr_topological_levels: Dict[str, int] # Nivel de cada NdPr
+    ndpr_connection_graph: Dict[str, List[str]]  # Grafo de adyacencia NdPr
+    element_to_ndpr: Dict[str, str]         # Mapeo elemento → NdPr representative
 ```
 
 ### Layout Object

@@ -4,6 +4,52 @@ Todas las mejoras notables de AlmaGag están documentadas en este archivo.
 
 ---
 
+## [3.3.0] - 2026-02-27
+
+### Características Principales
+
+#### NdPr (Nodo Primario) - Grafo abstracto para Fases 3-5
+- **Nuevo:** Fase 1 detecta TOI Virtual Containers (VCs) y construye grafo abstracto NdPr
+- **Nuevo:** Fases 3-5 operan sobre NdPr nodes en lugar de elementos individuales (27 elem / 5 niveles → 8 NdPr / 3 niveles en stresstest)
+- **Nuevo:** Fase 5.5 expande posiciones NdPr a posiciones de elementos individuales
+- **Nuevo:** VCs distribuyen miembros por sub-nivel topologico con offsets proporcionales
+- **Nuevo:** `abstract_placer.place_elements()` acepta `connection_graph` para modo NdPr
+- **Nuevo:** `position_optimizer.optimize_positions()` acepta `connection_graph` y `topological_levels` para modo NdPr
+- **Nuevo:** Visualizer detecta posiciones NdPr-level y las muestra directamente (sin centroide)
+
+### Correcciones
+
+#### Colisiones en expansion NdPr (Critical Fix)
+- **Corregido:** 30 colisiones icon-vs-icon en stresstest causadas por offsets insuficientes en `_expand_ndpr_to_elements`
+- **Solucion:** Offsets aumentados de 0.15→0.4 horizontal y 0.3→1.0 vertical (abstract units)
+
+#### optimized_layer_order corrupto tras expansion NdPr (Critical Fix)
+- **Corregido:** `_update_optimized_layer_order` no detectaba que VC IDs ya no existian en posiciones expandidas
+- **Solucion:** Reconstruir capas desde `topological_levels` cuando IDs no coinciden, restaurando los 5 niveles correctos
+
+### Archivos Modificados
+
+**LAF Pipeline:**
+- `AlmaGag/layout/laf_optimizer.py` — `_order_by_centrality` con NdPr, `_expand_ndpr_to_elements`, `_update_optimized_layer_order` rebuild, pipeline fase 5.5
+- `AlmaGag/layout/laf/abstract_placer.py` — Modo NdPr con `connection_graph`, barycenter graph-based
+- `AlmaGag/layout/laf/position_optimizer.py` — Modo NdPr con `connection_graph` y `topological_levels`
+- `AlmaGag/layout/laf/visualizer.py` — Deteccion NdPr-level en fases 4-5
+
+### Metricas de Mejora
+
+| Metrica | v3.2.0 | v3.3.0 | Delta |
+|---------|--------|--------|-------|
+| Colisiones (13-stresstest) | 30 | 0 | **-100%** |
+| Colisiones (05-arquitectura) | 342 | 10 | **-97%** |
+| Nodos en Fases 3-5 (stresstest) | 27 | 8 NdPr | **-70%** |
+| Niveles en Fases 3-5 (stresstest) | 5 | 3 | **-40%** |
+
+### Breaking Changes
+
+Ninguno - Retrocompatible con diagramas sin VCs (03-conexiones, etc.)
+
+---
+
 ## [3.2.0] - 2026-02-19
 
 ### 🎉 Características Principales

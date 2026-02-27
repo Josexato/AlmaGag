@@ -1,7 +1,7 @@
 # AlmaGag - Roadmap de Desarrollo
 
-**Versión Actual**: v3.1.0 (código) + SDJF v3.0 (estándar)
-**Actualizado**: 2026-02-17
+**Versión Actual**: v3.3.0 (código) + SDJF v3.0 (estándar)
+**Actualizado**: 2026-02-27
 
 ---
 
@@ -46,6 +46,13 @@
 - ✅ Centrality scores para centrar nodos conectados
 - ✅ Fix de convergencia del optimizador y elementos apilados
 - ✅ Limpieza de ~350 líneas de código muerto
+
+#### Código v3.3 (Febrero 2026)
+- ✅ **NdPr (Nodo Primario)**: Grafo abstracto para Fases 3-5
+- ✅ **TOI Virtual Containers**: Detección automática de patrones TOI
+- ✅ **Fase 5.5**: Expansión de NdPr a elementos individuales
+- ✅ 0 colisiones en stresstest (27 elementos, 5 VCs)
+- ✅ Retrocompatible con diagramas sin VCs
 
 ---
 
@@ -673,4 +680,4 @@ Ver [CONTRIBUTING.md](CONTRIBUTING.md) para guías de contribución.
 
 ---
 
-**Actualizado**: 2026-02-17
+**Actualizado**: 2026-02-27
