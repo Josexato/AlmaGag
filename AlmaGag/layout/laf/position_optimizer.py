@@ -128,6 +128,7 @@ class PositionOptimizer:
             moved = False
 
             # Forward pass: optimizar capas de arriba hacia abajo
+            # (cada capa se atrae hacia sus hijos = niveles mayores)
             for level in sorted(layers.keys()):
                 changed = self._optimize_layer_offset(
                     level=level,
@@ -135,13 +136,15 @@ class PositionOptimizer:
                     base_positions=base_positions,
                     current_positions=optimized,
                     adjacency=adjacency,
-                    layer_offsets=layer_offsets
+                    layer_offsets=layer_offsets,
+                    direction='forward'
                 )
                 if changed:
                     moved = True
                     optimized = self._apply_layer_offsets(base_positions, layers, layer_offsets)
 
             # Backward pass: optimizar capas de abajo hacia arriba
+            # (cada capa se atrae hacia sus padres = niveles menores)
             for level in sorted(layers.keys(), reverse=True):
                 changed = self._optimize_layer_offset(
                     level=level,
@@ -149,7 +152,8 @@ class PositionOptimizer:
                     base_positions=base_positions,
                     current_positions=optimized,
                     adjacency=adjacency,
-                    layer_offsets=layer_offsets
+                    layer_offsets=layer_offsets,
+                    direction='backward'
                 )
                 if changed:
                     moved = True
@@ -414,10 +418,16 @@ class PositionOptimizer:
         base_positions: Dict[str, Tuple[float, float]],
         current_positions: Dict[str, Tuple[float, float]],
         adjacency: Dict[str, List[Tuple[str, int]]],
-        layer_offsets: Dict[int, float]
+        layer_offsets: Dict[int, float],
+        direction: str = 'both'
     ) -> bool:
         """
         Optimiza el desplazamiento X de una capa completa (offset continuo).
+
+        Args:
+            direction: 'forward' = atraer hacia hijos (niveles mayores),
+                       'backward' = atraer hacia padres (niveles menores),
+                       'both' = considerar todos los vecinos.
         """
         layer_nodes = layers.get(level, [])
         if not layer_nodes:
@@ -436,14 +446,19 @@ class PositionOptimizer:
                 if neighbor_id not in current_positions:
                     continue
 
-                if self.optimize_against_parents_only:
-                    # Considerar solo padres (niveles anteriores).
+                if self.optimize_against_parents_only and direction != 'both':
                     neighbor_level = None
                     for lvl, ids in layers.items():
                         if neighbor_id in ids:
                             neighbor_level = lvl
                             break
-                    if neighbor_level is None or neighbor_level >= level:
+                    if neighbor_level is None:
+                        continue
+                    # Forward: only consider children (higher levels)
+                    if direction == 'forward' and neighbor_level <= level:
+                        continue
+                    # Backward: only consider parents (lower levels)
+                    if direction == 'backward' and neighbor_level >= level:
                         continue
 
                 x_other, y2 = current_positions[neighbor_id]
@@ -539,6 +554,37 @@ class PositionOptimizer:
 
                 normalized[node_id] = (target_x, int(y))
                 prev_x = target_x
+
+        # Center each layer relative to the widest layer's center.
+        # This ensures parents are visually centered above their children.
+        layer_centers = {}
+        layer_nodes_map = {}
+        for level, layer_nodes in layers.items():
+            xs = [normalized[nid][0] for nid in layer_nodes if nid in normalized]
+            if xs:
+                layer_centers[level] = (min(xs) + max(xs)) / 2.0
+                layer_nodes_map[level] = layer_nodes
+
+        if layer_centers:
+            # Find the widest layer's center as the global reference
+            widest_level = max(layer_centers.keys(),
+                               key=lambda lvl: max(normalized[nid][0] for nid in layer_nodes_map[lvl] if nid in normalized)
+                                              - min(normalized[nid][0] for nid in layer_nodes_map[lvl] if nid in normalized))
+            global_center = layer_centers[widest_level]
+
+            for level, layer_nodes in layers.items():
+                if level == widest_level:
+                    continue
+                current_center = layer_centers.get(level)
+                if current_center is None:
+                    continue
+                shift = global_center - current_center
+                if abs(shift) > 0.01:
+                    # Apply fractional shift (will be handled by inflate/redistribute)
+                    for nid in layer_nodes:
+                        if nid in normalized:
+                            x, y = normalized[nid]
+                            normalized[nid] = (x + shift, y)
 
         # Desplazar globalmente si hay X negativas.
         if normalized:
