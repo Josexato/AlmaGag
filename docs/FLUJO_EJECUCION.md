@@ -422,5 +422,5 @@ Si los elementos no caben en el canvas inicial, se expande automáticamente.
 
 ---
 
-**Última actualización:** 2026-02-19
-**Versión del sistema:** v3.2.0 (LAF 10 fases)
+**Última actualización:** 2026-02-28
+**Versión del sistema:** v3.3.0 (LAF 10 fases)

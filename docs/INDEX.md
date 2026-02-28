@@ -1,7 +1,7 @@
 # Índice de Documentación - AlmaGag
 
-**Versión**: v3.2.0 (código) + SDJF v2.0 (estándar)
-**Actualizado**: 2026-02-19
+**Versión**: v3.3.0 (código) + SDJF v2.0 (estándar)
+**Actualizado**: 2026-02-28
 
 ---
 
@@ -317,4 +317,4 @@ Este proyecto es parte de ALMA. Para reportar bugs o sugerir mejoras, abre un is
 ---
 
 **AlmaGag** - Generación automática de diagramas con layout jerárquico inteligente (AUTO/LAF) y routing declarativo
-**Versión**: v3.2.0 + SDJF v2.0 | **Actualizado**: 2026-02-19
+**Versión**: v3.3.0 + SDJF v2.0 | **Actualizado**: 2026-02-28

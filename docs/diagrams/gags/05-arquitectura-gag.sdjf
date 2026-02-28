@@ -98,7 +98,7 @@
     {
       "id": "laf_pipeline",
       "type": "building",
-      "label": "LAF Pipeline\n1.Structure → 2.Topology\n3.Centrality → 4.Placement\n5.Optimize → 6.Inflate\n7.Redistribute → 8.Route\n9.Visualize"
+      "label": "LAF Pipeline\n1.Structure → 2.Topology\n3.Centrality → 4.Placement\n5.Optimize → 6.NdPr Expand\n7.Inflate → 8.Redistribute\n9.Route → 10.Visualize"
     },
 
     {

@@ -414,7 +414,7 @@ AlmaGag/
 │   ├── auto_optimizer.py         # ✅ AutoLayoutOptimizer v4.0
 │   ├── auto_positioner.py        # ✅ Barycenter + position optimization
 │   ├── graph_analysis.py         # ✅ Topología + centralidad + resolución
-│   ├── laf_optimizer.py          # ✅ Coordinador LAF v2.0 (10 fases)
+│   ├── laf_optimizer.py          # ✅ Coordinador LAF v1.6 (10 fases)
 │   ├── laf/
 │   │   ├── __init__.py           # ✅ Exports
 │   │   ├── README.md             # ✅ Documentación técnica
@@ -658,9 +658,9 @@ AlmaGag/
 - `draw/icons.py`: Blur filter en labels
 - `draw/connections.py`: Self-loop fix, blur filter, colored connections
 - `draw/container.py`: Label-aware bounds
-- `layout/laf_optimizer.py`: 9 fases, half-width redistribution fix
+- `layout/laf_optimizer.py`: pipeline consolidado, half-width redistribution fix
 - `layout/laf/container_grower.py`: _measure_placed_content, step 4.5
-- `layout/laf/visualizer.py`: 9 SVGs, NdFn labels en fases 6-9
+- `layout/laf/visualizer.py`: SVGs de debug, NdFn labels en fases finales
 
 ### Beneficios
 

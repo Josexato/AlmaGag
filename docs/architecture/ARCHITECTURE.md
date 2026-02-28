@@ -1,7 +1,7 @@
 # Arquitectura de AlmaGag
 
-**Versión del Código**: v3.2.0 + SDJF v2.0
-**Fecha**: 2026-02-19
+**Versión del Código**: v3.3.0 + SDJF v2.0
+**Fecha**: 2026-02-28
 
 ## Visión General
 
