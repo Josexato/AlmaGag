@@ -238,9 +238,14 @@ def _draw_computed_path(dwg, from_elem, to_elem, connection, computed_path, mark
         y2 = to_elem['y'] + ICON_HEIGHT // 2
         return (x1 + x2) / 2, (y1 + y2) / 2
 
-    # Aplicar offsets visuales (skip para self-loops — los puntos ya están en el borde)
+    # Skip offsets cuando los puntos ya están en el borde del ícono
+    # (self-loops o conexiones con ports pre-asignados por port_assignment)
     is_self_loop = from_elem['id'] == to_elem['id']
-    adjusted_points = points if is_self_loop else _apply_visual_offsets(points, from_elem, to_elem)
+    has_ports = connection.get('_from_port') is not None
+    if is_self_loop or has_ports:
+        adjusted_points = points
+    else:
+        adjusted_points = _apply_visual_offsets(points, from_elem, to_elem)
 
     if path_type == 'line':
         return _draw_straight_line(dwg, adjusted_points, direction, markers, stroke_color)

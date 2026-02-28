@@ -910,12 +910,8 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
             container_x = bounds['x']
             container_y = bounds['y']
 
-        # IMPORTANTE: draw_building agrega su propio padding interno de ICON_HEIGHT * 0.2 (10px)
-        # Por lo tanto, pasamos las coordenadas del contenedor directamente
-        # para que el ícono quede en (container_x + padding, container_y + padding) después
-        # de que draw_building agregue su padding
-        icon_x = container_x
-        icon_y = container_y
+        icon_x = container_x + CONTAINER_PADDING
+        icon_y = container_y + CONTAINER_PADDING
 
         icon_type = container.get('type', 'building')
         color = container.get('color', 'lightgray')

@@ -7,12 +7,12 @@
     },
     {
       "id": "args_parser",
-      "type": "function",
-      "label": "Parse Args\n--layout-algorithm\n--debug, --visualdebug\n--color-connections\n--centrality-alpha/beta/gamma"
+      "type": "document",
+      "label": "Parse Args\n(CLI flags)"
     },
     {
       "id": "load_gag",
-      "type": "function",
+      "type": "document",
       "label": "Load .gag File\n(JSON)"
     },
     {
@@ -45,7 +45,7 @@
     {
       "id": "phase1",
       "type": "cloud",
-      "label": "Phase 1\nStructure Analysis"
+      "label": "Phase 1\nStructure Analysis\n(tree + graph + levels)"
     },
     {
       "id": "phase2",
@@ -55,17 +55,17 @@
     {
       "id": "phase3",
       "type": "cloud",
-      "label": "Phase 3\nCentrality Ordering"
+      "label": "Phase 3\nCentrality Ordering\n(scores + layer order)"
     },
     {
       "id": "phase4",
       "type": "cloud",
-      "label": "Phase 4\nAbstract Layout"
+      "label": "Phase 4\nAbstract Placement\n(barycenter heuristic)"
     },
     {
       "id": "phase5",
       "type": "cloud",
-      "label": "Phase 5\nPosition Optimization"
+      "label": "Phase 5\nPosition Optimization\n(layer-offset bisection)"
     },
     {
       "id": "phase6",
@@ -80,7 +80,7 @@
     {
       "id": "phase8",
       "type": "cloud",
-      "label": "Phase 8\nRedistribution"
+      "label": "Phase 8\nRedistribution\n(spacing + centering)"
     },
     {
       "id": "phase9",
@@ -90,7 +90,7 @@
     {
       "id": "phase10",
       "type": "cloud",
-      "label": "Phase 10\nVisualization"
+      "label": "Phase 10\nVisualization\n(debug SVGs)"
     },
     {
       "id": "auto_optimizer",
@@ -117,78 +117,38 @@
     },
     {
       "id": "render0",
-      "type": "function",
+      "type": "document",
       "label": "0. Container\nBackgrounds"
     },
     {
       "id": "render1",
-      "type": "function",
+      "type": "document",
       "label": "1. Icons\n(normal + container)"
     },
     {
       "id": "render2",
-      "type": "function",
+      "type": "document",
       "label": "2. Connections\n(lines + markers)"
     },
     {
       "id": "render3",
-      "type": "function",
+      "type": "document",
       "label": "3. Label Optimizer\n(collision resolution)"
     },
     {
       "id": "render4",
-      "type": "function",
+      "type": "document",
       "label": "4. Element +\nConnection Labels"
     },
     {
       "id": "render5",
-      "type": "function",
+      "type": "document",
       "label": "5. Container\nLabels (fixed)"
     },
     {
       "id": "output_svg",
       "type": "database",
       "label": "Output SVG\n+ PNG (optional)"
-    },
-    {
-      "id": "structure_analyzer",
-      "type": "function",
-      "label": "StructureAnalyzer\n- Element tree\n- Connection graph\n- Topological levels\n- Centrality scores"
-    },
-    {
-      "id": "centrality_fn",
-      "type": "function",
-      "label": "CentralityOrder\n- Score per element\n- Order within layers"
-    },
-    {
-      "id": "abstract_placer",
-      "type": "function",
-      "label": "AbstractPlacer\n- Layer by level\n- Order (barycenter)\n- Position (abstract)"
-    },
-    {
-      "id": "position_optimizer_fn",
-      "type": "function",
-      "label": "PositionOptimizer\n- Layer-offset bisection\n- Minimize connector distance"
-    },
-    {
-      "id": "inflator",
-      "type": "function",
-      "label": "ElementInflator\n- Real dimensions\n- Spacing\n- Label positioning"
-    },
-    {
-      "id": "container_grower",
-      "type": "function",
-      "label": "ContainerGrower\n- Expand containers\n- Fit contents\n- Label collision avoidance"
-    },
-    {
-      "id": "redistributor",
-      "type": "function",
-      "label": "Redistributor\n- Vertical spacing\n- Horizontal centering\n- Global X scale"
-    },
-    {
-      "id": "visualizer",
-      "type": "function",
-      "label": "GrowthVisualizer\n(if --visualize-growth)"
     }
   ],
   "connections": [
@@ -223,109 +183,54 @@
       "label": "if auto"
     },
     {
-      "from": "laf_optimizer",
-      "to": "phase1",
-      "label": "start pipeline"
-    },
-    {
       "from": "phase1",
-      "to": "structure_analyzer",
-      "label": "execute"
-    },
-    {
-      "from": "structure_analyzer",
       "to": "phase2",
-      "label": "structure_info"
+      "label": ""
     },
     {
       "from": "phase2",
       "to": "phase3",
-      "label": "topological_levels"
+      "label": ""
     },
     {
       "from": "phase3",
-      "to": "centrality_fn",
-      "label": "execute"
-    },
-    {
-      "from": "centrality_fn",
       "to": "phase4",
-      "label": "centrality_order"
+      "label": ""
     },
     {
       "from": "phase4",
-      "to": "abstract_placer",
-      "label": "execute"
-    },
-    {
-      "from": "abstract_placer",
       "to": "phase5",
-      "label": "abstract_positions"
+      "label": ""
     },
     {
       "from": "phase5",
-      "to": "position_optimizer_fn",
-      "label": "execute"
-    },
-    {
-      "from": "position_optimizer_fn",
       "to": "phase6",
-      "label": "optimized_positions"
+      "label": ""
     },
     {
       "from": "phase6",
       "to": "phase67",
-      "label": "expanded_positions"
+      "label": ""
     },
     {
       "from": "phase67",
-      "to": "inflator",
-      "label": "execute"
-    },
-    {
-      "from": "phase67",
-      "to": "container_grower",
-      "label": "execute"
-    },
-    {
-      "from": "inflator",
       "to": "phase8",
-      "label": "real_positions"
-    },
-    {
-      "from": "container_grower",
-      "to": "phase8",
-      "label": "containers_expanded"
+      "label": ""
     },
     {
       "from": "phase8",
-      "to": "redistributor",
-      "label": "execute"
+      "to": "phase9",
+      "label": ""
     },
     {
-      "from": "redistributor",
-      "to": "phase9",
-      "label": "redistributed"
+      "from": "phase9",
+      "to": "phase10",
+      "label": ""
     },
     {
       "from": "phase9",
       "to": "routing",
-      "label": "route connections"
-    },
-    {
-      "from": "routing",
-      "to": "phase10",
-      "label": "routed_paths"
-    },
-    {
-      "from": "laf_optimizer",
-      "to": "visualizer",
-      "label": "capture phases"
-    },
-    {
-      "from": "phase10",
-      "to": "visualizer",
-      "label": "generate debug SVGs"
+      "label": "uses"
     },
     {
       "from": "laf_optimizer",
@@ -374,7 +279,7 @@
     }
   ],
   "canvas": {
-    "width": 1600,
-    "height": 2200
+    "width": 1400,
+    "height": 1800
   }
 }
