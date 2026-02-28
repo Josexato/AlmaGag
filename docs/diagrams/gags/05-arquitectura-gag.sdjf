@@ -93,7 +93,7 @@
     {
       "id": "laf_optimizer",
       "type": "server",
-      "label": "LAFOptimizer\nv1.5 (9 fases)"
+      "label": "LAFOptimizer\nv1.6 (10 fases)"
     },
     {
       "id": "laf_pipeline",

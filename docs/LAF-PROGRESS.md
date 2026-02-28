@@ -10,9 +10,9 @@ Reorganización completa del sistema de layout de AlmaGag para minimizar cruces 
 - **-87% de cruces de conectores** (15 → 2) en diagrama de prueba
 - **0 colisiones** en stresstest (27 elementos, 26 conexiones, 5 VCs)
 - **NdPr abstract graph**: Fases 3-5 operan sobre 8 NdPr nodes (3 niveles) en vez de 27 elementos (5 niveles)
-- **Fase 5.5**: Expansion de NdPr a elementos individuales con offsets proporcionales
-- **Sistema LAF completamente funcional** (9 fases + 5.5 consolidadas)
-- **Visualización del proceso** implementada (9 SVGs por diagrama)
+- **Fase 6**: Expansion de NdPr a elementos individuales con offsets proporcionales
+- **Sistema LAF completamente funcional** (10 fases)
+- **Visualización del proceso** implementada (10 SVGs por diagrama)
 - **Position optimization** con layer-offset bisection (Fase 5)
 - **Metadata SVG** con descriptores NdFn y Gaussian blur text glow
 
@@ -46,7 +46,7 @@ El sistema actual de AlmaGag calculaba posiciones con geometría real desde el i
 
 ## Solución LAF
 
-### Nuevo Flujo (9 Fases - consolidado en Sprint 8)
+### Nuevo Flujo (10 Fases)
 
 ```
 FASE 1: STRUCTURE ANALYSIS
@@ -75,24 +75,30 @@ FASE 5: POSITION OPTIMIZATION
 ├─ Minimizar distancia ponderada de conectores
 └─ Forward + backward, convergencia < 0.001
 
-FASE 6: INFLATION + CONTAINER GROWTH (fusionadas)
+FASE 6: NdPr EXPANSION
+├─ Expandir NdPr nodes a elementos individuales
+├─ VCs: distribuir miembros por sub-nivel topológico
+├─ Simples: copiar posición directamente
+└─ Offsets proporcionales para evitar colisiones
+
+FASE 7: INFLATION + CONTAINER GROWTH (fusionadas)
 ├─ Spacing proporcional + dimensiones reales
 ├─ Expandir contenedores bottom-up
 ├─ Posicionar elementos contenidos
 ├─ _measure_placed_content() post-check
 └─ Calcular posiciones de etiquetas
 
-FASE 7: VERTICAL REDISTRIBUTION
+FASE 8: VERTICAL REDISTRIBUTION
 ├─ Redistribuir tras crecimiento
 ├─ Escala X con half-widths de grupos NdFn
 └─ Centrado global usando bounding boxes
 
-FASE 8: ROUTING
+FASE 9: ROUTING
 ├─ Calcular paths de conexiones
 ├─ Self-loop detection + arc routing
 └─ Routing con bordes de contenedores
 
-FASE 9: SVG GENERATION
+FASE 10: SVG GENERATION
 ├─ Canvas ajustado dinámicamente
 ├─ NdFn metadata (<desc> elements)
 ├─ Gaussian blur text glow filter
@@ -319,8 +325,8 @@ almagag archivo.gag --layout-algorithm=laf --visualize-growth --debug
 | **Colisiones** | 50* | 38 | ≤40 | ✅ 24% mejora |
 | **Falsos positivos** | 24-32 | 0 | 0 | ✅ 100% eliminados |
 | **Routing calls** | 5+ | 2 | 2 | ✅ Objetivo cumplido |
-| **Sistema LAF** | - | Completo (9 fases) | 9 fases | ✅ 100% core |
-| **Visualización** | - | 9 SVGs/diagrama | Sí | ✅ 100% implementado |
+| **Sistema LAF** | - | Completo (10 fases) | 10 fases | ✅ 100% core |
+| **Visualización** | - | 10 SVGs/diagrama | Sí | ✅ 100% implementado |
 
 *Después de fix de parent-child (Sprint 1: 69 → 50)
 
@@ -408,16 +414,16 @@ AlmaGag/
 │   ├── auto_optimizer.py         # ✅ AutoLayoutOptimizer v4.0
 │   ├── auto_positioner.py        # ✅ Barycenter + position optimization
 │   ├── graph_analysis.py         # ✅ Topología + centralidad + resolución
-│   ├── laf_optimizer.py          # ✅ Coordinador LAF v2.0 (9 fases)
+│   ├── laf_optimizer.py          # ✅ Coordinador LAF v2.0 (10 fases)
 │   ├── laf/
 │   │   ├── __init__.py           # ✅ Exports
 │   │   ├── README.md             # ✅ Documentación técnica
 │   │   ├── structure_analyzer.py # ✅ Fase 1: Structure Analysis
 │   │   ├── abstract_placer.py    # ✅ Fase 4: Abstract Placement
 │   │   ├── position_optimizer.py # ✅ Fase 5: Position Optimization
-│   │   ├── inflator.py           # ✅ Fase 6: Inflation (fusionada)
-│   │   ├── container_grower.py   # ✅ Fase 6: Container Growth (fusionada)
-│   │   └── visualizer.py         # ✅ 9 SVGs de visualización
+│   │   ├── inflator.py           # ✅ Fase 7: Inflation (fusionada)
+│   │   ├── container_grower.py   # ✅ Fase 7: Container Growth (fusionada)
+│   │   └── visualizer.py         # ✅ 10 SVGs de visualización
 │   ├── collision.py              # ✅ Detección de colisiones
 │   └── ...
 ├── generator.py                  # ✅ Orquestador (auto/laf) + NdFn metadata
@@ -484,7 +490,7 @@ AlmaGag/
 **Estado**: 100% completado (8 de 8 sprints) - **Proyecto LAF Finalizado ✅**
 
 **Logros Finales**:
-- ✅ Sistema LAF completo en 9 Fases (consolidadas)
+- ✅ Sistema LAF completo en 10 Fases
 - ✅ -87% cruces de conectores (15 → 2)
 - ✅ -24% colisiones (50 → 38)
 - ✅ -100% falsos positivos eliminados
@@ -495,7 +501,7 @@ AlmaGag/
 - ✅ Self-loop arc rendering
 - ✅ Colored connections con marcadores de origen
 - ✅ CLI integrado: `--layout-algorithm=laf`
-- ✅ Visualización del proceso: `--visualize-growth` (9 SVGs)
+- ✅ Visualización del proceso: `--visualize-growth` (10 SVGs)
 - ✅ Arquitectura modular y extensible (8 módulos LAF)
 - ✅ Contenedores label-aware con post-expansion check
 - ✅ Redistribución con half-widths para spacing correcto
@@ -621,7 +627,7 @@ AlmaGag/
 - Fusión de Fase 6 (Inflation) y Fase 7 (Container Growth) en una sola Fase 6
 - Separación de Fase 3 (Centrality Ordering) del Abstract Placement
 - Renumeración: Fases 7-9 = Redistribution, Routing, SVG Generation
-- 9 SVGs de visualización (vs 10 anterior)
+- 10 SVGs de visualización (con Fase 6: NdPr Expansion)
 
 **2. Metadata SVG con NdFn Descriptors**
 - Elementos `<desc>` en SVG2 para cada ícono, contenedor y conexión
@@ -661,10 +667,10 @@ AlmaGag/
 ✅ **Trazabilidad**: Metadata NdFn en SVG permite inspección y debugging
 ✅ **Legibilidad**: Gaussian blur mejora lectura de texto sobre fondos complejos
 ✅ **Estabilidad**: 4 bugs críticos corregidos (labels, overlap, self-loops, bounds)
-✅ **Simplicidad**: Pipeline consolidado de 9 fases (vs 10)
+✅ **Simplicidad**: Pipeline consolidado de 10 fases
 ✅ **Diagnóstico**: Conexiones coloreadas facilitan seguimiento visual
 
-**Última actualización**: 2026-02-19 (Sprint 8 completado - Sistema de 9 fases ✅)
+**Última actualización**: 2026-02-19 (Sprint 8 completado - Pipeline consolidado ✅)
 
 ---
 
@@ -684,7 +690,7 @@ AlmaGag/
 - `abstract_placer.place_elements`: acepta `connection_graph` para barycenter directo sobre NdPr
 - `position_optimizer.optimize_positions`: acepta `connection_graph` y `topological_levels` para optimización NdPr
 
-**3. Fase 5.5: Expansión NdPr → Elementos**
+**3. Fase 6: Expansión NdPr → Elementos**
 - Nuevo método `_expand_ndpr_to_elements` en laf_optimizer.py
 - VCs: distribuir miembros por sub-nivel topológico con offsets
 - Simples: copiar posición directamente
@@ -697,7 +703,7 @@ AlmaGag/
 ### Archivos Modificados
 
 **Código (4 archivos)**:
-- `laf_optimizer.py`: `_order_by_centrality` NdPr, `_expand_ndpr_to_elements`, pipeline fase 5.5
+- `laf_optimizer.py`: `_order_by_centrality` NdPr, `_expand_ndpr_to_elements`, pipeline fase 6
 - `abstract_placer.py`: Modo NdPr con `connection_graph`, barycenter graph-based
 - `position_optimizer.py`: Modo NdPr con `connection_graph` y `topological_levels`
 - `visualizer.py`: Detección NdPr-level en fases 4-5

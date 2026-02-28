@@ -11,7 +11,7 @@ Todas las mejoras notables de AlmaGag están documentadas en este archivo.
 #### NdPr (Nodo Primario) - Grafo abstracto para Fases 3-5
 - **Nuevo:** Fase 1 detecta TOI Virtual Containers (VCs) y construye grafo abstracto NdPr
 - **Nuevo:** Fases 3-5 operan sobre NdPr nodes en lugar de elementos individuales (27 elem / 5 niveles → 8 NdPr / 3 niveles en stresstest)
-- **Nuevo:** Fase 5.5 expande posiciones NdPr a posiciones de elementos individuales
+- **Nuevo:** Fase 6 expande posiciones NdPr a posiciones de elementos individuales
 - **Nuevo:** VCs distribuyen miembros por sub-nivel topologico con offsets proporcionales
 - **Nuevo:** `abstract_placer.place_elements()` acepta `connection_graph` para modo NdPr
 - **Nuevo:** `position_optimizer.optimize_positions()` acepta `connection_graph` y `topological_levels` para modo NdPr
@@ -30,7 +30,7 @@ Todas las mejoras notables de AlmaGag están documentadas en este archivo.
 ### Archivos Modificados
 
 **LAF Pipeline:**
-- `AlmaGag/layout/laf_optimizer.py` — `_order_by_centrality` con NdPr, `_expand_ndpr_to_elements`, `_update_optimized_layer_order` rebuild, pipeline fase 5.5
+- `AlmaGag/layout/laf_optimizer.py` — `_order_by_centrality` con NdPr, `_expand_ndpr_to_elements`, `_update_optimized_layer_order` rebuild, pipeline fase 6
 - `AlmaGag/layout/laf/abstract_placer.py` — Modo NdPr con `connection_graph`, barycenter graph-based
 - `AlmaGag/layout/laf/position_optimizer.py` — Modo NdPr con `connection_graph` y `topological_levels`
 - `AlmaGag/layout/laf/visualizer.py` — Deteccion NdPr-level en fases 4-5
@@ -41,8 +41,8 @@ Todas las mejoras notables de AlmaGag están documentadas en este archivo.
 |---------|--------|--------|-------|
 | Colisiones (13-stresstest) | 30 | 0 | **-100%** |
 | Colisiones (05-arquitectura) | 342 | 10 | **-97%** |
-| Nodos en Fases 3-5 (stresstest) | 27 | 8 NdPr | **-70%** |
-| Niveles en Fases 3-5 (stresstest) | 5 | 3 | **-40%** |
+| Nodos en Fases 3-6 (stresstest) | 27 | 8 NdPr | **-70%** |
+| Niveles en Fases 3-6 (stresstest) | 5 | 3 | **-40%** |
 
 ### Breaking Changes
 

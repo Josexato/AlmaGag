@@ -5,7 +5,7 @@
 
 ## Visión General
 
-AlmaGag es un generador de diagramas SVG que transforma archivos JSON (formato SDJF) en gráficos vectoriales mediante un pipeline de procesamiento modular. Soporta dos algoritmos de layout: **AUTO** (legacy, basado en colisiones) y **LAF** (recomendado, Layout Abstracto Primero con 9 fases).
+AlmaGag es un generador de diagramas SVG que transforma archivos JSON (formato SDJF) en gráficos vectoriales mediante un pipeline de procesamiento modular. Soporta dos algoritmos de layout: **AUTO** (legacy, basado en colisiones) y **LAF** (recomendado, Layout Abstracto Primero con 10 fases).
 
 ## Diagrama de Arquitectura
 
@@ -30,7 +30,7 @@ AlmaGag es un generador de diagramas SVG que transforma archivos JSON (formato S
 │  ┌───────────────────────────────────────────────┐  │
 │  │  1. Parse JSON → Layout (inmutable)           │  │
 │  │  2. Selección de algoritmo:                   │  │
-│  │     ├─ LAF: LAFOptimizer (9 fases)            │  │
+│  │     ├─ LAF: LAFOptimizer (10 fases)           │  │
 │  │     └─ AUTO: AutoLayoutOptimizer (legacy)     │  │
 │  │  3. Create SVG canvas + filters (blur glow)   │  │
 │  │  4. NdFn metadata wrapping (DrawingGroupProxy)│  │
@@ -46,7 +46,7 @@ AlmaGag es un generador de diagramas SVG que transforma archivos JSON (formato S
 └─────────────┘
 ```
 
-### Pipeline LAF (9 Fases)
+### Pipeline LAF (10 Fases)
 
 ```
 Fase 1: Structure Analysis    → structure_analyzer.py
@@ -54,10 +54,11 @@ Fase 2: Topology Analysis     → laf_optimizer.py (viz)
 Fase 3: Centrality Ordering   → laf_optimizer.py
 Fase 4: Abstract Placement    → abstract_placer.py
 Fase 5: Position Optimization → position_optimizer.py
-Fase 6: Inflation + Growth    → inflator.py + container_grower.py
-Fase 7: Redistribution        → laf_optimizer.py
-Fase 8: Routing               → router_manager.py
-Fase 9: SVG Generation        → generator.py
+Fase 6: NdPr Expansion        → laf_optimizer.py
+Fase 7: Inflation + Growth    → inflator.py + container_grower.py
+Fase 8: Redistribution        → laf_optimizer.py
+Fase 9: Routing               → router_manager.py
+Fase 10: SVG Generation       → generator.py
 ```
 
 ## Módulos Principales
@@ -482,15 +483,15 @@ class GraphAnalyzer:
 
 ### 5. Módulo `layout/laf/` (LAF Pipeline v2.0)
 
-**Responsabilidad:** Layout jerárquico de 9 fases minimizando cruces
+**Responsabilidad:** Layout jerárquico de 10 fases minimizando cruces
 
 **Módulos:**
 - `structure_analyzer.py` - Fase 1: Árbol, grafo, niveles, scores
 - `abstract_placer.py` - Fase 4: Sugiyama-style placement
 - `position_optimizer.py` - Fase 5: Layer-offset bisection
-- `inflator.py` - Fase 6: Abstract → real coordinates
-- `container_grower.py` - Fase 6: Bottom-up expansion, label-aware
-- `visualizer.py` - 9 SVGs de debug del proceso
+- `inflator.py` - Fase 7: Abstract → real coordinates
+- `container_grower.py` - Fase 7: Bottom-up expansion, label-aware
+- `visualizer.py` - 10 SVGs de debug del proceso
 
 **Coordinador:** `layout/laf_optimizer.py:LAFOptimizer`
 
@@ -505,13 +506,14 @@ class LAFOptimizer:
         abstract_positions = self.placer.place_elements(structure_info)
         # Fase 5: Position Optimization (bisection)
         optimized = self.position_optimizer.optimize(abstract_positions)
-        # Fase 6: Inflation + Container Growth
+        # Fase 6: NdPr Expansion
+        # Fase 7: Inflation + Container Growth
         self.inflator.inflate(optimized, structure_info, layout)
         self.grower.grow_containers(structure_info, layout)
-        # Fase 7: Vertical Redistribution
+        # Fase 8: Vertical Redistribution
         self._redistribute_vertical_after_growth(structure_info, layout)
-        # Fase 8: Routing
-        # Fase 9: SVG Generation (en generator.py)
+        # Fase 9: Routing
+        # Fase 10: SVG Generation (en generator.py)
         return layout
 ```
 
@@ -749,7 +751,7 @@ AlmaGag/
 │   ├── optimizer_base.py   # Interfaz LayoutOptimizer
 │   ├── auto_optimizer.py   # AutoLayoutOptimizer v4.0 (legacy)
 │   ├── auto_positioner.py  # AutoLayoutPositioner v4.0
-│   ├── laf_optimizer.py    # LAFOptimizer v2.0 (9 fases, recomendado)
+│   ├── laf_optimizer.py    # LAFOptimizer v2.0 (10 fases, recomendado)
 │   ├── sizing.py           # SizingCalculator (SDJF v2.0)
 │   ├── geometry.py         # GeometryCalculator
 │   ├── collision.py        # CollisionDetector (skip parent-child)
@@ -760,9 +762,9 @@ AlmaGag/
 │       ├── structure_analyzer.py # Fase 1: Estructura + niveles + scores
 │       ├── abstract_placer.py    # Fase 4: Sugiyama-style placement
 │       ├── position_optimizer.py # Fase 5: Layer-offset bisection
-│       ├── inflator.py           # Fase 6: Inflación
-│       ├── container_grower.py   # Fase 6: Crecimiento + label-aware
-│       └── visualizer.py         # 9 SVGs de visualización
+│       ├── inflator.py           # Fase 7: Inflación
+│       ├── container_grower.py   # Fase 7: Crecimiento + label-aware
+│       └── visualizer.py         # 10 SVGs de visualización
 │
 ├── routing/                # Módulo de routing de conexiones
 │   └── router_manager.py   # Self-loops, container borders, arc/ortho/direct
@@ -917,4 +919,4 @@ svgwrite>=1.4.3     # Generación de SVG
 ---
 
 **Última actualización**: 2026-02-19
-**Versión documentada**: AlmaGag v3.2.0 + SDJF v2.0 | LAF Pipeline 9 fases
+**Versión documentada**: AlmaGag v3.3.0 + SDJF v2.0 | LAF Pipeline 10 fases

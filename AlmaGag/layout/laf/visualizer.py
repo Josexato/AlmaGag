@@ -30,10 +30,11 @@ class GrowthVisualizer:
     3. phase3_centrality.svg: Ordenamiento por centralidad
     4. phase4_abstract.svg: Posiciones abstractas (puntos)
     5. phase5_optimized.svg: Posiciones optimizadas (Claude-SolFase5)
-    6. phase6_inflated.svg: Inflación + Contenedores expandidos
-    7. phase7_redistributed.svg: Redistribución vertical
-    8. phase8_routed.svg: Routing de conexiones
-    9. phase9_final.svg: Layout final completo
+    6. phase6_ndpr_expanded.svg: Expansión NdPr → elementos
+    7. phase7_inflated.svg: Inflación + Contenedores expandidos
+    8. phase8_redistributed.svg: Redistribución vertical
+    9. phase9_routed.svg: Routing de conexiones
+    10. phase10_final.svg: Layout final completo
     """
 
     def __init__(self, output_dir: str = "debug/growth", debug: bool = False):
@@ -155,53 +156,36 @@ class GrowthVisualizer:
 
         pass
 
-    def capture_phase6_inflated(
+    def capture_phase7_inflated(
         self,
         layout,
         spacing: float,
         structure_info=None
     ) -> None:
         """
-        Captura snapshot de Fase 6 (Inflación + Contenedores).
+        Captura snapshot de Fase 7 (Inflación + Contenedores).
 
         Args:
             layout: Layout con elementos inflados y contenedores expandidos
             spacing: Spacing calculado
             structure_info: Información estructural con primary_node_ids
         """
-        self.snapshots['phase6'] = {
+        self.snapshots['phase7'] = {
             'layout': deepcopy(layout),
             'spacing': spacing,
             'structure_info': structure_info
         }
 
-    def capture_phase7_redistributed(
+    def capture_phase8_redistributed(
         self,
         layout,
         structure_info=None
     ) -> None:
         """
-        Captura snapshot de Fase 7 (Redistribución vertical).
+        Captura snapshot de Fase 8 (Redistribución vertical).
 
         Args:
             layout: Layout después de redistribución vertical
-            structure_info: Información estructural para NdFn labels
-        """
-        self.snapshots['phase7'] = {
-            'layout': deepcopy(layout),
-            'structure_info': structure_info
-        }
-
-    def capture_phase8_routed(
-        self,
-        layout,
-        structure_info=None
-    ) -> None:
-        """
-        Captura snapshot de Fase 8 (Routing).
-
-        Args:
-            layout: Layout con paths de conexiones calculados
             structure_info: Información estructural para NdFn labels
         """
         self.snapshots['phase8'] = {
@@ -209,19 +193,36 @@ class GrowthVisualizer:
             'structure_info': structure_info
         }
 
-    def capture_phase9_final(
+    def capture_phase9_routed(
         self,
         layout,
         structure_info=None
     ) -> None:
         """
-        Captura snapshot de Fase 9 (Generación SVG final).
+        Captura snapshot de Fase 9 (Routing).
+
+        Args:
+            layout: Layout con paths de conexiones calculados
+            structure_info: Información estructural para NdFn labels
+        """
+        self.snapshots['phase9'] = {
+            'layout': deepcopy(layout),
+            'structure_info': structure_info
+        }
+
+    def capture_phase10_final(
+        self,
+        layout,
+        structure_info=None
+    ) -> None:
+        """
+        Captura snapshot de Fase 10 (Generación SVG final).
 
         Args:
             layout: Layout final completo
             structure_info: Información estructural para NdFn labels
         """
-        self.snapshots['phase9'] = {
+        self.snapshots['phase10'] = {
             'layout': deepcopy(layout),
             'structure_info': structure_info
         }
@@ -259,17 +260,17 @@ class GrowthVisualizer:
         if 'phase5' in self.snapshots:
             self._generate_phase5_optimized_svg(output_path)
 
-        if 'phase6' in self.snapshots:
-            self._generate_phase6_inflated_svg(output_path)
-
         if 'phase7' in self.snapshots:
-            self._generate_phase7_redistributed_svg(output_path)
+            self._generate_phase7_inflated_svg(output_path)
 
         if 'phase8' in self.snapshots:
-            self._generate_phase8_routed_svg(output_path)
+            self._generate_phase8_redistributed_svg(output_path)
 
         if 'phase9' in self.snapshots:
-            self._generate_phase9_final_svg(output_path)
+            self._generate_phase9_routed_svg(output_path)
+
+        if 'phase10' in self.snapshots:
+            self._generate_phase10_final_svg(output_path)
 
         if self.debug:
             logger.debug(f"[VISUALIZER] Generación completada: {len(self.snapshots)} fases")
@@ -450,7 +451,7 @@ class GrowthVisualizer:
 
         # Badge
         dwg.add(dwg.text(
-            'Phase 1/9',
+            'Phase 1/10',
             insert=(canvas_width - 100, 30),
             font_size='14px',
             fill='#6c757d'
@@ -1116,7 +1117,7 @@ class GrowthVisualizer:
 
         # Badge
         dwg.add(dwg.text(
-            'Phase 2/9',
+            'Phase 2/10',
             insert=(canvas_width - 100, 30),
             font_size='14px',
             fill='#6c757d'
@@ -1568,7 +1569,7 @@ class GrowthVisualizer:
 
         # Badge
         dwg.add(dwg.text(
-            'Phase 3/9',
+            'Phase 3/10',
             insert=(canvas_width - 100, 30),
             font_size='14px',
             fill='#6c757d'
@@ -1768,7 +1769,7 @@ class GrowthVisualizer:
 
         # Badge
         dwg.add(dwg.text(
-            'Phase 4/9',
+            'Phase 4/10',
             insert=(canvas_width - 100, 30),
             font_size='14px',
             fill='#6c757d'
@@ -2004,7 +2005,7 @@ class GrowthVisualizer:
 
         # Badge
         dwg.add(dwg.text(
-            'Phase 5/9 - Claude-SolFase5',
+            'Phase 5/10 - Claude-SolFase5',
             insert=(canvas_width - 260, 30),
             font_size='14px',
             fill='#28a745',
@@ -2170,16 +2171,16 @@ class GrowthVisualizer:
                     fill='#6c757d', opacity=0.6
                 ))
 
-    def _generate_phase6_inflated_svg(self, output_path: str) -> None:
+    def _generate_phase7_inflated_svg(self, output_path: str) -> None:
         """
-        Genera SVG de Fase 6: Inflación + Contenedores expandidos.
+        Genera SVG de Fase 7: Inflación + Contenedores expandidos.
         """
-        snapshot = self.snapshots['phase6']
+        snapshot = self.snapshots['phase7']
         layout = snapshot['layout']
         spacing = snapshot['spacing']
         structure_info = snapshot.get('structure_info')
 
-        filename = os.path.join(output_path, "phase6_inflated_grown.svg")
+        filename = os.path.join(output_path, "phase7_inflated_grown.svg")
 
         canvas_width = layout.canvas.get('width', 2000)
         canvas_height = layout.canvas.get('height', 2000)
@@ -2188,7 +2189,7 @@ class GrowthVisualizer:
         dwg.add(dwg.rect(insert=(0, 0), size=(canvas_width, canvas_height), fill='#ffffff'))
 
         dwg.add(dwg.text(
-            'LAF Phase 6: Inflation + Container Growth',
+            'LAF Phase 7: Inflation + Container Growth',
             insert=(20, 30), font_size='20px', font_weight='bold', fill='#212529'
         ))
         dwg.add(dwg.text(
@@ -2201,7 +2202,7 @@ class GrowthVisualizer:
         self._draw_elements_with_ndfn(dwg, layout, ndfn_labels)
 
         dwg.add(dwg.text(
-            'Phase 6/9', insert=(canvas_width - 100, 30),
+            'Phase 7/10', insert=(canvas_width - 100, 30),
             font_size='14px', fill='#6c757d'
         ))
 
@@ -2272,15 +2273,15 @@ class GrowthVisualizer:
 
         return labels
 
-    def _generate_phase7_redistributed_svg(self, output_path: str) -> None:
+    def _generate_phase8_redistributed_svg(self, output_path: str) -> None:
         """
-        Genera SVG de Fase 7: Redistribución vertical.
+        Genera SVG de Fase 8: Redistribución vertical.
         """
-        snapshot = self.snapshots['phase7']
+        snapshot = self.snapshots['phase8']
         layout = snapshot['layout']
         structure_info = snapshot.get('structure_info')
 
-        filename = os.path.join(output_path, "phase7_redistributed.svg")
+        filename = os.path.join(output_path, "phase8_redistributed.svg")
 
         canvas_width = layout.canvas.get('width', 2000)
         canvas_height = layout.canvas.get('height', 2000)
@@ -2289,7 +2290,7 @@ class GrowthVisualizer:
         dwg.add(dwg.rect(insert=(0, 0), size=(canvas_width, canvas_height), fill='#ffffff'))
 
         dwg.add(dwg.text(
-            'LAF Phase 7: Vertical Redistribution',
+            'LAF Phase 8: Vertical Redistribution',
             insert=(20, 30), font_size='20px', font_weight='bold', fill='#212529'
         ))
 
@@ -2298,7 +2299,7 @@ class GrowthVisualizer:
         self._draw_elements_with_ndfn(dwg, layout, ndfn_labels)
 
         dwg.add(dwg.text(
-            'Phase 7/9', insert=(canvas_width - 100, 30),
+            'Phase 8/10', insert=(canvas_width - 100, 30),
             font_size='14px', fill='#6c757d'
         ))
 
@@ -2306,15 +2307,15 @@ class GrowthVisualizer:
         if self.debug:
             logger.debug(f"[VISUALIZER] Generado: {filename}")
 
-    def _generate_phase8_routed_svg(self, output_path: str) -> None:
+    def _generate_phase9_routed_svg(self, output_path: str) -> None:
         """
-        Genera SVG de Fase 8: Routing de conexiones.
+        Genera SVG de Fase 9: Routing de conexiones.
         """
-        snapshot = self.snapshots['phase8']
+        snapshot = self.snapshots['phase9']
         layout = snapshot['layout']
         structure_info = snapshot.get('structure_info')
 
-        filename = os.path.join(output_path, "phase8_routed.svg")
+        filename = os.path.join(output_path, "phase9_routed.svg")
 
         canvas_width = layout.canvas.get('width', 2000)
         canvas_height = layout.canvas.get('height', 2000)
@@ -2323,7 +2324,7 @@ class GrowthVisualizer:
         dwg.add(dwg.rect(insert=(0, 0), size=(canvas_width, canvas_height), fill='#ffffff'))
 
         dwg.add(dwg.text(
-            'LAF Phase 8: Connection Routing',
+            'LAF Phase 9: Connection Routing',
             insert=(20, 30), font_size='20px', font_weight='bold', fill='#212529'
         ))
 
@@ -2332,7 +2333,7 @@ class GrowthVisualizer:
         self._draw_elements_with_ndfn(dwg, layout, ndfn_labels)
 
         dwg.add(dwg.text(
-            'Phase 8/9', insert=(canvas_width - 100, 30),
+            'Phase 9/10', insert=(canvas_width - 100, 30),
             font_size='14px', fill='#6c757d'
         ))
 
@@ -2340,15 +2341,15 @@ class GrowthVisualizer:
         if self.debug:
             logger.debug(f"[VISUALIZER] Generado: {filename}")
 
-    def _generate_phase9_final_svg(self, output_path: str) -> None:
+    def _generate_phase10_final_svg(self, output_path: str) -> None:
         """
-        Genera SVG de Fase 9: Generación SVG final.
+        Genera SVG de Fase 10: Generación SVG final.
         """
-        snapshot = self.snapshots['phase9']
+        snapshot = self.snapshots['phase10']
         layout = snapshot['layout']
         structure_info = snapshot.get('structure_info')
 
-        filename = os.path.join(output_path, "phase9_final.svg")
+        filename = os.path.join(output_path, "phase10_final.svg")
 
         canvas_width = layout.canvas.get('width', 2000)
         canvas_height = layout.canvas.get('height', 2000)
@@ -2357,7 +2358,7 @@ class GrowthVisualizer:
         dwg.add(dwg.rect(insert=(0, 0), size=(canvas_width, canvas_height), fill='#ffffff'))
 
         dwg.add(dwg.text(
-            'LAF Phase 9: SVG Generation (COMPLETE)',
+            'LAF Phase 10: SVG Generation (COMPLETE)',
             insert=(20, 30), font_size='20px', font_weight='bold', fill='#28a745'
         ))
 
@@ -2366,7 +2367,7 @@ class GrowthVisualizer:
         self._draw_elements_with_ndfn(dwg, layout, ndfn_labels)
 
         dwg.add(dwg.text(
-            'Phase 9/9 - COMPLETE', insert=(canvas_width - 240, 30),
+            'Phase 10/10 - COMPLETE', insert=(canvas_width - 240, 30),
             font_size='14px', fill='#28a745', font_weight='bold'
         ))
 

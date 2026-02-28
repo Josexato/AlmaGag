@@ -15,7 +15,7 @@ En lugar de posicionar elementos con sus dimensiones reales desde el inicio (lo 
 5. **Redistribuye** con escala X basada en half-widths de grupos NdFn
 6. **Renderiza** con metadata SVG (descriptores NdFn) y Gaussian blur text glow
 
-## Pipeline de 9 Fases
+## Pipeline de 10 Fases
 
 ```
 FASE 1: STRUCTURE ANALYSIS          → structure_analyzer.py
@@ -46,31 +46,31 @@ FASE 5: POSITION OPTIMIZATION       → position_optimizer.py
 ├─ Minimizar distancia ponderada de conectores
 └─ Forward + backward, convergencia < 0.001
 
-FASE 5.5: NdPr EXPANSION            → laf_optimizer.py
+FASE 6: NdPr EXPANSION              → laf_optimizer.py
 ├─ Expandir NdPr a elementos individuales
 ├─ VCs: distribuir miembros por sub-nivel topologico
 ├─ Simples: copiar posicion directamente
 ├─ Reconstruir optimized_layer_order por topological_levels
 └─ Offsets: 0.4 horizontal, 1.0 vertical (abstract units)
 
-FASE 6: INFLATION + CONTAINER GROWTH → inflator.py + container_grower.py
+FASE 7: INFLATION + CONTAINER GROWTH → inflator.py + container_grower.py
 ├─ Spacing proporcional + dimensiones reales
 ├─ Expandir contenedores bottom-up
 ├─ Posicionar hijos en grid horizontal
 ├─ _measure_placed_content() post-check
 └─ Step 4.5 expansion si labels exceden estimacion
 
-FASE 7: VERTICAL REDISTRIBUTION     → laf_optimizer.py
+FASE 8: VERTICAL REDISTRIBUTION     → laf_optimizer.py
 ├─ Redistribuir tras crecimiento
 ├─ Escala X: half_width_i + half_width_next + MIN_GAP
 └─ Centrado global usando bounding boxes
 
-FASE 8: ROUTING                     → router_manager.py (integracion)
+FASE 9: ROUTING                     → router_manager.py (integracion)
 ├─ Calcular paths de conexiones
 ├─ Self-loop detection + arc routing
 └─ Container border routing
 
-FASE 9: SVG GENERATION              → generator.py (integracion)
+FASE 10: SVG GENERATION             → generator.py (integracion)
 ├─ NdFn metadata (<desc> elements)
 ├─ Gaussian blur text glow filter
 ├─ DrawingGroupProxy para wrapping
@@ -92,15 +92,15 @@ AlmaGag/layout/laf/
 ├── position_optimizer.py    # Fase 5: Optimizacion de posiciones
 │   └── PositionOptimizer    # Layer-offset bisection
 │                            # Soporta modo NdPr (connection_graph + levels params)
-├── inflator.py              # Fase 6: Inflacion
+├── inflator.py              # Fase 7: Inflacion
 │   └── ElementInflator      # Abstract → real coordinates
-├── container_grower.py      # Fase 6: Crecimiento de contenedores
+├── container_grower.py      # Fase 7: Crecimiento de contenedores
 │   └── ContainerGrower      # Bottom-up expansion + label-aware bounds
-└── visualizer.py            # 9 SVGs de visualizacion
+└── visualizer.py            # 10 SVGs de visualizacion
     └── GrowthVisualizer     # Snapshots de cada fase (NdPr-aware)
 
 AlmaGag/layout/
-├── laf_optimizer.py         # Coordinador LAF v2.0 (9 fases)
+├── laf_optimizer.py         # Coordinador LAF v2.0 (10 fases)
 │   └── LAFOptimizer         # Orquesta todo el pipeline
 └── collision.py             # Deteccion de colisiones (skip parent-child)
 ```
@@ -147,10 +147,11 @@ phase2_topology.svg      - Niveles topologicos y accessibility scores
 phase3_centrality.svg    - Ordenamiento por centralidad
 phase4_abstract.svg      - Posiciones abstractas (puntos 1px)
 phase5_optimized.svg     - Posiciones optimizadas (bisection)
-phase6_inflated.svg      - Inflacion + contenedores expandidos
-phase7_redistributed.svg - Redistribucion vertical + X scale
-phase8_routed.svg        - Routing de conexiones
-phase9_final.svg         - Layout final completo
+phase6_ndpr_expanded.svg - Expansion NdPr a elementos
+phase7_inflated.svg      - Inflacion + contenedores expandidos
+phase8_redistributed.svg - Redistribucion vertical + X scale
+phase9_routed.svg        - Routing de conexiones
+phase10_final.svg        - Layout final completo
 ```
 
 ## Algoritmos Clave
@@ -186,10 +187,10 @@ barycenter_final = (forward + backward) / 2
 #   - NdPr VCs: _toi_vc_0..4 (agrupan 4-6 elementos cada uno)
 #
 # Fases 3-5 operan sobre 8 NdPr usando ndpr_connection_graph
-# Fase 5.5 expande NdPr → 27 posiciones individuales
+# Fase 6 expande NdPr → 27 posiciones individuales
 ```
 
-### NdPr Expansion (Fase 5.5)
+### NdPr Expansion (Fase 6)
 
 ```python
 # Para cada NdPr:
@@ -201,7 +202,7 @@ barycenter_final = (forward + backward) / 2
 #   - Offsets: 0.4 horizontal, 1.0 vertical (abstract units)
 ```
 
-### Container Growth (Fase 6)
+### Container Growth (Fase 7)
 
 ```python
 for container in containers (bottom-up por profundidad):
@@ -212,7 +213,7 @@ for container in containers (bottom-up por profundidad):
     # 5. Step 4.5: expandir si labels exceden estimacion
 ```
 
-### Redistribucion X Scale (Fase 7)
+### Redistribucion X Scale (Fase 8)
 
 ```python
 # Formula corregida con half-widths
@@ -232,8 +233,8 @@ required_gap = half_width_i + half_width_next + MIN_HORIZONTAL_GAP
 | 6 | 2026-02-08 | Renumeracion + Fase 2 | Fases 2, 3 |
 | 7 | 2026-02-17 | Position optimization + X scale | Fase 5 |
 | 8 | 2026-02-19 | Consolidacion + metadata + fixes | 9 fases |
-| 9 | 2026-02-26 | TOI VCs, NdPr abstract graph | Fases 1, 3-5, 5.5 |
-| 10 | 2026-02-27 | NdPr expansion collision fix | Fase 5.5, 7 |
+| 9 | 2026-02-26 | TOI VCs, NdPr abstract graph | Fases 1, 3-6 |
+| 10 | 2026-02-27 | NdPr expansion collision fix | Fase 6, 8 |
 
 ## Referencias
 

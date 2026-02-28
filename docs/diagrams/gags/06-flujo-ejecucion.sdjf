@@ -28,13 +28,14 @@
     {
       "id": "laf_optimizer",
       "type": "building",
-      "label": "LAF Optimizer v1.4\n9 Fases",
+      "label": "LAF Optimizer v1.6\n10 Fases",
       "contains": [
         {"id": "phase1"},
         {"id": "phase2"},
         {"id": "phase3"},
         {"id": "phase4"},
         {"id": "phase5"},
+        {"id": "phase6"},
         {"id": "phase67"},
         {"id": "phase8"},
         {"id": "phase9"},
@@ -67,24 +68,29 @@
       "label": "Phase 5\nPosition Optimization"
     },
     {
+      "id": "phase6",
+      "type": "cloud",
+      "label": "Phase 6\nNdPr Expansion"
+    },
+    {
       "id": "phase67",
       "type": "cloud",
-      "label": "Phase 6\nInflation +\nContainer Growth"
+      "label": "Phase 7\nInflation +\nContainer Growth"
     },
     {
       "id": "phase8",
       "type": "cloud",
-      "label": "Phase 7\nRedistribution"
+      "label": "Phase 8\nRedistribution"
     },
     {
       "id": "phase9",
       "type": "cloud",
-      "label": "Phase 8\nRouting"
+      "label": "Phase 9\nRouting"
     },
     {
       "id": "phase10",
       "type": "cloud",
-      "label": "Phase 9\nVisualization"
+      "label": "Phase 10\nVisualization"
     },
     {
       "id": "auto_optimizer",
@@ -263,8 +269,13 @@
     },
     {
       "from": "position_optimizer_fn",
-      "to": "phase67",
+      "to": "phase6",
       "label": "optimized_positions"
+    },
+    {
+      "from": "phase6",
+      "to": "phase67",
+      "label": "expanded_positions"
     },
     {
       "from": "phase67",

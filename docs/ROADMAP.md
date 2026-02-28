@@ -50,7 +50,7 @@
 #### Código v3.3 (Febrero 2026)
 - ✅ **NdPr (Nodo Primario)**: Grafo abstracto para Fases 3-5
 - ✅ **TOI Virtual Containers**: Detección automática de patrones TOI
-- ✅ **Fase 5.5**: Expansión de NdPr a elementos individuales
+- ✅ **Fase 6**: Expansión de NdPr a elementos individuales
 - ✅ 0 colisiones en stresstest (27 elementos, 5 VCs)
 - ✅ Retrocompatible con diagramas sin VCs
 

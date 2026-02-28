@@ -111,7 +111,7 @@ class AbstractPlacer:
         # Step 2: Ordering (ordenar dentro de capas)
         self._order_within_layers(layers, structure_info, layout)
 
-        # Guardar orden optimizado para Fase 7 (Redistribución)
+        # Guardar orden optimizado para Fase 8 (Redistribución)
         layout.optimized_layer_order = [layer.copy() for layer in layers]
 
         # Fase 3: Positioning (asignar coordenadas abstractas)

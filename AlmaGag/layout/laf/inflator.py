@@ -58,14 +58,14 @@ class ElementInflator:
         Returns:
             float: Spacing calculado (para debug/logging)
         """
-        # Fase 6.1: Calcular spacing proporcional
+        # Fase 7.1: Calcular spacing proporcional
         spacing = self.calculate_spacing(structure_info)
 
         if self.debug:
             logger.debug(f"[INFLATOR] Spacing calculado: {spacing:.1f}px")
             logger.debug(f"           Formula: MAX(20*{ICON_WIDTH}, 3*max_contained*{ICON_WIDTH})")
 
-        # Fase 6.2: Asignar posiciones reales
+        # Fase 7.2: Asignar posiciones reales
         self._assign_real_positions(
             abstract_positions,
             spacing,
@@ -75,7 +75,7 @@ class ElementInflator:
         if self.debug:
             logger.debug(f"[INFLATOR] Posiciones reales asignadas: {len(abstract_positions)} elementos")
 
-        # Fase 6.3: Calcular posiciones de etiquetas
+        # Fase 7.3: Calcular posiciones de etiquetas
         if self.label_optimizer:
             self._calculate_label_positions(layout)
 
@@ -168,7 +168,7 @@ class ElementInflator:
         Calcula posiciones iniciales de etiquetas para contenedores.
 
         IMPORTANTE: NO calcular para elementos primarios, ya que sus posiciones
-        se ajustarán durante el centrado horizontal en Fase 7 y el
+        se ajustarán durante el centrado horizontal en Fase 8 y el
         LabelPositionOptimizer las calculará correctamente después.
 
         Args:
@@ -179,7 +179,7 @@ class ElementInflator:
 
         # Solo calcular posiciones para CONTENEDORES
         # Los elementos primarios serán calculados por LabelPositionOptimizer
-        # después del centrado horizontal (Fase 7)
+        # después del centrado horizontal (Fase 8)
         for elem in layout.elements:
             if not elem.get('label'):
                 continue
