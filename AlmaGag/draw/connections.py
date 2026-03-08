@@ -23,8 +23,11 @@ def compute_visual_offset(elem):
     Determina qué tan lejos del centro debe comenzar o terminar una línea
     de conexión para evitar superposición con la representación visual del elemento.
 
+    Usa las dimensiones reales del elemento (width/height) en vez de
+    constantes fijas, para funcionar con cualquier ícono o tamaño.
+
     Parámetros:
-        elem (dict): Elemento con 'type' opcional.
+        elem (dict): Elemento con dimensiones y tipo.
 
     Retorna:
         float: Distancia de offset desde el centro del ícono.
@@ -33,10 +36,9 @@ def compute_visual_offset(elem):
     if elem.get('contains'):
         return 0
 
-    elem_type = elem.get('type', 'unknown')
-    if elem_type == 'cloud':
-        return max(ICON_WIDTH, ICON_HEIGHT) / 2  # Para elipses (nubes)
-    return max(ICON_WIDTH, ICON_HEIGHT) / 2.5  # Para rectángulos u otros
+    w = elem.get('width', ICON_WIDTH)
+    h = elem.get('height', ICON_HEIGHT)
+    return max(w, h) / 2
 
 
 def _apply_direction_markers(attrs, direction, markers):

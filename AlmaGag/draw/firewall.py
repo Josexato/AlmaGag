@@ -15,9 +15,10 @@ def draw_firewall(dwg, x, y, color, element_id):
 
     # Escala: el SVG original está en mm (210x297), necesitamos ajustarlo a ICON_WIDTH x ICON_HEIGHT
     # Usar viewBox para escalar automáticamente
-    # Definir el área visible del patrón original (ajustado manualmente para centrarse en el contenido)
-    viewbox_x, viewbox_y = -10, 0
-    viewbox_w, viewbox_h = 50, 30
+    # Definir el área visible del patrón original
+    # Calculado para contener todos los hexágonos transformados (bounds: 0.27→50.27, 0.41→42.44)
+    viewbox_x, viewbox_y = 0, 0
+    viewbox_w, viewbox_h = 51, 43
 
     # Grupo con transformación para escalar y posicionar los hexágonos
     # Escala para ajustar viewbox (50x30) al tamaño del ícono (80x50)

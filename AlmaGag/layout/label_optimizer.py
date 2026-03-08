@@ -326,6 +326,12 @@ class LabelPositionOptimizer:
         if label.category == "element" and position.offset_name == "bottom":
             score -= 15  # Preferencia suave (permite optimización dinámica)
 
+        # Preferencia por lado derecho sobre izquierdo para elementos
+        if label.category == "element" and "right" in position.offset_name:
+            score -= 8
+        if label.category == "element" and "left" in position.offset_name:
+            score += 10
+
         return score
 
     def optimize_labels(

@@ -1,19 +1,21 @@
 """
 LAFOptimizer - Layout Abstracto Primero
 
-Coordinador del sistema LAF que ejecuta las 10 fases:
+Coordinador del sistema LAF que ejecuta las 11 fases:
 1. Análisis de estructura (grafo, accesibilidad, centralidad)
 2. Análisis topológico (niveles jerárquicos, longest-path)
 3. Ordenamiento por centralidad (centrales al centro, hojas a extremos)
 4. Layout abstracto (Sugiyama barycenter, minimización de cruces)
 5. Optimización de posiciones (layer-offset bisection, minimiza distancia de conectores)
 6. Expansión NdPr (NdPr → elementos individuales)
-7. Inflación + Crecimiento de contenedores (sub: 7.1, 7.2, 7.3)
-8. Redistribución vertical con escala X global (preserva ángulos de Fase 5)
-9. Routing (paths de conexiones)
-10. Generación de SVG
+7. Presentación de corrida iterativa 4-5-6 (resumen de iteraciones por profundidad)
+8. Inflación + Crecimiento de contenedores (sub: 8.1, 8.2, 8.3)
+9. Redistribución vertical con escala X global (preserva ángulos de Fase 5)
+10. Routing (paths de conexiones)
+10.5. Re-optimización de etiquetas contenidas post-routing
+11. Generación de SVG
 
-Version: v1.6 (Sprint 11 - renumeración 10 fases)
+Version: v1.8 (Sprint 13 - Fase 4 iterativa + renumeración fases 7→11)
 """
 
 from typing import List
@@ -35,7 +37,7 @@ class LAFOptimizer:
     """
     Optimizador LAF (Layout Abstracto Primero).
 
-    Ejecuta layout en 10 fases para minimizar cruces y distancias de conectores.
+    Ejecuta layout en 11 fases para minimizar cruces y distancias de conectores.
     Fase 5 (Claude-SolFase5): Optimiza posiciones de nodos primarios para
     minimizar la distancia total de conectores, sin realizar inflación.
     """
@@ -112,7 +114,7 @@ class LAFOptimizer:
         """
         Escribe posiciones abstractas temporalmente en los elementos.
 
-        Estas posiciones serán sobrescritas en Fase 7 con las posiciones reales.
+        Estas posiciones serán sobrescritas en Fase 8 con las posiciones reales.
         Solo se hace para que aparezcan en el dump del CSV de fases anteriores.
 
         Args:
@@ -122,11 +124,11 @@ class LAFOptimizer:
         for elem_id, (abstract_x, abstract_y) in abstract_positions.items():
             elem = layout.elements_by_id.get(elem_id)
             if elem:
-                # Escribir coordenadas abstractas (serán sobrescritas en Fase 7)
+                # Escribir coordenadas abstractas (serán sobrescritas en Fase 8)
                 elem['x'] = abstract_x
                 elem['y'] = abstract_y
 
-                # No asignar dimensiones aún (se hará en Fase 7)
+                # No asignar dimensiones aún (se hará en Fase 8)
 
     def _populate_layout_analysis(self, layout, structure_info):
         """
@@ -644,7 +646,7 @@ class LAFOptimizer:
         Centra elementos de un nivel horizontalmente en el canvas.
 
         NOTA: Solo se usa en el fallback (sin posiciones de Fase 5).
-        En el flujo normal, Phase 8 usa escala X global en vez de centrado por nivel.
+        En el flujo normal, Phase 9 usa escala X global en vez de centrado por nivel.
 
         Args:
             level_elements: IDs de elementos del nivel (YA ORDENADOS)
@@ -732,17 +734,18 @@ class LAFOptimizer:
 
     def optimize(self, layout):
         """
-        Ejecuta el pipeline LAF de 10 fases.
+        Ejecuta el pipeline LAF de 11 fases.
 
         Fases:
         1-3: Análisis (estructura, topología, centralidad)
         4: Layout abstracto (Sugiyama barycenter)
         5: Optimización de posiciones (layer-offset bisection)
         6: Expansión NdPr (NdPr → elementos individuales)
-        7: Inflación + Crecimiento de contenedores
-        8: Redistribución vertical (escala X global preservando ángulos de Fase 5)
-        9: Routing
-        10: Visualización SVG
+        7: Presentación de corrida iterativa 4-5-6
+        8: Inflación + Crecimiento de contenedores
+        9: Redistribución vertical (escala X global preservando ángulos de Fase 5)
+        10: Routing
+        11: Visualización SVG
 
         Args:
             layout: Layout inicial
@@ -751,7 +754,7 @@ class LAFOptimizer:
             Layout: Layout optimizado
         """
         if self.debug:
-            logger.debug("\n[LAF] Pipeline LAF (10 fases)")
+            logger.debug("\n[LAF] Pipeline LAF (11 fases)")
 
         # FASE 1: Análisis de estructura
         structure_info = self.structure_analyzer.analyze(layout)
@@ -806,8 +809,130 @@ class LAFOptimizer:
             mode_str = "NdPr" if use_ndpr else "primary"
             logger.debug(f"[LAF] Fase 3 OK: {len(centrality_order)} niveles ordenados por centralidad ({mode_str})")
 
-        # FASE 4: Layout abstracto (sobre NdPr si disponible)
-        ndpr_conn_graph = structure_info.ndpr_connection_graph if use_ndpr else None
+        # FASES 4-5-6: Layout abstracto iterativo por profundidad
+        if use_ndpr:
+            expanded_positions = self._run_iterative_phases_4_5_6(
+                structure_info, layout, centrality_order
+            )
+        else:
+            # Sin NdPr: una sola iteración directa (comportamiento original)
+            abstract_positions = self.abstract_placer.place_elements(
+                structure_info, layout,
+                centrality_order=centrality_order
+            )
+            crossings = self.abstract_placer.count_crossings(abstract_positions, layout.connections)
+
+            if self.visualizer:
+                self.visualizer.capture_phase4_abstract(
+                    abstract_positions, crossings, layout, structure_info
+                )
+            self._write_abstract_positions_to_layout(abstract_positions, layout)
+            self._dump_layout(layout, "LAF_PHASE_4_ABSTRACT")
+
+            if self.debug:
+                logger.debug(f"[LAF] Fase 4 OK: {len(abstract_positions)} posiciones, {crossings} cruces")
+
+            optimized_positions = self.position_optimizer.optimize_positions(
+                abstract_positions, structure_info, layout
+            )
+            optimized_crossings = self.abstract_placer.count_crossings(
+                optimized_positions, layout.connections
+            )
+
+            if self.visualizer:
+                self.visualizer.capture_phase5_optimized(
+                    optimized_positions, optimized_crossings, layout, structure_info
+                )
+
+            if self.debug:
+                cross_delta = f" ({crossings}->{optimized_crossings})" if crossings != optimized_crossings else ""
+                logger.debug(f"[LAF] Fase 5 OK: {len(optimized_positions)} optimizadas, {optimized_crossings} cruces{cross_delta}")
+
+            expanded_positions = optimized_positions
+
+        self._write_abstract_positions_to_layout(expanded_positions, layout)
+        self._update_optimized_layer_order(expanded_positions, structure_info, layout)
+        layout._phase5_positions = expanded_positions
+
+        self._dump_layout(layout, "LAF_PHASE_6_NDPR_EXPANDED")
+
+        # FASE 7: Presentación de corrida iterativa 4-5-6
+        iterative_summary = getattr(self, '_iterative_summary', None)
+        if self.visualizer and iterative_summary:
+            self.visualizer.capture_phase7_iterative(iterative_summary, structure_info)
+        self._dump_layout(layout, "LAF_PHASE_7_ITERATIVE_SUMMARY")
+
+        if self.debug and iterative_summary:
+            iters = iterative_summary['iterations']
+            logger.debug(
+                f"[LAF] Fase 7 OK: {iterative_summary['total_iterations']} iteraciones, "
+                f"max_depth={iterative_summary['max_depth']}, "
+                f"{iterative_summary['final_elements']} elementos finales"
+            )
+            # Tabla detallada de iteraciones
+            logger.debug(f"  {'Iter':<6}{'Profund.':<10}{'Nodos':<8}{'Colaps.':<9}{'Cruces(pre)':<13}{'Cruces(post)'}")
+            for it in iters:
+                logger.debug(
+                    f"  {it['iteration']:<6}"
+                    f"{it['label']:<10}"
+                    f"{it['nodes']:<8}"
+                    f"{it['collapsed']:<9}"
+                    f"{it['crossings_before']:<13}"
+                    f"{it['crossings_after']}"
+                )
+        elif self.debug:
+            logger.debug(f"[LAF] Fase 7 OK: sin iteraciones (modo directo)")
+
+        # FASES 8-9-10: Grow + Redistribute + Route
+        self._run_grow_redistribute_route(expanded_positions, structure_info, layout)
+
+        # FASE 10.5: Re-optimizar etiquetas contenidas post-routing
+        if self.router_manager:
+            self._reoptimize_contained_labels(structure_info, layout, expanded_positions)
+
+        # Colisiones finales
+        if self.collision_detector and self.debug:
+            collision_count, _ = self.collision_detector.detect_all_collisions(layout)
+            if collision_count > 0:
+                logger.warning(f"[LAF] {collision_count} colisiones detectadas")
+
+        # FASE 11: Generar visualizaciones
+        if self.visualizer:
+            self.visualizer.capture_phase11_final(layout, structure_info)
+            self.visualizer.generate_all()
+            if self.debug:
+                logger.debug(f"[LAF] Fase 11 OK: SVGs en debug/growth/")
+
+        if self.debug:
+            logger.debug(f"[LAF] Pipeline completo")
+
+        layout.sizing = self.sizing
+        layout.structure_info = structure_info
+        return layout
+
+    def _run_iterative_phases_4_5_6(self, structure_info, layout, centrality_order):
+        """
+        Ejecuta Fases 4-5-6 iterativamente expandiendo por profundidad.
+
+        Iteración 0: NdPr abstractos puro (containers colapsados como bounding boxes)
+        Iteración 1+: expande containers nivel por nivel hasta max_depth
+
+        Returns:
+            Dict[str, Tuple[float, float]]: posiciones expandidas de todos los elementos
+        """
+        max_depth = structure_info.get_max_container_depth()
+        total_iterations = max_depth + 2  # iter 0 (NdPr) + max_depth+1 expansiones
+
+        if self.debug:
+            logger.debug(f"[LAF] Fase 4-6 iterativa: max_depth={max_depth}, {total_iterations} iteraciones")
+
+        # Registro de iteraciones para Fase 7
+        iteration_log = []
+
+        # Iteración 0: NdPr puro
+        ndpr_conn_graph = structure_info.ndpr_connection_graph
+        ndpr_topo_levels = structure_info.ndpr_topological_levels
+
         abstract_positions = self.abstract_placer.place_elements(
             structure_info, layout,
             centrality_order=centrality_order,
@@ -819,16 +944,11 @@ class LAFOptimizer:
             self.visualizer.capture_phase4_abstract(
                 abstract_positions, crossings, layout, structure_info
             )
-        # En modo NdPr, abstract_positions son NdPr-level; no escribir a layout aún
-        if not use_ndpr:
-            self._write_abstract_positions_to_layout(abstract_positions, layout)
         self._dump_layout(layout, "LAF_PHASE_4_ABSTRACT")
 
         if self.debug:
-            logger.debug(f"[LAF] Fase 4 OK: {len(abstract_positions)} posiciones, {crossings} cruces")
+            logger.debug(f"[LAF] Iteración 0 (NdPr): {len(abstract_positions)} nodos, {crossings} cruces")
 
-        # FASE 5: Optimización de posiciones (Claude-SolFase5)
-        ndpr_topo_levels = structure_info.ndpr_topological_levels if use_ndpr else None
         optimized_positions = self.position_optimizer.optimize_positions(
             abstract_positions, structure_info, layout,
             connection_graph=ndpr_conn_graph,
@@ -844,26 +964,169 @@ class LAFOptimizer:
             )
 
         if self.debug:
-            cross_delta = f" ({crossings}->{optimized_crossings})" if crossings != optimized_crossings else ""
-            logger.debug(f"[LAF] Fase 5 OK: {len(optimized_positions)} optimizadas, {optimized_crossings} cruces{cross_delta}")
+            logger.debug(f"[LAF] Iteración 0 opt: {optimized_crossings} cruces")
 
-        # FASE 6: Expandir NdPr a elementos individuales
-        if use_ndpr:
-            expanded_positions = self._expand_ndpr_to_elements(
-                optimized_positions, structure_info
-            )
+        iteration_log.append({
+            'iteration': 0,
+            'depth': -1,
+            'label': 'NdPr puro',
+            'nodes': len(abstract_positions),
+            'collapsed': 0,
+            'crossings_before': crossings,
+            'crossings_after': optimized_crossings,
+            'positions': dict(optimized_positions),
+            'connection_graph': dict(ndpr_conn_graph),
+            'collapsed_sizes': {},
+        })
+
+        # Iteraciones 1..max_depth+1: expandir por profundidad
+        for depth in range(max_depth + 1):
+            partial_graph = structure_info.build_graph_at_depth(depth)
+
             if self.debug:
-                logger.debug(f"[LAF] Fase 6 OK: {len(optimized_positions)} NdPr -> {len(expanded_positions)} elementos")
-        else:
-            expanded_positions = optimized_positions
+                logger.debug(
+                    f"[LAF] Iteración {depth + 1} (depth={depth}): "
+                    f"{len(partial_graph.elements)} nodos, "
+                    f"{len(partial_graph.collapsed_sizes)} colapsados"
+                )
 
-        self._write_abstract_positions_to_layout(expanded_positions, layout)
-        self._update_optimized_layer_order(expanded_positions, structure_info, layout)
-        layout._phase5_positions = expanded_positions
+            # Fase 4: Place con grafo parcial
+            abstract_positions = self.abstract_placer.place_elements(
+                structure_info, layout,
+                centrality_order=centrality_order,
+                connection_graph=partial_graph.connection_graph,
+                collapsed_sizes=partial_graph.collapsed_sizes,
+                topological_levels=partial_graph.topological_levels
+            )
 
-        self._dump_layout(layout, "LAF_PHASE_6_NDPR_EXPANDED")
+            crossings_before = self.abstract_placer.count_crossings(
+                abstract_positions, layout.connections
+            )
 
-        # FASE 7: Inflación + Crecimiento de contenedores
+            # Fase 5: Optimize
+            optimized_positions = self.position_optimizer.optimize_positions(
+                abstract_positions, structure_info, layout,
+                connection_graph=partial_graph.connection_graph,
+                topological_levels=partial_graph.topological_levels
+            )
+
+            crossings_after = self.abstract_placer.count_crossings(
+                optimized_positions, layout.connections
+            )
+
+            if self.debug:
+                logger.debug(
+                    f"[LAF] Iteración {depth + 1} opt: "
+                    f"{len(optimized_positions)} nodos, {crossings_after} cruces"
+                )
+
+            iteration_log.append({
+                'iteration': depth + 1,
+                'depth': depth,
+                'label': f'depth {depth}',
+                'nodes': len(partial_graph.elements),
+                'collapsed': len(partial_graph.collapsed_sizes),
+                'crossings_before': crossings_before,
+                'crossings_after': crossings_after,
+                'positions': dict(optimized_positions),
+                'connection_graph': dict(partial_graph.connection_graph),
+                'collapsed_sizes': dict(partial_graph.collapsed_sizes),
+            })
+
+        # Fase 6: Expandir posiciones finales a todos los elementos
+        expanded_positions = self._expand_final_positions(
+            optimized_positions, structure_info
+        )
+
+        if self.debug:
+            logger.debug(
+                f"[LAF] Fase 6 OK: {len(optimized_positions)} parciales -> "
+                f"{len(expanded_positions)} elementos"
+            )
+
+        # Guardar resumen iterativo para Fase 7
+        self._iterative_summary = {
+            'max_depth': max_depth,
+            'total_iterations': total_iterations,
+            'final_elements': len(expanded_positions),
+            'iterations': iteration_log,
+        }
+
+        return expanded_positions
+
+    def _expand_final_positions(self, partial_positions, structure_info):
+        """
+        Expande posiciones parciales a todos los elementos del diagrama.
+
+        Nodos ya posicionados mantienen su posición. Nodos sin posición
+        (hijos de containers expandidos en la última iteración) reciben
+        posiciones relativas a su contenedor.
+
+        Args:
+            partial_positions: {elem_id: (x, y)} posiciones de la última iteración
+            structure_info: StructureInfo completa
+
+        Returns:
+            Dict[str, Tuple[float, float]]: posiciones para todos los elementos
+        """
+        element_positions = dict(partial_positions)
+
+        horizontal_offset = 0.4
+        vertical_offset = 1.0
+
+        # Posicionar hijos de contenedores que aún no tienen posición
+        for elem_id, node in structure_info.element_tree.items():
+            if not node['is_container'] or not node['children']:
+                continue
+
+            if elem_id not in element_positions:
+                continue
+
+            cx, cy = element_positions[elem_id]
+
+            for i, child_id in enumerate(node['children']):
+                if child_id not in element_positions:
+                    child_x = cx + 0.1 + (i * horizontal_offset)
+                    child_y = cy + vertical_offset
+                    element_positions[child_id] = (child_x, child_y)
+
+        # Expandir VCs: miembros que aún no están posicionados
+        for vc in structure_info.toi_virtual_containers:
+            vc_id = vc['id']
+            # Si el VC mismo está posicionado pero sus miembros no
+            if vc_id in element_positions:
+                nx, ny = element_positions[vc_id]
+                members = sorted(vc['members'])
+
+                by_sublevel = {}
+                for m in members:
+                    if m not in element_positions:
+                        lvl = structure_info.topological_levels.get(m, 0)
+                        by_sublevel.setdefault(lvl, []).append(m)
+
+                if by_sublevel:
+                    sorted_sublevels = sorted(by_sublevel.keys())
+                    min_sublevel = sorted_sublevels[0]
+
+                    for sublevel in sorted_sublevels:
+                        sublevel_members = by_sublevel[sublevel]
+                        relative_y = sublevel - min_sublevel
+                        num_members = len(sublevel_members)
+                        start_offset = -((num_members - 1) * horizontal_offset) / 2
+
+                        for i, member_id in enumerate(sublevel_members):
+                            mx = nx + start_offset + i * horizontal_offset
+                            my = ny + relative_y * vertical_offset
+                            element_positions[member_id] = (mx, my)
+
+                # Remove VC placeholder from positions
+                del element_positions[vc_id]
+
+        return element_positions
+
+    def _run_grow_redistribute_route(self, expanded_positions, structure_info, layout):
+        """Ejecuta fases 8 (grow), 9 (redistribute), 10 (routing)."""
+        # FASE 8: Inflación + Crecimiento de contenedores
         spacing = self.inflator.inflate_elements(expanded_positions, structure_info, layout)
 
         self.container_grower.grow_containers(structure_info, layout)
@@ -874,49 +1137,191 @@ class LAFOptimizer:
         layout.canvas['height'] = canvas_height
 
         if self.visualizer:
-            self.visualizer.capture_phase7_inflated(layout, spacing, structure_info)
-        self._dump_layout(layout, "LAF_PHASE_7_INFLATED_AND_GROWN")
+            self.visualizer.capture_phase8_inflated(layout, spacing, structure_info)
+        self._dump_layout(layout, "LAF_PHASE_8_INFLATED_AND_GROWN")
 
         if self.debug:
-            logger.debug(f"[LAF] Fase 7 OK: spacing={spacing:.0f}px, canvas {canvas_width:.0f}x{canvas_height:.0f}px")
+            logger.debug(f"[LAF] Fase 8 OK: spacing={spacing:.0f}px, canvas {canvas_width:.0f}x{canvas_height:.0f}px")
 
-        # FASE 8: Redistribución vertical
+        # FASE 9: Redistribución vertical
         self._redistribute_vertical_after_growth(structure_info, layout)
 
         if self.visualizer:
-            self.visualizer.capture_phase8_redistributed(layout, structure_info)
-        self._dump_layout(layout, "LAF_PHASE_8_REDISTRIBUTED")
+            self.visualizer.capture_phase9_redistributed(layout, structure_info)
+        self._dump_layout(layout, "LAF_PHASE_9_REDISTRIBUTED")
 
         if self.debug:
-            logger.debug(f"[LAF] Fase 8 OK: redistribución vertical")
+            logger.debug(f"[LAF] Fase 9 OK: redistribución vertical")
 
-        # FASE 9: Routing
+        # FASE 10: Routing
         if self.router_manager:
             self.router_manager.calculate_all_paths(layout)
             if self.visualizer:
-                self.visualizer.capture_phase9_routed(layout, structure_info)
+                self.visualizer.capture_phase10_routed(layout, structure_info)
             if self.debug:
-                logger.debug(f"[LAF] Fase 9 OK: {len(layout.connections)} conexiones ruteadas")
+                logger.debug(f"[LAF] Fase 10 OK: {len(layout.connections)} conexiones ruteadas")
 
-        # Colisiones finales
-        if self.collision_detector and self.debug:
-            collision_count, _ = self.collision_detector.detect_all_collisions(layout)
-            if collision_count > 0:
-                logger.warning(f"[LAF] {collision_count} colisiones detectadas")
+        return spacing
 
-        # FASE 10: Generar visualizaciones
-        if self.visualizer:
-            self.visualizer.capture_phase10_final(layout, structure_info)
-            self.visualizer.generate_all()
-            if self.debug:
-                logger.debug(f"[LAF] Fase 10 OK: SVGs en debug/growth/")
+    def _reoptimize_contained_labels(self, structure_info, layout, expanded_positions):
+        """
+        Fase 10.5: Re-optimiza etiquetas de elementos contenidos post-routing.
+
+        Después del routing (Fase 10), las etiquetas de elementos contenidos pueden
+        colisionar con las rutas de conexiones internas. Esta fase re-optimiza
+        las posiciones usando LabelPositionOptimizer con las rutas calculadas.
+
+        Si alguna etiqueta sale de los bounds del contenedor, re-ejecuta fases 8-9-10
+        iterativamente (máximo 3 iteraciones).
+        """
+        from AlmaGag.layout.label_optimizer import LabelPositionOptimizer, Label
+
+        total_reoptimized = 0
+
+        # Procesar contenedores bottom-up (más profundos primero)
+        sorted_containers = self.container_grower._sort_containers_by_depth(structure_info)
+
+        for container_id in sorted_containers:
+            node = structure_info.element_tree[container_id]
+            children = node['children']
+            if not children:
+                continue
+
+            container = layout.elements_by_id.get(container_id)
+            if not container:
+                continue
+
+            # Bounds del contenedor (canvas para el optimizador)
+            cont_x = container.get('x', 0)
+            cont_y = container.get('y', 0)
+            cont_w = container.get('width', 200)
+            cont_h = container.get('height', 150)
+
+            # Filtrar conexiones internas con computed_path
+            internal_conns = ContainerGrower.get_internal_connections(
+                children, layout.connections
+            )
+            routed_conns = [c for c in internal_conns if c.get('computed_path')]
+
+            if not routed_conns:
+                continue  # Sin conexiones ruteadas, nada que re-optimizar
+
+            # Crear optimizador con canvas del layout (no del contenedor)
+            # para no penalizar labels que desbordan — el contenedor se expande después
+            optimizer = LabelPositionOptimizer(
+                geometry_calculator=self.geometry,
+                canvas_width=int(layout.canvas.get('width', 2000)),
+                canvas_height=int(layout.canvas.get('height', 2000)),
+                debug=self.debug
+            )
+
+            # Crear lista de Label objects para cada hijo con etiqueta
+            labels = []
+            for child_id in children:
+                child = layout.elements_by_id.get(child_id)
+                if not child or not child.get('label'):
+                    continue
+
+                child_x = child.get('x', 0)
+                child_y = child.get('y', 0)
+                child_w = child.get('width', 80)
+                child_h = child.get('height', 50)
+
+                labels.append(Label(
+                    id=child_id,
+                    text=child['label'],
+                    anchor_x=child_x + child_w / 2,
+                    anchor_y=child_y + child_h / 2,
+                    font_size=12,
+                    priority=1,
+                    category="element",
+                    fixed=False,
+                    element_center_x=child_x + child_w / 2,
+                    element_center_y=child_y + child_h / 2
+                ))
+
+            if not labels:
+                continue
+
+            # Crear lista de elementos internos como obstáculos
+            internal_elements = []
+            for child_id in children:
+                child = layout.elements_by_id.get(child_id)
+                if child:
+                    internal_elements.append({
+                        'id': child_id,
+                        'x': child.get('x', 0),
+                        'y': child.get('y', 0),
+                        'width': child.get('width', 80),
+                        'height': child.get('height', 50),
+                    })
+
+            # Ejecutar optimización con conexiones ruteadas como obstáculos
+            best_positions = optimizer.optimize_labels(
+                labels, internal_elements, routed_conns
+            )
+
+            # Actualizar layout.label_positions con resultados
+            for label_id, pos in best_positions.items():
+                layout.label_positions[label_id] = (
+                    pos.x, pos.y, pos.anchor, pos.offset_name
+                )
+                total_reoptimized += 1
+
+            # Expandir contenedor in-place si labels desbordan
+            self._expand_container_for_labels(container, children, layout)
 
         if self.debug:
-            logger.debug(f"[LAF] Pipeline completo")
+            logger.debug(f"[LAF] Fase 10.5 OK: {total_reoptimized} labels re-optimized")
 
-        layout.sizing = self.sizing
-        layout.structure_info = structure_info
-        return layout
+    def _expand_container_for_labels(self, container, children, layout):
+        """
+        Expande un contenedor in-place si las etiquetas re-optimizadas desbordan sus bounds.
+
+        No reposiciona hijos — solo agranda width/height del contenedor para acomodar
+        las etiquetas en sus nuevas posiciones post-Phase 10.5.
+        """
+        cont_x = container.get('x', 0)
+        cont_y = container.get('y', 0)
+        cont_w = container.get('width', 200)
+        cont_h = container.get('height', 150)
+
+        max_right = cont_x + cont_w
+        max_bottom = cont_y + cont_h
+
+        for child_id in children:
+            if child_id not in layout.label_positions:
+                continue
+            child = layout.elements_by_id.get(child_id)
+            if not child or not child.get('label'):
+                continue
+
+            lx, ly, anchor, _ = layout.label_positions[child_id]
+            label_text = child['label']
+            lines = label_text.split('\n')
+            label_w = max(len(line) for line in lines) * 8 if lines else 0
+            label_h = len(lines) * 18
+
+            if anchor == 'middle':
+                lx2 = lx + label_w / 2
+            elif anchor == 'start':
+                lx2 = lx + label_w
+            else:  # 'end'
+                lx2 = lx
+
+            ly2 = ly + label_h
+            max_right = max(max_right, lx2)
+            max_bottom = max(max_bottom, ly2)
+
+        new_w = max_right - cont_x
+        new_h = max_bottom - cont_y
+
+        if new_w > cont_w or new_h > cont_h:
+            padding = 10  # Margen de seguridad
+            container['width'] = new_w + padding
+            container['height'] = new_h + padding
+            if self.debug:
+                logger.debug(f"[LAF] Fase 10.5: contenedor expandido {cont_w:.0f}x{cont_h:.0f} -> {new_w + padding:.0f}x{new_h + padding:.0f}")
 
     def _update_optimized_layer_order(self, optimized_positions, structure_info, layout):
         """
@@ -924,7 +1329,7 @@ class LAFOptimizer:
 
         Después de la optimización de posiciones, el orden dentro de cada capa
         puede haber cambiado. Este método actualiza layout.optimized_layer_order
-        para reflejar el nuevo orden, que será usado en Fase 8 (Redistribución).
+        para reflejar el nuevo orden, que será usado en Fase 9 (Redistribución).
 
         Cuando las posiciones vienen de una expansión NdPr→elementos, reconstruye
         las capas desde cero usando topological_levels, ya que las capas originales
@@ -1135,8 +1540,8 @@ class LAFOptimizer:
             vc_map[vc['id']] = vc
 
         # Horizontal and vertical offset between expanded elements (abstract units).
-        # Phase 8 uses global_x_scale >= 480px/unit → 0.4 * 480 = 192px (≥ ICON_WIDTH + gap).
-        # Phase 8 uses VERTICAL_SPACING = 240px for levels, and vertical_factor varies,
+        # Phase 9 uses global_x_scale >= 480px/unit → 0.4 * 480 = 192px (≥ ICON_WIDTH + gap).
+        # Phase 9 uses VERTICAL_SPACING = 240px for levels, and vertical_factor varies,
         # so 1.0 abstract Y unit maps to a full level separation.
         horizontal_offset = 0.4
         vertical_offset = 1.0

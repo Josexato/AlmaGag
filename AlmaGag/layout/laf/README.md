@@ -15,7 +15,7 @@ En lugar de posicionar elementos con sus dimensiones reales desde el inicio (lo 
 5. **Redistribuye** con escala X basada en half-widths de grupos NdFn
 6. **Renderiza** con metadata SVG (descriptores NdFn) y Gaussian blur text glow
 
-## Pipeline de 10 Fases
+## Pipeline de 11 Fases
 
 ```
 FASE 1: STRUCTURE ANALYSIS          → structure_analyzer.py
@@ -35,42 +35,51 @@ FASE 3: CENTRALITY ORDERING         → laf_optimizer.py
 ├─ VCs: score = max(accessibility_scores de miembros)
 └─ Preparar entrada para abstract placement
 
-FASE 4: ABSTRACT PLACEMENT          → abstract_placer.py
-├─ NdPr nodes = puntos de 1px (modo NdPr)
-├─ Layering (por nivel topologico NdPr)
-├─ Ordering (barycenter bidireccional sobre ndpr_connection_graph)
-└─ Minimizar cruces explicitamente
+FASES 4-5-6: LAYOUT ABSTRACTO ITERATIVO → abstract_placer.py + position_optimizer.py + laf_optimizer.py
+├─ Iteracion por profundidad de contenedores
+├─ FASE 4: ABSTRACT PLACEMENT
+│   ├─ NdPr nodes = puntos de 1px (modo NdPr)
+│   ├─ Layering (por nivel topologico NdPr)
+│   ├─ Ordering: center-out por effective alpha (centralidad efectiva)
+│   │   ├─ Deteccion de hojas same-layer (outdeg=0, score ≤ 0.05)
+│   │   ├─ Penalizacion alpha *= 0.3 para padres con hojas
+│   │   └─ Distribucion simetrica de hojas alrededor del padre
+│   └─ Minimizar cruces explicitamente
+├─ FASE 5: POSITION OPTIMIZATION
+│   ├─ Layer-offset bisection sobre NdPr
+│   ├─ Minimizar distancia ponderada de conectores
+│   └─ Forward + backward, convergencia < 0.001
+└─ FASE 6: NdPr EXPANSION
+    ├─ Expandir NdPr a elementos individuales
+    ├─ VCs: distribuir miembros por sub-nivel topologico
+    ├─ Simples: copiar posicion directamente
+    ├─ Reconstruir optimized_layer_order por topological_levels
+    └─ Offsets: 0.4 horizontal, 1.0 vertical (abstract units)
 
-FASE 5: POSITION OPTIMIZATION       → position_optimizer.py
-├─ Layer-offset bisection sobre NdPr
-├─ Minimizar distancia ponderada de conectores
-└─ Forward + backward, convergencia < 0.001
+FASE 7: ITERATIVE SUMMARY           → visualizer.py
+├─ Presentacion de la corrida iterativa 4-5-6
+├─ Muestra alpha efectiva por nodo (con penalizacion por hojas)
+├─ Corridor-based overlap detection para conexiones
+└─ Registro de iteraciones y convergencia
 
-FASE 6: NdPr EXPANSION              → laf_optimizer.py
-├─ Expandir NdPr a elementos individuales
-├─ VCs: distribuir miembros por sub-nivel topologico
-├─ Simples: copiar posicion directamente
-├─ Reconstruir optimized_layer_order por topological_levels
-└─ Offsets: 0.4 horizontal, 1.0 vertical (abstract units)
-
-FASE 7: INFLATION + CONTAINER GROWTH → inflator.py + container_grower.py
+FASE 8: INFLATION + CONTAINER GROWTH → inflator.py + container_grower.py
 ├─ Spacing proporcional + dimensiones reales
 ├─ Expandir contenedores bottom-up
 ├─ Posicionar hijos en grid horizontal
 ├─ _measure_placed_content() post-check
 └─ Step 4.5 expansion si labels exceden estimacion
 
-FASE 8: VERTICAL REDISTRIBUTION     → laf_optimizer.py
+FASE 9: VERTICAL REDISTRIBUTION     → laf_optimizer.py
 ├─ Redistribuir tras crecimiento
 ├─ Escala X: half_width_i + half_width_next + MIN_GAP
 └─ Centrado global usando bounding boxes
 
-FASE 9: ROUTING                     → router_manager.py (integracion)
+FASE 10: ROUTING                    → router_manager.py (integracion)
 ├─ Calcular paths de conexiones
 ├─ Self-loop detection + arc routing
 └─ Container border routing
 
-FASE 10: SVG GENERATION             → generator.py (integracion)
+FASE 11: SVG GENERATION             → generator.py (integracion)
 ├─ NdFn metadata (<desc> elements)
 ├─ Gaussian blur text glow filter
 ├─ DrawingGroupProxy para wrapping
@@ -92,15 +101,15 @@ AlmaGag/layout/laf/
 ├── position_optimizer.py    # Fase 5: Optimizacion de posiciones
 │   └── PositionOptimizer    # Layer-offset bisection
 │                            # Soporta modo NdPr (connection_graph + levels params)
-├── inflator.py              # Fase 7: Inflacion
+├── inflator.py              # Fase 8: Inflacion
 │   └── ElementInflator      # Abstract → real coordinates
-├── container_grower.py      # Fase 7: Crecimiento de contenedores
+├── container_grower.py      # Fase 8: Crecimiento de contenedores
 │   └── ContainerGrower      # Bottom-up expansion + label-aware bounds
-└── visualizer.py            # 10 SVGs de visualizacion
+└── visualizer.py            # 10 SVGs de visualizacion (fases 1-5, 7-11)
     └── GrowthVisualizer     # Snapshots de cada fase (NdPr-aware)
 
 AlmaGag/layout/
-├── laf_optimizer.py         # Coordinador LAF v2.0 (10 fases)
+├── laf_optimizer.py         # Coordinador LAF v1.8 (11 fases)
 │   └── LAFOptimizer         # Orquesta todo el pipeline
 └── collision.py             # Deteccion de colisiones (skip parent-child)
 ```
@@ -130,7 +139,7 @@ AlmaGag/layout/
 # Generar con LAF (recomendado para diagramas complejos)
 python -m AlmaGag.main archivo.gag --layout-algorithm=laf -o output.svg
 
-# Con visualizacion del proceso (9 SVGs de debug)
+# Con visualizacion del proceso (10 SVGs de debug)
 python -m AlmaGag.main archivo.gag --layout-algorithm=laf --visualize-growth
 
 # Con conexiones coloreadas
@@ -142,31 +151,33 @@ python -m AlmaGag.main archivo.gag --layout-algorithm=laf --debug --visualize-gr
 
 **Output de visualizacion** en `debug/growth/{diagram}/`:
 ```
-phase1_structure.svg     - Arbol de elementos con metricas
-phase2_topology.svg      - Niveles topologicos y accessibility scores
-phase3_centrality.svg    - Ordenamiento por centralidad
-phase4_abstract.svg      - Posiciones abstractas (puntos 1px)
-phase5_optimized.svg     - Posiciones optimizadas (bisection)
-phase6_ndpr_expanded.svg - Expansion NdPr a elementos
-phase7_inflated.svg      - Inflacion + contenedores expandidos
-phase8_redistributed.svg - Redistribucion vertical + X scale
-phase9_routed.svg        - Routing de conexiones
-phase10_final.svg        - Layout final completo
+phase1_structure.svg      - Arbol de elementos con metricas
+phase2_topology.svg       - Niveles topologicos y accessibility scores
+phase3_centrality.svg     - Ordenamiento por centralidad
+phase4_abstract.svg       - Posiciones abstractas (puntos 1px)
+phase5_optimized.svg      - Posiciones optimizadas (bisection)
+phase7_iterative.svg      - Resumen iterativo 4-5-6 con alpha efectiva
+phase8_inflated.svg       - Inflacion + contenedores expandidos
+phase9_redistributed.svg  - Redistribucion vertical + X scale
+phase10_routed.svg        - Routing de conexiones
+phase11_final.svg         - Layout final completo
 ```
 
 ## Algoritmos Clave
 
-### Barycenter Heuristic (Fase 4)
+### Barycenter + Center-Out Distribution (Fase 4)
 
 ```python
-# Forward pass: promedio de posiciones de padres
+# Forward pass: promedio de posiciones de padres (con alpha reducida si tiene hojas)
 barycenter_forward = avg([pos(parent) for parent in parents])
+if has_same_layer_leaves(node): alpha *= 0.3
 
 # Backward pass: promedio de posiciones de hijos
 barycenter_backward = avg([pos(child) for child in children])
 
-# Combinar
-barycenter_final = (forward + backward) / 2
+# Center-out distribution: mayor alpha al centro, alternando izq/der
+# Hojas se distribuyen simetricamente alrededor del padre (virtual container)
+# Hoja impar va al lado periferico (lejos del centro)
 ```
 
 ### Layer-Offset Bisection (Fase 5)
@@ -202,7 +213,7 @@ barycenter_final = (forward + backward) / 2
 #   - Offsets: 0.4 horizontal, 1.0 vertical (abstract units)
 ```
 
-### Container Growth (Fase 7)
+### Container Growth (Fase 8)
 
 ```python
 for container in containers (bottom-up por profundidad):
@@ -213,7 +224,7 @@ for container in containers (bottom-up por profundidad):
     # 5. Step 4.5: expandir si labels exceden estimacion
 ```
 
-### Redistribucion X Scale (Fase 8)
+### Redistribucion X Scale (Fase 9)
 
 ```python
 # Formula corregida con half-widths

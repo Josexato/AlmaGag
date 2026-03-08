@@ -75,7 +75,9 @@ class AbstractPlacer:
         structure_info: StructureInfo,
         layout,
         centrality_order: Dict[int, List[Tuple[str, float]]] = None,
-        connection_graph: Dict[str, List[str]] = None
+        connection_graph: Dict[str, List[str]] = None,
+        collapsed_sizes: Dict[str, float] = None,
+        topological_levels: Dict[str, int] = None
     ) -> Dict[str, Tuple[int, int]]:
         """
         Calcula posiciones abstractas (x, y) para elementos.
@@ -98,6 +100,10 @@ class AbstractPlacer:
             centrality_order: Orden de Fase 3 {level: [(elem_id, score), ...]}
             connection_graph: Grafo de conexiones explícito (modo NdPr).
                               Si se provee, se usa en vez de layout.connections.
+            collapsed_sizes: {elem_id: estimated_width} para nodos colapsados
+                             que ocupan más espacio horizontal.
+            topological_levels: Niveles topológicos explícitos (override para
+                                iteraciones de expansión parcial).
 
         Returns:
             {element_id: (abstract_x, abstract_y)}
@@ -106,16 +112,20 @@ class AbstractPlacer:
         self._connection_graph = connection_graph
 
         # Fase 1: Layering (asignar elementos a capas)
-        layers = self._assign_layers(structure_info, centrality_order)
+        if topological_levels and connection_graph:
+            # Modo iterativo: usar topological_levels del grafo parcial
+            layers = self._assign_layers_from_levels(topological_levels)
+        else:
+            layers = self._assign_layers(structure_info, centrality_order)
 
         # Step 2: Ordering (ordenar dentro de capas)
         self._order_within_layers(layers, structure_info, layout)
 
-        # Guardar orden optimizado para Fase 8 (Redistribución)
+        # Guardar orden optimizado para Fase 9 (Redistribución)
         layout.optimized_layer_order = [layer.copy() for layer in layers]
 
         # Fase 3: Positioning (asignar coordenadas abstractas)
-        positions = self._assign_abstract_positions(layers)
+        positions = self._assign_abstract_positions(layers, collapsed_sizes)
 
         # Fase 4: Positioning de elementos contenidos (solo modo normal)
         if not connection_graph:
@@ -130,6 +140,32 @@ class AbstractPlacer:
         self._connection_graph = None
 
         return positions
+
+    def _assign_layers_from_levels(
+        self,
+        topological_levels: Dict[str, int]
+    ) -> List[List[str]]:
+        """
+        Asigna elementos a capas usando niveles topológicos explícitos.
+
+        Usado en el modo iterativo donde los elementos vienen del grafo parcial.
+
+        Args:
+            topological_levels: {elem_id: level} para todos los elementos
+
+        Returns:
+            Lista de capas, cada capa es lista de element_ids
+        """
+        if not topological_levels:
+            return [list(topological_levels.keys())]
+
+        max_level = max(topological_levels.values())
+        layers = [[] for _ in range(max_level + 1)]
+
+        for elem_id, level in topological_levels.items():
+            layers[level].append(elem_id)
+
+        return layers
 
     def _assign_layers(
         self,
@@ -226,19 +262,12 @@ class AbstractPlacer:
                     layout
                 )
 
-            # Hub positioning DESPUÉS de ambos passes para que sea el último ajuste
+            # Distribución center-out por centralidad efectiva:
+            # mayor alpha al centro, menores intercalados izq/der,
+            # hojas pegadas a su padre en el lado externo
             for layer_idx in range(len(layers)):
                 if len(layers[layer_idx]) >= 3:
-                    self._position_hub_containers_in_center(
-                        layers[layer_idx],
-                        structure_info,
-                        layout
-                    )
-
-            # Leaf positioning: hojas adyacentes a su padre, lado opuesto al centro
-            for layer_idx in range(len(layers)):
-                if len(layers[layer_idx]) >= 2:
-                    self._position_leaves_near_parents(
+                    self._distribute_by_centrality(
                         layers[layer_idx],
                         structure_info,
                     )
@@ -330,6 +359,22 @@ class AbstractPlacer:
         # ALGORITMO HÍBRIDO: Mezclar barycenter de conexiones con atracción al centro
         # según accessibility score
         center = (len(current_layer) - 1) / 2.0
+        conn_graph = self._connection_graph if self._connection_graph is not None else structure_info.connection_graph
+
+        # Detectar clusters padre-hojas en la misma capa para reducir centralidad del padre
+        layer_set = set(current_layer)
+        has_same_layer_leaves = set()
+        for elem_id in current_layer:
+            same_layer_targets = [t for t in conn_graph.get(elem_id, []) if t in layer_set]
+            if same_layer_targets:
+                # Verificar si algún target es hoja (sin conexiones inter-capa)
+                for t in same_layer_targets:
+                    t_outdeg = len([x for x in conn_graph.get(t, []) if x not in layer_set])
+                    t_indeg = sum(1 for s, ts in conn_graph.items()
+                                  if s not in layer_set and t in ts)
+                    if t_outdeg + t_indeg == 0:
+                        has_same_layer_leaves.add(elem_id)
+                        break
 
         for elem_id in current_layer:
             score = structure_info.accessibility_scores.get(elem_id, 0.0)
@@ -337,6 +382,11 @@ class AbstractPlacer:
 
             # Calcular peso de centralidad (alpha) basado en score
             alpha = self._calculate_centrality_weight(score)
+
+            # Reducir centralidad de nodos que tienen hojas en la misma capa:
+            # estos nodos deben moverse con sus hojas hacia la periferia
+            if elem_id in has_same_layer_leaves:
+                alpha *= 0.3  # Reducir atracción al centro drásticamente
 
             # Mezclar: barycenter_final = (1-alpha)*barycenter_conn + alpha*center
             barycenter_final = (1.0 - alpha) * barycenter_conn + alpha * center
@@ -361,159 +411,136 @@ class AbstractPlacer:
         if not ndpr_mode:
             self._enforce_toi_container_adjacency(current_layer, structure_info)
 
-    def _position_hub_containers_in_center(
-        self,
-        current_layer: List[str],
-        structure_info: StructureInfo,
-        layout
-    ) -> None:
-        """
-        Post-procesa la capa para mover contenedores "hub" al centro.
-
-        Un contenedor/VC es un "hub" si recibe conexiones desde múltiples
-        elementos del mismo nivel (2 o más fuentes). Estos nodos
-        deben estar en el centro para minimizar cruces.
-
-        En modo NdPr, usa self._connection_graph directamente.
-
-        Args:
-            current_layer: Capa ordenada (modifica in-place)
-            structure_info: Información estructural
-            layout: Layout con conexiones
-        """
-        if len(current_layer) < 3:
-            return  # No tiene sentido centrar con menos de 3 elementos
-
-        ndpr_mode = self._connection_graph is not None
-        layer_set = set(current_layer)
-
-        for elem_id in list(current_layer):
-            if ndpr_mode:
-                # En modo NdPr: un nodo es hub si recibe 2+ conexiones
-                # desde otros nodos de la misma capa
-                sources = set()
-                for from_id, targets in self._connection_graph.items():
-                    if from_id in layer_set and from_id != elem_id:
-                        if elem_id in targets:
-                            sources.add(from_id)
-            else:
-                # Verificar si es contenedor
-                container_node = structure_info.element_tree.get(elem_id)
-                if not container_node or not container_node['is_container'] or not container_node['children']:
-                    continue
-
-                children = set(container_node['children'])
-
-                # Contar fuentes únicas de conexión desde el mismo nivel
-                sources = set()
-                for conn in layout.connections:
-                    from_id = conn['from']
-                    to_id = conn['to']
-
-                    # Si conecta a un hijo de este contenedor
-                    if to_id in children:
-                        # Resolver from a primario
-                        from_primary_id = from_id
-                        if from_id not in structure_info.primary_elements:
-                            from_node = structure_info.element_tree.get(from_id)
-                            while from_node and from_node['parent']:
-                                from_parent = from_node['parent']
-                                if from_parent in structure_info.primary_elements:
-                                    from_primary_id = from_parent
-                                    break
-                                from_node = structure_info.element_tree.get(from_parent)
-
-                        # Si la fuente está en el mismo nivel
-                        if from_primary_id in layer_set and from_primary_id != elem_id:
-                            sources.add(from_primary_id)
-
-            # Si tiene 2+ fuentes, es un hub: moverlo al centro
-            if len(sources) >= 2:
-                current_idx = current_layer.index(elem_id)
-                center_idx = len(current_layer) // 2
-
-                if current_idx != center_idx:
-                    # Mover al centro
-                    current_layer.pop(current_idx)
-                    current_layer.insert(center_idx, elem_id)
-
-                    pass  # hub movido al centro
-
-    def _position_leaves_near_parents(
+    def _distribute_by_centrality(
         self,
         current_layer: List[str],
         structure_info: StructureInfo,
     ) -> None:
         """
-        Post-procesa la capa para colocar hojas adyacentes a su padre gráfico,
-        en el lado opuesto al centro de la capa.
+        Distribuye nodos center-out según centralidad efectiva (alpha).
 
-        Una hoja es un nodo con outdegree = 0 en el grafo de conexiones.
-        Su padre gráfico es quien tiene una arista apuntando a la hoja
-        y está en la misma capa.
-
-        En modo NdPr, usa self._connection_graph en vez de structure_info.connection_graph.
+        Algoritmo:
+        1. Identificar hojas same-layer (sin conexiones inter-capa)
+        2. Calcular alpha efectivo para cada nodo (con penalización por hojas)
+        3. Crear unidades: singletons o clusters padre+hojas
+        4. Ordenar unidades por alpha descendente
+        5. Colocar center-out: mayor alpha al centro, alternando izq/der
+        6. Hojas siempre en el lado externo (opuesto al centro) del padre
 
         Args:
-            current_layer: Capa ordenada (modifica in-place)
+            current_layer: Capa a redistribuir (modifica in-place)
             structure_info: Información estructural
         """
-        if len(current_layer) < 2:
-            return
-
         conn_graph = self._connection_graph if self._connection_graph is not None else structure_info.connection_graph
-        center = (len(current_layer) - 1) / 2.0
-
-        # Identificar hojas en esta capa y su padre gráfico dentro de la misma capa.
         layer_set = set(current_layer)
-        leaf_to_parent = {}  # {leaf_id: parent_id}
 
+        # Paso 1: Identificar hojas same-layer
+        leaf_to_parent = {}
         for elem_id in current_layer:
-            outdeg = len(conn_graph.get(elem_id, []))
-            if outdeg != 0:
+            if conn_graph.get(elem_id, []):
                 continue
-            # Contenedores con alta centralidad no son hojas (deben quedarse al centro)
             score = structure_info.accessibility_scores.get(elem_id, 0.0)
             if score > 0.05:
                 continue
-            # Es hoja: buscar quién le apunta desde la misma capa.
+            indeg_inter = sum(1 for s, ts in conn_graph.items()
+                              if s not in layer_set and elem_id in ts)
+            if indeg_inter > 0:
+                continue
             for candidate in current_layer:
                 if candidate == elem_id:
                     continue
-                children_of_candidate = conn_graph.get(candidate, [])
-                if elem_id in children_of_candidate:
+                if elem_id in conn_graph.get(candidate, []):
                     leaf_to_parent[elem_id] = candidate
-                    break  # tomar el primer padre encontrado
+                    break
 
-        if not leaf_to_parent:
-            return
-
+        # Paso 2: Calcular alpha efectivo para cada nodo
+        has_leaves = set()
+        parent_leaves = {}
         for leaf_id, parent_id in leaf_to_parent.items():
-            if leaf_id not in current_layer or parent_id not in current_layer:
+            has_leaves.add(parent_id)
+            parent_leaves.setdefault(parent_id, []).append(leaf_id)
+
+        effective_alphas = {}
+        for elem_id in current_layer:
+            score = structure_info.accessibility_scores.get(elem_id, 0.0)
+            alpha = self._calculate_centrality_weight(score)
+            if elem_id in has_leaves:
+                alpha *= 0.3
+            effective_alphas[elem_id] = alpha
+
+        # Paso 3: Crear unidades (singleton o cluster padre+hojas)
+        all_leaves = set(leaf_to_parent.keys())
+        units = []  # [(alpha, parent_id, [leaves])]
+
+        for elem_id in current_layer:
+            if elem_id in all_leaves:
                 continue
+            alpha = effective_alphas[elem_id]
+            leaves = parent_leaves.get(elem_id, [])
+            units.append((alpha, elem_id, leaves))
 
-            parent_idx = current_layer.index(parent_id)
-            leaf_idx = current_layer.index(leaf_id)
+        # Paso 4: Ordenar por alpha descendente
+        units.sort(key=lambda u: -u[0])
 
-            # Determinar en qué lado del centro está el padre.
-            # La hoja debe ir en el lado del padre que se aleja del centro.
-            if parent_idx >= center:
-                # Padre al centro o a la derecha → hoja justo después del padre.
-                target_idx = parent_idx + 1
+        # Paso 5: Colocar center-out alternando izquierda/derecha
+        # Mayor alpha → centro, siguiente → izquierda, siguiente → derecha, etc.
+        n_units = len(units)
+        placed = [None] * n_units
+        center_idx = n_units // 2
+        left = center_idx - 1
+        right = center_idx + 1
+        place_left = True  # Empezar alternando por la izquierda
+
+        for i, unit in enumerate(units):
+            if i == 0:
+                placed[center_idx] = unit
+            elif place_left and left >= 0:
+                placed[left] = unit
+                left -= 1
+                place_left = False
+            elif not place_left and right < n_units:
+                placed[right] = unit
+                right += 1
+                place_left = True
+            elif left >= 0:
+                placed[left] = unit
+                left -= 1
+            elif right < n_units:
+                placed[right] = unit
+                right += 1
+
+        # Paso 6: Expandir unidades a la capa final
+        # Hojas se distribuyen simétricamente alrededor del padre:
+        # mitad a la izquierda, mitad a la derecha (contenedor virtual)
+        # Cuando hay número impar de hojas, la hoja extra va al lado periférico
+        new_layer = []
+        center_pos = (n_units - 1) / 2.0
+
+        for unit_idx, unit in enumerate(placed):
+            if unit is None:
+                continue
+            _, parent_id, leaves = unit
+            if not leaves:
+                new_layer.append(parent_id)
             else:
-                # Padre a la izquierda del centro → hoja justo antes del padre.
-                target_idx = parent_idx
+                # Determinar lado periférico según posición del cluster
+                on_left_side = unit_idx < center_pos
 
-            # Remover hoja de su posición actual.
-            current_layer.pop(leaf_idx)
+                if on_left_side:
+                    # Cluster a la izquierda: hoja extra va a la izquierda (periferia)
+                    mid = (len(leaves) + 1) // 2  # redondeo hacia arriba → más a la izq
+                else:
+                    # Cluster a la derecha o centro: hoja extra va a la derecha
+                    mid = len(leaves) // 2  # redondeo hacia abajo → más a la der
 
-            # Ajustar target si la remoción desplazó índices.
-            if leaf_idx < target_idx:
-                target_idx -= 1
+                left_leaves = leaves[:mid]
+                right_leaves = leaves[mid:]
+                new_layer.extend(left_leaves)
+                new_layer.append(parent_id)
+                new_layer.extend(right_leaves)
 
-            current_layer.insert(target_idx, leaf_id)
-
-            pass  # hoja posicionada junto a padre
+        # Aplicar nuevo orden (modificar in-place)
+        current_layer[:] = new_layer
 
     def _order_layer_barycenter_backward(
         self,
@@ -553,10 +580,31 @@ class AbstractPlacer:
 
         # ALGORITMO HÍBRIDO también en backward: mezclar barycenter con atracción al centro
         center = (len(current_layer) - 1) / 2.0
+        conn_graph = self._connection_graph if self._connection_graph is not None else structure_info.connection_graph
+
+        # Detectar clusters padre-hojas en la misma capa
+        layer_set = set(current_layer)
+        has_same_layer_leaves = set()
+        for elem_id in current_layer:
+            same_layer_targets = [t for t in conn_graph.get(elem_id, []) if t in layer_set]
+            if same_layer_targets:
+                for t in same_layer_targets:
+                    t_outdeg = len([x for x in conn_graph.get(t, []) if x not in layer_set])
+                    t_indeg = sum(1 for s, ts in conn_graph.items()
+                                  if s not in layer_set and t in ts)
+                    if t_outdeg + t_indeg == 0:
+                        has_same_layer_leaves.add(elem_id)
+                        break
+
         for elem_id in current_layer:
             score = structure_info.accessibility_scores.get(elem_id, 0.0)
             barycenter_conn = barycenters.get(elem_id, center)
             alpha = self._calculate_centrality_weight(score)
+
+            # Reducir centralidad de nodos con hojas en la misma capa
+            if elem_id in has_same_layer_leaves:
+                alpha *= 0.3
+
             barycenters[elem_id] = (1.0 - alpha) * barycenter_conn + alpha * center
 
         # Ordenar por barycenter híbrido
@@ -1036,13 +1084,18 @@ class AbstractPlacer:
 
     def _assign_abstract_positions(
         self,
-        layers: List[List[str]]
+        layers: List[List[str]],
+        collapsed_sizes: Dict[str, float] = None
     ) -> Dict[str, Tuple[int, int]]:
         """
         Asigna coordenadas abstractas (x, y) a elementos.
 
+        Cuando collapsed_sizes se provee, nodos con tamaño estimado ocupan
+        más espacio horizontal para evitar solapamientos.
+
         Args:
             layers: Lista de capas ordenadas
+            collapsed_sizes: {elem_id: estimated_width} para nodos colapsados
 
         Returns:
             {element_id: (abstract_x, abstract_y)}
@@ -1050,17 +1103,22 @@ class AbstractPlacer:
         positions = {}
 
         for layer_idx, layer in enumerate(layers):
-            layer_width = len(layer)
+            abstract_x = 0.0
 
             for elem_idx, elem_id in enumerate(layer):
                 # Posición Y = índice de capa
                 abstract_y = layer_idx
 
-                # Posición X = índice en la capa
-                # Distribuir uniformemente en rango [0, layer_width-1]
-                abstract_x = elem_idx
-
-                positions[elem_id] = (abstract_x, abstract_y)
+                # Posición X: secuencial pero con espacio extra para nodos colapsados
+                if collapsed_sizes and elem_id in collapsed_sizes:
+                    # Dejar espacio proporcional al tamaño estimado
+                    half_size = collapsed_sizes[elem_id] / 2.0
+                    abstract_x += half_size
+                    positions[elem_id] = (abstract_x, abstract_y)
+                    abstract_x += half_size + 1.0  # gap de 1 unidad después
+                else:
+                    positions[elem_id] = (abstract_x, abstract_y)
+                    abstract_x += 1.0
 
         return positions
 

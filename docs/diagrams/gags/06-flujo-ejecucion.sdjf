@@ -28,7 +28,7 @@
     {
       "id": "laf_optimizer",
       "type": "building",
-      "label": "LAF Optimizer v1.6\n10 Fases",
+      "label": "LAF Optimizer v1.8\n11 Fases",
       "contains": [
         {"id": "phase1"},
         {"id": "phase2"},
@@ -36,10 +36,11 @@
         {"id": "phase4"},
         {"id": "phase5"},
         {"id": "phase6"},
-        {"id": "phase67"},
+        {"id": "phase7"},
         {"id": "phase8"},
         {"id": "phase9"},
-        {"id": "phase10"}
+        {"id": "phase10"},
+        {"id": "phase11"}
       ]
     },
     {
@@ -73,24 +74,29 @@
       "label": "Phase 6\nNdPr Expansion"
     },
     {
-      "id": "phase67",
+      "id": "phase7",
       "type": "cloud",
-      "label": "Phase 7\nInflation +\nContainer Growth"
+      "label": "Phase 7\nIterative Summary\n(alpha + corridors)"
     },
     {
       "id": "phase8",
       "type": "cloud",
-      "label": "Phase 8\nRedistribution\n(spacing + centering)"
+      "label": "Phase 8\nInflation +\nContainer Growth"
     },
     {
       "id": "phase9",
       "type": "cloud",
-      "label": "Phase 9\nRouting"
+      "label": "Phase 9\nRedistribution\n(spacing + centering)"
     },
     {
       "id": "phase10",
       "type": "cloud",
-      "label": "Phase 10\nVisualization\n(debug SVGs)"
+      "label": "Phase 10\nRouting"
+    },
+    {
+      "id": "phase11",
+      "type": "cloud",
+      "label": "Phase 11\nVisualization\n(debug SVGs)"
     },
     {
       "id": "auto_optimizer",
@@ -209,11 +215,11 @@
     },
     {
       "from": "phase6",
-      "to": "phase67",
+      "to": "phase7",
       "label": ""
     },
     {
-      "from": "phase67",
+      "from": "phase7",
       "to": "phase8",
       "label": ""
     },
@@ -228,7 +234,12 @@
       "label": ""
     },
     {
-      "from": "phase9",
+      "from": "phase10",
+      "to": "phase11",
+      "label": ""
+    },
+    {
+      "from": "phase10",
       "to": "routing",
       "label": "uses"
     },

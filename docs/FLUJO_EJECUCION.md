@@ -57,7 +57,7 @@ Sistema anterior basado en detección de colisiones
 
 ---
 
-## Flujo LAF (Layout Abstracto Primero) — 10 Fases
+## Flujo LAF (Layout Abstracto Primero) — 11 Fases
 
 ### Phase 1: Structure Analysis
 
@@ -172,7 +172,19 @@ barycenter_final = (barycenter_forward + barycenter_backward) / 2
 
 **Output:** `expanded_positions` - 27 posiciones de elementos individuales
 
-### Phase 7: Inflation + Container Growth (fusionadas)
+### Phase 7: Iterative Summary
+
+**Archivo:** `AlmaGag/layout/laf/visualizer.py:GrowthVisualizer`
+
+**Responsabilidades:**
+1. **Presentar resumen** de la corrida iterativa de Fases 4-5-6
+2. **Mostrar alpha efectiva** por nodo (con penalización por hojas same-layer)
+3. **Corridor-based overlap detection** para separar conexiones solapadas
+4. **Registrar convergencia** de iteraciones por profundidad
+
+**Output:** `phase7_iterative.svg` con posiciones finales y alpha efectiva
+
+### Phase 8: Inflation + Container Growth (fusionadas)
 
 **Archivos:**
 - `AlmaGag/layout/laf/inflator.py:ElementInflator`
@@ -187,7 +199,7 @@ barycenter_final = (barycenter_forward + barycenter_backward) / 2
 6. **_measure_placed_content()** - Post-check de bounds reales incluyendo labels
 7. **Step 4.5 expansion** - Expandir si labels exceden estimación
 
-**Output:** Layout con posiciones reales y contenedores expandidos + `phase7_inflated.svg`
+**Output:** Layout con posiciones reales y contenedores expandidos + `phase8_inflated.svg`
 
 **Algoritmo de Crecimiento:**
 ```python
@@ -199,7 +211,7 @@ for container in containers (bottom-up):
     # Expandir si labels exceden estimación (step 4.5)
 ```
 
-### Phase 8: Vertical Redistribution
+### Phase 9: Vertical Redistribution
 
 **Archivo:** `AlmaGag/layout/laf_optimizer.py:_redistribute_vertical_after_growth()`
 
@@ -209,9 +221,9 @@ for container in containers (bottom-up):
 3. **Global Centering** - Centrar usando bounding boxes de grupos NdFn
 4. **Preserve Order** - Mantener orden optimizado de Phase 4
 
-**Output:** Layout redistribuido + `phase8_redistributed.svg`
+**Output:** Layout redistribuido + `phase9_redistributed.svg`
 
-### Phase 9: Routing
+### Phase 10: Routing
 
 **Archivo:** `AlmaGag/routing/router_manager.py:RouterManager`
 
@@ -221,9 +233,9 @@ for container in containers (bottom-up):
 3. **Container Border Routing** - Conexiones a bordes de contenedores
 4. **Route Types** - Orthogonal, curved, direct, arc
 
-**Output:** Lista de computed_paths + `phase9_routed.svg`
+**Output:** Lista de computed_paths + `phase10_routed.svg`
 
-### Phase 10: SVG Generation
+### Phase 11: SVG Generation
 
 **Archivo:** `AlmaGag/generator.py:generate_svg()`
 
@@ -239,7 +251,7 @@ for container in containers (bottom-up):
 9. **Visual Debug** - Si `--visualdebug`: grilla, niveles, badges
 10. **Save SVG** - Escribir archivo
 
-**Output:** Archivo SVG final + `phase10_final.svg`
+**Output:** Archivo SVG final + `phase11_final.svg`
 
 ### PNG Export (Opcional)
 
@@ -261,11 +273,11 @@ for container in containers (bottom-up):
 3. `phase3_centrality.svg` - Ordenamiento por centralidad
 4. `phase4_abstract.svg` - Posiciones abstractas (puntos)
 5. `phase5_optimized.svg` - Posiciones optimizadas
-6. `phase6_expanded.svg` - NdPr expansion a elementos individuales
-7. `phase7_inflated.svg` - Inflación + contenedores expandidos
-8. `phase8_redistributed.svg` - Redistribución vertical
-9. `phase9_routed.svg` - Routing de conexiones
-10. `phase10_final.svg` - Layout final completo
+6. `phase7_iterative.svg` - Resumen iterativo 4-5-6 con alpha efectiva
+7. `phase8_inflated.svg` - Inflación + contenedores expandidos
+8. `phase9_redistributed.svg` - Redistribución vertical
+9. `phase10_routed.svg` - Routing de conexiones
+10. `phase11_final.svg` - Layout final completo
 
 ---
 
@@ -370,11 +382,11 @@ En `debug/growth/{diagram}/`:
 - `phase3_centrality.svg` - Ordenamiento por centralidad
 - `phase4_abstract.svg` - Layout abstracto + cruces
 - `phase5_optimized.svg` - Posiciones optimizadas
-- `phase6_expanded.svg` - NdPr expansion
-- `phase7_inflated.svg` - Inflación + contenedores
-- `phase8_redistributed.svg` - Redistribución vertical
-- `phase9_routed.svg` - Routing de conexiones
-- `phase10_final.svg` - Layout final
+- `phase7_iterative.svg` - Resumen iterativo con alpha efectiva
+- `phase8_inflated.svg` - Inflación + contenedores
+- `phase9_redistributed.svg` - Redistribución vertical
+- `phase10_routed.svg` - Routing de conexiones
+- `phase11_final.svg` - Layout final
 
 ---
 
@@ -422,5 +434,5 @@ Si los elementos no caben en el canvas inicial, se expande automáticamente.
 
 ---
 
-**Última actualización:** 2026-02-28
-**Versión del sistema:** v3.3.0 (LAF 10 fases)
+**Última actualización:** 2026-03-07
+**Versión del sistema:** v3.3.0 (LAF 11 fases)

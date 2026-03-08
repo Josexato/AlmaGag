@@ -1,5 +1,5 @@
 """
-ContainerGrower - Fase 7 de LAF (Inflación + Crecimiento de Contenedores)
+ContainerGrower - Fase 8 de LAF (Inflación + Crecimiento de Contenedores)
 
 Expande contenedores a sus dimensiones finales basándose en elementos
 contenidos, siguiendo un enfoque bottom-up.
@@ -329,10 +329,10 @@ class ContainerGrower:
         candidates = [
             ('bottom', current_x + elem_width / 2,
              current_y + elem_height + 15, 'middle'),
-            ('right', current_x + elem_width + 10,
-             current_y + elem_height / 2, 'start'),
             ('top', current_x + elem_width / 2,
              current_y - label_height - 5, 'middle'),
+            ('right', current_x + elem_width + 10,
+             current_y + elem_height / 2, 'start'),
             ('left', current_x - 10,
              current_y + elem_height / 2, 'end'),
         ]
@@ -835,7 +835,7 @@ class ContainerGrower:
 
         IMPORTANTE: Debe considerar TODOS los elementos (primarios y contenidos)
         ya que los elementos contenidos tienen coordenadas globales después
-        de la conversión local->global en la Fase 7.
+        de la conversión local->global en la Fase 8.
 
         Args:
             structure_info: Información estructural
@@ -889,3 +889,9 @@ class ContainerGrower:
         canvas_height = max_y + margin
 
         return (canvas_width, canvas_height)
+
+    @staticmethod
+    def get_internal_connections(children_ids, connections):
+        """Retorna conexiones donde from y to están ambos en children_ids."""
+        s = set(children_ids)
+        return [c for c in connections if c.get('from') in s and c.get('to') in s]

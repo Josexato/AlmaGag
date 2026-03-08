@@ -69,6 +69,216 @@ class StructureInfo:
     ndpr_connection_graph: Dict[str, List[str]] = field(default_factory=dict)
     element_to_ndpr: Dict[str, str] = field(default_factory=dict)
 
+    def get_max_container_depth(self) -> int:
+        """
+        Calcula la profundidad máxima de anidamiento de contenedores.
+
+        Incluye TOI VCs como profundidad 0 (se expanden en la primera iteración).
+        Si no hay containers ni VCs, retorna 0.
+
+        Returns:
+            int: Profundidad máxima de anidamiento
+        """
+        max_depth = 0
+
+        # Considerar contenedores reales
+        for elem_id, node in self.element_tree.items():
+            if node['is_container'] and node['parent'] is None:
+                # Contenedor de nivel superior: depth 0
+                # Sus hijos containers añaden profundidad
+                depth = self._get_container_nesting_depth(elem_id)
+                max_depth = max(max_depth, depth)
+
+        # TOI VCs cuentan como depth 0 (se expanden junto con containers nivel 0)
+        if self.toi_virtual_containers:
+            max_depth = max(max_depth, 0)
+
+        return max_depth
+
+    def _get_container_nesting_depth(self, container_id: str) -> int:
+        """Calcula profundidad de anidamiento de un contenedor (recursivo)."""
+        children = self.element_tree[container_id]['children']
+        max_child_depth = 0
+        for child_id in children:
+            if self.element_tree[child_id]['is_container']:
+                max_child_depth = max(
+                    max_child_depth,
+                    1 + self._get_container_nesting_depth(child_id)
+                )
+        return max_child_depth
+
+    def build_graph_at_depth(self, depth: int) -> 'PartialGraph':
+        """
+        Construye un grafo parcialmente expandido para una profundidad dada.
+
+        - Profundidad <= depth: NdPr expandidos a elementos reales visibles
+        - Profundidad > depth: NdPr aún colapsados con tamaño estimado
+
+        Args:
+            depth: Nivel de profundidad a expandir (0 = expandir containers
+                   de nivel superior y VCs)
+
+        Returns:
+            PartialGraph con elementos parciales, conexiones y tamaños colapsados
+        """
+        partial_elements = []
+        collapsed_sizes = {}
+        element_to_partial = {}  # maps real elem_id -> partial node id
+
+        # Horizontal offset en unidades abstractas (misma escala que _expand_ndpr)
+        horizontal_offset = 0.4
+
+        for ndpr_id in self.ndpr_elements:
+            # Check if this NdPr is a TOI VC
+            is_vc = ndpr_id.startswith('_toi_vc_')
+
+            if is_vc:
+                # VCs always expand at depth 0
+                if depth >= 0:
+                    vc_idx = int(ndpr_id.split('_')[-1])
+                    vc = self.toi_virtual_containers[vc_idx]
+                    for member_id in sorted(vc['members']):
+                        partial_elements.append(member_id)
+                        element_to_partial[member_id] = member_id
+                        # Check if member is a container that needs collapsing
+                        node = self.element_tree.get(member_id, {})
+                        if node.get('is_container') and node.get('children'):
+                            child_depth = self._get_container_nesting_depth(member_id)
+                            if child_depth > depth:
+                                # Still collapsed: estimate size
+                                n_children = len(node['children'])
+                                collapsed_sizes[member_id] = n_children * horizontal_offset
+                else:
+                    partial_elements.append(ndpr_id)
+                    element_to_partial[ndpr_id] = ndpr_id
+                    # Estimate VC size
+                    vc_idx = int(ndpr_id.split('_')[-1])
+                    vc = self.toi_virtual_containers[vc_idx]
+                    n_members = len(vc['members'])
+                    collapsed_sizes[ndpr_id] = n_members * horizontal_offset
+            else:
+                # Regular NdPr (simple or real container)
+                node = self.element_tree.get(ndpr_id, {})
+                is_container = node.get('is_container', False)
+
+                if not is_container:
+                    # Simple node: always visible
+                    partial_elements.append(ndpr_id)
+                    element_to_partial[ndpr_id] = ndpr_id
+                else:
+                    # Real container
+                    partial_elements.append(ndpr_id)
+                    element_to_partial[ndpr_id] = ndpr_id
+
+                    if depth >= 0:
+                        # Expand children at this depth
+                        self._expand_container_at_depth(
+                            ndpr_id, depth, 0, partial_elements,
+                            collapsed_sizes, element_to_partial, horizontal_offset
+                        )
+                    else:
+                        # Still collapsed
+                        n_children = len(node.get('children', []))
+                        if n_children > 0:
+                            collapsed_sizes[ndpr_id] = n_children * horizontal_offset
+
+        # Build connection graph for partial elements
+        partial_set = set(partial_elements)
+        partial_connection_graph = {}
+        for elem_id in partial_elements:
+            partial_connection_graph[elem_id] = []
+
+        # Map all real elements to their visible representative
+        elem_to_visible = {}
+        for elem_id in self.element_tree:
+            if elem_id in partial_set:
+                elem_to_visible[elem_id] = elem_id
+            else:
+                # Find nearest visible ancestor
+                current = elem_id
+                while current and current not in partial_set:
+                    parent = self.element_tree.get(current, {}).get('parent')
+                    if parent is None:
+                        # Try NdPr mapping
+                        ndpr = self.element_to_ndpr.get(current)
+                        if ndpr and ndpr in partial_set:
+                            current = ndpr
+                        else:
+                            current = None
+                        break
+                    current = parent
+                if current and current in partial_set:
+                    elem_to_visible[elem_id] = current
+
+        # Build connections between visible elements
+        seen_edges = set()
+        for from_id, to_list in self.connection_graph.items():
+            vis_from = elem_to_visible.get(from_id)
+            if not vis_from:
+                continue
+            for to_id in to_list:
+                vis_to = elem_to_visible.get(to_id)
+                if not vis_to or vis_from == vis_to:
+                    continue
+                edge = (vis_from, vis_to)
+                if edge not in seen_edges:
+                    seen_edges.add(edge)
+                    if vis_from in partial_connection_graph:
+                        partial_connection_graph[vis_from].append(vis_to)
+
+        # Build topological levels for partial elements
+        partial_topological_levels = {}
+        for elem_id in partial_elements:
+            if elem_id in self.topological_levels:
+                partial_topological_levels[elem_id] = self.topological_levels[elem_id]
+            elif elem_id in self.ndpr_topological_levels:
+                partial_topological_levels[elem_id] = self.ndpr_topological_levels[elem_id]
+            else:
+                partial_topological_levels[elem_id] = 0
+
+        return PartialGraph(
+            elements=partial_elements,
+            connection_graph=partial_connection_graph,
+            topological_levels=partial_topological_levels,
+            collapsed_sizes=collapsed_sizes
+        )
+
+    def _expand_container_at_depth(
+        self, container_id: str, target_depth: int, current_depth: int,
+        partial_elements: list, collapsed_sizes: dict,
+        element_to_partial: dict, horizontal_offset: float
+    ) -> None:
+        """
+        Expande recursivamente hijos de un contenedor hasta target_depth.
+        """
+        children = self.element_tree[container_id].get('children', [])
+        for child_id in children:
+            child_node = self.element_tree.get(child_id, {})
+            partial_elements.append(child_id)
+            element_to_partial[child_id] = child_id
+
+            if child_node.get('is_container') and child_node.get('children'):
+                if current_depth < target_depth:
+                    # Expand deeper
+                    self._expand_container_at_depth(
+                        child_id, target_depth, current_depth + 1,
+                        partial_elements, collapsed_sizes,
+                        element_to_partial, horizontal_offset
+                    )
+                else:
+                    # Still collapsed: estimate size
+                    n_children = len(child_node['children'])
+                    collapsed_sizes[child_id] = n_children * horizontal_offset
+
+
+@dataclass
+class PartialGraph:
+    """Grafo parcialmente expandido para una iteración de profundidad."""
+    elements: List[str] = field(default_factory=list)
+    connection_graph: Dict[str, List[str]] = field(default_factory=dict)
+    topological_levels: Dict[str, int] = field(default_factory=dict)
+    collapsed_sizes: Dict[str, float] = field(default_factory=dict)
+
 
 class StructureAnalyzer:
     """
