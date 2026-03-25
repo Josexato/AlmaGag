@@ -63,7 +63,7 @@ class PositionOptimizer:
         Optimiza las posiciones abstractas para minimizar la distancia total
         de conectores.
 
-        Cuando connection_graph se provee (modo NdPr), construye adyacencia
+        Cuando connection_graph se provee (modo NdDp), construye adyacencia
         directamente desde el grafo y usa topological_levels para capas.
         Todos los elementos de entrada se tratan como primarios (sin contenidos).
 
@@ -73,8 +73,8 @@ class PositionOptimizer:
             layout: Layout con connections
             max_iterations: Máximo de iteraciones de optimización
             convergence_threshold: Umbral de convergencia (cambio mínimo)
-            connection_graph: Grafo de conexiones explícito (modo NdPr)
-            topological_levels: Niveles topológicos explícitos (modo NdPr)
+            connection_graph: Grafo de conexiones explícito (modo NdDp)
+            topological_levels: Niveles topológicos explícitos (modo NdDp)
 
         Returns:
             Dict[str, Tuple[float, float]]: Posiciones optimizadas
@@ -82,7 +82,7 @@ class PositionOptimizer:
         ndpr_mode = connection_graph is not None
 
         if ndpr_mode:
-            # En modo NdPr, TODOS los elementos son "primarios"
+            # En modo NdDp, TODOS los elementos son "primarios"
             primary_positions = dict(abstract_positions)
             contained_positions = {}
         else:
@@ -446,7 +446,7 @@ class PositionOptimizer:
                 if neighbor_id not in current_positions:
                     continue
 
-                if self.optimize_against_parents_only and direction != 'both':
+                if self.optimize_against_parents_only:
                     neighbor_level = None
                     for lvl, ids in layers.items():
                         if neighbor_id in ids:
@@ -457,8 +457,8 @@ class PositionOptimizer:
                     # Forward: only consider children (higher levels)
                     if direction == 'forward' and neighbor_level <= level:
                         continue
-                    # Backward: only consider parents (lower levels)
-                    if direction == 'backward' and neighbor_level >= level:
+                    # Backward/both: only consider parents (lower levels)
+                    if direction in ('backward', 'both') and neighbor_level >= level:
                         continue
 
                 x_other, y2 = current_positions[neighbor_id]

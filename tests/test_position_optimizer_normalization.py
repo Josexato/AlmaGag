@@ -19,20 +19,20 @@ def test_normalization_preserves_global_x_alignment():
     optimizer = PositionOptimizer(debug=False)
 
     positions = {
-        "NdPr005": (1.2, 3.0),
-        "NdPr006": (0.2, 4.0),
-        "NdPr011": (1.1, 4.0),
-        "NdPr007": (2.3, 4.0),
+        "NdDp01-005": (1.2, 3.0),
+        "NdDp01-006": (0.2, 4.0),
+        "NdDp01-011": (1.1, 4.0),
+        "NdDp01-007": (2.3, 4.0),
     }
     layers = {
-        3: ["NdPr005"],
-        4: ["NdPr006", "NdPr011", "NdPr007"],
+        3: ["NdDp01-005"],
+        4: ["NdDp01-006", "NdDp01-011", "NdDp01-007"],
     }
 
     normalized = optimizer._normalize_positions(positions, layers)
 
-    assert normalized["NdPr005"][0] == 1
-    assert normalized["NdPr011"][0] == 1
+    assert normalized["NdDp01-005"][0] == 1
+    assert normalized["NdDp01-011"][0] == 1
 
 
 def test_single_layer_offset_optimizer_moves_layer_horizontally():
@@ -77,14 +77,14 @@ def test_apply_layer_offsets_preserves_intralayer_order():
     """
     optimizer = PositionOptimizer(debug=False)
     layers = {
-        3: ["NdPr005"],
-        4: ["NdPr006", "NdPr011", "NdPr007"],
+        3: ["NdDp01-005"],
+        4: ["NdDp01-006", "NdDp01-011", "NdDp01-007"],
     }
     base_positions = {
-        "NdPr005": (4.0, 3.0),
-        "NdPr006": (4.0, 4.0),
-        "NdPr011": (5.0, 4.0),
-        "NdPr007": (6.0, 4.0),
+        "NdDp01-005": (4.0, 3.0),
+        "NdDp01-006": (4.0, 4.0),
+        "NdDp01-011": (5.0, 4.0),
+        "NdDp01-007": (6.0, 4.0),
     }
 
     shifted = optimizer._apply_layer_offsets(
@@ -93,7 +93,7 @@ def test_apply_layer_offsets_preserves_intralayer_order():
         layer_offsets={3: 1.25, 4: -0.5},
     )
 
-    assert shifted["NdPr006"][0] < shifted["NdPr011"][0] < shifted["NdPr007"][0]
+    assert shifted["NdDp01-006"][0] < shifted["NdDp01-011"][0] < shifted["NdDp01-007"][0]
 
 
 def test_layer_offset_uses_parents_only_when_enabled():

@@ -1,0 +1,38 @@
+{
+  "canvas": { "width": 2000, "height": 1200 },
+  "elements": [
+    { "id": "ElemtA", "label": "Elemto A", "type": "server", "color": "gold" },
+    { "id": "ElemtB", "label": "Elemto B", "type": "server", "color": "gold" },
+    { "id": "ElemtC", "label": "Elemto C", "type": "server", "color": "gold" },
+    { "id": "ElemtD", "label": "Elemto D", "type": "server", "color": "gold" },
+    { "id": "ElemtE", "label": "Elemto E", "type": "server", "color": "gold" },
+    { "id": "ElemtF", "label": "Elemto F", "type": "server", "color": "gold" },
+    { "id": "ElemtG", "label": "Elemto G", "type": "server", "color": "gold" },
+    { "id": "ElemtH", "label": "Elemto H", "type": "server", "color": "gold" },
+    { "id": "ElemtI", "label": "Elemto I", "type": "server", "color": "gold" },
+    { "id": "ElemtJ", "label": "Elemto J", "type": "server", "color": "gold" },
+    { "id": "ElemtK", "label": "Elemto K", "type": "server", "color": "gold" },
+    { "id": "ElemtL", "label": "Elemto L", "type": "server", "color": "gold" },
+    { "id": "ElemtM", "label": "Elemto M", "type": "server", "color": "blue" }
+
+  ],
+  "connections": [
+    { "from": "ElemtA", "to": "ElemtD", "direction": "forward" },
+    { "from": "ElemtD", "to": "ElemtE", "direction": "forward" },
+    { "from": "ElemtD", "to": "ElemtH", "direction": "forward" },
+    { "from": "ElemtB", "to": "ElemtE", "direction": "forward" },
+    { "from": "ElemtE", "to": "ElemtF", "direction": "forward" },
+    { "from": "ElemtE", "to": "ElemtI", "direction": "forward" },
+    { "from": "ElemtH", "to": "ElemtL", "direction": "forward" },
+    { "from": "ElemtH", "to": "ElemtF", "direction": "forward" },
+    { "from": "ElemtH", "to": "ElemtI", "direction": "forward" },
+    { "from": "ElemtC", "to": "ElemtG", "direction": "forward" },
+    { "from": "ElemtF", "to": "ElemtG", "direction": "forward" },
+    { "from": "ElemtF", "to": "ElemtI", "direction": "forward" },
+    { "from": "ElemtI", "to": "ElemtG", "direction": "forward" },
+    { "from": "ElemtI", "to": "ElemtJ", "direction": "forward" },
+    { "from": "ElemtJ", "to": "ElemtK", "direction": "forward" },
+    { "from": "ElemtK", "to": "ElemtI", "direction": "forward" },
+    { "from": "ElemtG", "to": "ElemtM", "direction": "forward" }
+  ]
+}

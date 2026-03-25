@@ -7,7 +7,7 @@ Coordinador del sistema LAF que ejecuta las 11 fases:
 3. Ordenamiento por centralidad (centrales al centro, hojas a extremos)
 4. Layout abstracto (Sugiyama barycenter, minimización de cruces)
 5. Optimización de posiciones (layer-offset bisection, minimiza distancia de conectores)
-6. Expansión NdPr (NdPr → elementos individuales)
+6. Expansión NdDp (NdDp01 → elementos individuales)
 7. Presentación de corrida iterativa 4-5-6 (resumen de iteraciones por profundidad)
 8. Inflación + Crecimiento de contenedores (sub: 8.1, 8.2, 8.3)
 9. Redistribución vertical con escala X global (preserva ángulos de Fase 5)
@@ -740,7 +740,7 @@ class LAFOptimizer:
         1-3: Análisis (estructura, topología, centralidad)
         4: Layout abstracto (Sugiyama barycenter)
         5: Optimización de posiciones (layer-offset bisection)
-        6: Expansión NdPr (NdPr → elementos individuales)
+        6: Expansión NdDp (NdDp01 → elementos individuales)
         7: Presentación de corrida iterativa 4-5-6
         8: Inflación + Crecimiento de contenedores
         9: Redistribución vertical (escala X global preservando ángulos de Fase 5)
@@ -766,21 +766,43 @@ class LAFOptimizer:
         if self.debug:
             scored_count = sum(1 for v in structure_info.accessibility_scores.values() if v > 0)
             max_score = max(structure_info.accessibility_scores.values()) if scored_count else 0
-            logger.debug(f"[LAF] Fase 1 OK: {len(structure_info.primary_elements)} primarios, "
+            n_tree = len(structure_info.element_tree)
+            logger.debug(f"[LAF] Fase 1 OK: {n_tree} elementos, "
+                  f"{len(structure_info.primary_elements)} primarios, "
                   f"{len(structure_info.container_metrics)} contenedores, "
                   f"{len(structure_info.connection_sequences)} conexiones")
 
-            # Tabla compacta de nodos primarios
-            logger.debug(f"  {'ID':<8} {'Tipo':<12} {'Elemento':<28} Nv  Hijos  Score")
-            for elem_id in structure_info.primary_elements:
-                nid = structure_info.primary_node_ids.get(elem_id, "?")
-                ntype = structure_info.primary_node_types.get(elem_id, "?")
-                lv = structure_info.topological_levels.get(elem_id, "?")
-                ch = len(structure_info.element_tree.get(elem_id, {}).get('children', []))
+            # Árbol completo con jerarquía
+            logger.debug(f"  {'Elemento':<32} {'NdDp':<12} {'Tipo':<16} Nv  Score")
+
+            def _print_tree_node(elem_id, depth):
+                node = structure_info.element_tree.get(elem_id, {})
+                indent = "  " + "│ " * depth
+                prefix = "├─" if depth > 0 else ""
+                nid = structure_info.all_node_ids.get(elem_id, "·")
+                ntype = structure_info.primary_node_types.get(elem_id, "")
+                if not ntype and node.get('is_container'):
+                    ntype = "(hijo cont.)"
+                elif not ntype:
+                    ntype = "(hijo)"
+                lv = structure_info.topological_levels.get(elem_id, "·")
                 sc = structure_info.accessibility_scores.get(elem_id, 0.0)
+                sc_str = f"{sc:.4f}" if sc > 0 else "·"
                 name = elem_id[:28] if len(elem_id) <= 28 else elem_id[:25] + "..."
-                sc_str = f"{sc:.4f}" if sc > 0 else "-"
-                logger.debug(f"  {nid:<8} {ntype:<12} {name:<28} {str(lv):<3} {ch:<6} {sc_str}")
+                label = f"{prefix}{name}"
+                logger.debug(f"{indent}{label:<32} {nid:<12} {ntype:<16} {str(lv):<3} {sc_str}")
+                for child_id in node.get('children', []):
+                    _print_tree_node(child_id, depth + 1)
+
+            for elem_id in structure_info.primary_elements:
+                _print_tree_node(elem_id, 0)
+
+            # TOI Virtual Containers
+            for vc in structure_info.toi_virtual_containers:
+                vc_id = vc['id']
+                nid = structure_info.primary_node_ids.get(vc_id, "·")
+                members = ", ".join(sorted(vc['members']))
+                logger.debug(f"  {vc_id:<32} {nid:<12} {'VC TOI':<16} ·   · [{members}]")
 
         self._populate_layout_analysis(layout, structure_info)
         self._dump_layout(layout, "LAF_PHASE_1_STRUCTURE")
@@ -797,7 +819,7 @@ class LAFOptimizer:
             levels_str = " | ".join(f"{lv}:{','.join(by_level[lv])}" for lv in sorted(by_level))
             logger.debug(f"[LAF] Fase 2 OK: {levels_str}")
 
-        # FASE 3: Ordenamiento por centralidad (sobre NdPr si disponible)
+        # FASE 3: Ordenamiento por centralidad (sobre NdDp01 si disponible)
         use_ndpr = bool(structure_info.ndpr_elements)
         centrality_order = self._order_by_centrality(structure_info)
 
@@ -806,7 +828,7 @@ class LAFOptimizer:
         self._dump_layout(layout, "LAF_PHASE_3_CENTRALITY")
 
         if self.debug:
-            mode_str = "NdPr" if use_ndpr else "primary"
+            mode_str = "NdDp01" if use_ndpr else "primary"
             logger.debug(f"[LAF] Fase 3 OK: {len(centrality_order)} niveles ordenados por centralidad ({mode_str})")
 
         # FASES 4-5-6: Layout abstracto iterativo por profundidad
@@ -815,7 +837,7 @@ class LAFOptimizer:
                 structure_info, layout, centrality_order
             )
         else:
-            # Sin NdPr: una sola iteración directa (comportamiento original)
+            # Sin NdDp: una sola iteración directa (comportamiento original)
             abstract_positions = self.abstract_placer.place_elements(
                 structure_info, layout,
                 centrality_order=centrality_order
@@ -866,20 +888,38 @@ class LAFOptimizer:
             iters = iterative_summary['iterations']
             logger.debug(
                 f"[LAF] Fase 7 OK: {iterative_summary['total_iterations']} iteraciones, "
-                f"max_depth={iterative_summary['max_depth']}, "
+                f"{iterative_summary['expandable_count']} expandables, "
                 f"{iterative_summary['final_elements']} elementos finales"
             )
             # Tabla detallada de iteraciones
-            logger.debug(f"  {'Iter':<6}{'Profund.':<10}{'Nodos':<8}{'Colaps.':<9}{'Cruces(pre)':<13}{'Cruces(post)'}")
+            logger.debug(f"  {'Iter':<6}{'Label':<16}{'Nodos':<8}{'Colaps.':<9}{'Cruces(pre)':<13}{'Cruces(post)'}")
             for it in iters:
                 logger.debug(
                     f"  {it['iteration']:<6}"
-                    f"{it['label']:<10}"
+                    f"{it['label']:<16}"
                     f"{it['nodes']:<8}"
                     f"{it['collapsed']:<9}"
                     f"{it['crossings_before']:<13}"
                     f"{it['crossings_after']}"
                 )
+            # Detalle de centralidad y orden por iteración
+            for it in iters:
+                scores = it.get('centrality_scores', {})
+                order = it.get('centrality_order', {})
+                if not scores:
+                    continue
+                # Orden por nivel: mostrar elem(score)
+                order_parts = []
+                for level in sorted(order.keys()):
+                    elems = order[level]
+                    items = []
+                    for eid, sc in elems:
+                        if eid in it.get('positions', {}):
+                            items.append(f"{eid}({sc:.3f})")
+                    if items:
+                        order_parts.append(f"L{level}:[{','.join(items)}]")
+                if order_parts:
+                    logger.debug(f"  Iter {it['iteration']} orden: {' | '.join(order_parts)}")
         elif self.debug:
             logger.debug(f"[LAF] Fase 7 OK: sin iteraciones (modo directo)")
 
@@ -912,31 +952,54 @@ class LAFOptimizer:
 
     def _run_iterative_phases_4_5_6(self, structure_info, layout, centrality_order):
         """
-        Ejecuta Fases 4-5-6 iterativamente expandiendo por profundidad.
+        Ejecuta Fases 2-3-4-5-6 iterativamente expandiendo uno a uno.
 
-        Iteración 0: NdPr abstractos puro (containers colapsados como bounding boxes)
-        Iteración 1+: expande containers nivel por nivel hasta max_depth
+        Cada iteración recalcula accessibility scores y centrality order
+        usando el grafo parcial correspondiente.
+
+        Iteración 0: NdDp01 abstractos puro (containers colapsados como bounding boxes)
+        Iteración 1+: expande un VC/container a la vez, re-ejecutando place+optimize
 
         Returns:
             Dict[str, Tuple[float, float]]: posiciones expandidas de todos los elementos
         """
-        max_depth = structure_info.get_max_container_depth()
-        total_iterations = max_depth + 2  # iter 0 (NdPr) + max_depth+1 expansiones
+        from AlmaGag.layout.laf.structure_analyzer import StructureInfo
+
+        expandable = structure_info.get_expandable_ndpr()
+        total_iterations = len(expandable) + 1  # iter 0 (NdDp01) + una por expandable
 
         if self.debug:
-            logger.debug(f"[LAF] Fase 4-6 iterativa: max_depth={max_depth}, {total_iterations} iteraciones")
+            logger.debug(f"[LAF] Fase 4-6 iterativa: {len(expandable)} expandables, {total_iterations} iteraciones")
 
         # Registro de iteraciones para Fase 7
         iteration_log = []
 
-        # Iteración 0: NdPr puro
+        # Iteración 0: NdDp01 puro
         ndpr_conn_graph = structure_info.ndpr_connection_graph
         ndpr_topo_levels = structure_info.ndpr_topological_levels
 
+        # Fase 2-3 iterativa: recalcular scores y centrality para grafo NdDp01
+        ndpr_incoming = {eid: [] for eid in structure_info.ndpr_elements}
+        for from_id, to_list in ndpr_conn_graph.items():
+            for to_id in to_list:
+                if to_id in ndpr_incoming and from_id not in ndpr_incoming[to_id]:
+                    ndpr_incoming[to_id].append(from_id)
+
+        iter_scores = StructureInfo.calculate_accessibility_scores_for_graph(
+            structure_info.ndpr_elements, ndpr_conn_graph,
+            ndpr_incoming, ndpr_topo_levels
+        )
+        iter_centrality = self._order_by_centrality_for_graph(
+            structure_info.ndpr_elements, ndpr_topo_levels, iter_scores,
+            ndpr_conn_graph, structure_info.element_tree,
+            structure_info.toi_virtual_containers
+        )
+
         abstract_positions = self.abstract_placer.place_elements(
             structure_info, layout,
-            centrality_order=centrality_order,
-            connection_graph=ndpr_conn_graph
+            centrality_order=iter_centrality,
+            connection_graph=ndpr_conn_graph,
+            accessibility_scores=iter_scores
         )
         crossings = self.abstract_placer.count_crossings(abstract_positions, layout.connections)
 
@@ -947,7 +1010,7 @@ class LAFOptimizer:
         self._dump_layout(layout, "LAF_PHASE_4_ABSTRACT")
 
         if self.debug:
-            logger.debug(f"[LAF] Iteración 0 (NdPr): {len(abstract_positions)} nodos, {crossings} cruces")
+            logger.debug(f"[LAF] Iteración 0 (NdDp01): {len(abstract_positions)} nodos, {crossings} cruces")
 
         optimized_positions = self.position_optimizer.optimize_positions(
             abstract_positions, structure_info, layout,
@@ -969,7 +1032,7 @@ class LAFOptimizer:
         iteration_log.append({
             'iteration': 0,
             'depth': -1,
-            'label': 'NdPr puro',
+            'label': 'NdDp01 puro',
             'nodes': len(abstract_positions),
             'collapsed': 0,
             'crossings_before': crossings,
@@ -977,26 +1040,43 @@ class LAFOptimizer:
             'positions': dict(optimized_positions),
             'connection_graph': dict(ndpr_conn_graph),
             'collapsed_sizes': {},
+            'centrality_scores': dict(iter_scores),
+            'centrality_order': {k: list(v) for k, v in iter_centrality.items()},
         })
 
-        # Iteraciones 1..max_depth+1: expandir por profundidad
-        for depth in range(max_depth + 1):
-            partial_graph = structure_info.build_graph_at_depth(depth)
+        # Iteraciones 1..N: expandir uno a uno
+        expanded = set()
+        for i, ndpr_id in enumerate(expandable):
+            expanded.add(ndpr_id)
+            partial_graph = structure_info.build_graph_with_expanded(expanded)
 
             if self.debug:
                 logger.debug(
-                    f"[LAF] Iteración {depth + 1} (depth={depth}): "
+                    f"[LAF] Iteración {i + 1} (+{ndpr_id}): "
                     f"{len(partial_graph.elements)} nodos, "
                     f"{len(partial_graph.collapsed_sizes)} colapsados"
                 )
 
-            # Fase 4: Place con grafo parcial
+            # Fases 2-3 iterativas: recalcular scores y centrality para grafo parcial
+            iter_scores = StructureInfo.calculate_accessibility_scores_for_graph(
+                partial_graph.elements, partial_graph.connection_graph,
+                partial_graph.incoming_graph, partial_graph.topological_levels
+            )
+            iter_centrality = self._order_by_centrality_for_graph(
+                partial_graph.elements, partial_graph.topological_levels, iter_scores,
+                partial_graph.connection_graph, structure_info.element_tree,
+                structure_info.toi_virtual_containers
+            )
+
+            # Fase 4: Place con grafo parcial (seed_positions hereda orden previo)
             abstract_positions = self.abstract_placer.place_elements(
                 structure_info, layout,
-                centrality_order=centrality_order,
+                centrality_order=iter_centrality,
                 connection_graph=partial_graph.connection_graph,
                 collapsed_sizes=partial_graph.collapsed_sizes,
-                topological_levels=partial_graph.topological_levels
+                topological_levels=partial_graph.topological_levels,
+                seed_positions=optimized_positions,
+                accessibility_scores=iter_scores
             )
 
             crossings_before = self.abstract_placer.count_crossings(
@@ -1016,14 +1096,14 @@ class LAFOptimizer:
 
             if self.debug:
                 logger.debug(
-                    f"[LAF] Iteración {depth + 1} opt: "
+                    f"[LAF] Iteración {i + 1} opt: "
                     f"{len(optimized_positions)} nodos, {crossings_after} cruces"
                 )
 
             iteration_log.append({
-                'iteration': depth + 1,
-                'depth': depth,
-                'label': f'depth {depth}',
+                'iteration': i + 1,
+                'depth': -1,
+                'label': f'+{ndpr_id}',
                 'nodes': len(partial_graph.elements),
                 'collapsed': len(partial_graph.collapsed_sizes),
                 'crossings_before': crossings_before,
@@ -1031,6 +1111,8 @@ class LAFOptimizer:
                 'positions': dict(optimized_positions),
                 'connection_graph': dict(partial_graph.connection_graph),
                 'collapsed_sizes': dict(partial_graph.collapsed_sizes),
+                'centrality_scores': dict(iter_scores),
+                'centrality_order': {k: list(v) for k, v in iter_centrality.items()},
             })
 
         # Fase 6: Expandir posiciones finales a todos los elementos
@@ -1046,7 +1128,7 @@ class LAFOptimizer:
 
         # Guardar resumen iterativo para Fase 7
         self._iterative_summary = {
-            'max_depth': max_depth,
+            'expandable_count': len(expandable),
             'total_iterations': total_iterations,
             'final_elements': len(expanded_positions),
             'iterations': iteration_log,
@@ -1331,9 +1413,9 @@ class LAFOptimizer:
         puede haber cambiado. Este método actualiza layout.optimized_layer_order
         para reflejar el nuevo orden, que será usado en Fase 9 (Redistribución).
 
-        Cuando las posiciones vienen de una expansión NdPr→elementos, reconstruye
+        Cuando las posiciones vienen de una expansión NdDp01→elementos, reconstruye
         las capas desde cero usando topological_levels, ya que las capas originales
-        contenían NdPr IDs que ya no existen en las posiciones expandidas.
+        contenían NdDp01 IDs que ya no existen en las posiciones expandidas.
 
         Args:
             optimized_positions: {elem_id: (x, y)} posiciones optimizadas
@@ -1343,7 +1425,7 @@ class LAFOptimizer:
         if not hasattr(layout, 'optimized_layer_order') or not layout.optimized_layer_order:
             return
 
-        # Check if existing layers match the positions (NdPr expansion may have
+        # Check if existing layers match the positions (NdDp expansion may have
         # replaced VC IDs with member element IDs)
         existing_ids = set()
         for layer in layout.optimized_layer_order:
@@ -1351,7 +1433,7 @@ class LAFOptimizer:
         position_ids = set(optimized_positions.keys())
 
         if not existing_ids.issubset(position_ids):
-            # NdPr expansion: rebuild layers from topological_levels
+            # NdDp expansion: rebuild layers from topological_levels
             by_level = {}
             for elem_id, (x, y) in optimized_positions.items():
                 level = structure_info.topological_levels.get(elem_id, 0)
@@ -1383,19 +1465,7 @@ class LAFOptimizer:
         """
         Ordena elementos dentro de cada nivel topológico por accessibility score.
 
-        Si hay ndpr_elements disponibles, opera sobre NdPr nodes con
-        ndpr_topological_levels. De lo contrario, usa primary_elements.
-
-        Algoritmo optimizado:
-        1. Clasificar elementos en 3 grupos:
-           - Centrales: score > 0 (mayor accesibilidad)
-           - Normales: score = 0 con hijos (o VCs, que siempre tienen miembros)
-           - Hojas: score = 0 sin hijos (terminales)
-
-        2. Distribuir en el nivel:
-           - Centro: elementos centrales ordenados por score (mayor al medio)
-           - Lados: elementos normales
-           - Extremos: hojas (más alejadas del centro)
+        Delega a _order_by_centrality_for_graph con datos de structure_info.
 
         Args:
             structure_info: StructureInfo con accessibility_scores, topological_levels,
@@ -1404,7 +1474,7 @@ class LAFOptimizer:
         Returns:
             Dict[int, List[Tuple[str, float]]]: {level: [(elem_id, score), ...]} ordenado
         """
-        # Elegir conjunto de elementos y niveles según disponibilidad de NdPr
+        # Elegir conjunto de elementos y niveles según disponibilidad de NdDp01
         if structure_info.ndpr_elements:
             elements_to_order = structure_info.ndpr_elements
             levels_source = structure_info.ndpr_topological_levels
@@ -1414,24 +1484,58 @@ class LAFOptimizer:
             levels_source = structure_info.topological_levels
             conn_graph = structure_info.connection_graph
 
+        return self._order_by_centrality_for_graph(
+            elements_to_order, levels_source,
+            structure_info.accessibility_scores,
+            conn_graph, structure_info.element_tree,
+            structure_info.toi_virtual_containers
+        )
+
+    def _order_by_centrality_for_graph(
+        self,
+        elements,
+        topological_levels,
+        accessibility_scores,
+        connection_graph,
+        element_tree,
+        toi_virtual_containers
+    ):
+        """
+        Ordena elementos por accessibility score, parametrizado para cualquier grafo.
+
+        Algoritmo:
+        1. Clasificar en 3 grupos: centrales (score > 0), normales (score=0 con hijos), hojas
+        2. Distribuir: centro=centrales, lados=normales, extremos=hojas
+
+        Args:
+            elements: Lista de element_ids a ordenar
+            topological_levels: {elem_id: level}
+            accessibility_scores: {elem_id: score} (puede ser mutado para hojas)
+            connection_graph: {from_id: [to_ids]}
+            element_tree: {elem_id: {children, is_container, ...}}
+            toi_virtual_containers: Lista de VCs
+
+        Returns:
+            Dict[int, List[Tuple[str, float]]]: {level: [(elem_id, score), ...]}
+        """
         # Set de VCs para clasificación especial
         vc_ids = set()
-        for vc in structure_info.toi_virtual_containers:
+        for vc in toi_virtual_containers:
             vc_ids.add(vc['id'])
 
         # Agrupar elementos por nivel
         by_level = {}
-        for elem_id in elements_to_order:
-            level = levels_source.get(elem_id, 0)
+        for elem_id in elements:
+            level = topological_levels.get(elem_id, 0)
             if level not in by_level:
                 by_level[level] = []
 
             # Para VCs: score = max de scores de miembros
             if elem_id in vc_ids:
-                for vc in structure_info.toi_virtual_containers:
+                for vc in toi_virtual_containers:
                     if vc['id'] == elem_id:
                         member_scores = [
-                            structure_info.accessibility_scores.get(m, 0.0)
+                            accessibility_scores.get(m, 0.0)
                             for m in vc['members']
                         ]
                         score = max(member_scores) if member_scores else 0.0
@@ -1439,69 +1543,53 @@ class LAFOptimizer:
                 else:
                     score = 0.0
             else:
-                score = structure_info.accessibility_scores.get(elem_id, 0.0)
+                score = accessibility_scores.get(elem_id, 0.0)
 
             by_level[level].append((elem_id, score))
 
-        # Ordenar cada nivel usando el nuevo algoritmo
+        # Ordenar cada nivel
         centrality_order = {}
-        for level, elements in by_level.items():
-            # Clasificar elementos en grupos
-            centrales = []  # score > 0
-            normales = []   # score = 0 con hijos
-            hojas = []      # score = 0 sin hijos
+        for level, elems in by_level.items():
+            centrales = []
+            normales = []
+            hojas = []
 
-            for elem_id, score in elements:
-                # VCs siempre son normales o centrales, nunca hojas
+            for elem_id, score in elems:
                 is_vc = elem_id in vc_ids
 
                 if is_vc:
-                    has_children = True  # VCs siempre tienen miembros implícitos
+                    has_children = True
                 else:
-                    node = structure_info.element_tree.get(elem_id)
+                    node = element_tree.get(elem_id)
                     has_children = node and node.get('children', [])
 
-                # Asignar score mínimo a hojas para que tengan algo de centralidad en Fase 4
                 is_leaf = not has_children
                 if is_leaf and score == 0:
                     score = 0.0001
-                    # Actualizar en structure_info para que Fase 4 vea el score modificado
-                    structure_info.accessibility_scores[elem_id] = score
+                    accessibility_scores[elem_id] = score
 
-                # Clasificar: las hojas con score 0.0001 van al grupo hojas, no centrales
-                if score > 0.0001:  # Cambio: > 0.0001 en lugar de > 0
+                if score > 0.0001:
                     centrales.append((elem_id, score))
                 elif has_children:
                     normales.append((elem_id, score))
                 else:
-                    # Es hoja: no tiene hijos (score=0 o score=0.0001)
                     hojas.append((elem_id, score))
 
-            # Ordenar centrales por score descendente
             centrales.sort(key=lambda x: x[1], reverse=True)
-
-            # Distribuir elementos centrales alrededor del centro
-            # Los de mayor score en el medio exacto
             central_distributed = self._distribute_around_center(centrales)
 
-            # Para normales y hojas: ordenar por número de conexiones
-            # (más conexiones = más importante, va más cerca del centro)
             def connection_count(elem_id):
-                in_count = sum(1 for targets in conn_graph.values()
+                in_count = sum(1 for targets in connection_graph.values()
                               if elem_id in targets)
-                out_count = len(conn_graph.get(elem_id, []))
+                out_count = len(connection_graph.get(elem_id, []))
                 return in_count + out_count
 
             normales.sort(key=lambda x: connection_count(x[0]), reverse=True)
             hojas.sort(key=lambda x: connection_count(x[0]), reverse=True)
 
-            # Distribuir normales a los lados de centrales
             normales_distributed = self._distribute_sides(normales)
-
-            # Distribuir hojas en extremos
             hojas_distributed = self._distribute_extremes(hojas)
 
-            # Combinar: hojas_izq + normales_izq + centrales + normales_der + hojas_der
             left_hojas = hojas_distributed[0]
             right_hojas = hojas_distributed[1]
             left_normales = normales_distributed[0]
@@ -1517,20 +1605,20 @@ class LAFOptimizer:
 
     def _expand_ndpr_to_elements(self, ndpr_positions, structure_info):
         """
-        Expande posiciones NdPr a posiciones de elementos individuales.
+        Expande posiciones NdDp01 a posiciones de elementos individuales.
 
-        - NdPr simples (no-VC, no-contenedor): copiar posición directamente
-        - NdPr contenedores reales: copiar posición del contenedor, generar
+        - NdDp01 simples (no-VC, no-contenedor): copiar posición directamente
+        - NdDp01 contenedores reales: copiar posición del contenedor, generar
           posiciones de hijos contenidos con offsets
-        - NdPr VCs: distribuir miembros alrededor del anchor del VC,
+        - NdDp01 VCs: distribuir miembros alrededor del anchor del VC,
           agrupados por sub-nivel topológico
 
         Args:
-            ndpr_positions: {ndpr_id: (x, y)} posiciones optimizadas de NdPr
+            ndpr_positions: {ndpr_id: (x, y)} posiciones optimizadas de NdDp01
             structure_info: StructureInfo con toda la info estructural
 
         Returns:
-            Dict[str, Tuple[float, float]]: posiciones para los 27 elementos
+            Dict[str, Tuple[float, float]]: posiciones para todos los elementos
         """
         element_positions = {}
 
@@ -1583,7 +1671,7 @@ class LAFOptimizer:
                         element_positions[member_id] = (mx, my)
 
             else:
-                # Simple NdPr or real container: copy position
+                # Simple NdDp01 or real container: copy position
                 element_positions[ndpr_id] = (nx, ny)
 
                 # If it's a real container, also position contained children

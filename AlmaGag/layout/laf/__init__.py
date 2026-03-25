@@ -7,7 +7,7 @@ Este paquete implementa un enfoque de layout en 10 fases:
 3. Ordenamiento por centralidad
 4. Layout abstracto (posicionamiento como puntos para minimizar cruces)
 5. Optimización de posiciones (Claude-SolFase5) - minimiza distancia de conectores
-6. Expansión NdPr (NdPr → elementos individuales)
+6. Expansión NdDp (NdDp01 → elementos individuales)
 7. Inflación + Crecimiento de contenedores (dimensiones reales, bottom-up)
 8. Redistribución vertical
 9. Routing

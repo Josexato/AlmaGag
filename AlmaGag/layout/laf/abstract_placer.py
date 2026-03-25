@@ -41,7 +41,7 @@ class AbstractPlacer:
             debug: Si True, imprime logs de debug
         """
         self.debug = debug
-        self._connection_graph = None  # Set during place_elements when in NdPr mode
+        self._connection_graph = None  # Set during place_elements when in NdDp mode
 
     def _calculate_centrality_weight(self, accessibility_score: float) -> float:
         """
@@ -77,12 +77,14 @@ class AbstractPlacer:
         centrality_order: Dict[int, List[Tuple[str, float]]] = None,
         connection_graph: Dict[str, List[str]] = None,
         collapsed_sizes: Dict[str, float] = None,
-        topological_levels: Dict[str, int] = None
+        topological_levels: Dict[str, int] = None,
+        seed_positions: Dict[str, Tuple[float, float]] = None,
+        accessibility_scores: Dict[str, float] = None
     ) -> Dict[str, Tuple[int, int]]:
         """
         Calcula posiciones abstractas (x, y) para elementos.
 
-        Cuando connection_graph se provee (modo NdPr), trabaja sobre nodos NdPr
+        Cuando connection_graph se provee (modo NdDp), trabaja sobre nodos NdDp
         usando el grafo abstracto directamente. No genera posiciones de elementos
         contenidos ni aplica adjacencia TOI.
 
@@ -98,28 +100,39 @@ class AbstractPlacer:
             structure_info: Información estructural del diagrama
             layout: Layout con connections
             centrality_order: Orden de Fase 3 {level: [(elem_id, score), ...]}
-            connection_graph: Grafo de conexiones explícito (modo NdPr).
+            connection_graph: Grafo de conexiones explícito (modo NdDp).
                               Si se provee, se usa en vez de layout.connections.
             collapsed_sizes: {elem_id: estimated_width} para nodos colapsados
                              que ocupan más espacio horizontal.
             topological_levels: Niveles topológicos explícitos (override para
                                 iteraciones de expansión parcial).
+            accessibility_scores: Scores parciales por iteración. Si se provee,
+                                  se usa en vez de structure_info.accessibility_scores.
 
         Returns:
             {element_id: (abstract_x, abstract_y)}
         """
-        # Guardar connection_graph para uso en métodos internos
+        # Guardar estado para uso en métodos internos
         self._connection_graph = connection_graph
+        self._seed_positions = seed_positions
+        self._accessibility_scores = accessibility_scores
 
         # Fase 1: Layering (asignar elementos a capas)
         if topological_levels and connection_graph:
             # Modo iterativo: usar topological_levels del grafo parcial
             layers = self._assign_layers_from_levels(topological_levels)
+            # Pre-ordenar capas por centrality_order iterativo
+            if centrality_order:
+                self._presort_layers_by_centrality(layers, centrality_order)
         else:
             layers = self._assign_layers(structure_info, centrality_order)
 
         # Step 2: Ordering (ordenar dentro de capas)
-        self._order_within_layers(layers, structure_info, layout)
+        if self._seed_positions:
+            # Modo congelado: elementos previos fijos, solo nuevos se ordenan
+            self._order_with_frozen(layers, structure_info, layout)
+        else:
+            self._order_within_layers(layers, structure_info, layout)
 
         # Guardar orden optimizado para Fase 9 (Redistribución)
         layout.optimized_layer_order = [layer.copy() for layer in layers]
@@ -138,8 +151,116 @@ class AbstractPlacer:
 
         # Limpiar estado temporal
         self._connection_graph = None
+        self._seed_positions = None
+        self._accessibility_scores = None
 
         return positions
+
+    def _get_accessibility_score(self, elem_id: str, structure_info: StructureInfo) -> float:
+        """Obtiene accessibility score del override parcial o de structure_info."""
+        if self._accessibility_scores:
+            return self._accessibility_scores.get(elem_id, 0.0)
+        return structure_info.accessibility_scores.get(elem_id, 0.0)
+
+    def _presort_layers_by_centrality(
+        self,
+        layers: List[List[str]],
+        centrality_order: Dict[int, List[Tuple[str, float]]]
+    ) -> None:
+        """
+        Pre-ordena capas según centrality_order (distribución centro-extremos).
+
+        Para cada capa, reordena los elementos según el orden definido
+        en centrality_order para ese nivel. Elementos no presentes en
+        centrality_order se agregan al final.
+
+        Args:
+            layers: Capas a pre-ordenar (modifica in-place)
+            centrality_order: {level: [(elem_id, score), ...]}
+        """
+        for level, layer in enumerate(layers):
+            if level not in centrality_order or len(layer) <= 1:
+                continue
+
+            order_ids = [eid for eid, _ in centrality_order[level]]
+            order_map = {eid: idx for idx, eid in enumerate(order_ids)}
+
+            # Separar: los que están en centrality_order y los que no
+            in_order = [e for e in layer if e in order_map]
+            not_in_order = [e for e in layer if e not in order_map]
+
+            in_order.sort(key=lambda e: order_map[e])
+            layer[:] = in_order + not_in_order
+
+    def _order_with_frozen(
+        self,
+        layers: List[List[str]],
+        structure_info: StructureInfo,
+        layout
+    ) -> None:
+        """
+        Ordena capas congelando elementos de iteraciones previas.
+
+        Elementos con seed_positions quedan fijos en su orden relativo.
+        Elementos nuevos (hijos de un VC recién expandido) se insertan
+        en el hueco que dejó su VC colapsado, ordenados internamente
+        por barycenter contra capas adyacentes.
+
+        Args:
+            layers: Capas a ordenar (modifica in-place)
+            structure_info: Para mapeo element_to_ndpr
+            layout: Layout con connections
+        """
+        for layer in layers:
+            if len(layer) <= 1:
+                continue
+
+            frozen = [e for e in layer if e in self._seed_positions]
+            new_elems = [e for e in layer if e not in self._seed_positions]
+
+            if not new_elems:
+                # Todos congelados: mantener orden por seed X
+                layer.sort(key=lambda e: self._seed_positions[e][0])
+                continue
+
+            if not frozen:
+                # Todos nuevos (no debería pasar en iterativo, pero fallback)
+                continue
+
+            # Frozen ordenados por seed X
+            frozen.sort(key=lambda e: self._seed_positions[e][0])
+
+            # Agrupar nuevos por su VC de origen
+            vc_groups = {}
+            for elem_id in new_elems:
+                ndpr_id = structure_info.element_to_ndpr.get(elem_id)
+                if ndpr_id and ndpr_id in self._seed_positions:
+                    vc_groups.setdefault(ndpr_id, []).append(elem_id)
+                else:
+                    # Sin VC conocido: al final
+                    vc_groups.setdefault('__tail__', []).append(elem_id)
+
+            # Construir slots: (seed_x, [elementos])
+            slots = []
+            for e in frozen:
+                slots.append((self._seed_positions[e][0], [e]))
+            for vc_id, children in vc_groups.items():
+                if vc_id == '__tail__':
+                    continue
+                vc_x = self._seed_positions[vc_id][0]
+                slots.append((vc_x, children))
+
+            slots.sort(key=lambda s: s[0])
+
+            result = []
+            for _, items in slots:
+                result.extend(items)
+
+            # Agregar elementos sin VC conocido al final
+            if '__tail__' in vc_groups:
+                result.extend(vc_groups['__tail__'])
+
+            layer[:] = result
 
     def _assign_layers_from_levels(
         self,
@@ -225,7 +346,7 @@ class AbstractPlacer:
 
         Modifica layers in-place.
 
-        En modo NdPr (self._connection_graph set), usa el grafo abstracto
+        En modo NdDp (self._connection_graph set), usa el grafo abstracto
         directamente en vez de layout.connections.
 
         Args:
@@ -314,7 +435,7 @@ class AbstractPlacer:
         """
         Ordena capa usando forward barycenter (considera capa anterior).
 
-        En modo NdPr (self._connection_graph set), usa el grafo abstracto
+        En modo NdDp (self._connection_graph set), usa el grafo abstracto
         para calcular barycenters en vez de layout.connections.
 
         Args:
@@ -346,7 +467,7 @@ class AbstractPlacer:
 
         # SEGUNDA PASADA: Recalcular barycenters de contenedores usando
         # los barycenters de otros elementos (no sus posiciones)
-        # En modo NdPr, VCs son nodos atómicos → no necesita segunda pasada
+        # En modo NdDp, VCs son nodos atómicos → no necesita segunda pasada
         if not ndpr_mode:
             for elem_id in current_layer:
                 container_node = structure_info.element_tree.get(elem_id)
@@ -377,7 +498,7 @@ class AbstractPlacer:
                         break
 
         for elem_id in current_layer:
-            score = structure_info.accessibility_scores.get(elem_id, 0.0)
+            score = self._get_accessibility_score(elem_id, structure_info)
             barycenter_conn = barycenters.get(elem_id, center)
 
             # Calcular peso de centralidad (alpha) basado en score
@@ -407,7 +528,7 @@ class AbstractPlacer:
         current_layer.sort(key=get_sort_key)
 
         # Keep TOI virtual container members adjacent after sorting
-        # (not needed in NdPr mode - VCs are single nodes)
+        # (not needed in NdDp mode - VCs are single nodes)
         if not ndpr_mode:
             self._enforce_toi_container_adjacency(current_layer, structure_info)
 
@@ -439,7 +560,7 @@ class AbstractPlacer:
         for elem_id in current_layer:
             if conn_graph.get(elem_id, []):
                 continue
-            score = structure_info.accessibility_scores.get(elem_id, 0.0)
+            score = self._get_accessibility_score(elem_id, structure_info)
             if score > 0.05:
                 continue
             indeg_inter = sum(1 for s, ts in conn_graph.items()
@@ -462,7 +583,7 @@ class AbstractPlacer:
 
         effective_alphas = {}
         for elem_id in current_layer:
-            score = structure_info.accessibility_scores.get(elem_id, 0.0)
+            score = self._get_accessibility_score(elem_id, structure_info)
             alpha = self._calculate_centrality_weight(score)
             if elem_id in has_leaves:
                 alpha *= 0.3
@@ -552,7 +673,7 @@ class AbstractPlacer:
         """
         Ordena capa usando backward barycenter (considera capa siguiente).
 
-        En modo NdPr, usa self._connection_graph directamente.
+        En modo NdDp, usa self._connection_graph directamente.
 
         Args:
             current_layer: Capa actual a ordenar (modifica in-place)
@@ -597,7 +718,7 @@ class AbstractPlacer:
                         break
 
         for elem_id in current_layer:
-            score = structure_info.accessibility_scores.get(elem_id, 0.0)
+            score = self._get_accessibility_score(elem_id, structure_info)
             barycenter_conn = barycenters.get(elem_id, center)
             alpha = self._calculate_centrality_weight(score)
 
@@ -614,7 +735,7 @@ class AbstractPlacer:
         current_layer.sort(key=get_sort_key)
 
         # Keep TOI virtual container members adjacent after sorting
-        # (not needed in NdPr mode)
+        # (not needed in NdDp mode)
         if not ndpr_mode:
             self._enforce_toi_container_adjacency(current_layer, structure_info)
 
@@ -886,7 +1007,7 @@ class AbstractPlacer:
             return weighted_sum / total_weight
         else:
             # Sin conexiones: verificar si tiene score de centralidad
-            score = structure_info.accessibility_scores.get(elem_id, 0.0)
+            score = self._get_accessibility_score(elem_id, structure_info)
 
             if score > 0.0001:  # Tiene score significativo -> centrar
                 if prev_positions:
@@ -989,7 +1110,7 @@ class AbstractPlacer:
             barycenter = sum(next_neighbor_positions) / len(next_neighbor_positions)
         else:
             # Sin vecinos: verificar si tiene score de centralidad
-            score = structure_info.accessibility_scores.get(elem_id, 0.0)
+            score = self._get_accessibility_score(elem_id, structure_info)
 
             if score > 0.0001:  # Tiene score significativo -> centrar
                 barycenter = len(next_positions) / 2
@@ -1007,13 +1128,13 @@ class AbstractPlacer:
         connection_graph: Dict[str, List[str]]
     ) -> float:
         """
-        Calcula forward barycenter usando un connection_graph directo (modo NdPr).
+        Calcula forward barycenter usando un connection_graph directo (modo NdDp).
 
         Busca nodos en la capa anterior que apuntan a elem_id (forward),
         y nodos en la misma capa que apuntan a elem_id (same-level).
 
         Args:
-            elem_id: ID del nodo NdPr
+            elem_id: ID del nodo NdDp
             current_layer: Nodos de la capa actual
             prev_positions: {elem_id: idx} de la capa anterior
             connection_graph: {from_id: [to_ids]}
@@ -1061,12 +1182,12 @@ class AbstractPlacer:
         connection_graph: Dict[str, List[str]]
     ) -> float:
         """
-        Calcula backward barycenter usando un connection_graph directo (modo NdPr).
+        Calcula backward barycenter usando un connection_graph directo (modo NdDp).
 
         Busca nodos en la capa siguiente a los que elem_id apunta.
 
         Args:
-            elem_id: ID del nodo NdPr
+            elem_id: ID del nodo NdDp
             current_layer: Nodos de la capa actual
             next_positions: {elem_id: idx} de la capa siguiente
             connection_graph: {from_id: [to_ids]}
@@ -1322,7 +1443,7 @@ class AbstractPlacer:
         center_x = (len(current_layer) - 1) / 2.0
 
         for elem_id in current_layer:
-            score = structure_info.accessibility_scores.get(elem_id, 0.0)
+            score = self._get_accessibility_score(elem_id, structure_info)
             node = structure_info.element_tree.get(elem_id)
             has_children = node and node.get('children', [])
 

@@ -17,6 +17,7 @@ from typing import Dict, List, Tuple
 from copy import deepcopy
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 from AlmaGag.utils import extract_item_id
+from AlmaGag.layout.laf.structure_analyzer import StructureInfo
 
 logger = logging.getLogger('AlmaGag')
 
@@ -31,7 +32,7 @@ class GrowthVisualizer:
     3. phase3_centrality.svg: Ordenamiento por centralidad
     4. phase4_abstract.svg: Posiciones abstractas (puntos)
     5. phase5_optimized.svg: Posiciones optimizadas (Claude-SolFase5)
-    6. phase6_ndpr_expanded.svg: Expansión NdPr → elementos
+    6. phase6_ndpr_expanded.svg: Expansión NdDp01 → elementos
     7. phase7_iterative.svg: Resumen de corrida iterativa 4-5-6
     8. phase8_inflated.svg: Inflación + Contenedores expandidos
     9. phase9_redistributed.svg: Redistribución vertical
@@ -52,6 +53,26 @@ class GrowthVisualizer:
 
         # Snapshots capturados
         self.snapshots = {}
+
+    @staticmethod
+    def _find_vc_info(structure_info, vc_id: str) -> dict:
+        """Busca un VC dict por ID en todas las listas de VCs."""
+        for vc_list in (structure_info.scc_virtual_containers,
+                        structure_info.toi_virtual_containers,
+                        structure_info.loop_virtual_containers,
+                        structure_info.leaf_virtual_containers):
+            for vc in vc_list:
+                if vc['id'] == vc_id:
+                    return vc
+        return {}
+
+    @staticmethod
+    def _get_vc_label(vc_info: dict) -> str:
+        """Obtiene etiqueta corta para un VC (toi_id si existe, si no el id)."""
+        label = vc_info.get('toi_id', vc_info.get('id', ''))
+        if len(label) > 10:
+            label = label[:8] + '..'
+        return label
 
     def capture_phase1(
         self,
@@ -167,7 +188,7 @@ class GrowthVisualizer:
         Captura snapshot de Fase 7 (Resumen de corrida iterativa 4-5-6).
 
         Args:
-            iterative_summary: Dict con max_depth, total_iterations, iterations[]
+            iterative_summary: Dict con expandable_count, total_iterations, iterations[]
             structure_info: Información estructural
         """
         self.snapshots['phase7'] = {
@@ -306,12 +327,18 @@ class GrowthVisualizer:
 
         filename = os.path.join(output_path, "phase1_structure.svg")
 
-        # Canvas dinámico: altura basada en cantidad de NdPr + VCs
+        # Canvas dinámico: altura basada en cantidad de NdDp + VCs + árbol de elementos
         canvas_width = 800
         ndpr_count = len(structure_info.primary_node_ids)
-        vc_count = len(structure_info.toi_virtual_containers)
-        # ~200px header + 16px per NdPr + 14px per VC detail + 80px legend
-        canvas_height = max(600, 200 + (ndpr_count + vc_count) * 18 + 100)
+        vc_count = (len(structure_info.scc_virtual_containers) +
+                    len(structure_info.loop_virtual_containers) +
+                    len(structure_info.toi_virtual_containers) +
+                    len(structure_info.leaf_virtual_containers))
+        total_elements = len(structure_info.element_tree)
+        # ~200px header + 16px per NdDp + 14px per VC detail + 80px legend
+        # + 30px section header + 16px per element in tree
+        canvas_height = max(600, 200 + (ndpr_count + vc_count) * 18 + 100
+                            + 50 + total_elements * 16)
 
         dwg = svgwrite.Drawing(filename, size=(canvas_width, canvas_height))
 
@@ -349,10 +376,10 @@ class GrowthVisualizer:
             ))
             y += 25
 
-        # Tabla de nodos primarios (NdPr)
+        # Tabla de nodos abstractos (NdDp01)
         y += 20
         dwg.add(dwg.text(
-            'Primary Nodes (NdPr):',
+            'Abstract Nodes (NdDp01):',
             insert=(40, y),
             font_size='16px',
             font_weight='bold',
@@ -362,7 +389,7 @@ class GrowthVisualizer:
 
         # Header de tabla
         dwg.add(dwg.text(
-            'ID         Type                      Element',
+            'ID            Type                      Element',
             insert=(60, y),
             font_size='11px',
             fill='#495057',
@@ -375,14 +402,22 @@ class GrowthVisualizer:
         type_colors = {
             'Simple': '#6c757d',
             'Contenedor': '#0d6efd',
+            'Contenedor Virtual SCC': '#e74c3c',
+            'Contenedor Virtual Loop': '#f39c12',
             'Contenedor Virtual TOI': '#9b59b6',
+            'Contenedor Virtual Leaf': '#27ae60',
             'Contenedor Virtual': '#dc3545',
+            'SCC': '#e74c3c',
+            'Loop': '#f39c12',
+            'TOI': '#8e44ad',
+            'TOI Virtual': '#a569bd',
+            'Leaf': '#27ae60',
         }
 
-        # Build sorted NdPr list (all entries that have a NdPr ID)
+        # Build sorted NdDp list (all entries that have a primary NdDp ID)
         ndpr_entries = sorted(
             structure_info.primary_node_ids.items(),
-            key=lambda x: x[1]  # sort by NdPr001, NdPr002, ...
+            key=lambda x: x[1]  # sort by NdDp01-001, NdDp01-002, ...
         )
 
         displayed_count = 0
@@ -405,7 +440,6 @@ class GrowthVisualizer:
             node_type = structure_info.primary_node_types.get(entry_id, "N/A")
             color = type_colors.get(node_type, '#6c757d')
 
-            # For TOI VCs, show member count
             entry_display = entry_id if len(entry_id) <= 20 else entry_id[:17] + "..."
             text = f"{node_id}  {node_type:<24}  {entry_display}"
 
@@ -419,28 +453,126 @@ class GrowthVisualizer:
             y += 16
             displayed_count += 1
 
-            # For TOI VCs, show contained members indented
-            if node_type == 'Contenedor Virtual TOI':
-                # Find the VC by id
-                for vc in structure_info.toi_virtual_containers:
-                    if vc['id'] == entry_id:
-                        members_sorted = sorted(vc['members'])
-                        members_str = ', '.join(members_sorted)
-                        if len(members_str) > 55:
-                            members_str = members_str[:52] + '...'
-                        dwg.add(dwg.text(
-                            f"         └ {members_str}",
-                            insert=(60, y),
-                            font_size='10px',
-                            fill='#b07dd6',
-                            font_family='monospace'
-                        ))
-                        y += 14
-                        displayed_count += 1
-                        break
+            # For any VC type, show contained members indented
+            if node_type.startswith('Contenedor Virtual'):
+                vc_colors = {
+                    'Contenedor Virtual SCC': '#e74c3c',
+                    'Contenedor Virtual Loop': '#f39c12',
+                    'Contenedor Virtual TOI': '#b07dd6',
+                    'Contenedor Virtual Leaf': '#27ae60',
+                }
+                members = structure_info.get_vc_members(entry_id)
+                if members:
+                    members_str = ', '.join(sorted(members))
+                    if len(members_str) > 55:
+                        members_str = members_str[:52] + '...'
+                    dwg.add(dwg.text(
+                        f"              └ {members_str}",
+                        insert=(60, y),
+                        font_size='10px',
+                        fill=vc_colors.get(node_type, '#6c757d'),
+                        font_family='monospace'
+                    ))
+                    y += 14
+                    displayed_count += 1
+
+        # Árbol de elementos con profundidad
+        y += 25
+        dwg.add(dwg.text(
+            'Element Tree (Depth):',
+            insert=(40, y),
+            font_size='16px',
+            font_weight='bold',
+            fill='#212529'
+        ))
+        y += 20
+
+        # Header
+        dwg.add(dwg.text(
+            'Depth  Element                    Type         NdDp',
+            insert=(60, y),
+            font_size='11px',
+            fill='#495057',
+            font_family='monospace',
+            font_weight='bold'
+        ))
+        y += 18
+
+        # Colores por profundidad
+        depth_colors = ['#212529', '#0d6efd', '#198754', '#e67e22', '#9b59b6', '#dc3545']
+
+        def _get_nddp_label(elem_id):
+            """Obtiene NdDp ID para un elemento."""
+            nddp = structure_info.all_node_ids.get(elem_id, '')
+            if nddp:
+                return nddp
+            # Fallback: mostrar a cuál NdDp01 pertenece
+            if elem_id in structure_info.element_to_ndpr:
+                mapped = structure_info.element_to_ndpr[elem_id]
+                mapped_nddp = structure_info.all_node_ids.get(mapped, '')
+                if mapped_nddp:
+                    return f'({mapped_nddp})'
+            return ''
+
+        def _render_tree_element(elem_id, y_pos, tree_prefix, color):
+            """Renderiza un elemento del árbol."""
+            node = structure_info.element_tree[elem_id]
+            depth = node['depth']
+            type_label = 'container' if node['is_container'] else 'icon'
+            nddp = _get_nddp_label(elem_id)
+
+            name_display = elem_id if len(elem_id) <= 22 else elem_id[:19] + '...'
+            tree_name = f'{tree_prefix}{name_display}'
+
+            text = f'  {depth}    {tree_name:<30} {type_label:<12} {nddp}'
+            dwg.add(dwg.text(
+                text, insert=(60, y_pos),
+                font_size='11px', fill=color, font_family='monospace'
+            ))
+            return y_pos + 16
+
+        def render_tree_node(elem_id, y_pos, prefix=''):
+            node = structure_info.element_tree[elem_id]
+            depth = node['depth']
+            color = depth_colors[min(depth, len(depth_colors) - 1)]
+            y_pos = _render_tree_element(elem_id, y_pos, prefix, color)
+
+            children = node['children']
+            for i, child_id in enumerate(children):
+                is_last = (i == len(children) - 1)
+                child_prefix = prefix + ('└─ ' if is_last else '├─ ')
+                next_prefix = prefix + ('   ' if is_last else '│  ')
+                child_depth = structure_info.element_tree[child_id]['depth']
+                child_color = depth_colors[min(child_depth, len(depth_colors) - 1)]
+                y_pos = _render_tree_element(child_id, y_pos, child_prefix, child_color)
+
+                if structure_info.element_tree[child_id]['children']:
+                    y_pos = render_tree_children(child_id, y_pos, next_prefix)
+
+            return y_pos
+
+        def render_tree_children(parent_id, y_pos, prefix):
+            children = structure_info.element_tree[parent_id]['children']
+            for i, child_id in enumerate(children):
+                is_last = (i == len(children) - 1)
+                child_prefix = prefix + ('└─ ' if is_last else '├─ ')
+                next_prefix = prefix + ('   ' if is_last else '│  ')
+                child_depth = structure_info.element_tree[child_id]['depth']
+                child_color = depth_colors[min(child_depth, len(depth_colors) - 1)]
+                y_pos = _render_tree_element(child_id, y_pos, child_prefix, child_color)
+
+                if structure_info.element_tree[child_id]['children']:
+                    y_pos = render_tree_children(child_id, y_pos, next_prefix)
+
+            return y_pos
+
+        # Renderizar desde raíces del element_tree (incluye TOI VCs)
+        for elem_id, node in structure_info.element_tree.items():
+            if node['parent'] is None:
+                y = render_tree_node(elem_id, y)
 
         # Leyenda de colores
-        y += 10
+        y += 15
         dwg.add(dwg.text(
             'Legend:',
             insert=(60, y),
@@ -457,7 +589,11 @@ class GrowthVisualizer:
             ('Contenedor Virtual', '#dc3545')
         ]
 
-        for label, color in legend_items:
+        depth_legend = [
+            (f'Depth {i}', depth_colors[i]) for i in range(min(4, len(depth_colors)))
+        ]
+
+        for label, color in legend_items + depth_legend:
             dwg.add(dwg.circle(
                 center=(70, y - 3),
                 r=4,
@@ -470,6 +606,12 @@ class GrowthVisualizer:
                 fill='#495057'
             ))
             y += 14
+
+        # Ajustar canvas al contenido real
+        final_height = max(canvas_height, y + 30)
+        dwg['height'] = final_height
+        # Actualizar fondo
+        dwg.elements[1].attribs['height'] = final_height
 
         # Badge
         dwg.add(dwg.text(
@@ -698,7 +840,7 @@ class GrowthVisualizer:
 
         filename = os.path.join(output_path, "phase2_topology.svg")
 
-        # Organizar NdPr por nivel (vista colapsada)
+        # Organizar NdDp por nivel (vista colapsada)
         by_level = {}
         max_level = 0
         use_ndpr = bool(structure_info.ndpr_topological_levels)
@@ -1056,10 +1198,9 @@ class GrowthVisualizer:
                 # Nombre DEBAJO del nodo
                 if is_vc:
                     # For VCs, show member count
-                    for vc in structure_info.toi_virtual_containers:
-                        if vc['id'] == elem_id:
-                            label = f"VC ({len(vc['members'])} elem)"
-                            break
+                    vc_members = structure_info.get_vc_members(elem_id)
+                    if vc_members:
+                        label = f"VC ({len(vc_members)} elem)"
                     else:
                         label = elem_id
                 else:
@@ -1076,22 +1217,18 @@ class GrowthVisualizer:
 
                 # Mostrar score o member count DENTRO del nodo
                 if is_vc:
-                    for vc in structure_info.toi_virtual_containers:
-                        if vc['id'] == elem_id:
-                            # Show TOI name inside VC
-                            toi_label = vc.get('toi_id', '')
-                            if len(toi_label) > 10:
-                                toi_label = toi_label[:8] + '..'
-                            dwg.add(dwg.text(
-                                toi_label,
-                                insert=(node_x, node_y + 4),
-                                font_size='9px',
-                                fill='white',
-                                text_anchor='middle',
-                                font_weight='bold',
-                                font_family='monospace'
-                            ))
-                            break
+                    vc_info = self._find_vc_info(structure_info, elem_id)
+                    if vc_info:
+                        vc_label = self._get_vc_label(vc_info)
+                        dwg.add(dwg.text(
+                            vc_label,
+                            insert=(node_x, node_y + 4),
+                            font_size='9px',
+                            fill='white',
+                            text_anchor='middle',
+                            font_weight='bold',
+                            font_family='monospace'
+                        ))
                 elif score > 0:
                     dwg.add(dwg.text(
                         f'{score:.3f}',
@@ -1235,17 +1372,17 @@ class GrowthVisualizer:
 
     def _build_ndpr_positions(self, raw_positions, structure_info):
         """
-        Collapse raw element positions into NdPr-level positions.
+        Collapse raw element positions into NdDp-level positions.
 
-        If positions are already NdPr-level (all keys are NdPr IDs),
+        If positions are already NdDp-level (all keys are NdDp IDs),
         return them directly without computing centroids.
 
-        Otherwise, simple NdPr nodes keep their position and TOI VCs
+        Otherwise, simple NdDp nodes keep their position and TOI VCs
         get the centroid of their member positions.
 
         Returns: {ndpr_id: (x, y)}
         """
-        # Check if positions are already NdPr-level
+        # Check if positions are already NdDp-level
         ndpr_set = set(structure_info.ndpr_elements)
         if ndpr_set and all(k in ndpr_set for k in raw_positions):
             return dict(raw_positions)
@@ -1255,20 +1392,19 @@ class GrowthVisualizer:
         for ndpr_id in structure_info.ndpr_elements:
             node_type = structure_info.primary_node_types.get(ndpr_id, 'Simple')
 
-            if node_type == 'Contenedor Virtual TOI':
+            if node_type.startswith('Contenedor Virtual'):
                 # Centroid of member positions
-                for vc in structure_info.toi_virtual_containers:
-                    if vc['id'] == ndpr_id:
-                        member_positions = [
-                            raw_positions[m]
-                            for m in vc['members']
-                            if m in raw_positions
-                        ]
-                        if member_positions:
-                            cx = sum(p[0] for p in member_positions) / len(member_positions)
-                            cy = sum(p[1] for p in member_positions) / len(member_positions)
-                            ndpr_pos[ndpr_id] = (cx, cy)
-                        break
+                vc_members = structure_info.get_vc_members(ndpr_id)
+                if vc_members:
+                    member_positions = [
+                        raw_positions[m]
+                        for m in vc_members
+                        if m in raw_positions
+                    ]
+                    if member_positions:
+                        cx = sum(p[0] for p in member_positions) / len(member_positions)
+                        cy = sum(p[1] for p in member_positions) / len(member_positions)
+                        ndpr_pos[ndpr_id] = (cx, cy)
             elif ndpr_id in raw_positions:
                 ndpr_pos[ndpr_id] = raw_positions[ndpr_id]
 
@@ -1277,7 +1413,7 @@ class GrowthVisualizer:
     def _draw_ndpr_node(self, dwg, ndpr_id, cx, cy, structure_info, radius=12,
                         color_fn=None):
         """
-        Draw a single NdPr node: rounded rect for VCs, circle for others.
+        Draw a single NdDp node: rounded rect for VCs, circle for others.
 
         Args:
             color_fn: Optional callable(ndpr_id, structure_info) -> fill_color.
@@ -1336,10 +1472,10 @@ class GrowthVisualizer:
 
         filename = os.path.join(output_path, 'phase3_centrality.svg')
 
-        # Collapse centrality_order to NdPr level
+        # Collapse centrality_order to NdDp level
         use_ndpr = bool(structure_info.ndpr_elements)
         if use_ndpr:
-            # Build NdPr-level centrality: aggregate scores per NdPr per level
+            # Build NdDp-level centrality: aggregate scores per NdDp per level
             ndpr_scores = {}  # {ndpr_id: max_score}
             for level, elements in centrality_order.items():
                 for elem_id, score in elements:
@@ -1347,7 +1483,7 @@ class GrowthVisualizer:
                     if ndpr_id not in ndpr_scores or score > ndpr_scores[ndpr_id]:
                         ndpr_scores[ndpr_id] = score
 
-            # Build NdPr centrality_order using ndpr_topological_levels
+            # Build NdDp centrality_order using ndpr_topological_levels
             ndpr_centrality = {}
             for ndpr_id in structure_info.ndpr_elements:
                 level = structure_info.ndpr_topological_levels.get(ndpr_id, 0)
@@ -1389,7 +1525,7 @@ class GrowthVisualizer:
         ))
 
         dwg.add(dwg.text(
-            f'NdPr nodes ordered by accessibility score within each level',
+            f'NdDp nodes ordered by accessibility score within each level',
             insert=(20, 55),
             font_size='14px',
             fill='#6c757d'
@@ -1460,7 +1596,7 @@ class GrowthVisualizer:
         self._draw_colored_connections(dwg, all_node_positions,
                                        conn_graph, node_radius=node_radius)
 
-        # Dibujar nodos NdPr
+        # Dibujar nodos NdDp
         for level in sorted(display_order.keys()):
             elements = display_order[level]
             for elem_id, score in elements:
@@ -1501,21 +1637,18 @@ class GrowthVisualizer:
 
                 # Inside label
                 if is_vc:
-                    for vc in structure_info.toi_virtual_containers:
-                        if vc['id'] == elem_id:
-                            toi_label = vc.get('toi_id', '')
-                            if len(toi_label) > 10:
-                                toi_label = toi_label[:8] + '..'
-                            dwg.add(dwg.text(
-                                toi_label,
-                                insert=(x, y + 4),
-                                font_size='8px',
-                                fill='white',
-                                text_anchor='middle',
-                                font_weight='bold',
-                                font_family='monospace'
-                            ))
-                            break
+                    vc_info = self._find_vc_info(structure_info, elem_id)
+                    if vc_info:
+                        vc_label = self._get_vc_label(vc_info)
+                        dwg.add(dwg.text(
+                            vc_label,
+                            insert=(x, y + 4),
+                            font_size='8px',
+                            fill='white',
+                            text_anchor='middle',
+                            font_weight='bold',
+                            font_family='monospace'
+                        ))
                 elif score > 0:
                     dwg.add(dwg.text(
                         f'{score:.3f}',
@@ -1529,10 +1662,9 @@ class GrowthVisualizer:
 
                 # Label below
                 if is_vc:
-                    for vc in structure_info.toi_virtual_containers:
-                        if vc['id'] == elem_id:
-                            label = f"VC ({len(vc['members'])} elem)"
-                            break
+                    vc_members = structure_info.get_vc_members(elem_id)
+                    if vc_members:
+                        label = f"VC ({len(vc_members)} elem)"
                     else:
                         label = elem_id
                 else:
@@ -1582,7 +1714,7 @@ class GrowthVisualizer:
             ))
 
         dwg.add(dwg.text(
-            'NdPr nodes ordered: Higher scores toward center, lower scores toward edges',
+            'NdDp nodes ordered: Higher scores toward center, lower scores toward edges',
             insert=(20, legend_y + 80 + 20),
             font_size='11px',
             fill='#6c757d',
@@ -1604,7 +1736,7 @@ class GrowthVisualizer:
 
     def _generate_phase4_abstract_svg(self, output_path: str) -> None:
         """
-        Genera SVG de Fase 4: Layout abstracto (NdPr nodes only).
+        Genera SVG de Fase 4: Layout abstracto (NdDp nodes only).
         VCs shown as rounded rectangles with centroid of member positions.
         """
         snapshot = self.snapshots['phase4']
@@ -1615,11 +1747,11 @@ class GrowthVisualizer:
 
         filename = os.path.join(output_path, "phase4_abstract.svg")
 
-        # Build NdPr positions (collapse VCs to centroids)
+        # Build NdDp positions (collapse VCs to centroids)
         use_ndpr = bool(structure_info.ndpr_elements)
         ndpr_set = set(structure_info.ndpr_elements)
         if use_ndpr:
-            # Check if positions are already NdPr-level
+            # Check if positions are already NdDp-level
             if all(k in ndpr_set for k in abstract_positions):
                 ndpr_positions = dict(abstract_positions)
             else:
@@ -1682,7 +1814,7 @@ class GrowthVisualizer:
         # Draw connections
         self._draw_colored_connections(dwg, canvas_positions, conn_graph, node_radius=14)
 
-        # Draw NdPr nodes
+        # Draw NdDp nodes
         node_radius = 14
         for ndpr_id, (ax, ay) in ndpr_positions.items():
             cx, cy = to_canvas(ax, ay)
@@ -1709,7 +1841,7 @@ class GrowthVisualizer:
 
             node_id = structure_info.primary_node_ids.get(ndpr_id, ndpr_id)
 
-            # ARRIBA: NdPrXXX
+            # ARRIBA: NdDpXXX
             dwg.add(dwg.text(
                 node_id,
                 insert=(cx, cy - node_radius - 8),
@@ -1722,21 +1854,18 @@ class GrowthVisualizer:
 
             # CENTRO: label inside node
             if is_vc:
-                for vc in structure_info.toi_virtual_containers:
-                    if vc['id'] == ndpr_id:
-                        toi_label = vc.get('toi_id', '')
-                        if len(toi_label) > 10:
-                            toi_label = toi_label[:8] + '..'
-                        dwg.add(dwg.text(
-                            toi_label,
-                            insert=(cx, cy + 4),
-                            font_size='8px',
-                            fill='white',
-                            text_anchor='middle',
-                            font_family='monospace',
-                            font_weight='bold'
-                        ))
-                        break
+                vc_info = self._find_vc_info(structure_info, ndpr_id)
+                if vc_info:
+                    vc_label = self._get_vc_label(vc_info)
+                    dwg.add(dwg.text(
+                        vc_label,
+                        insert=(cx, cy + 4),
+                        font_size='8px',
+                        fill='white',
+                        text_anchor='middle',
+                        font_family='monospace',
+                        font_weight='bold'
+                    ))
             elif is_container:
                 dwg.add(dwg.text(
                     'TBG',
@@ -1760,10 +1889,9 @@ class GrowthVisualizer:
 
             # ABAJO: Name / VC info
             if is_vc:
-                for vc in structure_info.toi_virtual_containers:
-                    if vc['id'] == ndpr_id:
-                        elem_name = f"VC ({len(vc['members'])} elem)"
-                        break
+                vc_members = structure_info.get_vc_members(ndpr_id)
+                if vc_members:
+                    elem_name = f"VC ({len(vc_members)} elem)"
                 else:
                     elem_name = ndpr_id
             else:
@@ -1839,7 +1967,7 @@ class GrowthVisualizer:
 
     def _generate_phase5_optimized_svg(self, output_path: str) -> None:
         """
-        Genera SVG de Fase 5: Posiciones optimizadas (NdPr nodes only).
+        Genera SVG de Fase 5: Posiciones optimizadas (NdDp nodes only).
         VCs shown as rounded rectangles with centroid of member positions.
         """
         snapshot = self.snapshots['phase5']
@@ -1850,11 +1978,11 @@ class GrowthVisualizer:
 
         filename = os.path.join(output_path, "phase5_optimized.svg")
 
-        # Build NdPr positions
+        # Build NdDp positions
         use_ndpr = bool(structure_info.ndpr_elements)
         ndpr_set = set(structure_info.ndpr_elements)
         if use_ndpr:
-            # Check if positions are already NdPr-level
+            # Check if positions are already NdDp-level
             if all(k in ndpr_set for k in optimized_positions):
                 ndpr_positions = dict(optimized_positions)
             else:
@@ -1923,7 +2051,7 @@ class GrowthVisualizer:
         # Draw connections with colored arrows
         self._draw_colored_connections(dwg, canvas_positions, conn_graph, node_radius=14)
 
-        # Draw NdPr nodes
+        # Draw NdDp nodes
         node_radius = 14
         for ndpr_id, (ax, ay) in ndpr_positions.items():
             cx, cy = to_canvas(ax, ay)
@@ -1955,21 +2083,18 @@ class GrowthVisualizer:
 
             # Inside label
             if is_vc:
-                for vc in structure_info.toi_virtual_containers:
-                    if vc['id'] == ndpr_id:
-                        toi_label = vc.get('toi_id', '')
-                        if len(toi_label) > 10:
-                            toi_label = toi_label[:8] + '..'
-                        dwg.add(dwg.text(
-                            toi_label,
-                            insert=(cx, cy + 4),
-                            font_size='8px',
-                            fill='white',
-                            text_anchor='middle',
-                            font_family='monospace',
-                            font_weight='bold'
-                        ))
-                        break
+                vc_info = self._find_vc_info(structure_info, ndpr_id)
+                if vc_info:
+                    vc_label = self._get_vc_label(vc_info)
+                    dwg.add(dwg.text(
+                        vc_label,
+                        insert=(cx, cy + 4),
+                        font_size='8px',
+                        fill='white',
+                        text_anchor='middle',
+                        font_family='monospace',
+                        font_weight='bold'
+                    ))
             elif is_container:
                 dwg.add(dwg.text(
                     'TBG',
@@ -1983,10 +2108,9 @@ class GrowthVisualizer:
 
             # Name below
             if is_vc:
-                for vc in structure_info.toi_virtual_containers:
-                    if vc['id'] == ndpr_id:
-                        elem_name = f"VC ({len(vc['members'])} elem)"
-                        break
+                vc_members = structure_info.get_vc_members(ndpr_id)
+                if vc_members:
+                    elem_name = f"VC ({len(vc_members)} elem)"
                 else:
                     elem_name = ndpr_id
             else:
@@ -2238,7 +2362,7 @@ class GrowthVisualizer:
             insert=(20, 30), font_size='20px', font_weight='bold', fill='#212529'
         ))
         dwg.add(dwg.text(
-            f"max_depth={summary.get('max_depth', 0)}, "
+            f"{summary.get('expandable_count', summary.get('max_depth', 0))} expandables, "
             f"{summary.get('total_iterations', 0)} iterations, "
             f"{summary.get('final_elements', 0)} final elements",
             insert=(20, 52), font_size='13px', fill='#6c757d'
@@ -2508,18 +2632,40 @@ class GrowthVisualizer:
                     text_anchor='middle', font_family='sans-serif'
                 ))
 
-                # Nivel de centralidad efectiva
-                # Muestra el alpha real usado en el ordering (incluyendo penalización
-                # por hojas same-layer)
-                if structure_info and effective_alphas:
-                    eff_alpha = effective_alphas.get(node_id, 0.0)
-                    if eff_alpha > 0:
-                        score_text = f'α:{eff_alpha:.2f}'
-                    else:
-                        score_text = 'α:0'
+                # Valores de centralidad: score, alpha efectiva, y orden
+                centrality_scores = it.get('centrality_scores', {})
+                centrality_order = it.get('centrality_order', {})
+
+                # Calcular posición ordinal del nodo en centrality_order
+                node_order_pos = None
+                for _level, elems in centrality_order.items():
+                    for pos_idx, (eid, _sc) in enumerate(elems):
+                        if eid == node_id:
+                            node_order_pos = pos_idx + 1  # 1-based
+                            break
+                    if node_order_pos is not None:
+                        break
+
+                c_score = centrality_scores.get(node_id, 0.0)
+                eff_alpha = effective_alphas.get(node_id, 0.0) if effective_alphas else 0.0
+
+                # Línea 1: score de centralidad + alpha
+                if eff_alpha > 0:
+                    score_text = f'c:{c_score:.3f} α:{eff_alpha:.2f}'
+                else:
+                    score_text = f'c:{c_score:.3f} α:0'
+                dwg.add(dwg.text(
+                    score_text,
+                    insert=(sx, sy + node_radius + label_size * 2 + 4),
+                    font_size=f'{max(6, label_size - 1)}px', fill='#adb5bd',
+                    text_anchor='middle', font_family='monospace'
+                ))
+
+                # Línea 2: posición en el orden
+                if node_order_pos is not None:
                     dwg.add(dwg.text(
-                        score_text,
-                        insert=(sx, sy + node_radius + label_size * 2 + 4),
+                        f'ord:{node_order_pos}',
+                        insert=(sx, sy + node_radius + label_size * 3 + 6),
                         font_size=f'{max(6, label_size - 1)}px', fill='#adb5bd',
                         text_anchor='middle', font_family='monospace'
                     ))
@@ -2574,22 +2720,19 @@ class GrowthVisualizer:
         Construye etiquetas NdFn (Nodo Final) para cada elemento.
 
         Formato:
-        - Nodo primario simple:        NdFn.AAA.XXX.0
-        - Contenedor box:              NdFn.AAA.XXX.0
-        - Contenedor ícono:            NdFn.AAA.XXX.1 (skip si virtual)
-        - Elementos contenidos:        NdFn.AAA.XXX.2, .3, .4...
+        - Nodo primario simple:        NdFn.AAA.NdDpXX-YYY.0
+        - Contenedor box:              NdFn.AAA.NdDpXX-YYY.0
+        - Contenedor ícono:            NdFn.AAA.NdDpXX-YYY.1 (skip si virtual)
+        - Elementos contenidos:        NdFn.AAA.NdDpXX-YYY.2, .3, .4...
 
-        AAA = secuencial global, XXX = NdPr histórico
+        AAA = secuencial global, NdDpXX-YYY = NdDp ID del elemento
         """
         labels = {}
         if not structure_info:
             return labels
 
-        # Mapear elem_id → NdPr number
-        ndpr_map = {}
-        for elem_id, ndpr_id in structure_info.primary_node_ids.items():
-            # Extraer número de "NdPr001" → "001"
-            ndpr_map[elem_id] = ndpr_id.replace('NdPr', '')
+        # Mapear elem_id → NdDp ID (todos los elementos)
+        nddp_map = dict(structure_info.all_node_ids)
 
         # Mapear contenedores: elem_id → lista de hijos
         container_children = {}
@@ -2605,28 +2748,26 @@ class GrowthVisualizer:
         # Asignar AAA secuencial global
         aaa = 1
         for elem_id in structure_info.primary_elements:
-            xxx = ndpr_map.get(elem_id, '000')
+            nddp = nddp_map.get(elem_id, 'NdDp00-000')
             node_type = structure_info.primary_node_types.get(elem_id, 'Simple')
             is_container = elem_id in container_children
             is_virtual = node_type == 'Contenedor Virtual'
 
             # .0 = el box del contenedor o el nodo simple
-            labels[elem_id] = f"NdFn.{aaa:03d}.{xxx}.0"
+            labels[elem_id] = f"NdFn.{aaa:03d}.{nddp}.0"
             aaa += 1
 
             if is_container:
                 # .1 = ícono del contenedor (skip si virtual)
                 if not is_virtual:
-                    # El ícono del contenedor es el propio elem_id
-                    # pero como nodo visual dentro del contenedor
-                    # Lo marcamos como sub-índice 1
-                    labels[f"{elem_id}__icon"] = f"NdFn.{aaa:03d}.{xxx}.1"
+                    labels[f"{elem_id}__icon"] = f"NdFn.{aaa:03d}.{nddp}.1"
                     aaa += 1
 
                 # .2, .3, .4... = elementos contenidos
                 sub_idx = 2
                 for child_id in container_children[elem_id]:
-                    labels[child_id] = f"NdFn.{aaa:03d}.{xxx}.{sub_idx}"
+                    child_nddp = nddp_map.get(child_id, 'NdDp00-000')
+                    labels[child_id] = f"NdFn.{aaa:03d}.{child_nddp}.{sub_idx}"
                     aaa += 1
                     sub_idx += 1
 

@@ -829,7 +829,7 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     ndfn_labels = {}
     if visualdebug and hasattr(optimized_layout, 'structure_info') and optimized_layout.structure_info:
         si = optimized_layout.structure_info
-        ndpr_map = {eid: nid.replace('NdPr', '') for eid, nid in si.primary_node_ids.items()}
+        ndpr_map = {eid: nid for eid, nid in si.all_node_ids.items()}
         container_children = {}
         for eid, elem in elements_by_id.items():
             if 'contains' in elem and elem['contains']:
@@ -839,19 +839,20 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
                 ]
         aaa = 1
         for eid in si.primary_elements:
-            xxx = ndpr_map.get(eid, '000')
+            nddp = ndpr_map.get(eid, 'NdDp00-000')
             node_type = si.primary_node_types.get(eid, 'Simple')
             is_container = eid in container_children
             is_virtual = node_type == 'Contenedor Virtual'
-            ndfn_labels[eid] = f"NdFn.{aaa:03d}.{xxx}.0"
+            ndfn_labels[eid] = f"NdFn.{aaa:03d}.{nddp}.0"
             aaa += 1
             if is_container:
                 if not is_virtual:
-                    ndfn_labels[f"{eid}__icon"] = f"NdFn.{aaa:03d}.{xxx}.1"
+                    ndfn_labels[f"{eid}__icon"] = f"NdFn.{aaa:03d}.{nddp}.1"
                     aaa += 1
                 sub_idx = 2
                 for child_id in container_children[eid]:
-                    ndfn_labels[child_id] = f"NdFn.{aaa:03d}.{xxx}.{sub_idx}"
+                    child_nddp = ndpr_map.get(child_id, 'NdDp00-000')
+                    ndfn_labels[child_id] = f"NdFn.{aaa:03d}.{child_nddp}.{sub_idx}"
                     aaa += 1
                     sub_idx += 1
         logger.debug(f"[NdFn] {len(ndfn_labels)} etiquetas generadas para visualdebug")
