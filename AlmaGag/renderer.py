@@ -6,7 +6,7 @@ Extraído de generator.py para separar orquestación de renderizado.
 import colorsys
 import logging
 
-from AlmaGag.draw.connections import draw_connection_line
+from AlmaGag.draw.connections import draw_connection_line, draw_connection_label
 
 logger = logging.getLogger('AlmaGag')
 
@@ -164,3 +164,25 @@ def draw_connections(dwg, connections, elements_by_id, markers, per_conn_styles,
         conn_centers[key] = center
 
     return conn_centers
+
+
+def draw_connection_labels(dwg, connections, conn_centers, optimized_label_positions):
+    """Dibuja las etiquetas de conexiones con posiciones optimizadas o fallback."""
+    for conn in connections:
+        if conn.get('label'):
+            key = f"{conn['from']}->{conn['to']}"
+            optimized_pos = optimized_label_positions.get(key)
+            if optimized_pos:
+                dwg.add(dwg.text(
+                    conn['label'],
+                    insert=(optimized_pos.x, optimized_pos.y),
+                    text_anchor=optimized_pos.anchor,
+                    font_size="12px",
+                    font_family="Arial, sans-serif",
+                    fill="gray",
+                    filter='url(#text-glow)'
+                ))
+            else:
+                center = conn_centers.get(key)
+                if center:
+                    draw_connection_label(dwg, conn, center)

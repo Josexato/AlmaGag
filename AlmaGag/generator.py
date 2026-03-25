@@ -15,11 +15,10 @@ from AlmaGag.config import (
 from AlmaGag.layout import Layout, AutoLayoutOptimizer
 from AlmaGag.layout.label_optimizer import LabelPositionOptimizer, Label
 from AlmaGag.draw.icons import draw_icon_shape, draw_icon_label
-from AlmaGag.draw.connections import draw_connection_line, draw_connection_label
 from AlmaGag.draw.container import draw_container
 from AlmaGag.debug import add_debug_badge, convert_svg_to_png
 from AlmaGag.utils import extract_item_id
-from AlmaGag.renderer import DrawingGroupProxy, setup_arrow_markers, draw_connections
+from AlmaGag.renderer import DrawingGroupProxy, setup_arrow_markers, draw_connections, draw_connection_labels
 
 # Logger global para AlmaGag
 logger = logging.getLogger('AlmaGag')
@@ -956,26 +955,7 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
                 draw_icon_label(dwg, elem, position_info)
 
     # Dibujar etiquetas de conexiones optimizadas con posiciones optimizadas
-    for conn in connections:  # Usar connections optimizadas
-        if conn.get('label'):
-            key = f"{conn['from']}->{conn['to']}"
-            optimized_pos = optimized_label_positions.get(key)
-            if optimized_pos:
-                # Usar posición optimizada
-                dwg.add(dwg.text(
-                    conn['label'],
-                    insert=(optimized_pos.x, optimized_pos.y),
-                    text_anchor=optimized_pos.anchor,
-                    font_size="12px",
-                    font_family="Arial, sans-serif",
-                    fill="gray",
-                    filter='url(#text-glow)'
-                ))
-            else:
-                # Fallback a método antiguo
-                center = conn_centers.get(key)
-                if center:
-                    draw_connection_label(dwg, conn, center)
+    draw_connection_labels(dwg, connections, conn_centers, optimized_label_positions)
 
     # Dibujar etiquetas de contenedores en posición fija (NO optimizadas)
     for container in containers:
