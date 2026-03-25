@@ -6,6 +6,8 @@ Extraído de generator.py para separar orquestación de renderizado.
 import colorsys
 import logging
 
+from AlmaGag.draw.connections import draw_connection_line
+
 logger = logging.getLogger('AlmaGag')
 
 
@@ -120,3 +122,45 @@ def setup_arrow_markers(dwg, connections=None, color_connections=False):
         })
 
     return default_markers, per_connection
+
+
+def draw_connections(dwg, connections, elements_by_id, markers, per_conn_styles, ndfn_labels):
+    """Dibuja todas las líneas de conexión (sin etiquetas).
+
+    Retorna dict conn_centers: {key: (mid_x, mid_y)} para posicionar etiquetas después.
+    """
+    conn_centers = {}
+    for i, conn in enumerate(connections):
+        if per_conn_styles and i < len(per_conn_styles):
+            conn_markers = per_conn_styles[i]['markers']
+            conn_color = per_conn_styles[i]['color']
+        else:
+            conn_markers = markers
+            conn_color = 'black'
+
+        # Wrap connection in <g> with <desc> if visualdebug
+        conn_ndfn_group = None
+        draw_target = dwg
+        if ndfn_labels:
+            from_ndfn = ndfn_labels.get(conn['from'], conn['from'])
+            to_ndfn = ndfn_labels.get(conn['to'], conn['to'])
+            # Extract AAA numbers for concise id
+            from_aaa = from_ndfn.split('.')[1] if '.' in from_ndfn else conn['from']
+            to_aaa = to_ndfn.split('.')[1] if '.' in to_ndfn else conn['to']
+            conn_id = f"conn-{from_aaa}-to-{to_aaa}"
+            conn_ndfn_group = dwg.g(id=conn_id)
+            label = conn.get('label', '')
+            desc_text = f"From {from_ndfn} to {to_ndfn}"
+            if label:
+                desc_text += f" | {label}"
+            conn_ndfn_group.set_desc(desc=desc_text)
+            draw_target = DrawingGroupProxy(dwg, conn_ndfn_group)
+
+        center = draw_connection_line(draw_target, elements_by_id, conn, conn_markers, stroke_color=conn_color)
+        if conn_ndfn_group is not None:
+            dwg.add(conn_ndfn_group)
+
+        key = f"{conn['from']}->{conn['to']}"
+        conn_centers[key] = center
+
+    return conn_centers

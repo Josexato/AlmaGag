@@ -19,7 +19,7 @@ from AlmaGag.draw.connections import draw_connection_line, draw_connection_label
 from AlmaGag.draw.container import draw_container
 from AlmaGag.debug import add_debug_badge, convert_svg_to_png
 from AlmaGag.utils import extract_item_id
-from AlmaGag.renderer import DrawingGroupProxy, setup_arrow_markers
+from AlmaGag.renderer import DrawingGroupProxy, setup_arrow_markers, draw_connections
 
 # Logger global para AlmaGag
 logger = logging.getLogger('AlmaGag')
@@ -842,39 +842,7 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
             dwg.add(ndfn_group)
 
     # 2. Dibujar todas las conexiones optimizadas (sin etiquetas)
-    conn_centers = {}
-    for i, conn in enumerate(connections):  # Usar connections optimizadas, no all_connections
-        if per_conn_styles and i < len(per_conn_styles):
-            conn_markers = per_conn_styles[i]['markers']
-            conn_color = per_conn_styles[i]['color']
-        else:
-            conn_markers = markers
-            conn_color = 'black'
-
-        # Wrap connection in <g> with <desc> if visualdebug
-        conn_ndfn_group = None
-        draw_target = dwg
-        if ndfn_labels:
-            from_ndfn = ndfn_labels.get(conn['from'], conn['from'])
-            to_ndfn = ndfn_labels.get(conn['to'], conn['to'])
-            # Extract AAA numbers for concise id
-            from_aaa = from_ndfn.split('.')[1] if '.' in from_ndfn else conn['from']
-            to_aaa = to_ndfn.split('.')[1] if '.' in to_ndfn else conn['to']
-            conn_id = f"conn-{from_aaa}-to-{to_aaa}"
-            conn_ndfn_group = dwg.g(id=conn_id)
-            label = conn.get('label', '')
-            desc_text = f"From {from_ndfn} to {to_ndfn}"
-            if label:
-                desc_text += f" | {label}"
-            conn_ndfn_group.set_desc(desc=desc_text)
-            draw_target = DrawingGroupProxy(dwg, conn_ndfn_group)
-
-        center = draw_connection_line(draw_target, elements_by_id, conn, conn_markers, stroke_color=conn_color)
-        if conn_ndfn_group is not None:
-            dwg.add(conn_ndfn_group)
-
-        key = f"{conn['from']}->{conn['to']}"
-        conn_centers[key] = center
+    conn_centers = draw_connections(dwg, connections, elements_by_id, markers, per_conn_styles, ndfn_labels)
 
     # 2.5. Optimizar posiciones de etiquetas (v3.0 - Label Collision Optimizer)
     logger.debug("\n" + "="*70)
