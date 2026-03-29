@@ -9,7 +9,8 @@ import logging
 from AlmaGag.draw.connections import draw_connection_line, draw_connection_label
 from AlmaGag.draw.container import draw_container as _draw_container
 from AlmaGag.draw.icons import draw_icon_shape as _draw_icon_shape
-from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
+from AlmaGag.draw.container import calculate_container_bounds
+from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT, CONTAINER_PADDING
 
 logger = logging.getLogger('AlmaGag')
 
@@ -203,6 +204,61 @@ def render_icons(dwg, normal_elements, ndfn_labels, embedded_icons=None):
                        f"size({elem.get('width', ICON_WIDTH):.1f} x {elem.get('height', ICON_HEIGHT):.1f})")
         draw_target, ndfn_group = ndfn_wrap(dwg, elem['id'], ndfn_labels)
         _draw_icon_shape(draw_target, elem, embedded_icons=embedded_icons)
+        if ndfn_group is not None:
+            dwg.add(ndfn_group)
+
+
+def render_container_icons(dwg, containers, elements_by_id, ndfn_labels, embedded_icons=None):
+    """Dibuja los íconos de contenedores (encima de elementos contenidos)."""
+    import importlib
+
+    for container in containers:
+        container_id = container['id']
+
+        # Usar coordenadas pre-calculadas o calcular bounds
+        if '_is_container_calculated' in container and all(k in container for k in ['x', 'y']):
+            container_x = container['x']
+            container_y = container['y']
+        else:
+            bounds = calculate_container_bounds(container, elements_by_id)
+            container_x = bounds['x']
+            container_y = bounds['y']
+
+        icon_x = container_x + CONTAINER_PADDING
+        icon_y = container_y + CONTAINER_PADDING
+
+        icon_type = container.get('type', 'building')
+        color = container.get('color', 'lightgray')
+
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"[ICON] {container_id}: container=({container_x:.1f}, {container_y:.1f}), icon=({icon_x:.1f}, {icon_y:.1f})")
+
+        # Wrap container icon in NdFn group if label exists
+        icon_ndfn_key = f"{container_id}__icon"
+        draw_target, ndfn_group = ndfn_wrap(dwg, icon_ndfn_key, ndfn_labels)
+
+        # Dibujar ícono directamente
+        icon_elem_id = f"{container_id}_icon"
+        if embedded_icons and icon_type in embedded_icons:
+            from AlmaGag.draw.icons import draw_embedded_icon
+            draw_embedded_icon(draw_target, icon_x, icon_y, color, icon_elem_id, embedded_icons[icon_type])
+        else:
+            try:
+                icon_module = importlib.import_module(f'AlmaGag.draw.{icon_type}')
+                draw_func = getattr(icon_module, f'draw_{icon_type}')
+                draw_func(draw_target, icon_x, icon_y, color, icon_elem_id)
+            except (ImportError, AttributeError):
+                from AlmaGag.draw.icons import create_gradient
+                gradient_id = create_gradient(draw_target, container_id, color)
+                icon_size = min(ICON_WIDTH, ICON_HEIGHT) * 0.6
+                draw_target.add(draw_target.rect(
+                    insert=(icon_x, icon_y),
+                    size=(icon_size, icon_size),
+                    fill=gradient_id,
+                    stroke='black',
+                    opacity=1.0
+                ))
+
         if ndfn_group is not None:
             dwg.add(ndfn_group)
 

@@ -20,7 +20,8 @@ from AlmaGag.debug import add_debug_badge, convert_svg_to_png
 from AlmaGag.utils import extract_item_id
 from AlmaGag.renderer import (
     DrawingGroupProxy, setup_arrow_markers, draw_connections,
-    draw_connection_labels, ndfn_wrap, render_containers, render_icons,
+    draw_connection_labels, ndfn_wrap, render_containers,
+    render_icons, render_container_icons,
 )
 
 # Logger global para AlmaGag
@@ -756,65 +757,7 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     render_icons(dwg, normal_elements, ndfn_labels, embedded_icons=embedded_icons)
 
     # 1.5. Dibujar íconos de contenedores (encima de elementos contenidos)
-    for container in containers:
-        # Dibujar solo el ícono del contenedor, sin rectángulo ni label
-        # Esto se hace DESPUÉS de los elementos contenidos para que no quede tapado
-
-        container_id = container['id']
-
-        # IMPORTANTE: Usar las mismas coordenadas que draw_container usa para el rectángulo
-        # Si el contenedor tiene '_is_container_calculated', usar sus coordenadas directamente
-        # Si no, calcular bounds (igual que draw_container)
-        if '_is_container_calculated' in container and all(k in container for k in ['x', 'y']):
-            container_x = container['x']
-            container_y = container['y']
-        else:
-            # Calcular bounds (igual que draw_container)
-            from AlmaGag.draw.container import calculate_container_bounds
-            bounds = calculate_container_bounds(container, elements_by_id)
-            container_x = bounds['x']
-            container_y = bounds['y']
-
-        icon_x = container_x + CONTAINER_PADDING
-        icon_y = container_y + CONTAINER_PADDING
-
-        icon_type = container.get('type', 'building')
-        color = container.get('color', 'lightgray')
-
-        # DEBUG: Mostrar coordenadas
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(f"[ICON] {container_id}: container=({container_x:.1f}, {container_y:.1f}), icon=({icon_x:.1f}, {icon_y:.1f})")
-
-        # Wrap container icon in NdFn group if label exists
-        icon_ndfn_key = f"{container_id}__icon"
-        draw_target, ndfn_group = ndfn_wrap(dwg, icon_ndfn_key, ndfn_labels)
-
-        # Dibujar ícono directamente
-        icon_elem_id = f"{container_id}_icon"
-        if embedded_icons and icon_type in embedded_icons:
-            from AlmaGag.draw.icons import draw_embedded_icon
-            draw_embedded_icon(draw_target, icon_x, icon_y, color, icon_elem_id, embedded_icons[icon_type])
-        else:
-            try:
-                import importlib
-                icon_module = importlib.import_module(f'AlmaGag.draw.{icon_type}')
-                draw_func = getattr(icon_module, f'draw_{icon_type}')
-                draw_func(draw_target, icon_x, icon_y, color, icon_elem_id)
-            except (ImportError, AttributeError) as e:
-                # Fallback: dibujar rectángulo simple
-                from AlmaGag.draw.icons import create_gradient
-                gradient_id = create_gradient(draw_target, container_id, color)
-                icon_size = min(ICON_WIDTH, ICON_HEIGHT) * 0.6
-                draw_target.add(draw_target.rect(
-                    insert=(icon_x, icon_y),
-                    size=(icon_size, icon_size),
-                    fill=gradient_id,
-                    stroke='black',
-                    opacity=1.0
-                ))
-
-        if ndfn_group is not None:
-            dwg.add(ndfn_group)
+    render_container_icons(dwg, containers, elements_by_id, ndfn_labels, embedded_icons=embedded_icons)
 
     # 2. Dibujar todas las conexiones optimizadas (sin etiquetas)
     conn_centers = draw_connections(dwg, connections, elements_by_id, markers, per_conn_styles, ndfn_labels)
