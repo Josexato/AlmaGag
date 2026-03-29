@@ -1173,7 +1173,13 @@ class LAFOptimizer:
                     element_positions[child_id] = (child_x, child_y)
 
         # Expandir VCs: miembros que aún no están posicionados
-        for vc in structure_info.toi_virtual_containers:
+        all_vcs = (
+            structure_info.toi_virtual_containers +
+            structure_info.scc_virtual_containers +
+            structure_info.loop_virtual_containers +
+            structure_info.leaf_virtual_containers
+        )
+        for vc in all_vcs:
             vc_id = vc['id']
             # Si el VC mismo está posicionado pero sus miembros no
             if vc_id in element_positions:

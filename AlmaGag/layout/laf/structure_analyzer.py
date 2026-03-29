@@ -1319,6 +1319,59 @@ class StructureAnalyzer:
             if node['parent'] is None:
                 set_depth(elem_id, 0)
 
+    def _contract_sccs_for_levels(self, primary_elements, connection_graph):
+        """
+        Contrae SCCs (ciclos) en el grafo de conexiones para obtener un DAG.
+
+        Permite que BFS longest-path asigne niveles correctos a nodos cíclicos.
+        Cada SCC se reemplaza por un nodo representante (primer ID en orden
+        alfabético). Las aristas intra-SCC se eliminan.
+
+        Returns:
+            (contracted_elements, contracted_graph, member_to_rep, rep_to_members)
+        """
+        nodes = set(primary_elements)
+        sccs = self._tarjan_on_scope(nodes, connection_graph)
+
+        if not sccs:
+            # Sin ciclos: retornar datos originales sin copiar
+            return primary_elements, connection_graph, {}, {}
+
+        member_to_rep = {}
+        rep_to_members = {}
+
+        for scc in sccs:
+            rep = sorted(scc)[0]
+            rep_to_members[rep] = set(scc)
+            for member in scc:
+                member_to_rep[member] = rep
+
+        # Lista contraída: reemplazar miembros de SCCs por su representante
+        seen_reps = set()
+        contracted_elements = []
+        for eid in primary_elements:
+            if eid in member_to_rep:
+                rep = member_to_rep[eid]
+                if rep not in seen_reps:
+                    contracted_elements.append(rep)
+                    seen_reps.add(rep)
+            else:
+                contracted_elements.append(eid)
+
+        # Grafo contraído: redirigir aristas, eliminar intra-SCC
+        contracted_graph = {}
+        for from_id in contracted_elements:
+            targets = set()
+            source_nodes = rep_to_members.get(from_id, {from_id})
+            for src in source_nodes:
+                for tgt in connection_graph.get(src, []):
+                    mapped_tgt = member_to_rep.get(tgt, tgt)
+                    if mapped_tgt != from_id:
+                        targets.add(mapped_tgt)
+            contracted_graph[from_id] = list(targets)
+
+        return contracted_elements, contracted_graph, member_to_rep, rep_to_members
+
     def _calculate_topological_levels(self, layout, info: StructureInfo) -> None:
         """
         Calcula niveles topológicos usando BFS en el grafo de conexiones.
@@ -1331,22 +1384,32 @@ class StructureAnalyzer:
             layout: Layout con connections
             info: StructureInfo a poblar
         """
-        # Inicializar niveles
-        for elem_id in info.primary_elements:
-            info.topological_levels[elem_id] = 0
+        # Contraer SCCs para BFS en DAG (elimina ciclos)
+        (contracted_elements, contracted_graph,
+         member_to_rep, rep_to_members) = self._contract_sccs_for_levels(
+            info.primary_elements, info.connection_graph)
 
-        # Calcular niveles usando BFS
+        if member_to_rep:
+            logger.debug(f"[TOPO] SCCs contraídos: {len(rep_to_members)} grupo(s), "
+                        f"{len(member_to_rep)} nodos en ciclos")
+
+        # Inicializar niveles en grafo contraído
+        contracted_levels = {}
+        for elem_id in contracted_elements:
+            contracted_levels[elem_id] = 0
+
+        # Calcular niveles usando BFS sobre DAG contraído
         visited = set()
         queue = []
 
         # Encontrar elementos sin dependencias entrantes (nivel 0)
         has_incoming = set()
-        for from_id, to_list in info.connection_graph.items():
+        for from_id, to_list in contracted_graph.items():
             for to_id in to_list:
                 has_incoming.add(to_id)
 
         # Nivel 0: Sin dependencias entrantes
-        for elem_id in info.primary_elements:
+        for elem_id in contracted_elements:
             if elem_id not in has_incoming:
                 queue.append((elem_id, 0))
                 visited.add(elem_id)
@@ -1354,21 +1417,27 @@ class StructureAnalyzer:
         # BFS
         while queue:
             current_id, level = queue.pop(0)
-            info.topological_levels[current_id] = level
+            contracted_levels[current_id] = level
 
             # Procesar vecinos
-            for neighbor_id in info.connection_graph.get(current_id, []):
+            for neighbor_id in contracted_graph.get(current_id, []):
                 if neighbor_id not in visited:
                     queue.append((neighbor_id, level + 1))
                     visited.add(neighbor_id)
                 else:
                     # Actualizar nivel si encontramos un camino más largo
-                    old_level = info.topological_levels[neighbor_id]
-                    new_level = level + 1
-                    info.topological_levels[neighbor_id] = max(
-                        info.topological_levels[neighbor_id],
+                    contracted_levels[neighbor_id] = max(
+                        contracted_levels[neighbor_id],
                         level + 1
                     )
+
+        # Expandir niveles: miembros de SCCs reciben el nivel del representante
+        for elem_id in info.primary_elements:
+            if elem_id in member_to_rep:
+                rep = member_to_rep[elem_id]
+                info.topological_levels[elem_id] = contracted_levels.get(rep, 0)
+            else:
+                info.topological_levels[elem_id] = contracted_levels.get(elem_id, 0)
 
         # Build local reverse graph for parent lookup
         local_incoming = {}
