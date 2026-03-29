@@ -19,6 +19,7 @@ from AlmaGag.renderer import (
     draw_connection_labels, ndfn_wrap, render_containers,
     render_icons, render_container_icons, create_canvas,
     render_element_labels, render_container_labels,
+    render_debug_levels,
 )
 
 # Logger global para AlmaGag
@@ -846,78 +847,8 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     # Dibujar etiquetas de contenedores en posición fija (NO optimizadas)
     render_container_labels(dwg, containers, elements_by_id)
 
-    # ============================================================================
-    # DEBUG: Dibujar niveles topológicos de elementos primarios
-    # ============================================================================
     if visualdebug:
-        logger.debug("\n[DEBUG] Dibujando niveles topológicos de elementos primarios")
-
-        # Identificar elementos contenidos
-        contained_ids = set()
-        for container in containers:
-            for item in container.get('contains', []):
-                elem_id = extract_item_id(item)
-                contained_ids.add(elem_id)
-
-        # Identificar elementos primarios (no contenidos)
-        # Incluir TANTO elementos simples COMO contenedores primarios
-        primary_elements = []
-        for elem in elements:
-            if elem['id'] not in contained_ids and 'x' in elem and 'y' in elem:
-                primary_elements.append(elem)
-
-        # Agregar contenedores primarios (no están en la lista de elements)
-        for container in containers:
-            if container['id'] not in contained_ids and 'x' in container and 'y' in container:
-                primary_elements.append(container)
-
-        logger.debug(f"  Total elementos primarios: {len(primary_elements)}")
-
-        # Dibujar cuadrado rojo punteado y nivel para cada elemento primario
-        for elem in primary_elements:
-            elem_id = elem['id']
-            elem_x = elem['x']
-            elem_y = elem['y']
-            elem_width = elem.get('width', ICON_WIDTH)
-            elem_height = elem.get('height', ICON_HEIGHT)
-
-            # Obtener nivel topológico
-            level = optimized_layout.levels.get(elem_id, 0)
-
-            # Expandir el rectángulo para incluir la etiqueta si existe
-            box_x = elem_x
-            box_y = elem_y
-            box_width = elem_width
-            box_height = elem_height
-
-            if elem.get('label'):
-                lines = elem['label'].split('\n')
-                label_height = len(lines) * 18
-                box_height = elem_height + 15 + label_height  # 15px margen + altura de etiquetas
-
-            # Dibujar cuadrado rojo punteado
-            dwg.add(dwg.rect(
-                insert=(box_x - 5, box_y - 5),  # Margen de 5px
-                size=(box_width + 10, box_height + 10),
-                fill='none',
-                stroke='red',
-                stroke_width=2,
-                stroke_dasharray='5,5',
-                opacity=0.7
-            ))
-
-            # Dibujar número de nivel en esquina superior izquierda
-            dwg.add(dwg.text(
-                str(level),
-                insert=(box_x - 5 + 5, box_y - 5 + 15),  # 5px padding interno
-                text_anchor="start",
-                font_size="14px",
-                font_family="Arial, sans-serif",
-                font_weight="bold",
-                fill="red"
-            ))
-
-            logger.debug(f"    {elem_id}: nivel={level}, pos=({elem_x:.0f}, {elem_y:.0f}), size=({elem_width:.0f}x{elem_height:.0f})")
+        render_debug_levels(dwg, elements, containers, optimized_layout.levels)
 
     # Agregar etiquetas NdFn como anotaciones visibles (solo visualdebug)
     if ndfn_labels:
