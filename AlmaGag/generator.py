@@ -20,7 +20,7 @@ from AlmaGag.debug import add_debug_badge, convert_svg_to_png
 from AlmaGag.utils import extract_item_id
 from AlmaGag.renderer import (
     DrawingGroupProxy, setup_arrow_markers, draw_connections,
-    draw_connection_labels, ndfn_wrap, render_containers,
+    draw_connection_labels, ndfn_wrap, render_containers, render_icons,
 )
 
 # Logger global para AlmaGag
@@ -753,15 +753,7 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     render_containers(dwg, containers, elements_by_id, ndfn_labels, layout_algorithm)
 
     # 1. Dibujar todos los íconos normales (sin etiquetas)
-    logger.debug(f"\n[DIBUJAR ELEMENTOS] Total: {len(normal_elements)}")
-    for elem in normal_elements:
-        if 'x' in elem and 'y' in elem:
-            logger.debug(f"  {elem['id']}: ({elem['x']:.1f}, {elem['y']:.1f}) "
-                       f"size({elem.get('width', ICON_WIDTH):.1f} x {elem.get('height', ICON_HEIGHT):.1f})")
-        draw_target, ndfn_group = ndfn_wrap(dwg, elem['id'], ndfn_labels)
-        draw_icon_shape(draw_target, elem, embedded_icons=embedded_icons)
-        if ndfn_group is not None:
-            dwg.add(ndfn_group)
+    render_icons(dwg, normal_elements, ndfn_labels, embedded_icons=embedded_icons)
 
     # 1.5. Dibujar íconos de contenedores (encima de elementos contenidos)
     for container in containers:

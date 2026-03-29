@@ -8,6 +8,8 @@ import logging
 
 from AlmaGag.draw.connections import draw_connection_line, draw_connection_label
 from AlmaGag.draw.container import draw_container as _draw_container
+from AlmaGag.draw.icons import draw_icon_shape as _draw_icon_shape
+from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 
 logger = logging.getLogger('AlmaGag')
 
@@ -188,6 +190,19 @@ def render_containers(dwg, containers, elements_by_id, ndfn_labels, layout_algor
             logger.debug(f"[RECT] {container['id']}: ({container.get('x', 0):.1f}, {container.get('y', 0):.1f}) {container.get('width', 0):.1f}x{container.get('height', 0):.1f}")
         draw_target, ndfn_group = ndfn_wrap(dwg, container['id'], ndfn_labels)
         _draw_container(draw_target, container, elements_by_id, draw_label=False, layout_algorithm=layout_algorithm, draw_icon=False)
+        if ndfn_group is not None:
+            dwg.add(ndfn_group)
+
+
+def render_icons(dwg, normal_elements, ndfn_labels, embedded_icons=None):
+    """Dibuja todos los íconos normales (sin etiquetas)."""
+    logger.debug(f"\n[DIBUJAR ELEMENTOS] Total: {len(normal_elements)}")
+    for elem in normal_elements:
+        if 'x' in elem and 'y' in elem:
+            logger.debug(f"  {elem['id']}: ({elem['x']:.1f}, {elem['y']:.1f}) "
+                       f"size({elem.get('width', ICON_WIDTH):.1f} x {elem.get('height', ICON_HEIGHT):.1f})")
+        draw_target, ndfn_group = ndfn_wrap(dwg, elem['id'], ndfn_labels)
+        _draw_icon_shape(draw_target, elem, embedded_icons=embedded_icons)
         if ndfn_group is not None:
             dwg.add(ndfn_group)
 
