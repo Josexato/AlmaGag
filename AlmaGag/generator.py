@@ -12,14 +12,13 @@ from AlmaGag.config import (
 )
 from AlmaGag.layout import Layout, AutoLayoutOptimizer
 from AlmaGag.layout.label_optimizer import LabelPositionOptimizer, Label
-from AlmaGag.draw.icons import draw_icon_shape, draw_icon_label
-from AlmaGag.draw.container import draw_container
 from AlmaGag.debug import add_debug_badge, convert_svg_to_png
 from AlmaGag.utils import extract_item_id
 from AlmaGag.renderer import (
     DrawingGroupProxy, setup_arrow_markers, draw_connections,
     draw_connection_labels, ndfn_wrap, render_containers,
     render_icons, render_container_icons, create_canvas,
+    render_element_labels,
 )
 
 # Logger global para AlmaGag
@@ -839,28 +838,7 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     logger.debug("="*70 + "\n")
 
     # 3. Dibujar todas las etiquetas de elementos normales con posiciones optimizadas
-    for elem in elements:
-        if 'contains' not in elem and elem.get('label'):
-            optimized_pos = optimized_label_positions.get(elem['id'])
-            if optimized_pos:
-                # Usar posición optimizada, pero manejar saltos de línea
-                label_text = elem['label']
-                lines = label_text.split('\n')
-
-                for i, line in enumerate(lines):
-                    dwg.add(dwg.text(
-                        line,
-                        insert=(optimized_pos.x, optimized_pos.y + (i * 18)),
-                        text_anchor=optimized_pos.anchor,
-                        font_size="14px",
-                        font_family="Arial, sans-serif",
-                        fill="black",
-                        filter='url(#text-glow)'
-                    ))
-            else:
-                # Fallback: usar posición antigua del layout
-                position_info = label_positions.get(elem['id'])
-                draw_icon_label(dwg, elem, position_info)
+    render_element_labels(dwg, elements, optimized_label_positions, label_positions)
 
     # Dibujar etiquetas de conexiones optimizadas con posiciones optimizadas
     draw_connection_labels(dwg, connections, conn_centers, optimized_label_positions)

@@ -10,7 +10,7 @@ import svgwrite
 
 from AlmaGag.draw.connections import draw_connection_line, draw_connection_label
 from AlmaGag.draw.container import draw_container as _draw_container
-from AlmaGag.draw.icons import draw_icon_shape as _draw_icon_shape
+from AlmaGag.draw.icons import draw_icon_shape as _draw_icon_shape, draw_icon_label as _draw_icon_label
 from AlmaGag.draw.container import calculate_container_bounds
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT, CONTAINER_PADDING
 
@@ -283,6 +283,30 @@ def render_container_icons(dwg, containers, elements_by_id, ndfn_labels, embedde
 
         if ndfn_group is not None:
             dwg.add(ndfn_group)
+
+
+def render_element_labels(dwg, elements, optimized_label_positions, label_positions):
+    """Dibuja etiquetas de elementos normales con posiciones optimizadas o fallback."""
+    for elem in elements:
+        if 'contains' not in elem and elem.get('label'):
+            optimized_pos = optimized_label_positions.get(elem['id'])
+            if optimized_pos:
+                label_text = elem['label']
+                lines = label_text.split('\n')
+
+                for i, line in enumerate(lines):
+                    dwg.add(dwg.text(
+                        line,
+                        insert=(optimized_pos.x, optimized_pos.y + (i * 18)),
+                        text_anchor=optimized_pos.anchor,
+                        font_size="14px",
+                        font_family="Arial, sans-serif",
+                        fill="black",
+                        filter='url(#text-glow)'
+                    ))
+            else:
+                position_info = label_positions.get(elem['id'])
+                _draw_icon_label(dwg, elem, position_info)
 
 
 def draw_connection_labels(dwg, connections, conn_centers, optimized_label_positions):
