@@ -18,7 +18,7 @@ from AlmaGag.draw.icons import draw_icon_shape, draw_icon_label
 from AlmaGag.draw.container import draw_container
 from AlmaGag.debug import add_debug_badge, convert_svg_to_png
 from AlmaGag.utils import extract_item_id
-from AlmaGag.renderer import DrawingGroupProxy, setup_arrow_markers, draw_connections, draw_connection_labels
+from AlmaGag.renderer import DrawingGroupProxy, setup_arrow_markers, draw_connections, draw_connection_labels, ndfn_wrap
 
 # Logger global para AlmaGag
 logger = logging.getLogger('AlmaGag')
@@ -745,25 +745,12 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
                     sub_idx += 1
         logger.debug(f"[NdFn] {len(ndfn_labels)} etiquetas generadas para visualdebug")
 
-    def _ndfn_wrap(target, elem_id, ndfn_labels):
-        """Wrap drawing target in a <g> with <desc> if NdFn label exists.
-
-        Returns (draw_target, group_or_None). If wrapping, caller must
-        add group_or_None to dwg after drawing.
-        """
-        ndfn = ndfn_labels.get(elem_id, '')
-        if not ndfn:
-            return target, None
-        g = target.g(id=f'ndfn-{elem_id}')
-        g.set_desc(desc=f'{ndfn} | {elem_id}')
-        return DrawingGroupProxy(target, g), g
-
     # === Renderizado en orden correcto ===
     # 0. Dibujar todos los contenedores (solo fondo, sin ícono ni labels)
     for container in containers:
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"[RECT] {container['id']}: ({container.get('x', 0):.1f}, {container.get('y', 0):.1f}) {container.get('width', 0):.1f}x{container.get('height', 0):.1f}")
-        draw_target, ndfn_group = _ndfn_wrap(dwg, container['id'], ndfn_labels)
+        draw_target, ndfn_group = ndfn_wrap(dwg, container['id'], ndfn_labels)
         draw_container(draw_target, container, elements_by_id, draw_label=False, layout_algorithm=layout_algorithm, draw_icon=False)
         if ndfn_group is not None:
             dwg.add(ndfn_group)
@@ -774,7 +761,7 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
         if 'x' in elem and 'y' in elem:
             logger.debug(f"  {elem['id']}: ({elem['x']:.1f}, {elem['y']:.1f}) "
                        f"size({elem.get('width', ICON_WIDTH):.1f} x {elem.get('height', ICON_HEIGHT):.1f})")
-        draw_target, ndfn_group = _ndfn_wrap(dwg, elem['id'], ndfn_labels)
+        draw_target, ndfn_group = ndfn_wrap(dwg, elem['id'], ndfn_labels)
         draw_icon_shape(draw_target, elem, embedded_icons=embedded_icons)
         if ndfn_group is not None:
             dwg.add(ndfn_group)
@@ -811,7 +798,7 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
 
         # Wrap container icon in NdFn group if label exists
         icon_ndfn_key = f"{container_id}__icon"
-        draw_target, ndfn_group = _ndfn_wrap(dwg, icon_ndfn_key, ndfn_labels)
+        draw_target, ndfn_group = ndfn_wrap(dwg, icon_ndfn_key, ndfn_labels)
 
         # Dibujar ícono directamente
         icon_elem_id = f"{container_id}_icon"

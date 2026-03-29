@@ -166,6 +166,20 @@ def draw_connections(dwg, connections, elements_by_id, markers, per_conn_styles,
     return conn_centers
 
 
+def ndfn_wrap(target, elem_id, ndfn_labels):
+    """Wrap drawing target in a <g> with <desc> if NdFn label exists.
+
+    Returns (draw_target, group_or_None). If wrapping, caller must
+    add group_or_None to dwg after drawing.
+    """
+    ndfn = ndfn_labels.get(elem_id, '')
+    if not ndfn:
+        return target, None
+    g = target.g(id=f'ndfn-{elem_id}')
+    g.set_desc(desc=f'{ndfn} | {elem_id}')
+    return DrawingGroupProxy(target, g), g
+
+
 def draw_connection_labels(dwg, connections, conn_centers, optimized_label_positions):
     """Dibuja las etiquetas de conexiones con posiciones optimizadas o fallback."""
     for conn in connections:
