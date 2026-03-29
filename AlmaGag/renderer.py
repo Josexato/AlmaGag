@@ -453,6 +453,40 @@ def render_debug_levels(dwg, elements, containers, levels):
         logger.debug(f"    {elem_id}: nivel={level}, pos=({elem_x:.0f}, {elem_y:.0f}), size=({elem_width:.0f}x{elem_height:.0f})")
 
 
+def render_debug_ndfn(dwg, elements, ndfn_labels):
+    """Dibuja anotaciones NdFn visibles sobre los elementos (solo visualdebug)."""
+    for elem in elements:
+        eid = elem.get('id', '')
+        if 'x' not in elem or 'y' not in elem:
+            continue
+        x = elem['x']
+        y = elem['y']
+
+        ndfn = ndfn_labels.get(eid, '')
+        if ndfn:
+            dwg.add(dwg.text(
+                ndfn,
+                insert=(x + 2, y + 8),
+                font_size='7px',
+                fill='red',
+                font_family='monospace',
+                font_weight='bold',
+                opacity=0.8
+            ))
+
+        ndfn_icon = ndfn_labels.get(f"{eid}__icon", '')
+        if ndfn_icon:
+            dwg.add(dwg.text(
+                ndfn_icon,
+                insert=(x + 2, y + 16),
+                font_size='7px',
+                fill='#e85d04',
+                font_family='monospace',
+                font_weight='bold',
+                opacity=0.8
+            ))
+
+
 def draw_connection_labels(dwg, connections, conn_centers, optimized_label_positions):
     """Dibuja las etiquetas de conexiones con posiciones optimizadas o fallback."""
     for conn in connections:

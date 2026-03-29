@@ -19,7 +19,7 @@ from AlmaGag.renderer import (
     draw_connection_labels, ndfn_wrap, render_containers,
     render_icons, render_container_icons, create_canvas,
     render_element_labels, render_container_labels,
-    render_debug_levels,
+    render_debug_levels, render_debug_ndfn,
 )
 
 # Logger global para AlmaGag
@@ -852,36 +852,7 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
 
     # Agregar etiquetas NdFn como anotaciones visibles (solo visualdebug)
     if ndfn_labels:
-        for elem in elements:
-            eid = elem.get('id', '')
-            if 'x' not in elem or 'y' not in elem:
-                continue
-            x = elem['x']
-            y = elem['y']
-
-            ndfn = ndfn_labels.get(eid, '')
-            if ndfn:
-                dwg.add(dwg.text(
-                    ndfn,
-                    insert=(x + 2, y + 8),
-                    font_size='7px',
-                    fill='red',
-                    font_family='monospace',
-                    font_weight='bold',
-                    opacity=0.8
-                ))
-
-            ndfn_icon = ndfn_labels.get(f"{eid}__icon", '')
-            if ndfn_icon:
-                dwg.add(dwg.text(
-                    ndfn_icon,
-                    insert=(x + 2, y + 16),
-                    font_size='7px',
-                    fill='#e85d04',
-                    font_family='monospace',
-                    font_weight='bold',
-                    opacity=0.8
-                ))
+        render_debug_ndfn(dwg, elements, ndfn_labels)
 
     dwg.save()
     logger.info(f"Diagrama generado exitosamente: {output_svg}")
