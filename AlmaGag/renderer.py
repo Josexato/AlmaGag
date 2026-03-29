@@ -12,7 +12,8 @@ from AlmaGag.draw.connections import draw_connection_line, draw_connection_label
 from AlmaGag.draw.container import draw_container as _draw_container
 from AlmaGag.draw.icons import draw_icon_shape as _draw_icon_shape, draw_icon_label as _draw_icon_label
 from AlmaGag.draw.container import calculate_container_bounds
-from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT, CONTAINER_PADDING
+from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT, CONTAINER_PADDING, TEXT_LINE_HEIGHT
+from AlmaGag.utils import extract_item_id
 
 logger = logging.getLogger('AlmaGag')
 
@@ -307,6 +308,86 @@ def render_element_labels(dwg, elements, optimized_label_positions, label_positi
             else:
                 position_info = label_positions.get(elem['id'])
                 _draw_icon_label(dwg, elem, position_info)
+
+
+def render_container_labels(dwg, containers, elements_by_id):
+    """Dibuja etiquetas de contenedores en posición fija (NO optimizadas)."""
+    for container in containers:
+        if container.get('label'):
+            if 'x' in container and 'y' in container:
+                container_x = container['x']
+                container_y = container['y']
+
+                # LOG: Geometría del contenedor (COORDENADAS LOCALES)
+                logger.debug(f"\n{'='*70}")
+                logger.debug(f"[GEOMETRIA LOCAL CONTENEDOR] {container['id']}")
+                logger.debug(f"{'='*70}")
+                if 'width' in container and 'height' in container:
+                    logger.debug(f"Contenedor global: ({container_x:.1f}, {container_y:.1f}) "
+                               f"size({container['width']:.1f} x {container['height']:.1f})")
+                else:
+                    logger.debug(f"Contenedor global: ({container_x:.1f}, {container_y:.1f}) "
+                               f"size(pending - Phase 4 not implemented)")
+                logger.debug(f"\nElementos en coordenadas LOCALES (relativas a esquina superior izquierda):")
+
+                icon_local_x = 10
+                icon_local_y = 0
+                logger.debug(f"\n  1) ICONO CONTENEDOR:")
+                logger.debug(f"     Local: ({icon_local_x}, {icon_local_y})")
+                logger.debug(f"     Size: {ICON_WIDTH} x {ICON_HEIGHT}")
+                logger.debug(f"     Global: ({container_x + icon_local_x:.1f}, {container_y + icon_local_y:.1f})")
+
+                label_local_x = 10 + ICON_WIDTH + 10
+                label_local_y = 16
+                lines = container['label'].split('\n')
+                label_width = max(len(line) for line in lines) * 8
+                label_height = len(lines) * TEXT_LINE_HEIGHT
+                logger.debug(f"\n  2) ETIQUETA CONTENEDOR: '{container['label'].replace(chr(10), ' / ')}'")
+                logger.debug(f"     Local: ({label_local_x}, {label_local_y}) [baseline primera línea]")
+                logger.debug(f"     Size: ~{label_width} x {label_height} [{len(lines)} líneas]")
+                logger.debug(f"     Global: ({container_x + label_local_x:.1f}, {container_y + label_local_y:.1f})")
+
+                contains = container.get('contains', [])
+                if contains:
+                    logger.debug(f"\n  3) ELEMENTOS INTERNOS: {len(contains)}")
+                    for idx, ref in enumerate(contains, 1):
+                        ref_id = extract_item_id(ref)
+                        elem = elements_by_id.get(ref_id)
+                        if elem and 'x' in elem:
+                            elem_local_x = elem['x'] - container_x
+                            elem_local_y = elem['y'] - container_y
+                            elem_width = elem.get('width', ICON_WIDTH)
+                            elem_height = elem.get('height', ICON_HEIGHT)
+                            logger.debug(f"\n     {idx}) {ref_id}:")
+                            logger.debug(f"        Local: ({elem_local_x:.1f}, {elem_local_y:.1f})")
+                            logger.debug(f"        Size: {elem_width:.1f} x {elem_height:.1f}")
+                            logger.debug(f"        Global: ({elem['x']:.1f}, {elem['y']:.1f})")
+
+                            if elem.get('label'):
+                                elem_label = elem['label']
+                                elem_label_y_offset = elem_height + 15
+                                elem_label_local_x = elem_local_x + elem_width / 2
+                                elem_label_local_y = elem_local_y + elem_label_y_offset
+                                logger.debug(f"        Etiqueta: '{elem_label}'")
+                                logger.debug(f"          Local: ({elem_label_local_x:.1f}, {elem_label_local_y:.1f}) [aproximado]")
+                                logger.debug(f"          Global: ({container_x + elem_label_local_x:.1f}, {container_y + elem_label_local_y:.1f}) [aproximado]")
+
+                logger.debug(f"{'='*70}\n")
+
+                # Dibujar cada línea de la etiqueta del contenedor
+                label_x = container_x + label_local_x
+                label_y = container_y + label_local_y
+                for i, line in enumerate(lines):
+                    dwg.add(dwg.text(
+                        line,
+                        insert=(label_x, label_y + (i * 18)),
+                        text_anchor="start",
+                        font_size="16px",
+                        font_family="Arial, sans-serif",
+                        font_weight="bold",
+                        fill="black",
+                        filter='url(#text-glow)'
+                    ))
 
 
 def draw_connection_labels(dwg, connections, conn_centers, optimized_label_positions):

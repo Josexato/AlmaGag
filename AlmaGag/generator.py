@@ -18,7 +18,7 @@ from AlmaGag.renderer import (
     DrawingGroupProxy, setup_arrow_markers, draw_connections,
     draw_connection_labels, ndfn_wrap, render_containers,
     render_icons, render_container_icons, create_canvas,
-    render_element_labels,
+    render_element_labels, render_container_labels,
 )
 
 # Logger global para AlmaGag
@@ -844,90 +844,7 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     draw_connection_labels(dwg, connections, conn_centers, optimized_label_positions)
 
     # Dibujar etiquetas de contenedores en posición fija (NO optimizadas)
-    for container in containers:
-        if container.get('label'):
-            # Calcular posición fija: a la derecha del ícono, dentro del contenedor
-            if 'x' in container and 'y' in container:
-                # LOG: Geometría del contenedor (COORDENADAS LOCALES)
-                logger.debug(f"\n{'='*70}")
-                logger.debug(f"[GEOMETRIA LOCAL CONTENEDOR] {container['id']}")
-                logger.debug(f"{'='*70}")
-                if 'width' in container and 'height' in container:
-                    logger.debug(f"Contenedor global: ({container['x']:.1f}, {container['y']:.1f}) "
-                               f"size({container['width']:.1f} x {container['height']:.1f})")
-                else:
-                    logger.debug(f"Contenedor global: ({container['x']:.1f}, {container['y']:.1f}) "
-                               f"size(pending - Phase 4 not implemented)")
-                logger.debug(f"\nElementos en coordenadas LOCALES (relativas a esquina superior izquierda):")
-
-                container_x = container['x']
-                container_y = container['y']
-
-                # 1. Ícono del contenedor (siempre en posición fija)
-                # El icono está pegado al borde superior (sin padding top)
-                icon_local_x = 10  # Padding left
-                icon_local_y = 0   # Sin padding top - pegado arriba
-                logger.debug(f"\n  1) ICONO CONTENEDOR:")
-                logger.debug(f"     Local: ({icon_local_x}, {icon_local_y})")
-                logger.debug(f"     Size: {ICON_WIDTH} x {ICON_HEIGHT}")
-                logger.debug(f"     Global: ({container_x + icon_local_x:.1f}, {container_y + icon_local_y:.1f})")
-
-                # 2. Etiqueta del contenedor
-                label_local_x = 10 + ICON_WIDTH + 10
-                label_local_y = 16  # baseline primera línea (alineado con top del ícono)
-                lines = container['label'].split('\n')
-                label_width = max(len(line) for line in lines) * 8
-                label_height = len(lines) * TEXT_LINE_HEIGHT
-                logger.debug(f"\n  2) ETIQUETA CONTENEDOR: '{container['label'].replace(chr(10), ' / ')}'")
-                logger.debug(f"     Local: ({label_local_x}, {label_local_y}) [baseline primera línea]")
-                logger.debug(f"     Size: ~{label_width} x {label_height} [{len(lines)} líneas]")
-                logger.debug(f"     Global: ({container_x + label_local_x:.1f}, {container_y + label_local_y:.1f})")
-
-                # 3. Elementos internos del contenedor
-                contains = container.get('contains', [])
-                if contains:
-                    logger.debug(f"\n  3) ELEMENTOS INTERNOS: {len(contains)}")
-                    for idx, ref in enumerate(contains, 1):
-                        ref_id = extract_item_id(ref)
-                        elem = elements_by_id.get(ref_id)
-                        if elem and 'x' in elem:
-                            elem_local_x = elem['x'] - container_x
-                            elem_local_y = elem['y'] - container_y
-                            elem_width = elem.get('width', ICON_WIDTH)
-                            elem_height = elem.get('height', ICON_HEIGHT)
-                            logger.debug(f"\n     {idx}) {ref_id}:")
-                            logger.debug(f"        Local: ({elem_local_x:.1f}, {elem_local_y:.1f})")
-                            logger.debug(f"        Size: {elem_width:.1f} x {elem_height:.1f}")
-                            logger.debug(f"        Global: ({elem['x']:.1f}, {elem['y']:.1f})")
-
-                            # 4. Etiqueta del elemento interno (si existe)
-                            if elem.get('label'):
-                                elem_label = elem['label']
-                                # La etiqueta del elemento se dibuja relativa al elemento
-                                # Típicamente debajo del elemento
-                                elem_label_y_offset = elem_height + 15  # Debajo del elemento
-                                elem_label_local_x = elem_local_x + elem_width / 2
-                                elem_label_local_y = elem_local_y + elem_label_y_offset
-                                logger.debug(f"        Etiqueta: '{elem_label}'")
-                                logger.debug(f"          Local: ({elem_label_local_x:.1f}, {elem_label_local_y:.1f}) [aproximado]")
-                                logger.debug(f"          Global: ({container_x + elem_label_local_x:.1f}, {container_y + elem_label_local_y:.1f}) [aproximado]")
-
-                logger.debug(f"{'='*70}\n")
-
-                # Dibujar cada línea de la etiqueta del contenedor
-                label_x = container_x + label_local_x
-                label_y = container_y + label_local_y
-                for i, line in enumerate(lines):
-                    dwg.add(dwg.text(
-                        line,
-                        insert=(label_x, label_y + (i * 18)),
-                        text_anchor="start",  # Alineado a la izquierda
-                        font_size="16px",
-                        font_family="Arial, sans-serif",
-                        font_weight="bold",
-                        fill="black",
-                        filter='url(#text-glow)'
-                    ))
+    render_container_labels(dwg, containers, elements_by_id)
 
     # ============================================================================
     # DEBUG: Dibujar niveles topológicos de elementos primarios
