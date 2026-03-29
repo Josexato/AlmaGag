@@ -1172,17 +1172,24 @@ class LAFOptimizer:
                     child_y = cy + vertical_offset
                     element_positions[child_id] = (child_x, child_y)
 
-        # Expandir VCs: miembros que aún no están posicionados
+        # Expandir VCs: pasadas iterativas (externos antes que internos)
+        # Un VC interno necesita que su VC padre ya le haya asignado posición.
+        # Iteramos hasta que no queden VCs por expandir (soporta anidamiento arbitrario).
         all_vcs = (
             structure_info.toi_virtual_containers +
             structure_info.scc_virtual_containers +
             structure_info.loop_virtual_containers +
             structure_info.leaf_virtual_containers
         )
-        for vc in all_vcs:
-            vc_id = vc['id']
-            # Si el VC mismo está posicionado pero sus miembros no
-            if vc_id in element_positions:
+
+        max_passes = len(all_vcs) + 1
+        for _pass in range(max_passes):
+            expanded_any = False
+            for vc in all_vcs:
+                vc_id = vc['id']
+                if vc_id not in element_positions:
+                    continue
+
                 nx, ny = element_positions[vc_id]
                 members = sorted(vc['members'])
 
@@ -1207,8 +1214,13 @@ class LAFOptimizer:
                             my = ny + relative_y * vertical_offset
                             element_positions[member_id] = (mx, my)
 
+                    expanded_any = True
+
                 # Remove VC placeholder from positions
                 del element_positions[vc_id]
+
+            if not expanded_any:
+                break
 
         return element_positions
 
