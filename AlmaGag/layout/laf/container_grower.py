@@ -58,9 +58,14 @@ class ContainerGrower:
         # Paso 1: Ordenar contenedores por profundidad (bottom-up)
         sorted_containers = self._sort_containers_by_depth(structure_info)
 
-        # Paso 2: Procesar cada contenedor
+        # Paso 2: Procesar cada contenedor y empujar invasores
         for container_id in sorted_containers:
             self._grow_single_container(
+                container_id,
+                structure_info,
+                layout
+            )
+            self._push_overlapping_elements(
                 container_id,
                 structure_info,
                 layout
@@ -824,6 +829,140 @@ class ContainerGrower:
                         anchor,
                         baseline
                     )
+
+    def _get_container_members(self, container_id, structure_info):
+        """Retorna todos los IDs que pertenecen a un contenedor (recursivamente)."""
+        members = {container_id}
+        node = structure_info.element_tree.get(container_id, {})
+        for child_id in node.get('children', []):
+            members.add(child_id)
+            # Recursión para contenedores anidados
+            if structure_info.element_tree.get(child_id, {}).get('is_container'):
+                members |= self._get_container_members(child_id, structure_info)
+        return members
+
+    def _push_overlapping_elements(
+        self,
+        container_id: str,
+        structure_info: StructureInfo,
+        layout
+    ) -> None:
+        """
+        Empuja elementos que invaden el bbox de un contenedor recién expandido.
+
+        Después de que un contenedor crece, su bbox puede solapar elementos
+        externos. Este método desplaza todos los elementos del lado afectado
+        para mantener la distribución relativa.
+
+        Args:
+            container_id: ID del contenedor recién expandido
+            structure_info: Información estructural
+            layout: Layout a modificar in-place
+        """
+        container = layout.elements_by_id.get(container_id)
+        if not container or 'width' not in container:
+            return
+
+        cx = container.get('x', 0)
+        cy = container.get('y', 0)
+        cw = container['width']
+        ch = container['height']
+        margin = ICON_WIDTH * 0.25  # 20px de margen de seguridad
+
+        # Bbox del contenedor con margen
+        c_left = cx - margin
+        c_right = cx + cw + margin
+        c_top = cy - margin
+        c_bottom = cy + ch + margin
+
+        # IDs que pertenecen a este contenedor (no deben moverse relativamente)
+        own_members = self._get_container_members(container_id, structure_info)
+
+        # Centro del contenedor para decidir dirección de empuje
+        c_center_x = cx + cw / 2
+        c_center_y = cy + ch / 2
+
+        # Calcular desplazamientos necesarios por eje
+        push_right = 0.0   # máximo empuje a la derecha
+        push_left = 0.0    # máximo empuje a la izquierda
+        push_down = 0.0    # máximo empuje hacia abajo
+        push_up = 0.0      # máximo empuje hacia arriba
+
+        for elem in layout.elements:
+            eid = elem['id']
+            if eid in own_members or 'x' not in elem or 'y' not in elem:
+                continue
+
+            ew = elem.get('width', ICON_WIDTH)
+            eh = elem.get('height', ICON_HEIGHT)
+            ex = elem['x']
+            ey = elem['y']
+
+            # Verificar solapamiento (intersección de rectángulos)
+            if ex + ew <= c_left or ex >= c_right or ey + eh <= c_top or ey >= c_bottom:
+                continue  # No se solapan
+
+            # Hay solapamiento: calcular empuje mínimo en cada dirección
+            elem_center_x = ex + ew / 2
+            elem_center_y = ey + eh / 2
+
+            # Calcular penetración en cada eje
+            if elem_center_x >= c_center_x:
+                # Elemento está a la derecha del centro → empujar a la derecha
+                overlap = c_right - ex
+                if overlap > 0:
+                    push_right = max(push_right, overlap)
+            else:
+                # Elemento está a la izquierda → empujar a la izquierda
+                overlap = (ex + ew) - c_left
+                if overlap > 0:
+                    push_left = max(push_left, overlap)
+
+            if elem_center_y >= c_center_y:
+                overlap = c_bottom - ey
+                if overlap > 0:
+                    push_down = max(push_down, overlap)
+            else:
+                overlap = (ey + eh) - c_top
+                if overlap > 0:
+                    push_up = max(push_up, overlap)
+
+        # Aplicar empuje: mover TODOS los elementos del lado afectado
+        # (no solo los invasores, para preservar distribución)
+        if push_right > 0 or push_left > 0 or push_down > 0 or push_up > 0:
+            if self.debug:
+                logger.debug(f"  [PUSH] {container_id}: R={push_right:.0f} L={push_left:.0f} "
+                            f"D={push_down:.0f} U={push_up:.0f}")
+
+            for elem in layout.elements:
+                eid = elem['id']
+                if eid in own_members or 'x' not in elem or 'y' not in elem:
+                    continue
+
+                elem_center_x = elem['x'] + elem.get('width', ICON_WIDTH) / 2
+                elem_center_y = elem['y'] + elem.get('height', ICON_HEIGHT) / 2
+
+                dx = 0.0
+                dy = 0.0
+
+                if push_right > 0 and elem_center_x >= c_center_x:
+                    dx = push_right
+                elif push_left > 0 and elem_center_x < c_center_x:
+                    dx = -push_left
+
+                if push_down > 0 and elem_center_y >= c_center_y:
+                    dy = push_down
+                elif push_up > 0 and elem_center_y < c_center_y:
+                    dy = -push_up
+
+                if dx != 0 or dy != 0:
+                    elem['x'] += dx
+                    elem['y'] += dy
+
+                    # Actualizar etiqueta si existe
+                    if eid in layout.label_positions:
+                        lx, ly, anch, bl = layout.label_positions[eid]
+                        layout.label_positions[eid] = (lx + dx, ly + dy, anch, bl)
 
     def calculate_final_canvas(
         self,
