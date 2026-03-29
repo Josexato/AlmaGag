@@ -7,6 +7,7 @@ import colorsys
 import logging
 
 from AlmaGag.draw.connections import draw_connection_line, draw_connection_label
+from AlmaGag.draw.container import draw_container as _draw_container
 
 logger = logging.getLogger('AlmaGag')
 
@@ -178,6 +179,17 @@ def ndfn_wrap(target, elem_id, ndfn_labels):
     g = target.g(id=f'ndfn-{elem_id}')
     g.set_desc(desc=f'{ndfn} | {elem_id}')
     return DrawingGroupProxy(target, g), g
+
+
+def render_containers(dwg, containers, elements_by_id, ndfn_labels, layout_algorithm):
+    """Dibuja todos los contenedores (solo fondo, sin ícono ni labels)."""
+    for container in containers:
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"[RECT] {container['id']}: ({container.get('x', 0):.1f}, {container.get('y', 0):.1f}) {container.get('width', 0):.1f}x{container.get('height', 0):.1f}")
+        draw_target, ndfn_group = ndfn_wrap(dwg, container['id'], ndfn_labels)
+        _draw_container(draw_target, container, elements_by_id, draw_label=False, layout_algorithm=layout_algorithm, draw_icon=False)
+        if ndfn_group is not None:
+            dwg.add(ndfn_group)
 
 
 def draw_connection_labels(dwg, connections, conn_centers, optimized_label_positions):
