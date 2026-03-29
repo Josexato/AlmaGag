@@ -6,6 +6,8 @@ Extraído de generator.py para separar orquestación de renderizado.
 import colorsys
 import logging
 
+import svgwrite
+
 from AlmaGag.draw.connections import draw_connection_line, draw_connection_label
 from AlmaGag.draw.container import draw_container as _draw_container
 from AlmaGag.draw.icons import draw_icon_shape as _draw_icon_shape
@@ -32,6 +34,26 @@ class DrawingGroupProxy:
 
     def __getattr__(self, name):
         return getattr(self._dwg, name)
+
+
+def create_canvas(output_path, canvas_width, canvas_height):
+    """Crea el Drawing SVG con filtro global de glow blanco para etiquetas.
+
+    Returns:
+        svgwrite.Drawing configurado con viewbox y filtro text-glow.
+    """
+    dwg = svgwrite.Drawing(output_path, size=(canvas_width, canvas_height), debug=False)
+    dwg.viewbox(0, 0, canvas_width, canvas_height)
+
+    # Filtro global de glow blanco para etiquetas (Gaussian blur)
+    text_glow = dwg.filter(id='text-glow', x='-20%', y='-20%', width='140%', height='140%')
+    text_glow.feGaussianBlur(in_='SourceGraphic', stdDeviation=2, result='blur')
+    text_glow.feFlood(flood_color='white', flood_opacity=1, result='color')
+    text_glow.feComposite(in_='color', in2='blur', operator='in', result='shadow')
+    text_glow.feMerge(layernames=['shadow', 'shadow', 'SourceGraphic'])
+    dwg.defs.add(text_glow)
+
+    return dwg
 
 
 def _generate_color_palette(n):

@@ -3,8 +3,6 @@ import json
 import csv
 import logging
 
-import svgwrite
-from svgwrite.container import Group
 from datetime import datetime
 from AlmaGag.config import (
     WIDTH, HEIGHT, ICON_WIDTH, ICON_HEIGHT,
@@ -21,7 +19,7 @@ from AlmaGag.utils import extract_item_id
 from AlmaGag.renderer import (
     DrawingGroupProxy, setup_arrow_markers, draw_connections,
     draw_connection_labels, ndfn_wrap, render_containers,
-    render_icons, render_container_icons,
+    render_icons, render_container_icons, create_canvas,
 )
 
 # Logger global para AlmaGag
@@ -661,17 +659,8 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
         canvas_height = final_canvas['height']
         logger.info(f"     - Canvas expandido a {canvas_width}x{canvas_height}")
 
-    # 6. Crear SVG (debug=False: svgwrite validator rejects SVG2 attrs like paint-order)
-    dwg = svgwrite.Drawing(output_svg, size=(canvas_width, canvas_height), debug=False)
-    dwg.viewbox(0, 0, canvas_width, canvas_height)
-
-    # Filtro global de glow blanco para etiquetas (Gaussian blur)
-    text_glow = dwg.filter(id='text-glow', x='-20%', y='-20%', width='140%', height='140%')
-    text_glow.feGaussianBlur(in_='SourceGraphic', stdDeviation=2, result='blur')
-    text_glow.feFlood(flood_color='white', flood_opacity=1, result='color')
-    text_glow.feComposite(in_='color', in2='blur', operator='in', result='shadow')
-    text_glow.feMerge(layernames=['shadow', 'shadow', 'SourceGraphic'])
-    dwg.defs.add(text_glow)
+    # 6. Crear SVG con filtro text-glow
+    dwg = create_canvas(output_svg, canvas_width, canvas_height)
 
     # Agregar franja de debug PRIMERO (debe estar debajo de todo)
     if visualdebug:
