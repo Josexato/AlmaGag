@@ -1182,22 +1182,40 @@ class LAFOptimizer:
             structure_info.leaf_virtual_containers
         )
 
+        # Índice de VCs por ID para buscar sub-VCs rápidamente
+        vc_by_id = {vc['id']: vc for vc in all_vcs}
+
+        def _flatten_members(members):
+            """Expande recursivamente sub-VCs para obtener elementos reales con su nivel."""
+            result = {}  # {level: [elem_ids]}
+            for m in members:
+                if m in vc_by_id:
+                    # Sub-VC: expandir sus miembros recursivamente
+                    sub_result = _flatten_members(vc_by_id[m]['members'])
+                    for lvl, elems in sub_result.items():
+                        result.setdefault(lvl, []).extend(elems)
+                else:
+                    lvl = structure_info.topological_levels.get(m, 0)
+                    result.setdefault(lvl, []).append(m)
+            return result
+
+        expanded_vcs = set()
         max_passes = len(all_vcs) + 1
         for _pass in range(max_passes):
             expanded_any = False
             for vc in all_vcs:
                 vc_id = vc['id']
-                if vc_id not in element_positions:
+                if vc_id in expanded_vcs or vc_id not in element_positions:
                     continue
 
                 nx, ny = element_positions[vc_id]
-                members = sorted(vc['members'])
 
+                # Expandir todos los miembros recursivamente (incluyendo sub-VCs)
                 by_sublevel = {}
-                for m in members:
-                    if m not in element_positions:
-                        lvl = structure_info.topological_levels.get(m, 0)
-                        by_sublevel.setdefault(lvl, []).append(m)
+                for lvl, elems in _flatten_members(vc['members']).items():
+                    unpositioned = [e for e in elems if e not in element_positions]
+                    if unpositioned:
+                        by_sublevel[lvl] = sorted(unpositioned)
 
                 if by_sublevel:
                     sorted_sublevels = sorted(by_sublevel.keys())
@@ -1216,7 +1234,11 @@ class LAFOptimizer:
 
                     expanded_any = True
 
-                # Remove VC placeholder from positions
+                # Marcar este VC y cualquier sub-VC como expandidos
+                expanded_vcs.add(vc_id)
+                for m in vc['members']:
+                    if m in vc_by_id:
+                        expanded_vcs.add(m)
                 del element_positions[vc_id]
 
             if not expanded_any:
