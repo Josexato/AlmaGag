@@ -1,6 +1,6 @@
 # AlmaGag - Generador Automatico de Grafos
 
-**Proyecto**: ALMA (Almas y Sentidos) | **Version**: v3.2.0
+**Proyecto**: ALMA (Almas y Sentidos) | **Version**: v3.3.0
 
 AlmaGag genera diagramas SVG a partir de archivos JSON. Define elementos y conexiones, y AlmaGag los organiza automaticamente en un grafico vectorial.
 
