@@ -1,6 +1,6 @@
 # AlmaGag - Roadmap de Desarrollo
 
-**Versión Actual**: v3.3.0 (código) + SDJF v3.0 (estándar)
+**Versión Actual**: v3.3.0 (código) + SDJF v2.1 (estándar)
 **Actualizado**: 2026-02-27
 
 ---

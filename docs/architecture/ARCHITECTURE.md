@@ -1,6 +1,6 @@
 # Arquitectura de AlmaGag
 
-**Versión del Código**: v3.3.0 + SDJF v2.0
+**Versión del Código**: v3.3.0 + SDJF v2.1
 **Fecha**: 2026-02-28
 
 ## Visión General
@@ -919,4 +919,4 @@ svgwrite>=1.4.3     # Generación de SVG
 ---
 
 **Última actualización**: 2026-02-19
-**Versión documentada**: AlmaGag v3.3.0 + SDJF v2.0 | LAF Pipeline 10 fases
+**Versión documentada**: AlmaGag v3.3.0 + SDJF v2.1 | LAF Pipeline 10 fases
