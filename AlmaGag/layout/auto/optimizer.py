@@ -22,7 +22,7 @@ from AlmaGag.layout.geometry import GeometryCalculator
 from AlmaGag.layout.collision import CollisionDetector
 from AlmaGag.layout.graph_analysis import GraphAnalyzer
 from AlmaGag.layout.container_calculator import ContainerCalculator
-from AlmaGag.routing.router_manager import ConnectionRouterManager
+from AlmaGag.layout.auto.routing_policy import AutoRoutingPolicy
 from AlmaGag.config import (
     ICON_WIDTH, ICON_HEIGHT,
     CANVAS_MARGIN_XLARGE, CANVAS_MARGIN_LARGE, CANVAS_MARGIN_SMALL,
@@ -45,7 +45,7 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         geometry (GeometryCalculator): Calculadora geométrica
         collision_detector (CollisionDetector): Detector de colisiones
         graph_analyzer (GraphAnalyzer): Analizador de grafos
-        router_manager (ConnectionRouterManager): Gestor de routing
+        routing (AutoRoutingPolicy): Política de routing del algoritmo AUTO
     """
 
     POSITIONS = ['bottom', 'right', 'top', 'left']
@@ -65,7 +65,7 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         self.graph_analyzer = GraphAnalyzer()
         self.positioner = AutoLayoutPositioner(self.sizing, self.graph_analyzer, visualdebug=visualdebug)
         self.container_calculator = ContainerCalculator(self.sizing, self.geometry)
-        self.router_manager = ConnectionRouterManager()
+        self.routing = AutoRoutingPolicy(self.sizing)
 
     def analyze(self, layout: Layout) -> None:
         """
@@ -161,8 +161,7 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         self._log("Dimensiones de contenedores calculadas")
 
         # 0.6. Auto-routing de conexiones (necesario antes de calcular label positions)
-        current.sizing = self.sizing
-        self.router_manager.calculate_all_paths(current)
+        self.routing.route(current)
 
         # 1. Análisis de grafo (re-analizar después de auto-layout y contenedores)
         self.analyze(current)
@@ -210,7 +209,7 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         self._calculate_canvas_from_bounds(current)
 
         # 2.7. Routing único: calcular paths con canvas y posiciones finales
-        self.router_manager.calculate_all_paths(current)
+        self.routing.route(current)
         self._log("Routing calculado")
 
         # 3. Evaluación inicial
@@ -313,8 +312,7 @@ class AutoLayoutOptimizer(LayoutOptimizer):
 
                     # Only re-route (positions unchanged) and invalidate cache
                     candidate.invalidate_collision_cache()
-                    candidate.sizing = self.sizing
-                    self.router_manager.calculate_all_paths(candidate)
+                    self.routing.route(candidate)
                     # Do NOT reset moved_elements - keep tracking to avoid re-moving
                     if self.verbose:
                         self._log(f"  Canvas expandido")
@@ -780,9 +778,7 @@ class AutoLayoutOptimizer(LayoutOptimizer):
 
         # CRÍTICO: Recalcular routing PRIMERO (antes de contenedores y etiquetas)
         # Las conexiones deben reflejar las nuevas posiciones de elementos
-        # Asegurar que layout tenga sizing disponible para routers
-        layout.sizing = self.sizing
-        self.router_manager.calculate_all_paths(layout)
+        self.routing.route(layout)
 
         self.analyze(layout)
         layout.label_positions = {}
