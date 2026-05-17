@@ -576,7 +576,7 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
 
     # 2. Instanciar optimizador
     if layout_algorithm == 'laf':
-        from AlmaGag.layout.laf_optimizer import LAFOptimizer
+        from AlmaGag.layout.laf.optimizer import LAFOptimizer
         from AlmaGag.layout.sizing import SizingCalculator
         from AlmaGag.layout.geometry import GeometryCalculator
         from AlmaGag.layout.collision import CollisionDetector

@@ -7,7 +7,7 @@ import sys
 sys.path.insert(0, 'D:\\10_Dev\\pythondev\\AlmaGag')
 
 from AlmaGag.layout import Layout
-from AlmaGag.layout.laf_optimizer import LAFOptimizer
+from AlmaGag.layout.laf.optimizer import LAFOptimizer
 from AlmaGag.layout.sizing import SizingCalculator
 from AlmaGag.layout.geometry import GeometryCalculator
 from AlmaGag.layout.collision import CollisionDetector
