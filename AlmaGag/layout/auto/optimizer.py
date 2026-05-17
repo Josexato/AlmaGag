@@ -17,7 +17,7 @@ from AlmaGag.layout.optimizer_base import LayoutOptimizer
 logger = logging.getLogger('AlmaGag')
 from AlmaGag.layout.layout import Layout
 from AlmaGag.layout.sizing import SizingCalculator
-from AlmaGag.layout.auto_positioner import AutoLayoutPositioner
+from AlmaGag.layout.auto.positioner import AutoLayoutPositioner
 from AlmaGag.layout.geometry import GeometryCalculator
 from AlmaGag.layout.collision import CollisionDetector
 from AlmaGag.layout.graph_analysis import GraphAnalyzer
