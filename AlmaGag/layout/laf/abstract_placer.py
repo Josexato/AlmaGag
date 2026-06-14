@@ -421,7 +421,7 @@ class AbstractPlacer:
             # Cantidad de conexiones (salientes)
             conn_count = len(conn_graph.get(elem_id, []))
 
-            return (elem_type, -conn_count)  # Negativo para ordenar desc
+            return (elem_type, -conn_count, elem_id)  # tie-break por elem_id
 
         layer.sort(key=get_sort_key)
 
@@ -523,7 +523,7 @@ class AbstractPlacer:
                 if elem_id in ids:
                     elem_type = etype
                     break
-            return (barycenter, is_container, elem_type)
+            return (barycenter, is_container, elem_type, elem_id)
 
         current_layer.sort(key=get_sort_key)
 
@@ -600,8 +600,8 @@ class AbstractPlacer:
             leaves = parent_leaves.get(elem_id, [])
             units.append((alpha, elem_id, leaves))
 
-        # Paso 4: Ordenar por alpha descendente
-        units.sort(key=lambda u: -u[0])
+        # Paso 4: Ordenar por alpha descendente, tie-break por elem_id para determinismo
+        units.sort(key=lambda u: (-u[0], u[1]))
 
         # Paso 5: Colocar center-out alternando izquierda/derecha
         # Mayor alpha → centro, siguiente → izquierda, siguiente → derecha, etc.
@@ -728,9 +728,9 @@ class AbstractPlacer:
 
             barycenters[elem_id] = (1.0 - alpha) * barycenter_conn + alpha * center
 
-        # Ordenar por barycenter híbrido
-        def get_sort_key(elem_id: str) -> float:
-            return barycenters.get(elem_id, len(next_layer) / 2)
+        # Ordenar por barycenter híbrido, tie-break por elem_id
+        def get_sort_key(elem_id: str):
+            return (barycenters.get(elem_id, len(next_layer) / 2), elem_id)
 
         current_layer.sort(key=get_sort_key)
 
@@ -1473,10 +1473,10 @@ class AbstractPlacer:
         centrales.sort(key=lambda x: (-x[1], x[2]))
 
         # Ordenar normales por distancia a padres (más cerca = más cerca del centro)
-        normales.sort(key=lambda x: abs(x[1] - center_x))
+        normales.sort(key=lambda x: (abs(x[1] - center_x), x[0]))
 
         # Ordenar hojas por distancia a padres (más lejos = más en extremos)
-        hojas.sort(key=lambda x: abs(x[1] - center_x), reverse=True)
+        hojas.sort(key=lambda x: (-abs(x[1] - center_x), x[0]))
 
         # Distribuir elementos
         left_side = []

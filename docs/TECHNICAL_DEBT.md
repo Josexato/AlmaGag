@@ -210,39 +210,32 @@ Detectar "modo dashboard" (cluster de contenedores sin conexiones inter-cluster)
 
 ---
 
-### LAF-009: No-Determinismo entre Procesos Python
-**Componente**: `AlmaGag/layout/laf/` (causa raíz no investigada)
+### LAF-009: No-Determinismo entre Procesos Python ✅ RESUELTO
+**Componente**: `AlmaGag/layout/laf/` + `AlmaGag/layout/auto/` + `AlmaGag/layout/graph_analysis.py`
 **Severidad**: Media
-**Reportado**: 2026-05-14 (hallazgo lateral durante validación del refactor de routing_policy; no causado por el refactor)
+**Reportado**: 2026-05-14 (hallazgo lateral durante validación del refactor de routing_policy)
+**Resuelto**: 2026-06-14 (rama `claude/laf-009-investigation`)
 
 **Descripción**:
-LAF produce **distinto resultado** para el mismo input al ejecutarse en procesos Python separados. Determinista dentro del mismo proceso (corridas sucesivas en la misma sesión dan idéntico resultado). Reproducible en código pre-refactor (tag `pre-refactor-fase-1-3.1`).
+LAF (y en menor medida AUTO sobre archivos con muchas ties) producía **distinto resultado** para el mismo input al ejecutarse en procesos Python separados.
 
-**Síntoma observado**:
-```bash
-# Mismo archivo, 3 invocaciones de almagag (3 procesos Python distintos)
-# Produce 2 hashes diferentes: 'database' y 'redis' pueden swapearse de posición.
-```
+**Causa raíz confirmada**: 6 puntos en el pipeline donde iteraciones de `set` / `dict` con orden afectado por `PYTHONHASHSEED`, o sorts sin tie-break, propagaban orden inestable a estructuras posteriores:
 
-**Hipótesis de causa raíz** (no investigada):
-`PYTHONHASHSEED` randomization (default en Python 3) afecta el orden de iteración de `set`/`dict` en algún punto del pipeline LAF. Resultado: dos layouts igualmente válidos elegidos no-deterministicamente.
+1. `structure_analyzer.py:1297` — construcción de `element_tree[vc].children` desde `vc['members']` (set).
+2. `structure_analyzer.py:1130-1138` — formación de leaf VCs desde `terminal` (set) + iteración de `parent_to_leaves` (dict con insertion order no-det).
+3. `structure_analyzer.py:1229` — `sorted_tois` sin tie-break para TOIs con mismo `count_desc`.
+4. `structure_analyzer.py:1371` — conversión `set→list` en `contracted_graph` afectaba el BFS de longest-path.
+5. `graph_analysis.py:calculate_topological_levels` — iteración de `elem_ids` (set) en fixpoint con ciclos.
+6. `auto/positioner.py` + `laf/position_optimizer.py` — suma de floats no-conmutativa al iterar adjacency en orden no-det.
+7. `laf/abstract_placer.py` — 5 sorts sin tie-break por `elem_id`.
 
-**Workaround temporal**:
-```bash
-PYTHONHASHSEED=0 almagag arch.sdjf --layout-algorithm=laf
-```
+**Fix aplicado**: `sorted()` con tie-break por `elem_id` en cada punto. Cambio de comportamiento: cuando había layouts equivalentes posibles, ahora se elige uno fijo (orden alfabético).
 
-**Impacto**:
-- Baselines visuales inestables (regresiones falsas en CI/comparación de diffs).
-- Difícil revisar PRs con cambios visuales sin fijar el seed.
-- No afecta correctness — todos los layouts producidos son válidos.
-- AUTO **no** presenta este problema.
+**Validación**: 23 archivos × 5 seeds × 2 algoritmos = 230 invocaciones. Antes: hasta 5 hashes distintos por archivo. Después: 1 hash por archivo en los 46 casos.
 
-**Solución propuesta**:
-- Auditar puntos donde el pipeline LAF itera `set`/`dict` y usar `sorted()` con clave estable.
-- Candidatos probables: `structure_analyzer.py`, `abstract_placer.py` (orderings).
-
-**Prioridad**: Media (bloquea testing visual reproducible).
+**Impacto del fix**:
+- Comparado con baseline pre-fix: 30/46 SVGs idénticos byte-a-byte, 16/46 con diff ≤5% (esperado: los archivos antes no-deterministas ahora tienen un layout fijo entre las opciones válidas), 0/46 superan 5%.
+- Tests visuales en CI ahora son confiables sin `PYTHONHASHSEED=0`.
 
 ---
 

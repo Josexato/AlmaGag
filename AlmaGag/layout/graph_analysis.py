@@ -70,6 +70,10 @@ class GraphAnalyzer:
             Dict[str, int]: {element_id: level_number}
         """
         elem_ids = {e['id'] for e in elements}
+        # Sorted iteration order for determinism: when the graph contains cycles,
+        # the capped fixpoint may not fully converge and the final levels depend
+        # on iteration order. Also affects root selection ties (line below).
+        elem_ids_sorted = sorted(elem_ids)
 
         # Construir grafo direccional
         outgoing = {e['id']: [] for e in elements}
@@ -83,10 +87,10 @@ class GraphAnalyzer:
                 incoming[to_id].append(from_id)
 
         # Encontrar raíces (sin incoming edges)
-        roots = [e_id for e_id in elem_ids if len(incoming[e_id]) == 0]
+        roots = [e_id for e_id in elem_ids_sorted if len(incoming[e_id]) == 0]
 
         if not roots:
-            roots = [max(outgoing, key=lambda k: len(outgoing[k]))] if outgoing else []
+            roots = [max(sorted(outgoing), key=lambda k: len(outgoing[k]))] if outgoing else []
 
         # Longest-path assignment: propagate levels iteratively
         # Capped at N iterations to handle cycles safely
@@ -97,7 +101,7 @@ class GraphAnalyzer:
         n = len(elem_ids)
         for _round in range(n):
             changed = False
-            for parent in elem_ids:
+            for parent in elem_ids_sorted:
                 for child in outgoing.get(parent, []):
                     if child == parent:
                         continue  # skip self-loops
@@ -142,7 +146,7 @@ class GraphAnalyzer:
                     levels[src] = co_parent_level
 
         # Leaf correction: leaves align to dominant parent's level
-        for e_id in elem_ids:
+        for e_id in elem_ids_sorted:
             if outgoing.get(e_id):
                 continue  # not a leaf
             parents = incoming.get(e_id, [])

@@ -211,7 +211,7 @@ class PositionOptimizer:
         """
         edge_counts: Dict[Tuple[str, str], int] = {}
 
-        for from_id, targets in connection_graph.items():
+        for from_id, targets in sorted(connection_graph.items()):
             for to_id in targets:
                 if from_id == to_id:
                     continue
@@ -219,10 +219,10 @@ class PositionOptimizer:
                 edge_counts[key] = edge_counts.get(key, 0) + 1
 
         adjacency: Dict[str, List[Tuple[str, int]]] = {}
-        for node_id in connection_graph:
+        for node_id in sorted(connection_graph):
             adjacency[node_id] = []
 
-        for (a, b), weight in edge_counts.items():
+        for (a, b), weight in sorted(edge_counts.items()):
             adjacency.setdefault(a, []).append((b, weight))
             adjacency.setdefault(b, []).append((a, weight))
 
@@ -370,7 +370,9 @@ class PositionOptimizer:
         total = 0.0
         counted: Set[Tuple[str, str]] = set()
 
-        for node_id, neighbors in adjacency.items():
+        # Sorted iteration: floating-point addition is not perfectly commutative,
+        # so iteration order affects bit-exact output across processes.
+        for node_id, neighbors in sorted(adjacency.items()):
             if node_id not in positions:
                 continue
 
