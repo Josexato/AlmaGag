@@ -36,7 +36,7 @@ Usar modo normal sin `--visualdebug` para diagramas finales.
 ---
 
 ### LAF-002: Cálculo Excesivo de Altura de Canvas
-**Componente**: `AlmaGag/layout/laf_optimizer.py` - Fase 4.5
+**Componente**: `AlmaGag/layout/laf/optimizer.py` - Fase 4.5
 **Severidad**: Media
 **Reportado**: 2026-01-21
 
@@ -61,7 +61,7 @@ almagag docs/diagrams/gags/05-arquitectura-gag.gag --layout-algorithm=laf --debu
 ```
 
 **Análisis**:
-- `container_grower.calculate_final_canvas()` en laf_optimizer.py:388-393
+- `container_grower.calculate_final_canvas()` en laf/optimizer.py:388-393
 - Posiblemente incluye padding excesivo o calcula basándose en dimensiones intermedias
 
 **Solución Propuesta**:
@@ -76,7 +76,7 @@ almagag docs/diagrams/gags/05-arquitectura-gag.gag --layout-algorithm=laf --debu
 ## 🟡 Medios
 
 ### LAF-003: Distribución Horizontal Asimétrica en Niveles Multi-Elemento
-**Componente**: `AlmaGag/layout/laf_optimizer.py` - `_center_elements_horizontally()`
+**Componente**: `AlmaGag/layout/laf/optimizer.py` - `_center_elements_horizontally()`
 **Severidad**: Baja
 **Reportado**: 2026-01-21
 
@@ -158,6 +158,94 @@ pesos = [
 
 ---
 
+### LAF-007: Layout Pobre con Contenedores Hermanos sin Conexiones (caso "dashboard")
+**Componente**: `AlmaGag/layout/laf/optimizer.py` - Fases 4-5-6 + Fase 8
+**Severidad**: Media
+**Reportado**: 2026-05-14 (auditoría externa)
+
+**Descripción**:
+Cuando hay 3+ contenedores en el mismo nivel sin conexiones explícitas entre ellos (típico de dashboards/posters), LAF los posiciona en fila horizontal y expande el canvas a >20.000 px de ancho.
+
+**Reproducción**:
+```bash
+# JSON con 4 contenedores agrupando elementos, sin connections inter-contenedor
+almagag dashboard.sdjf --layout-algorithm=laf
+# Resultado: canvas ~20526 × 463 (rotamente horizontal)
+```
+
+**Workaround actual**:
+Usar AUTO con coordenadas manuales en los contenedores padre. AUTO respeta `x`/`y` manuales y los hijos se auto-acomodan dentro de cada contenedor. Documentado en `architecture/modules/layout/auto/AUTO.md` (sección "Dashboard layout").
+
+**Solución propuesta**:
+Detectar "modo dashboard" (cluster de contenedores sin conexiones inter-cluster) y aplicar layout en grid 2x2, 2x3, o stack vertical según cantidad.
+
+**Prioridad**: Media (afecta usabilidad de un caso de uso específico, no el caso principal de arquitecturas/flows).
+
+---
+
+### LAF-008: LAFOptimizer No Cumple el Contrato LayoutOptimizer
+**Componente**: `AlmaGag/layout/laf/optimizer.py` + `AlmaGag/generator.py`
+**Severidad**: Media-Alta
+**Reportado**: 2026-05-14 (detectado durante refactor de routing_policy)
+
+**Estado actual**:
+- `AutoLayoutOptimizer` hereda de `LayoutOptimizer` (clase base en `optimizer_base.py`).
+- `LAFOptimizer` no hereda de nadie y tiene firma de `__init__` distinta (recibe colaboradores por inyección).
+- `generator.py` usa `if/elif layout_algorithm == ...` para distinguir (líneas ~578, ~625).
+- `render_containers()` recibe `layout_algorithm` como parámetro.
+
+**Impacto**:
+- Acoplamiento entre algoritmo de layout y fases posteriores del pipeline.
+- Imposible agregar un tercer algoritmo sin modificar `generator.py`.
+- El Strategy Pattern documentado en `ARCHITECTURE.md` no se cumple en la práctica.
+- Es la causa de la asimetría en `routing_policy.py` (AUTO autocontenido, LAF inyectado opcional).
+
+**Solución propuesta**:
+- Hacer que `LAFOptimizer` herede de `LayoutOptimizer`.
+- Unificar firma `optimize(layout, **kwargs) -> Layout`.
+- Eliminar `layout_algorithm` como parámetro propagado a `render_containers`.
+- Cuando se resuelva, el constructor de `LAFRoutingPolicy` probablemente se uniformará con el de `AutoRoutingPolicy`.
+
+**Prioridad**: Media-Alta (bloquea extensibilidad; no es bug funcional).
+
+---
+
+### LAF-009: No-Determinismo entre Procesos Python
+**Componente**: `AlmaGag/layout/laf/` (causa raíz no investigada)
+**Severidad**: Media
+**Reportado**: 2026-05-14 (hallazgo lateral durante validación del refactor de routing_policy; no causado por el refactor)
+
+**Descripción**:
+LAF produce **distinto resultado** para el mismo input al ejecutarse en procesos Python separados. Determinista dentro del mismo proceso (corridas sucesivas en la misma sesión dan idéntico resultado). Reproducible en código pre-refactor (tag `pre-refactor-fase-1-3.1`).
+
+**Síntoma observado**:
+```bash
+# Mismo archivo, 3 invocaciones de almagag (3 procesos Python distintos)
+# Produce 2 hashes diferentes: 'database' y 'redis' pueden swapearse de posición.
+```
+
+**Hipótesis de causa raíz** (no investigada):
+`PYTHONHASHSEED` randomization (default en Python 3) afecta el orden de iteración de `set`/`dict` en algún punto del pipeline LAF. Resultado: dos layouts igualmente válidos elegidos no-deterministicamente.
+
+**Workaround temporal**:
+```bash
+PYTHONHASHSEED=0 almagag arch.sdjf --layout-algorithm=laf
+```
+
+**Impacto**:
+- Baselines visuales inestables (regresiones falsas en CI/comparación de diffs).
+- Difícil revisar PRs con cambios visuales sin fijar el seed.
+- No afecta correctness — todos los layouts producidos son válidos.
+- AUTO **no** presenta este problema.
+
+**Solución propuesta**:
+- Auditar puntos donde el pipeline LAF itera `set`/`dict` y usar `sorted()` con clave estable.
+- Candidatos probables: `structure_analyzer.py`, `abstract_placer.py` (orderings).
+
+**Prioridad**: Media (bloquea testing visual reproducible).
+
+---
+
 ## 🟢 Mejoras Futuras
 
 ### LAF-005: Sistema de Etiquetas Inteligente
@@ -223,10 +311,14 @@ Permitir al usuario especificar restricciones de posicionamiento:
 
 | Componente | Problemas Críticos | Problemas Medios | Mejoras Futuras |
 |------------|-------------------|------------------|-----------------|
-| LAF Optimizer | 2 | 2 | 2 |
+| LAF Optimizer | 2 | 5 | 2 |
 | Abstract Placer | 0 | 1 | 0 |
 | Rendering | 1 | 0 | 1 |
-| **TOTAL** | **3** | **3** | **3** |
+| **TOTAL** | **3** | **6** | **3** |
+
+> Conteo actualizado tras el refactor de Fase 1+3.1 (2026-05-14): se agregaron
+> LAF-007 (dashboard layout), LAF-008 (contrato LayoutOptimizer) y LAF-009
+> (no-determinismo entre procesos) a la categoría Medios.
 
 ### Priorización
 
@@ -284,6 +376,6 @@ Permitir al usuario especificar restricciones de posicionamiento:
 
 ## 🔗 Enlaces Relacionados
 
-- [LAF Progress](./LAF-PROGRESS.md) - Estado de implementación de sistema LAF
-- [LAF Comparison](./LAF-COMPARISON.md) - Comparativa LAF vs AUTO
+- [LAF Progress](./architecture/modules/layout/laf/PROGRESS.md) - Estado de implementación de sistema LAF
+- [LAF Comparison](./architecture/modules/layout/laf/COMPARISON.md) - Comparativa LAF vs AUTO
 - [Release Notes v3.0.0](./RELEASE_v3.0.0.md) - Changelog oficial

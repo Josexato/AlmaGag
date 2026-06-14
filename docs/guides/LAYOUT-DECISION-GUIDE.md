@@ -402,8 +402,8 @@ LAF es el futuro de AlmaGag. AUTO se mantiene por compatibilidad y casos especí
 ## Recursos Adicionales
 
 - [CLI-REFERENCE.md](./CLI-REFERENCE.md) - Documentación completa de opciones CLI
-- [LAF-COMPARISON.md](../LAF-COMPARISON.md) - Análisis técnico profundo de LAF
-- [LAF-PROGRESS.md](../LAF-PROGRESS.md) - Historia de desarrollo de LAF
+- [LAF COMPARISON](../architecture/modules/layout/laf/COMPARISON.md) - Análisis técnico profundo de LAF
+- [LAF PROGRESS](../architecture/modules/layout/laf/PROGRESS.md) - Historia de desarrollo de LAF
 - [EXAMPLES.md](./EXAMPLES.md) - Ejemplos prácticos con ambos algoritmos
 - [QUICKSTART.md](./QUICKSTART.md) - Inicio rápido con AlmaGag
 

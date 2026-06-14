@@ -46,12 +46,12 @@ Ver: `docs/diagrams/svgs/06-flujo-ejecucion.svg`
 Dos caminos posibles:
 
 #### Camino A: LAF Optimizer (Recomendado)
-**Archivo:** `AlmaGag/layout/laf_optimizer.py:LAFOptimizer`
+**Archivo:** `AlmaGag/layout/laf/optimizer.py:LAFOptimizer`
 
 Layout Abstracto Primero - Minimiza cruces de conexiones
 
 #### Camino B: Auto Optimizer (Legacy)
-**Archivo:** `AlmaGag/layout/auto_optimizer.py:AutoLayoutOptimizer`
+**Archivo:** `AlmaGag/layout/auto/optimizer.py:AutoLayoutOptimizer`
 
 Sistema anterior basado en detección de colisiones
 
@@ -94,7 +94,7 @@ for neighbor in successors(current):
 
 ### Phase 2: Topological Analysis (Visualización)
 
-**Archivo:** Visualización en `laf_optimizer.py`
+**Archivo:** Visualización en `laf/optimizer.py`
 
 **Responsabilidades:**
 1. **Mostrar Niveles Topológicos** - Distribución de elementos por nivel
@@ -110,7 +110,7 @@ for neighbor in successors(current):
 
 ### Phase 3: Centrality Ordering
 
-**Archivo:** `AlmaGag/layout/laf_optimizer.py`
+**Archivo:** `AlmaGag/layout/laf/optimizer.py`
 
 **Responsabilidades:**
 1. **Ordenar por centralidad** sobre NdPr nodes (si disponible)
@@ -162,7 +162,7 @@ barycenter_final = (barycenter_forward + barycenter_backward) / 2
 
 ### Phase 6: NdPr Expansion
 
-**Archivo:** `AlmaGag/layout/laf_optimizer.py:_expand_ndpr_to_elements()`
+**Archivo:** `AlmaGag/layout/laf/optimizer.py:_expand_ndpr_to_elements()`
 
 **Responsabilidades:**
 1. **Expandir NdPr → elementos** - Convierte 8 posiciones NdPr a 27 posiciones individuales
@@ -213,7 +213,7 @@ for container in containers (bottom-up):
 
 ### Phase 9: Vertical Redistribution
 
-**Archivo:** `AlmaGag/layout/laf_optimizer.py:_redistribute_vertical_after_growth()`
+**Archivo:** `AlmaGag/layout/laf/optimizer.py:_redistribute_vertical_after_growth()`
 
 **Responsabilidades:**
 1. **Vertical Redistribution** - Espaciado uniforme entre niveles

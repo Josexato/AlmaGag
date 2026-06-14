@@ -26,16 +26,16 @@ FASE 1: STRUCTURE ANALYSIS          → structure_analyzer.py
 ├─ Detectar TOI Virtual Containers (VCs)
 └─ Construir grafo abstracto NdPr (Nodo Primario)
 
-FASE 2: TOPOLOGY ANALYSIS           → laf_optimizer.py (visualizacion)
+FASE 2: TOPOLOGY ANALYSIS           → optimizer.py (visualizacion)
 ├─ Visualizar niveles y scores
 └─ Color coding: rojo (hub) / amarillo (importante) / azul (normal)
 
-FASE 3: CENTRALITY ORDERING         → laf_optimizer.py
+FASE 3: CENTRALITY ORDERING         → optimizer.py
 ├─ Ordenamiento por centralidad sobre NdPr (si disponible)
 ├─ VCs: score = max(accessibility_scores de miembros)
 └─ Preparar entrada para abstract placement
 
-FASES 4-5-6: LAYOUT ABSTRACTO ITERATIVO → abstract_placer.py + position_optimizer.py + laf_optimizer.py
+FASES 4-5-6: LAYOUT ABSTRACTO ITERATIVO → abstract_placer.py + position_optimizer.py + optimizer.py
 ├─ Iteracion por profundidad de contenedores
 ├─ FASE 4: ABSTRACT PLACEMENT
 │   ├─ NdPr nodes = puntos de 1px (modo NdPr)
@@ -69,7 +69,7 @@ FASE 8: INFLATION + CONTAINER GROWTH → inflator.py + container_grower.py
 ├─ _measure_placed_content() post-check
 └─ Step 4.5 expansion si labels exceden estimacion
 
-FASE 9: VERTICAL REDISTRIBUTION     → laf_optimizer.py
+FASE 9: VERTICAL REDISTRIBUTION     → optimizer.py
 ├─ Redistribuir tras crecimiento
 ├─ Escala X: half_width_i + half_width_next + MIN_GAP
 └─ Centrado global usando bounding boxes
@@ -92,6 +92,9 @@ FASE 11: SVG GENERATION             → generator.py (integracion)
 AlmaGag/layout/laf/
 ├── __init__.py              # Exports y version
 ├── README.md                # Este archivo
+├── optimizer.py             # Coordinador LAF v1.8 (11 fases)
+│   └── LAFOptimizer         # Orquesta todo el pipeline
+├── routing_policy.py        # LAFRoutingPolicy (Fase 10)
 ├── structure_analyzer.py    # Fase 1: Analisis de estructura
 │   ├── StructureInfo        # Dataclass con metadata (incl. NdPr fields)
 │   └── StructureAnalyzer    # Arbol + grafo + metricas + TOI VCs + NdPr graph
@@ -109,8 +112,6 @@ AlmaGag/layout/laf/
     └── GrowthVisualizer     # Snapshots de cada fase (NdPr-aware)
 
 AlmaGag/layout/
-├── laf_optimizer.py         # Coordinador LAF v1.8 (11 fases)
-│   └── LAFOptimizer         # Orquesta todo el pipeline
 └── collision.py             # Deteccion de colisiones (skip parent-child)
 ```
 

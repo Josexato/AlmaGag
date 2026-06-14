@@ -396,8 +396,8 @@ Salida en `debug/growth/{diagram}/`:
 ### Documentación LAF
 
 - **Guía de Decisión**: `docs/guides/LAYOUT-DECISION-GUIDE.md` - Árbol de decisión AUTO vs LAF
-- **Comparación Técnica**: `docs/LAF-COMPARISON.md` - Análisis profundo con métricas
-- **Historia de Desarrollo**: `docs/LAF-PROGRESS.md` - 5 sprints de implementación
+- **Comparación Técnica**: `docs/architecture/modules/layout/laf/COMPARISON.md` - Análisis profundo con métricas
+- **Historia de Desarrollo**: `docs/architecture/modules/layout/laf/PROGRESS.md` - 5 sprints de implementación
 
 ---
 

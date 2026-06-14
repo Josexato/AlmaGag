@@ -576,11 +576,11 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
 
     # 2. Instanciar optimizador
     if layout_algorithm == 'laf':
-        from AlmaGag.layout.laf_optimizer import LAFOptimizer
+        from AlmaGag.layout.laf.optimizer import LAFOptimizer
         from AlmaGag.layout.sizing import SizingCalculator
         from AlmaGag.layout.geometry import GeometryCalculator
         from AlmaGag.layout.collision import CollisionDetector
-        from AlmaGag.layout.auto_positioner import AutoLayoutPositioner
+        from AlmaGag.layout.auto.positioner import AutoLayoutPositioner
         from AlmaGag.layout.container_calculator import ContainerCalculator
         from AlmaGag.routing.router_manager import ConnectionRouterManager
         # LabelPositionOptimizer ya está importado globalmente en línea 9

@@ -358,7 +358,7 @@ El auto-layout no pudo resolver todas las colisiones. Opciones:
 
 ### Algoritmos de Layout ✨ NUEVO
 - **Guía de decisión AUTO vs LAF**: Ver `docs/guides/LAYOUT-DECISION-GUIDE.md`
-- **Comparación técnica**: Ver `docs/LAF-COMPARISON.md`
+- **Comparación técnica**: Ver `docs/architecture/modules/layout/laf/COMPARISON.md`
 - **Referencia CLI completa**: Ver `docs/guides/CLI-REFERENCE.md`
 
 ### Especificaciones SDJF

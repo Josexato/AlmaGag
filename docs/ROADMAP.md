@@ -1,6 +1,6 @@
 # AlmaGag - Roadmap de Desarrollo
 
-**Versión Actual**: v3.3.0 (código) + SDJF v3.0 (estándar)
+**Versión Actual**: v3.3.0 (código) + SDJF v2.1 (estándar)
 **Actualizado**: 2026-02-27
 
 ---
@@ -383,7 +383,7 @@ def calculate_path_visibility_graph(from_elem, to_elem, elements):
 #### Fase 6: Integración con AutoLayoutOptimizer (2 días)
 **Objetivo**: Routers ejecutados después de posicionar elementos
 
-**Cambios en `auto_optimizer.py`:**
+**Cambios en `auto/optimizer.py`:**
 ```python
 def optimize(self, layout, max_iterations=10):
     current = layout.copy()

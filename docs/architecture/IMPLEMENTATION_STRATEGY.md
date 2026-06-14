@@ -41,7 +41,7 @@ AlmaGag/
 │       └── astar.py             # A* para collision avoidance
 │
 ├── layout/
-│   └── auto_optimizer.py        # MODIFICAR: integrar routing
+│   └── auto/optimizer.py        # MODIFICAR: integrar routing
 │
 └── draw/
     └── connections.py            # MODIFICAR: usar computed_path

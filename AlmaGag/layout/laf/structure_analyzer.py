@@ -1976,7 +1976,7 @@ class StructureAnalyzer:
         info.leaf_nodes = leaf_nodes
         info.terminal_leaf_nodes = terminal_leaf_nodes
 
-        pass  # hojas identificadas, debug se muestra en laf_optimizer
+        pass  # hojas identificadas, debug se muestra en laf.optimizer
 
     def _calculate_accessibility_scores(
         self,
@@ -2039,7 +2039,7 @@ class StructureAnalyzer:
             score_raw = w_hijos + w_precedence + w_fanin
             info.accessibility_scores[elem_id] = min(max_score, score_raw)
 
-        pass  # scores calculados, debug se muestra en laf_optimizer
+        pass  # scores calculados, debug se muestra en laf.optimizer
 
     def _group_elements_by_type(self, layout, info: StructureInfo) -> None:
         """

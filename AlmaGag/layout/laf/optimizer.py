@@ -25,6 +25,7 @@ from AlmaGag.layout.laf.position_optimizer import PositionOptimizer
 from AlmaGag.layout.laf.inflator import ElementInflator
 from AlmaGag.layout.laf.container_grower import ContainerGrower
 from AlmaGag.layout.laf.visualizer import GrowthVisualizer
+from AlmaGag.layout.laf.routing_policy import LAFRoutingPolicy
 from AlmaGag.layout.sizing import SizingCalculator
 from AlmaGag.config import LAF_SPACING_BASE
 import logging
@@ -63,7 +64,7 @@ class LAFOptimizer:
         Args:
             positioner: AutoLayoutPositioner (no usado en LAF, pero para compatibilidad)
             container_calculator: ContainerCalculator
-            router_manager: RouterManager
+            router_manager: ConnectionRouterManager opcional (se envuelve en LAFRoutingPolicy)
             collision_detector: CollisionDetector
             label_optimizer: LabelOptimizer
             geometry: GeometryCalculator
@@ -76,7 +77,7 @@ class LAFOptimizer:
         """
         self.positioner = positioner
         self.container_calculator = container_calculator
-        self.router_manager = router_manager
+        self.routing = LAFRoutingPolicy(router_manager)
         self.collision_detector = collision_detector
         self.label_optimizer = label_optimizer
         self.geometry = geometry
@@ -927,7 +928,7 @@ class LAFOptimizer:
         self._run_grow_redistribute_route(expanded_positions, structure_info, layout)
 
         # FASE 10.5: Re-optimizar etiquetas contenidas post-routing
-        if self.router_manager:
+        if self.routing.enabled:
             self._reoptimize_contained_labels(structure_info, layout, expanded_positions)
 
         # Colisiones finales
@@ -1276,8 +1277,8 @@ class LAFOptimizer:
             logger.debug(f"[LAF] Fase 9 OK: redistribución vertical")
 
         # FASE 10: Routing
-        if self.router_manager:
-            self.router_manager.calculate_all_paths(layout)
+        self.routing.route(layout)
+        if self.routing.enabled:
             if self.visualizer:
                 self.visualizer.capture_phase10_routed(layout, structure_info)
             if self.debug:

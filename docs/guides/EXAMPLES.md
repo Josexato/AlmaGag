@@ -568,8 +568,8 @@ Para evitar cruces de líneas:
 
 ### Algoritmos de Layout ✨ NUEVO
 - **Guía de Decisión AUTO vs LAF**: `docs/guides/LAYOUT-DECISION-GUIDE.md`
-- **Comparación Técnica LAF**: `docs/LAF-COMPARISON.md`
-- **Progreso LAF**: `docs/LAF-PROGRESS.md`
+- **Comparación Técnica LAF**: `docs/architecture/modules/layout/laf/COMPARISON.md`
+- **Progreso LAF**: `docs/architecture/modules/layout/laf/PROGRESS.md`
 - **Referencia CLI**: `docs/guides/CLI-REFERENCE.md`
 
 ### Arquitectura y Uso
