@@ -665,8 +665,8 @@ almagag diagrama.gag --visualize-growth
 ### Más Información
 
 - [LAYOUT-DECISION-GUIDE.md](./LAYOUT-DECISION-GUIDE.md) - Guía para elegir AUTO vs LAF
-- [LAF-COMPARISON.md](../LAF-COMPARISON.md) - Comparación técnica detallada
-- [LAF-PROGRESS.md](../LAF-PROGRESS.md) - Historia de desarrollo de LAF
+- [LAF COMPARISON](../architecture/modules/layout/laf/COMPARISON.md) - Comparación técnica detallada
+- [LAF PROGRESS](../architecture/modules/layout/laf/PROGRESS.md) - Historia de desarrollo de LAF
 - [EXAMPLES.md](./EXAMPLES.md) - Ejemplos prácticos de uso
 - [QUICKSTART.md](./QUICKSTART.md) - Inicio rápido
 

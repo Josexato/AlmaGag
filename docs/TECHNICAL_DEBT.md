@@ -36,7 +36,7 @@ Usar modo normal sin `--visualdebug` para diagramas finales.
 ---
 
 ### LAF-002: Cálculo Excesivo de Altura de Canvas
-**Componente**: `AlmaGag/layout/laf_optimizer.py` - Fase 4.5
+**Componente**: `AlmaGag/layout/laf/optimizer.py` - Fase 4.5
 **Severidad**: Media
 **Reportado**: 2026-01-21
 
@@ -61,7 +61,7 @@ almagag docs/diagrams/gags/05-arquitectura-gag.gag --layout-algorithm=laf --debu
 ```
 
 **Análisis**:
-- `container_grower.calculate_final_canvas()` en laf_optimizer.py:388-393
+- `container_grower.calculate_final_canvas()` en laf/optimizer.py:388-393
 - Posiblemente incluye padding excesivo o calcula basándose en dimensiones intermedias
 
 **Solución Propuesta**:
@@ -76,7 +76,7 @@ almagag docs/diagrams/gags/05-arquitectura-gag.gag --layout-algorithm=laf --debu
 ## 🟡 Medios
 
 ### LAF-003: Distribución Horizontal Asimétrica en Niveles Multi-Elemento
-**Componente**: `AlmaGag/layout/laf_optimizer.py` - `_center_elements_horizontally()`
+**Componente**: `AlmaGag/layout/laf/optimizer.py` - `_center_elements_horizontally()`
 **Severidad**: Baja
 **Reportado**: 2026-01-21
 
@@ -284,6 +284,6 @@ Permitir al usuario especificar restricciones de posicionamiento:
 
 ## 🔗 Enlaces Relacionados
 
-- [LAF Progress](./LAF-PROGRESS.md) - Estado de implementación de sistema LAF
-- [LAF Comparison](./LAF-COMPARISON.md) - Comparativa LAF vs AUTO
+- [LAF Progress](./architecture/modules/layout/laf/PROGRESS.md) - Estado de implementación de sistema LAF
+- [LAF Comparison](./architecture/modules/layout/laf/COMPARISON.md) - Comparativa LAF vs AUTO
 - [Release Notes v3.0.0](./RELEASE_v3.0.0.md) - Changelog oficial

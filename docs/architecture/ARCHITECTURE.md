@@ -628,9 +628,14 @@ AlmaGag/
 │   ├── __init__.py
 │   ├── layout.py           # Clase Layout (inmutable)
 │   ├── optimizer_base.py   # Interfaz LayoutOptimizer
-│   ├── auto_optimizer.py   # AutoLayoutOptimizer v4.0 (legacy)
-│   ├── auto_positioner.py  # AutoLayoutPositioner v4.0
-│   ├── laf_optimizer.py    # LAFOptimizer v2.0 (10 fases, recomendado)
+│   ├── auto/
+│   │   ├── optimizer.py     # AutoLayoutOptimizer
+│   │   ├── positioner.py    # AutoLayoutPositioner
+│   │   └── routing_policy.py # AutoRoutingPolicy
+│   ├── laf/
+│   │   ├── optimizer.py     # LAFOptimizer (11 fases, recomendado)
+│   │   ├── routing_policy.py # LAFRoutingPolicy
+│   │   └── ...              # structure_analyzer, abstract_placer, etc.
 │   ├── sizing.py           # SizingCalculator (SDJF v2.0)
 │   ├── geometry.py         # GeometryCalculator
 │   ├── collision.py        # CollisionDetector (skip parent-child)

@@ -70,8 +70,8 @@ Esta es la guía completa de documentación de AlmaGag, organizada por tipo de d
 | Documento | Nivel | Descripción |
 |-----------|-------|-------------|
 | [Guía de Decisión](guides/LAYOUT-DECISION-GUIDE.md) | Todos | ¿Cuándo usar AUTO vs LAF? Árbol de decisión simple |
-| [Comparación Técnica LAF](LAF-COMPARISON.md) | Avanzado | Análisis profundo con métricas y benchmarks |
-| [Progreso LAF](LAF-PROGRESS.md) | Técnico | Historia de desarrollo en 8 sprints |
+| [Comparación Técnica LAF](architecture/modules/layout/laf/COMPARISON.md) | Avanzado | Análisis profundo con métricas y benchmarks |
+| [Progreso LAF](architecture/modules/layout/laf/PROGRESS.md) | Técnico | Historia de desarrollo en 8 sprints |
 | [Referencia CLI](guides/CLI-REFERENCE.md) | Todos | Documentación completa de opciones de línea de comandos |
 
 ### ¿Cuándo usar qué?
@@ -156,8 +156,9 @@ almagag arch.gag --layout-algorithm=laf --debug --dump-iterations
 docs/
 ├── INDEX.md                      # Este archivo
 ├── ROADMAP.md                    # Plan de desarrollo
-├── LAF-COMPARISON.md             # ✨ Comparación técnica LAF vs AUTO
-├── LAF-PROGRESS.md               # ✨ Historia de desarrollo LAF
+├── architecture/modules/layout/laf/
+│   ├── COMPARISON.md             # ✨ Comparación técnica LAF vs AUTO
+│   └── PROGRESS.md               # ✨ Historia de desarrollo LAF
 │
 ├── spec/                         # Especificaciones SDJF
 │   ├── SDJF_v1.0_SPEC.md
