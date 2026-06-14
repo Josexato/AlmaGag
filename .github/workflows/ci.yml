@@ -1,0 +1,63 @@
+name: tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install package + pytest
+        run: |
+          pip install -e .
+          pip install pytest
+
+      - name: Unit tests
+        run: python -m pytest tests/ -v
+
+      - name: Render smoke test (23 examples × 2 algorithms)
+        run: |
+          mkdir -p /tmp/svgs
+          fail=0
+          for f in docs/diagrams/gags/*.sdjf docs/diagrams/gags/*.gag; do
+            base=$(basename "$f")
+            almagag "$f" -o "/tmp/svgs/${base}.auto.svg" \
+              || { echo "FAIL AUTO: $f"; fail=$((fail+1)); }
+            almagag "$f" --layout-algorithm=laf -o "/tmp/svgs/${base}.laf.svg" \
+              || { echo "FAIL LAF: $f"; fail=$((fail+1)); }
+          done
+          echo "Generated: $(ls /tmp/svgs | wc -l) / 46 SVGs"
+          if [ $fail -gt 0 ]; then
+            echo "FAILED: $fail renders failed"
+            exit 1
+          fi
+
+      - name: Determinism check (LAF-009 regression guard)
+        run: |
+          # 3 representative files (smallest, stresstest sdjf, stresstest gag)
+          # rendered with 3 different PYTHONHASHSEED values.
+          # All 3 should produce identical output.
+          for f in 08-auto-layout.sdjf 14-stresstest.sdjf 13-stresstest.gag; do
+            for s in 0 1 2; do
+              PYTHONHASHSEED=$s almagag "docs/diagrams/gags/$f" \
+                --layout-algorithm=laf -o "/tmp/det_${f}_${s}.svg"
+            done
+            unique=$(md5sum /tmp/det_${f}_*.svg | awk '{print $1}' | sort -u | wc -l)
+            if [ "$unique" != "1" ]; then
+              echo "FAIL: $f has $unique unique hashes across seeds (should be 1)"
+              echo "LAF-009 regression detected. See docs/TECHNICAL_DEBT.md."
+              md5sum /tmp/det_${f}_*.svg
+              exit 1
+            fi
+            echo "OK: $f deterministic across 3 PYTHONHASHSEED values"
+          done
