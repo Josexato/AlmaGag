@@ -1,6 +1,6 @@
 # Índice de Documentación - AlmaGag
 
-**Versión**: v3.3.0 (código) + SDJF v2.0 (estándar)
+**Versión**: v3.3.0 (código) + SDJF v2.1 (estándar)
 **Actualizado**: 2026-02-28
 
 ---
@@ -18,6 +18,10 @@ Esta es la guía completa de documentación de AlmaGag, organizada por tipo de d
 1. **[README.md](../README.md)** - Visión general y ejemplo mínimo
 2. **[Quickstart Guide](guides/QUICKSTART.md)** - Instalación paso a paso
 3. **[Galería de Ejemplos](guides/EXAMPLES.md)** - 10 ejemplos visuales
+
+**Para entender el vocabulario:**
+
+- **[CONCEPTS.md](CONCEPTS.md)** ✨ - Glosario unificado (SDJF, GAG, AUTO, LAF, NdDp, NdPr, NdFn, TOI, BWT, Routing Policy)
 
 ---
 
@@ -70,6 +74,10 @@ Esta es la guía completa de documentación de AlmaGag, organizada por tipo de d
 | Documento | Nivel | Descripción |
 |-----------|-------|-------------|
 | [Guía de Decisión](guides/LAYOUT-DECISION-GUIDE.md) | Todos | ¿Cuándo usar AUTO vs LAF? Árbol de decisión simple |
+| [Módulo `layout/`](architecture/modules/layout/README.md) ✨ | Desarrolladores | README de la capa: decisión arquitectónica + tabla AUTO/LAF |
+| [AUTO en detalle](architecture/modules/layout/auto/AUTO.md) ✨ | Desarrolladores | Algoritmo AUTO: pipeline, coords manuales, workaround Dashboard |
+| [LAF en detalle](architecture/modules/layout/laf/LAF.md) ✨ | Desarrolladores | Algoritmo LAF: 11 fases, hiperparámetros, limitaciones |
+| [Biblioteca routing](architecture/modules/routing/ROUTING.md) ✨ | Desarrolladores | 5 tipos declarativos: straight, orthogonal, bezier, arc, manual |
 | [Comparación Técnica LAF](architecture/modules/layout/laf/COMPARISON.md) | Avanzado | Análisis profundo con métricas y benchmarks |
 | [Progreso LAF](architecture/modules/layout/laf/PROGRESS.md) | Técnico | Historia de desarrollo en 8 sprints |
 | [Referencia CLI](guides/CLI-REFERENCE.md) | Todos | Documentación completa de opciones de línea de comandos |
@@ -155,10 +163,9 @@ almagag arch.gag --layout-algorithm=laf --debug --dump-iterations
 ```
 docs/
 ├── INDEX.md                      # Este archivo
+├── CONCEPTS.md                   # ✨ Glosario unificado (punto de entrada conceptual)
 ├── ROADMAP.md                    # Plan de desarrollo
-├── architecture/modules/layout/laf/
-│   ├── COMPARISON.md             # ✨ Comparación técnica LAF vs AUTO
-│   └── PROGRESS.md               # ✨ Historia de desarrollo LAF
+├── TECHNICAL_DEBT.md             # Deuda técnica conocida (LAF-001..LAF-009)
 │
 ├── spec/                         # Especificaciones SDJF
 │   ├── SDJF_v1.0_SPEC.md
@@ -169,13 +176,26 @@ docs/
 ├── guides/                       # Guías de uso
 │   ├── QUICKSTART.md
 │   ├── EXAMPLES.md
-│   ├── CLI-REFERENCE.md          # ✨ Referencia completa CLI
-│   └── LAYOUT-DECISION-GUIDE.md  # ✨ Guía de decisión AUTO vs LAF
+│   ├── CLI-REFERENCE.md          # Referencia completa CLI
+│   └── LAYOUT-DECISION-GUIDE.md  # Guía de decisión AUTO vs LAF
 │
 ├── architecture/                 # Arquitectura del código
-│   ├── ARCHITECTURE.md
-│   ├── EVOLUTION.md
+│   ├── ARCHITECTURE.md           # Visión general del sistema
+│   ├── EVOLUTION.md              # Historial de evolución
 │   ├── IMPLEMENTATION_STRATEGY.md
+│   ├── modules/                  # ✨ Docs por módulo
+│   │   ├── layout/
+│   │   │   ├── README.md         # Decisión arquitectónica + tabla AUTO/LAF
+│   │   │   ├── auto/
+│   │   │   │   ├── AUTO.md       # Algoritmo AUTO en detalle
+│   │   │   │   └── routing.md    # AutoRoutingPolicy
+│   │   │   └── laf/
+│   │   │       ├── LAF.md        # Algoritmo LAF (11 fases)
+│   │   │       ├── routing.md    # LAFRoutingPolicy
+│   │   │       ├── PROGRESS.md   # Historia de desarrollo LAF
+│   │   │       └── COMPARISON.md # Comparación LAF vs AUTO
+│   │   └── routing/
+│   │       └── ROUTING.md        # Biblioteca compartida (5 routers)
 │   └── history/                  # Diagramas históricos
 │
 └── diagrams/                     # Diagramas y ejemplos visuales
@@ -318,4 +338,4 @@ Este proyecto es parte de ALMA. Para reportar bugs o sugerir mejoras, abre un is
 ---
 
 **AlmaGag** - Generación automática de diagramas con layout jerárquico inteligente (AUTO/LAF) y routing declarativo
-**Versión**: v3.3.0 + SDJF v2.0 | **Actualizado**: 2026-02-28
+**Versión**: v3.3.0 + SDJF v2.1 | **Actualizado**: 2026-02-28
