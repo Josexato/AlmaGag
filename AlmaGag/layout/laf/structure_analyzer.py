@@ -1127,7 +1127,7 @@ class StructureAnalyzer:
 
         # Agrupar por padre común (2+ hojas terminales)
         parent_to_leaves = {}
-        for leaf_id in terminal:
+        for leaf_id in sorted(terminal):
             preds = [p for p in inc_graph.get(leaf_id, []) if p in nodes]
             for pred_id in preds:
                 if pred_id not in parent_to_leaves:
@@ -1135,7 +1135,7 @@ class StructureAnalyzer:
                 parent_to_leaves[pred_id].append(leaf_id)
 
         claimed = set()
-        for parent_id, leaves in parent_to_leaves.items():
+        for parent_id, leaves in sorted(parent_to_leaves.items()):
             unclaimed_leaves = [l for l in leaves if l not in claimed]
             if len(unclaimed_leaves) < 2:
                 continue
@@ -1226,7 +1226,7 @@ class StructureAnalyzer:
         # Crear VCs: TOI + descendientes + co-padres de hijos directos
         # Ordenar TOIs de menor a mayor por descendientes (el más pequeño forma
         # su VC primero y se comprime; TOIs más grandes lo absorben naturalmente)
-        sorted_tois = sorted(toi_nodes, key=lambda t: count_desc(t))
+        sorted_tois = sorted(toi_nodes, key=lambda t: (count_desc(t), t))
         claimed = set()
         for toi_id in sorted_tois:
             if toi_id in claimed:
@@ -1294,7 +1294,7 @@ class StructureAnalyzer:
             vc_id = vc['id']
             actual_children = []
 
-            for member_id in vc['members']:
+            for member_id in sorted(vc['members']):
                 if member_id in info.element_tree:
                     current_parent = info.element_tree[member_id]['parent']
                     if current_parent is None or current_parent == vc_id:
@@ -1368,7 +1368,7 @@ class StructureAnalyzer:
                     mapped_tgt = member_to_rep.get(tgt, tgt)
                     if mapped_tgt != from_id:
                         targets.add(mapped_tgt)
-            contracted_graph[from_id] = list(targets)
+            contracted_graph[from_id] = sorted(targets)
 
         return contracted_elements, contracted_graph, member_to_rep, rep_to_members
 

@@ -443,17 +443,20 @@ class AutoLayoutPositioner:
         Optimize abstract X positions using layer-offset bisection to minimize
         total connector distance. Preserves intra-layer order from barycenter.
         """
-        # Build adjacency with weights (count of edges between pair)
+        # Build adjacency with weights (count of edges between pair).
+        # Use sorted iteration for determinism: floating-point operations downstream
+        # are not perfectly commutative, so iteration order affects bit-exact output.
         elem_ids = set(positions.keys())
+        elem_ids_sorted = sorted(elem_ids)
         edge_counts: Dict[tuple, int] = {}
-        for eid in elem_ids:
+        for eid in elem_ids_sorted:
             for child in outgoing.get(eid, []):
                 if child in elem_ids:
                     key = tuple(sorted([eid, child]))
                     edge_counts[key] = edge_counts.get(key, 0) + 1
 
-        adjacency: Dict[str, list] = {eid: [] for eid in elem_ids}
-        for (a, b), weight in edge_counts.items():
+        adjacency: Dict[str, list] = {eid: [] for eid in elem_ids_sorted}
+        for (a, b), weight in sorted(edge_counts.items()):
             adjacency[a].append((b, weight))
             adjacency[b].append((a, weight))
 
@@ -477,7 +480,7 @@ class AutoLayoutPositioner:
 
         def total_distance(pos):
             total = 0.0
-            for eid in elem_ids:
+            for eid in elem_ids_sorted:
                 for neighbor, weight in adjacency.get(eid, []):
                     if eid < neighbor:
                         dx = pos[eid][0] - pos[neighbor][0]
