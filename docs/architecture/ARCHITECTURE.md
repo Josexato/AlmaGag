@@ -46,20 +46,24 @@ AlmaGag es un generador de diagramas SVG que transforma archivos JSON (formato S
 └─────────────┘
 ```
 
-### Pipeline LAF (10 Fases)
+### Pipeline LAF (11 Fases)
 
 ```
-Fase 1: Structure Analysis    → structure_analyzer.py
-Fase 2: Topology Analysis     → laf_optimizer.py (viz)
-Fase 3: Centrality Ordering   → laf_optimizer.py
-Fase 4: Abstract Placement    → abstract_placer.py
-Fase 5: Position Optimization → position_optimizer.py
-Fase 6: NdPr Expansion        → laf_optimizer.py
-Fase 7: Inflation + Growth    → inflator.py + container_grower.py
-Fase 8: Redistribution        → laf_optimizer.py
-Fase 9: Routing               → router_manager.py
-Fase 10: SVG Generation       → generator.py
+Fase 1:    Structure Analysis      → laf/structure_analyzer.py
+Fase 2:    Topology Analysis       → laf/optimizer.py (viz)
+Fase 3:    Centrality Ordering     → laf/optimizer.py
+Fase 4:    Abstract Placement      → laf/abstract_placer.py
+Fase 5:    Position Optimization   → laf/position_optimizer.py
+Fase 6:    NdPr Expansion          → laf/optimizer.py
+Fase 7:    Iterative Summary       → laf/visualizer.py
+Fase 8:    Inflation + Growth      → laf/inflator.py + laf/container_grower.py
+Fase 9:    Vertical Redistribution → laf/optimizer.py
+Fase 10:   Routing                 → laf/routing_policy.py → routing/router_manager.py
+Fase 10.5: Re-optimize labels      → laf/optimizer.py (post-routing)
+Fase 11:   SVG Generation          → generator.py + renderer.py
 ```
+
+> Documentación histórica menciona "10 fases" (sin contar Fase 11). El código actual define 11; ver `modules/layout/laf/LAF.md` para detalle.
 
 ## Módulos Principales
 
@@ -202,74 +206,11 @@ class LayoutOptimizer(ABC):
 
 **Propósito:** Interfaz para futuros algoritmos (force-directed, genetic, etc.)
 
-#### `layout/auto_optimizer.py`
+#### `layout/auto/optimizer.py` (post-refactor)
 
-**Clase `AutoLayoutOptimizer`** - Implementación v2.1
+**Clase `AutoLayoutOptimizer`** — algoritmo de layout original. Respeta coordenadas manuales y resuelve el resto con auto-positioning + optimización iterativa (hill climbing) de colisiones. Routing encapsulado en `AutoRoutingPolicy`.
 
-```python
-class AutoLayoutOptimizer(LayoutOptimizer):
-    def __init__(self, verbose=False):
-        self.sizing = SizingCalculator()  # SDJF v2.0
-        self.geometry = GeometryCalculator(self.sizing)
-        self.collision_detector = CollisionDetector(self.geometry)
-        self.graph_analyzer = GraphAnalyzer()
-        self.positioner = AutoLayoutPositioner(self.sizing, self.graph_analyzer)  # v2.0
-        self.verbose = verbose
-
-    def optimize(self, layout, max_iterations=10) -> Layout:
-        current = layout.copy()
-
-        # FASE 0: Auto-layout para coordenadas faltantes (SDJF v2.0)
-        self.analyze(current)  # Análisis preliminar para prioridades
-        self.positioner.calculate_missing_positions(current)
-
-        # FASE 1: Análisis completo
-        self.analyze(current)
-        self._calculate_initial_positions(current)  # Posiciones de labels
-        initial_collisions = self.evaluate(current)
-
-        # FASE 2: Optimización iterativa
-        best_layout = current
-        min_collisions = initial_collisions
-
-        for iteration in range(max_iterations):
-            if min_collisions == 0:
-                break
-
-            candidate = best_layout.copy()
-
-            # Estrategia A: Reubicar labels
-            if not self._try_relocate_labels(candidate):
-                # Estrategia B: Mover elementos (weighted, v2.0)
-                victim_id = self._select_element_to_move_weighted(candidate)
-                if victim_id:
-                    dx, dy = self._calculate_move_direction(candidate, victim_id)
-
-                    # Escalar movimiento por peso inverso (SDJF v2.0)
-                    elem = candidate.elements_by_id[victim_id]
-                    weight = self.sizing.get_element_weight(elem)
-                    dx = int(dx / weight)
-                    dy = int(dy / weight)
-
-                    self._shift_element(candidate, victim_id, dx, dy)
-                    self._recalculate_structures(candidate)
-
-            collisions = self.evaluate(candidate)
-            if collisions < min_collisions:
-                best_layout = candidate
-                min_collisions = collisions
-
-        return best_layout
-```
-
-**Algoritmo:**
-1. **Auto-positioning** (v2.0) - Calcula x, y faltantes
-2. **Análisis** - Niveles, grupos, prioridades
-3. **Optimización iterativa**:
-   - Estrategia A: Reposicionar labels (bottom → right → top → left)
-   - Estrategia B: Mover elementos completos (weighted por hp/wp)
-4. **Evaluación** - Cuenta colisiones totales
-5. **Hill climbing** - Acepta solo mejoras
+📍 Referencia detallada (5 fases, tabla AUTO vs LAF, workaround Dashboard layout): `modules/layout/auto/AUTO.md`.
 
 #### `layout/sizing.py` (NUEVO en v2.0)
 
@@ -304,54 +245,11 @@ class SizingCalculator:
         return priority_weight * hp * wp
 ```
 
-#### `layout/auto_positioner.py` (NUEVO en v2.0)
+#### `layout/auto/positioner.py` (post-refactor)
 
-**Clase `AutoLayoutPositioner`** - Auto-layout para SDJF v2.0
+**Clase `AutoLayoutPositioner`** — auto-layout para coordenadas faltantes (introducido en SDJF v2.0). Estrategia híbrida prioridad + grid + centralidad: HIGH al centro, NORMAL en anillo medio, LOW en anillo externo.
 
-```python
-class AutoLayoutPositioner:
-    def calculate_missing_positions(self, layout):
-        """Calcula x, y para elementos sin coordenadas."""
-        missing_both = [e for e in layout.elements if 'x' not in e and 'y' not in e]
-        missing_x = [e for e in layout.elements if 'x' not in e and 'y' in e]
-        missing_y = [e for e in layout.elements if 'x' in e and 'y' not in e]
-
-        if missing_x:
-            self._calculate_x_only(layout, missing_x)
-        if missing_y:
-            self._calculate_y_only(layout, missing_y)
-        if missing_both:
-            self._calculate_hybrid_layout(layout, missing_both)
-
-    def _calculate_hybrid_layout(self, layout, elements):
-        """Algoritmo híbrido: prioridad + grid + centralidad."""
-        # Agrupar por prioridad
-        by_priority = {0: [], 1: [], 2: []}  # HIGH, NORMAL, LOW
-        for elem in elements:
-            priority = layout.priorities.get(elem['id'], 1)
-            by_priority[priority].append(elem)
-
-        center_x = layout.canvas['width'] / 2
-        center_y = layout.canvas['height'] / 2
-
-        # Ordenar por centrality_score
-        high_elements = sorted(
-            by_priority[0],
-            key=lambda e: self.sizing.get_centrality_score(e, 0),
-            reverse=True
-        )
-
-        # Posicionar
-        self._position_grid_center(high_elements, center_x, center_y, spacing=120)
-        self._position_ring(by_priority[1], center_x, center_y, radius=300)
-        self._position_ring(by_priority[2], center_x, center_y, radius=450)
-```
-
-**Estrategia de posicionamiento:**
-- **HIGH priority** → Grid compacto en centro
-- **NORMAL priority** → Anillo (radius 300px)
-- **LOW priority** → Anillo externo (radius 450px)
-- **Centralidad** → Elementos grandes más cerca del centro
+📍 Detalle en `modules/layout/auto/AUTO.md` (sección "Fase 0 — Auto-positioning").
 
 #### `layout/geometry.py`
 
@@ -481,43 +379,24 @@ class GraphAnalyzer:
 
 ---
 
-### 5. Módulo `layout/laf/` (LAF Pipeline v2.0)
+### 5. Módulo `layout/laf/` (post-refactor)
 
-**Responsabilidad:** Layout jerárquico de 10 fases minimizando cruces
+**Responsabilidad:** Layout jerárquico de 11 fases minimizando cruces (filosofía "abstracto primero, geometría después", inspirado en Sugiyama/Graphviz).
 
-**Módulos:**
-- `structure_analyzer.py` - Fase 1: Árbol, grafo, niveles, scores
-- `abstract_placer.py` - Fase 4: Sugiyama-style placement
-- `position_optimizer.py` - Fase 5: Layer-offset bisection
-- `inflator.py` - Fase 7: Abstract → real coordinates
-- `container_grower.py` - Fase 7: Bottom-up expansion, label-aware
-- `visualizer.py` - 10 SVGs de debug del proceso
+**Coordinador:** `layout/laf/optimizer.py:LAFOptimizer`
 
-**Coordinador:** `layout/laf_optimizer.py:LAFOptimizer`
+**Módulos principales** (cada uno cubre fases específicas del pipeline):
+- `structure_analyzer.py` — Fase 1 (árbol, grafo, niveles, scores, NdPr, TOI Virtual Containers)
+- `abstract_placer.py` — Fase 4 (placement abstracto, Sugiyama barycenter)
+- `position_optimizer.py` — Fase 5 (layer-offset bisection)
+- `inflator.py` — Fase 8 (abstract → coordenadas reales)
+- `container_grower.py` — Fase 8 (crecimiento bottom-up, label-aware)
+- `visualizer.py` — SVGs de debug del proceso
+- `routing_policy.py` — `LAFRoutingPolicy` (Fase 10)
 
-```python
-class LAFOptimizer:
-    def optimize(self, layout):
-        # Fase 1: Structure Analysis
-        structure_info = self.analyzer.analyze(layout)
-        # Fase 2: Topology Analysis (visualización)
-        # Fase 3: Centrality Ordering
-        # Fase 4: Abstract Placement (Sugiyama)
-        abstract_positions = self.placer.place_elements(structure_info)
-        # Fase 5: Position Optimization (bisection)
-        optimized = self.position_optimizer.optimize(abstract_positions)
-        # Fase 6: NdPr Expansion
-        # Fase 7: Inflation + Container Growth
-        self.inflator.inflate(optimized, structure_info, layout)
-        self.grower.grow_containers(structure_info, layout)
-        # Fase 8: Vertical Redistribution
-        self._redistribute_vertical_after_growth(structure_info, layout)
-        # Fase 9: Routing
-        # Fase 10: SVG Generation (en generator.py)
-        return layout
-```
+**Resultado:** -87% cruces, -24% colisiones vs AUTO (medido en suite de regresión).
 
-**Resultado:** -87% cruces, -24% colisiones vs sistema AUTO
+📍 Referencia detallada (11 fases comentadas, configuración, limitaciones LAF-007/008/009): `modules/layout/laf/LAF.md`.
 
 ---
 
