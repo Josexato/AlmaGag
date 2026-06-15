@@ -64,8 +64,9 @@ Varios BUGS-DIAG arriba comparten causas raíz:
 |---|---|
 | BUGS-DIAG-001 (containers visibles) | BUGS-DIAG-003, BUGS-DIAG-008 |
 | Agregar coordenadas manuales en SDJF | BUGS-DIAG-003, BUGS-DIAG-004, BUGS-DIAG-008 |
-| BUGS-DIAG-002 (label corto) | mejora BUGS-DIAG-005, BUGS-DIAG-006 |
+| BUGS-DIAG-002 (label corto) ✅ | mejoró BUGS-DIAG-005, BUGS-DIAG-006 parcialmente |
 | BUGS-LAF-002 (dashboard layout) | habilitaría usar LAF, que tenía mejor sense visual en este caso |
+| **WISH-LAYOUT-003** (auto-callout para labels grandes) | resuelve la **familia** de BUGS-DIAG-002 sin editar SDJFs futuros |
 
 ---
 
