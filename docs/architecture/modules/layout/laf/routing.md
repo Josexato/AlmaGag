@@ -56,7 +56,7 @@ Misma interfaz pública (`.route()`), pero construcción interna distinta:
 | Property `.enabled` | No la tiene (siempre activo implícito) | Sí, expone si el router fue inyectado |
 | Invocaciones por pipeline | 4 (auto-route inicial, routing final, re-route por canvas, re-route por movimiento) | 1 (Fase 10) |
 
-**Por qué la asimetría existe**: síntoma de **LAF-008** (`LAFOptimizer` no cumple el contrato `LayoutOptimizer`). Cuando esa deuda se resuelva en una rama aparte, el constructor de `LAFRoutingPolicy` probablemente se uniformará con el de `AutoRoutingPolicy` (auto-construcción del `router_manager`, opcionalidad eliminada o convertida en parámetro explícito).
+**Por qué la asimetría existe**: síntoma de **WISH-ARCH-001** (`LAFOptimizer` no cumple el contrato `LayoutOptimizer`). Cuando esa deuda se resuelva en una rama aparte, el constructor de `LAFRoutingPolicy` probablemente se uniformará con el de `AutoRoutingPolicy` (auto-construcción del `router_manager`, opcionalidad eliminada o convertida en parámetro explícito).
 
 Ver `../auto/routing.md` para el lado AUTO de la simetría.
 
@@ -67,4 +67,4 @@ Ver `../auto/routing.md` para el lado AUTO de la simetría.
 - **Algoritmo LAF**: `LAF.md`
 - **Biblioteca de routing**: `../../routing/ROUTING.md`
 - **Política simétrica en AUTO**: `../auto/routing.md`
-- **LAF-008 en TECHNICAL_DEBT**: `../../../../TECHNICAL_DEBT.md`
+- **WISH-ARCH-001 en TECHNICAL_DEBT**: `../../../../TECHNICAL_DEBT.md`

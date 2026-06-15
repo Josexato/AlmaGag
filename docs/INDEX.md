@@ -165,8 +165,8 @@ docs/
 ├── INDEX.md                      # Este archivo
 ├── CONCEPTS.md                   # ✨ Glosario unificado (punto de entrada conceptual)
 ├── ROADMAP.md                    # Plan de desarrollo
-├── TECHNICAL_DEBT.md             # Deuda técnica conocida (LAF-001..LAF-009)
-├── DIAGRAM_REVIEW.md             # Revisión visual de diagramas (DIAG-001+)
+├── TECHNICAL_DEBT.md             # Deuda técnica conocida (BUGS-*, WISH-*)
+├── DIAGRAM_REVIEW.md             # Revisión visual de diagramas (BUGS-DIAG-*)
 │
 ├── spec/                         # Especificaciones SDJF
 │   ├── SDJF_v1.0_SPEC.md

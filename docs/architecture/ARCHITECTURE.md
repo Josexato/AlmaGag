@@ -396,7 +396,7 @@ class GraphAnalyzer:
 
 **Resultado:** -87% cruces, -24% colisiones vs AUTO (medido en suite de regresión).
 
-📍 Referencia detallada (11 fases comentadas, configuración, limitaciones LAF-007/008/009): `modules/layout/laf/LAF.md`.
+📍 Referencia detallada (11 fases comentadas, configuración, limitaciones BUGS-LAF-002 / WISH-ARCH-001 / BUGS-LAYOUT-003): `modules/layout/laf/LAF.md`.
 
 ---
 

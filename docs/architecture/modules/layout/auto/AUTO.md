@@ -20,7 +20,7 @@ Característica clave: AUTO **no impone una estructura jerárquica**. Es adecuad
 |---|---|
 | Tenés coordenadas manuales que querés respetar | **AUTO** |
 | Querés layout completamente automático para un grafo denso | **LAF** |
-| Dashboard / poster: contenedores agrupando contenido sin conexiones inter-contenedor | **AUTO + coords manuales en contenedores** (workaround a LAF-007) |
+| Dashboard / poster: contenedores agrupando contenido sin conexiones inter-contenedor | **AUTO + coords manuales en contenedores** (workaround a BUGS-LAF-002) |
 | Diagrama de arquitectura / flow con muchas conexiones | **LAF** |
 | Velocidad de render importa más que minimizar cruces | **AUTO** |
 
@@ -78,11 +78,11 @@ Distintivo de AUTO frente a LAF:
 - Si el SDJF dice `{"id": "X", "x": 100, "y": 200}`, AUTO **nunca mueve `X` durante Fase 0** — esas coordenadas son sagradas.
 - En Fase 4 (optimización), AUTO **sí puede mover elementos** con coordenadas manuales si causan colisiones. Si querés que un elemento no se mueva nunca, marcalo con `"priority": "HIGH"` y AUTO lo va a tratar como ancla preferida.
 
-Esto habilita un patrón muy usado: **definir coordenadas solo en los contenedores padre** y dejar que los hijos se auto-acomoden dentro. Ver "Workaround LAF-007" abajo.
+Esto habilita un patrón muy usado: **definir coordenadas solo en los contenedores padre** y dejar que los hijos se auto-acomoden dentro. Ver "Workaround BUGS-LAF-002" abajo.
 
 ---
 
-## Limitación conocida: LAF-007 → workaround "Dashboard layout" con AUTO
+## Limitación conocida: BUGS-LAF-002 → workaround "Dashboard layout" con AUTO
 
 LAF maneja mal el caso "dashboard": 3+ contenedores en el mismo nivel sin conexiones entre sí. Los pone en fila horizontal expandiendo el canvas a >20.000px.
 

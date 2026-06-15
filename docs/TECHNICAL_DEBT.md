@@ -1,189 +1,165 @@
-# Deuda Técnica - AlmaGag
+# Deuda Técnica — AlmaGag
 
-Este documento registra problemas conocidos, limitaciones y áreas de mejora del proyecto AlmaGag.
+Este documento registra problemas conocidos y áreas de mejora del proyecto.
 
-**Última actualización**: 2026-01-21
+**Última actualización**: 2026-06-15
 
 ---
 
-## 🔴 Críticos
+## Convención de códigos
 
-### LAF-001: Etiquetas de Debug Solapadas en Modo VisualDebug
-**Componente**: `generator.py` - Renderizado SVG
+Cada entrada tiene un código con estructura uniforme `<CATEGORÍA>-<COMPONENTE>-<NNN>`:
+
+### Categorías
+
+- **`BUGS`** — Cosas que no funcionan como deberían. Hay un comportamiento esperado y la implementación lo viola.
+- **`WISH`** — Cosas que se desea crear o mejorar. El sistema funciona, pero se podría hacer mejor.
+
+### Componentes
+
+- **`LAYOUT`** — Issues transversales del módulo `AlmaGag/layout/` que afectan a ambos algoritmos.
+- **`LAF`** — Issues exclusivos del algoritmo LAF (`AlmaGag/layout/laf/`).
+- **`AUTO`** — Issues exclusivos del algoritmo AUTO (`AlmaGag/layout/auto/`).
+- **`ARCH`** — Issues arquitecturales del sistema (acoplamientos, contratos, extensibilidad).
+- **`DIAG`** — Problemas visuales en los SVG renderizados. Viven en `docs/DIAGRAM_REVIEW.md`, no aquí.
+
+### ⚠️ Importante: distinción con `LAF_PHASE_N_...`
+
+El código de runtime usa identificadores como `LAF_PHASE_6_NDPR_EXPANDED` para nombrar las fases del pipeline durante el debug (`_dump_layout()`). Estos **no son** los códigos `BUGS-LAF-NNN` de este documento. La distinción:
+
+| Patrón | Dónde vive | Qué identifica |
+|---|---|---|
+| `LAF_PHASE_N_NOMBRE` | `AlmaGag/layout/laf/optimizer.py` | Fase del pipeline LAF (para snapshots de debug) |
+| `BUGS-LAF-NNN` / `WISH-LAF-NNN` | Este documento | Issue específico a corregir |
+
+---
+
+## 🐛 BUGS
+
+### BUGS-LAYOUT-001: Etiquetas de Debug Solapadas en Modo VisualDebug
+**Componente**: `generator.py` — Renderizado SVG
 **Severidad**: Media
 **Reportado**: 2026-01-21
 
 **Descripción**:
-Las etiquetas naranjas de debug (que muestran el nivel topológico) en modo `--visualdebug` se solapan con elementos del diagrama, dificultando la lectura.
-
-**Impacto**:
-- Dificulta el debugging visual de diagramas complejos
-- Las etiquetas pueden ocultar información importante de elementos
+Las etiquetas naranjas de debug (nivel topológico) en modo `--visualdebug` se solapan con elementos del diagrama, dificultando la lectura.
 
 **Reproducción**:
 ```bash
 almagag docs/diagrams/gags/05-arquitectura-gag.gag --layout-algorithm=laf --visualdebug --exportpng
 ```
 
-**Solución Propuesta**:
-- Calcular posición automática de etiquetas debug evitando colisiones con elementos
-- Alternativamente, usar sistema de capas SVG para overlay con transparencia
-- Considerar color de fondo semi-transparente para legibilidad
+**Solución propuesta**:
+- Calcular posición automática de etiquetas debug evitando colisiones.
+- Alternativamente: usar sistema de capas SVG con transparencia.
+- Considerar fondo semi-transparente para legibilidad.
 
-**Workaround Actual**:
-Usar modo normal sin `--visualdebug` para diagramas finales.
+**Workaround**: usar modo normal sin `--visualdebug` para diagramas finales.
 
 ---
 
-### LAF-002: Cálculo Excesivo de Altura de Canvas
-**Componente**: `AlmaGag/layout/laf/optimizer.py` - Fase 4.5
+### BUGS-LAYOUT-002: Cálculo Excesivo de Altura de Canvas
+**Componente**: `AlmaGag/layout/laf/optimizer.py` — Fase 4.5
 **Severidad**: Media
 **Reportado**: 2026-01-21
 
 **Descripción**:
-El canvas final tiene altura excesiva con mucho espacio vacío en la parte inferior. La redistribución vertical calcula correctamente las posiciones Y de los elementos, pero el cálculo de altura total del canvas parece sobrestimado.
-
-**Impacto**:
-- Diagramas con ~50% de espacio vacío en la parte inferior
-- Archivos SVG/PNG más grandes de lo necesario
-- Mala utilización del espacio visual
+El canvas final tiene altura excesiva con mucho espacio vacío en la parte inferior. La redistribución vertical calcula bien las posiciones Y, pero la altura total parece sobrestimada.
 
 **Datos**:
 ```
-Canvas calculado: 1402x3807px
+Canvas calculado: 1402×3807px
 Altura utilizada real: ~2000px
 Espacio desperdiciado: ~1800px (47%)
 ```
 
-**Reproducción**:
-```bash
-almagag docs/diagrams/gags/05-arquitectura-gag.gag --layout-algorithm=laf --debug
-```
-
 **Análisis**:
-- `container_grower.calculate_final_canvas()` en laf/optimizer.py:388-393
-- Posiblemente incluye padding excesivo o calcula basándose en dimensiones intermedias
+- `container_grower.calculate_final_canvas()` en `laf/optimizer.py:388-393`.
+- Posiblemente incluye padding excesivo o calcula basándose en dimensiones intermedias.
 
-**Solución Propuesta**:
-1. Revisar `calculate_final_canvas()` en ContainerGrower
-2. Calcular altura basándose en elemento más bajo + margen (no multiplicadores)
-3. Verificar que no se acumulen márgenes de diferentes fases
-
-**Prioridad**: Media (funciona correctamente, solo optimización)
+**Solución propuesta**:
+1. Revisar `calculate_final_canvas()` en `ContainerGrower`.
+2. Calcular altura basándose en elemento más bajo + margen (no multiplicadores).
+3. Verificar que no se acumulen márgenes de fases diferentes.
 
 ---
 
-## 🟡 Medios
+### BUGS-LAYOUT-003: No-Determinismo entre Procesos Python ✅ RESUELTO
+**Componente**: `AlmaGag/layout/laf/` + `AlmaGag/layout/auto/` + `AlmaGag/layout/graph_analysis.py`
+**Severidad**: Media
+**Reportado**: 2026-05-14 (hallazgo lateral durante validación del refactor de routing_policy)
+**Resuelto**: 2026-06-14 (rama `claude/laf-009-investigation`)
 
-### LAF-003: Distribución Horizontal Asimétrica en Niveles Multi-Elemento
-**Componente**: `AlmaGag/layout/laf/optimizer.py` - `_center_elements_horizontally()`
+**Descripción**:
+LAF (y en menor medida AUTO sobre archivos con ties) producía resultados distintos para el mismo input en procesos Python separados.
+
+**Causa raíz**: 7 puntos en el pipeline donde iteraciones de `set`/`dict` con orden afectado por `PYTHONHASHSEED`, o sorts sin tie-break, propagaban orden inestable.
+
+1. `structure_analyzer.py:1297` — construcción de `element_tree[vc].children` desde `vc['members']` (set).
+2. `structure_analyzer.py:1130-1138` — formación de leaf VCs desde `terminal` (set).
+3. `structure_analyzer.py:1229` — `sorted_tois` sin tie-break.
+4. `structure_analyzer.py:1371` — conversión `set→list` en `contracted_graph`.
+5. `graph_analysis.py:calculate_topological_levels` — iteración de `elem_ids` (set) en fixpoint con ciclos.
+6. `auto/positioner.py` + `laf/position_optimizer.py` — suma de floats no-conmutativa.
+7. `laf/abstract_placer.py` — 5 sorts sin tie-break por `elem_id`.
+
+**Fix aplicado**: `sorted()` con tie-break por `elem_id` en cada punto.
+
+**Validación**: 23 archivos × 5 seeds × 2 algoritmos = 230 invocaciones. Antes: hasta 5 hashes distintos por archivo. Después: 1 hash por archivo en los 46 casos.
+
+---
+
+### BUGS-LAF-001: Distribución Horizontal Asimétrica en Niveles Multi-Elemento
+**Componente**: `AlmaGag/layout/laf/optimizer.py` — `_center_elements_horizontally()`
 **Severidad**: Baja
 **Reportado**: 2026-01-21
 
 **Descripción**:
-Aunque los niveles están centrados horizontalmente como conjunto, la distribución interna de elementos individuales puede ser asimétrica debido al uso de spacing fijo (480px).
-
-**Impacto Visual**:
-- Algunos elementos quedan muy separados mientras otros están más comprimidos
-- El centrado grupal es correcto, pero visualmente puede parecer desbalanceado
-- Especialmente notable en niveles con elementos de diferente ancho
+Aunque los niveles están centrados horizontalmente como conjunto, la distribución interna de elementos individuales puede ser asimétrica por usar spacing fijo (480 px).
 
 **Ejemplo**:
 ```
 Nivel 3: 3 elementos
-  Ancho total: 1350.0px
-  Canvas: 1402px
-  Start X: 100.0px (margen mínimo aplicado)
+  Ancho total: 1350px, Canvas: 1402px, Start X: 100px
 
-  optimizer: X 480.0 -> 100.0 (dx=-380.0)
-  laf_optimizer: X 960.0 -> 660.0 (dx=-300.0)
-  analysis_module-stage: X 0.0 -> 1220.0 (dx=+1220.0)
+  optimizer:              X 480 → 100  (dx=-380)
+  laf_optimizer:          X 960 → 660  (dx=-300)
+  analysis_module-stage:  X 0   → 1220 (dx=+1220)
 ```
 
-**Solución Propuesta**:
-1. Calcular spacing dinámico basado en espacio disponible:
-   ```python
-   available_space = canvas_width - total_elements_width - 2*MARGIN
-   spacing = available_space / (num_elements - 1)
-   ```
-2. Limitar spacing máximo/mínimo para evitar separaciones extremas
-3. Considerar distribución "justificada" para mejor simetría visual
-
-**Prioridad**: Baja (estético, no afecta funcionalidad)
+**Solución propuesta**:
+1. Spacing dinámico: `(canvas_width - total_elements_width - 2*MARGIN) / (num_elements - 1)`.
+2. Limitar spacing máximo/mínimo para evitar separaciones extremas.
+3. Considerar distribución "justificada" para mejor simetría visual.
 
 ---
 
-### LAF-004: Cruces de Conexiones No Optimizados
-**Componente**: `AlmaGag/layout/laf/abstract_placer.py` - Fase 2
-**Severidad**: Baja
-**Reportado**: 2026-01-21
-
-**Descripción**:
-A pesar de implementar optimización de barycenter con conexiones del mismo nivel (peso 30%), aún se observan cruces de conexiones que podrían optimizarse.
-
-**Datos Actuales**:
-```
-Diagrama: 05-arquitectura-gag.gag
-Cruces calculados (Fase 2): 134
-```
-
-**Impacto**:
-- Diagramas complejos son más difíciles de seguir visualmente
-- Reduce claridad de flujos de datos/dependencias
-
-**Análisis**:
-La implementación actual usa:
-- 70% peso para conexiones verticales (capa anterior)
-- 30% peso para conexiones horizontales (mismo nivel)
-
-Estos pesos pueden no ser óptimos para todos los tipos de diagramas.
-
-**Solución Propuesta**:
-1. **Ajuste dinámico de pesos**: Analizar proporción de conexiones vertical/horizontal y ajustar pesos automáticamente
-2. **Múltiples iteraciones de barycenter**: Actualmente solo 1 pasada, considerar 3-5 iteraciones
-3. **Post-procesamiento**: Fase adicional de "edge straightening" para minimizar ángulos
-4. **Heurística por tipo de diagrama**: Diferentes pesos para arquitecturas vs flows
-
-**Experimentos Sugeridos**:
-```python
-# Probar diferentes combinaciones
-pesos = [
-    (0.7, 0.3),  # Actual
-    (0.6, 0.4),  # Más peso horizontal
-    (0.5, 0.5),  # Balanceado
-]
-```
-
-**Prioridad**: Baja (optimización incremental)
-
----
-
-### LAF-007: Layout Pobre con Contenedores Hermanos sin Conexiones (caso "dashboard")
-**Componente**: `AlmaGag/layout/laf/optimizer.py` - Fases 4-5-6 + Fase 8
+### BUGS-LAF-002: Layout Pobre con Contenedores Hermanos sin Conexiones (caso "dashboard")
+**Componente**: `AlmaGag/layout/laf/optimizer.py` — Fases 4-5-6 + Fase 8
 **Severidad**: Media
 **Reportado**: 2026-05-14 (auditoría externa)
 
 **Descripción**:
-Cuando hay 3+ contenedores en el mismo nivel sin conexiones explícitas entre ellos (típico de dashboards/posters), LAF los posiciona en fila horizontal y expande el canvas a >20.000 px de ancho.
+Cuando hay 3+ contenedores en el mismo nivel sin conexiones entre ellos (típico de dashboards/posters), LAF los pone en fila horizontal y expande el canvas a >20.000 px de ancho.
 
 **Reproducción**:
 ```bash
 # JSON con 4 contenedores agrupando elementos, sin connections inter-contenedor
 almagag dashboard.sdjf --layout-algorithm=laf
-# Resultado: canvas ~20526 × 463 (rotamente horizontal)
+# Resultado: canvas ~20526×463 (extremadamente horizontal)
 ```
 
 **Workaround actual**:
-Usar AUTO con coordenadas manuales en los contenedores padre. AUTO respeta `x`/`y` manuales y los hijos se auto-acomodan dentro de cada contenedor. Documentado en `architecture/modules/layout/auto/AUTO.md` (sección "Dashboard layout").
+Usar AUTO con coordenadas manuales en los contenedores padre. Documentado en `architecture/modules/layout/auto/AUTO.md` (sección "Dashboard layout").
 
 **Solución propuesta**:
-Detectar "modo dashboard" (cluster de contenedores sin conexiones inter-cluster) y aplicar layout en grid 2x2, 2x3, o stack vertical según cantidad.
-
-**Prioridad**: Media (afecta usabilidad de un caso de uso específico, no el caso principal de arquitecturas/flows).
+Detectar "modo dashboard" (cluster de contenedores sin conexiones inter-cluster) y aplicar layout en grid 2×2, 2×3, o stack vertical según cantidad.
 
 ---
 
-### LAF-008: LAFOptimizer No Cumple el Contrato LayoutOptimizer
+## 🌟 WISH
+
+### WISH-ARCH-001: LAFOptimizer Cumpla el Contrato LayoutOptimizer
 **Componente**: `AlmaGag/layout/laf/optimizer.py` + `AlmaGag/generator.py`
 **Severidad**: Media-Alta
 **Reportado**: 2026-05-14 (detectado durante refactor de routing_policy)
@@ -194,11 +170,14 @@ Detectar "modo dashboard" (cluster de contenedores sin conexiones inter-cluster)
 - `generator.py` usa `if/elif layout_algorithm == ...` para distinguir (líneas ~578, ~625).
 - `render_containers()` recibe `layout_algorithm` como parámetro.
 
+**Por qué es WISH y no BUGS**:
+El código **funciona**: LAF corre OK, los renders son válidos. Es asimetría arquitectural que querrías limpiar, no un crash o resultado incorrecto.
+
 **Impacto**:
-- Acoplamiento entre algoritmo de layout y fases posteriores del pipeline.
+- Acoplamiento entre algoritmo de layout y fases posteriores.
 - Imposible agregar un tercer algoritmo sin modificar `generator.py`.
 - El Strategy Pattern documentado en `ARCHITECTURE.md` no se cumple en la práctica.
-- Es la causa de la asimetría en `routing_policy.py` (AUTO autocontenido, LAF inyectado opcional).
+- Es la causa de la asimetría en `routing_policy.py`.
 
 **Solución propuesta**:
 - Hacer que `LAFOptimizer` herede de `LayoutOptimizer`.
@@ -206,70 +185,72 @@ Detectar "modo dashboard" (cluster de contenedores sin conexiones inter-cluster)
 - Eliminar `layout_algorithm` como parámetro propagado a `render_containers`.
 - Cuando se resuelva, el constructor de `LAFRoutingPolicy` probablemente se uniformará con el de `AutoRoutingPolicy`.
 
-**Prioridad**: Media-Alta (bloquea extensibilidad; no es bug funcional).
-
 ---
 
-### LAF-009: No-Determinismo entre Procesos Python ✅ RESUELTO
-**Componente**: `AlmaGag/layout/laf/` + `AlmaGag/layout/auto/` + `AlmaGag/layout/graph_analysis.py`
-**Severidad**: Media
-**Reportado**: 2026-05-14 (hallazgo lateral durante validación del refactor de routing_policy)
-**Resuelto**: 2026-06-14 (rama `claude/laf-009-investigation`)
+### WISH-LAF-001: Más Optimización de Cruces de Conexiones
+**Componente**: `AlmaGag/layout/laf/abstract_placer.py` — Fase 2
+**Severidad**: Baja
+**Reportado**: 2026-01-21
 
 **Descripción**:
-LAF (y en menor medida AUTO sobre archivos con muchas ties) producía **distinto resultado** para el mismo input al ejecutarse en procesos Python separados.
+A pesar de implementar optimización de barycenter con conexiones del mismo nivel (peso 30%), **podrían** optimizarse aún más los cruces.
 
-**Causa raíz confirmada**: 6 puntos en el pipeline donde iteraciones de `set` / `dict` con orden afectado por `PYTHONHASHSEED`, o sorts sin tie-break, propagaban orden inestable a estructuras posteriores:
+**Datos actuales**:
+```
+Diagrama: 05-arquitectura-gag.gag
+Cruces calculados (Fase 2): 134
+```
 
-1. `structure_analyzer.py:1297` — construcción de `element_tree[vc].children` desde `vc['members']` (set).
-2. `structure_analyzer.py:1130-1138` — formación de leaf VCs desde `terminal` (set) + iteración de `parent_to_leaves` (dict con insertion order no-det).
-3. `structure_analyzer.py:1229` — `sorted_tois` sin tie-break para TOIs con mismo `count_desc`.
-4. `structure_analyzer.py:1371` — conversión `set→list` en `contracted_graph` afectaba el BFS de longest-path.
-5. `graph_analysis.py:calculate_topological_levels` — iteración de `elem_ids` (set) en fixpoint con ciclos.
-6. `auto/positioner.py` + `laf/position_optimizer.py` — suma de floats no-conmutativa al iterar adjacency en orden no-det.
-7. `laf/abstract_placer.py` — 5 sorts sin tie-break por `elem_id`.
+**Por qué es WISH y no BUGS**:
+La optimización ya está implementada y funciona. Esto es una mejora incremental sobre algo que ya hace su trabajo.
 
-**Fix aplicado**: `sorted()` con tie-break por `elem_id` en cada punto. Cambio de comportamiento: cuando había layouts equivalentes posibles, ahora se elige uno fijo (orden alfabético).
+**Análisis**:
+Implementación actual usa pesos:
+- 70% para conexiones verticales (capa anterior).
+- 30% para conexiones horizontales (mismo nivel).
 
-**Validación**: 23 archivos × 5 seeds × 2 algoritmos = 230 invocaciones. Antes: hasta 5 hashes distintos por archivo. Después: 1 hash por archivo en los 46 casos.
+**Solución propuesta**:
+1. **Ajuste dinámico de pesos** según proporción vertical/horizontal del grafo.
+2. **Múltiples iteraciones de barycenter** (actualmente 1 sola pasada).
+3. **Post-procesamiento**: fase de "edge straightening".
+4. **Heurística por tipo de diagrama**: pesos distintos para arquitecturas vs flows.
 
-**Impacto del fix**:
-- Comparado con baseline pre-fix: 30/46 SVGs idénticos byte-a-byte, 16/46 con diff ≤5% (esperado: los archivos antes no-deterministas ahora tienen un layout fijo entre las opciones válidas), 0/46 superan 5%.
-- Tests visuales en CI ahora son confiables sin `PYTHONHASHSEED=0`.
+**Experimentos sugeridos**:
+```python
+pesos = [(0.7, 0.3), (0.6, 0.4), (0.5, 0.5)]
+```
 
 ---
 
-## 🟢 Mejoras Futuras
-
-### LAF-005: Sistema de Etiquetas Inteligente
-**Componente**: Label positioning
+### WISH-LAYOUT-001: Sistema de Etiquetas Inteligente
+**Componente**: Label positioning (transversal)
 **Severidad**: Enhancement
 **Reportado**: 2026-01-21
 
 **Descripción**:
 Las etiquetas actualmente se posicionan con reglas fijas. Un sistema inteligente podría:
-- Detectar colisiones de etiquetas
-- Ajustar posición automáticamente (arriba/abajo/laterales)
-- Usar "leaders" (líneas guía) cuando es necesario separar etiqueta del elemento
+- Detectar colisiones de etiquetas entre sí y con elementos.
+- Ajustar posición automáticamente (arriba/abajo/laterales).
+- Usar "leaders" (líneas guía) cuando necesite separar etiqueta del elemento.
 
 **Beneficios**:
-- Diagramas más limpios y profesionales
-- Menos intervención manual del usuario
-- Mejor densidad de información
+- Diagramas más limpios.
+- Menos intervención manual del usuario.
+- Mejor densidad de información.
 
 **Referencias**:
-- Graphviz label placement algorithms
-- D3.js force-directed label positioning
+- Graphviz label placement algorithms.
+- D3.js force-directed label positioning.
 
 ---
 
-### LAF-006: Soporte para Restricciones de Posicionamiento
-**Componente**: LAF - Fase 2 (Abstract Placement)
+### WISH-LAYOUT-002: Soporte para Restricciones de Posicionamiento
+**Componente**: LAF — Fase 2 (Abstract Placement)
 **Severidad**: Enhancement
 **Reportado**: 2026-01-21
 
 **Descripción**:
-Permitir al usuario especificar restricciones de posicionamiento:
+Permitir al usuario especificar restricciones en el SDJF:
 ```json
 {
   "elements": [
@@ -287,88 +268,65 @@ Permitir al usuario especificar restricciones de posicionamiento:
 ```
 
 **Beneficios**:
-- Mayor control sobre layout final
-- Preservar convenciones de arquitectura (ej: DB siempre abajo)
-- Respetar agrupamientos semánticos
+- Control sobre layout final.
+- Preservar convenciones de arquitectura (ej: DB siempre abajo).
+- Respetar agrupamientos semánticos.
 
 **Implementación**:
-- Extender StructureInfo con constraints
-- Modificar barycenter calculation para incluir constraint weights
-- Validar constraints no conflictivas
+- Extender `StructureInfo` con constraints.
+- Modificar barycenter calculation para incluir pesos de constraints.
+- Validar constraints no conflictivas.
 
 ---
 
-## 📊 Métricas de Calidad
+## 📊 Métricas
 
-### Cobertura de Problemas Conocidos
+### Conteo por categoría
 
-| Componente | Problemas Críticos | Problemas Medios | Mejoras Futuras |
-|------------|-------------------|------------------|-----------------|
-| LAF Optimizer | 2 | 5 | 2 |
-| Abstract Placer | 0 | 1 | 0 |
-| Rendering | 1 | 0 | 1 |
-| **TOTAL** | **3** | **6** | **3** |
+| | BUGS | WISH | Total |
+|---|---:|---:|---:|
+| **LAYOUT** | 3 (1 resuelto) | 2 | 5 |
+| **LAF** | 2 | 1 | 3 |
+| **ARCH** | 0 | 1 | 1 |
+| **AUTO** | 0 | 0 | 0 |
+| **Total** | **5** | **4** | **9** |
 
-> Conteo actualizado tras el refactor de Fase 1+3.1 (2026-05-14): se agregaron
-> LAF-007 (dashboard layout), LAF-008 (contrato LayoutOptimizer) y LAF-009
-> (no-determinismo entre procesos) a la categoría Medios.
+Problemas visuales DIAG (8 entradas) viven en `DIAGRAM_REVIEW.md`.
 
-### Priorización
+### Priorización sugerida
 
-**Sprint Próximo (Alta Prioridad)**:
-- ❌ Ninguno (todos son media/baja prioridad)
+**Atacar primero**:
+- `BUGS-LAF-002` (dashboard layout) — afecta usabilidad real.
+- `BUGS-LAYOUT-002` (canvas excesivo) — afecta todos los renders.
 
-**Backlog (Media Prioridad)**:
-- LAF-002: Cálculo de altura de canvas
-- LAF-001: Etiquetas debug solapadas
+**Cuando se planifique refactor arquitectural**:
+- `WISH-ARCH-001` (contrato LayoutOptimizer) — bloquea extensibilidad futura.
 
-**Mejoras Futuras (Baja Prioridad)**:
-- LAF-003: Distribución horizontal asimétrica
-- LAF-004: Optimización de cruces
-- LAF-005: Sistema de etiquetas inteligente
-- LAF-006: Restricciones de posicionamiento
+**Backlog**:
+- `BUGS-LAYOUT-001` (debug labels), `BUGS-LAF-001` (distribución asimétrica), `WISH-LAF-001`, `WISH-LAYOUT-001`, `WISH-LAYOUT-002`.
 
 ---
 
-## 🔄 Historial de Cambios
+## Mapeo desde códigos anteriores
 
-### 2026-01-21
-- **Documento creado** con 6 issues identificados
-- Categorización: 3 críticos/medios, 3 mejoras futuras
-- Añadido contexto de implementación de mejoras LAF (centrado horizontal + barycenter intra-nivel)
+Para referencias históricas (commits, PRs, comentarios), este es el mapeo desde los códigos `LAF-NNN` previos a la convención actual:
 
----
-
-## 📝 Notas para Desarrolladores
-
-### Cómo Reportar Nueva Deuda Técnica
-
-1. Crear entrada en la sección correspondiente (Críticos/Medios/Mejoras)
-2. Usar formato:
-   ```markdown
-   ### COMPONENTE-NNN: Título Descriptivo
-   **Componente**: Archivo/módulo afectado
-   **Severidad**: Crítica/Media/Baja
-   **Reportado**: YYYY-MM-DD
-
-   **Descripción**: ...
-   **Impacto**: ...
-   **Reproducción**: ...
-   **Solución Propuesta**: ...
-   ```
-3. Actualizar métricas de calidad
-4. Actualizar historial de cambios
-
-### Criterios de Severidad
-
-- **Crítica**: Bloquea funcionalidad core, datos incorrectos, crashes
-- **Media**: Afecta UX/calidad pero hay workaround, optimizaciones importantes
-- **Baja**: Mejoras estéticas, optimizaciones menores, edge cases
+| Código anterior | Código actual |
+|---|---|
+| LAF-001 | BUGS-LAYOUT-001 |
+| LAF-002 | BUGS-LAYOUT-002 |
+| LAF-003 | BUGS-LAF-001 |
+| LAF-004 | WISH-LAF-001 |
+| LAF-005 | WISH-LAYOUT-001 |
+| LAF-006 | WISH-LAYOUT-002 |
+| LAF-007 | BUGS-LAF-002 |
+| LAF-008 | WISH-ARCH-001 |
+| LAF-009 | BUGS-LAYOUT-003 ✅ |
 
 ---
 
-## 🔗 Enlaces Relacionados
+## 🔗 Enlaces relacionados
 
-- [LAF Progress](./architecture/modules/layout/laf/PROGRESS.md) - Estado de implementación de sistema LAF
-- [LAF Comparison](./architecture/modules/layout/laf/COMPARISON.md) - Comparativa LAF vs AUTO
-- [Release Notes v3.0.0](./RELEASE_v3.0.0.md) - Changelog oficial
+- [LAF Progress](./architecture/modules/layout/laf/PROGRESS.md) — Estado de implementación de sistema LAF.
+- [LAF Comparison](./architecture/modules/layout/laf/COMPARISON.md) — Comparativa LAF vs AUTO.
+- [DIAGRAM_REVIEW.md](./DIAGRAM_REVIEW.md) — Issues visuales en SVGs (códigos `BUGS-DIAG-NNN`).

@@ -21,7 +21,7 @@ A diferencia de AUTO, que respeta coordenadas manuales y optimiza iterativamente
 | Grafo denso con muchas conexiones, querés minimizar cruces | **LAF** |
 | Diagrama de arquitectura / flow / pipeline | **LAF** |
 | Tenés coordenadas manuales que querés respetar | **AUTO** |
-| Dashboard / poster (contenedores agrupando, sin conexiones inter) | **AUTO** (LAF-007: LAF los layoutea pobremente) |
+| Dashboard / poster (contenedores agrupando, sin conexiones inter) | **AUTO** (BUGS-LAF-002: LAF los layoutea pobremente) |
 | Velocidad sobre calidad de layout | **AUTO** |
 | Debug parcial del pipeline (correr sin routing) | **LAF** con `router_manager=None` |
 
@@ -110,17 +110,17 @@ LAF expone 4 hiperparámetros vía CLI. Defaults actuales (en `LAFOptimizer.__in
 
 Son experimentales: si activos sugiere que aún se exploran combinaciones óptimas. Ver `TECHNICAL_DEBT.md` para el plan de consolidación.
 
-> **Importante**: LAF tiene **no-determinismo entre procesos Python** (LAF-009). El mismo input puede producir 2 layouts distintos en corridas separadas. Para reproducibilidad estricta: `PYTHONHASHSEED=0 almagag ...`.
+> **Nota histórica**: LAF tenía no-determinismo entre procesos Python — el mismo input podía producir 2 layouts distintos en corridas separadas. **Resuelto en BUGS-LAYOUT-003** (2026-06-14): ya no requiere `PYTHONHASHSEED=0`. Detalle: `../../../TECHNICAL_DEBT.md#bugs-layout-003`.
 
 ---
 
 ## Limitaciones conocidas
 
-- **LAF-007** — Layout pobre con dashboards. Cuando hay 3+ contenedores en el mismo nivel sin conexiones inter-contenedor, LAF los pone en fila horizontal expandiendo el canvas a >20.000 px. **Workaround**: usar AUTO con coordenadas manuales en los contenedores padre. Ver `../auto/AUTO.md` sección "Dashboard layout".
+- **BUGS-LAF-002** — Layout pobre con dashboards. Cuando hay 3+ contenedores en el mismo nivel sin conexiones inter-contenedor, LAF los pone en fila horizontal expandiendo el canvas a >20.000 px. **Workaround**: usar AUTO con coordenadas manuales en los contenedores padre. Ver `../auto/AUTO.md` sección "Dashboard layout".
 
-- **LAF-008** — `LAFOptimizer` no cumple el contrato `LayoutOptimizer`. A diferencia de `AutoLayoutOptimizer` (que hereda de la base), LAF tiene firma propia y `generator.py` lo distingue con `if/elif`. Imposible agregar un tercer algoritmo sin tocar generator. Ver `../../../TECHNICAL_DEBT.md`.
+- **WISH-ARCH-001** — `LAFOptimizer` no cumple el contrato `LayoutOptimizer`. A diferencia de `AutoLayoutOptimizer` (que hereda de la base), LAF tiene firma propia y `generator.py` lo distingue con `if/elif`. Imposible agregar un tercer algoritmo sin tocar generator. Ver `../../../TECHNICAL_DEBT.md`.
 
-- **LAF-009** — No-determinismo entre procesos. Causa probable: `PYTHONHASHSEED` randomization en algún punto donde el pipeline itera `set`/`dict` sin orden estable. Ver `../../../TECHNICAL_DEBT.md`.
+- **BUGS-LAYOUT-003** ✅ — No-determinismo entre procesos (RESUELTO 2026-06-14). Era causado por iteraciones de `set`/`dict` sin orden estable y sorts sin tie-break. Detalle en `../../../TECHNICAL_DEBT.md`.
 
 ---
 

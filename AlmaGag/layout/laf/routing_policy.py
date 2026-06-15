@@ -14,7 +14,7 @@ class LAFRoutingPolicy:
     - Permite operar con router_manager=None (LAF puede correr sin
       routing para debug parcial del pipeline).
 
-    Esta asimetría con AutoRoutingPolicy es síntoma de LAF-008
+    Esta asimetría con AutoRoutingPolicy es síntoma de WISH-ARCH-001
     (LAFOptimizer no cumple el contrato LayoutOptimizer). Cuando se
     resuelva esa deuda en rama aparte, el constructor de
     LAFRoutingPolicy probablemente se uniformará con el de

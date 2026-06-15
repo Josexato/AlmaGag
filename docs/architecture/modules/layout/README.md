@@ -39,7 +39,7 @@ AlmaGag/layout/
 | Respeta coordenadas manuales (`x`/`y`) | **Sí** | No (las ignora) |
 | Minimización de cruces estilo Sugiyama | No | **Sí** |
 | Grafos densos con muchas conexiones | Aceptable | **Mejor** |
-| Posters / dashboards (contenedores sin conexiones inter) | **Workaround: AUTO + coords manuales** | LAF-007 los layoutea pobremente |
+| Posters / dashboards (contenedores sin conexiones inter) | **Workaround: AUTO + coords manuales** | BUGS-LAF-002 los layoutea pobremente |
 | Velocidad | Rápido | Más caro |
 
 Resumen pragmático:
@@ -58,4 +58,4 @@ Detalles en `auto/AUTO.md` y `laf/LAF.md`.
 - **Política de routing de LAF**: `laf/routing.md`
 - **Biblioteca de routing compartida**: `../routing/ROUTING.md`
 - **Conceptos transversales (NdDp, NdPr, NdFn, TOI...)**: `../../../CONCEPTS.md`
-- **Deuda técnica del módulo**: `../../../TECHNICAL_DEBT.md` (issues LAF-001 a LAF-009)
+- **Deuda técnica del módulo**: `../../../TECHNICAL_DEBT.md` (códigos `BUGS-*` y `WISH-*`)

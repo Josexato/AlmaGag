@@ -42,7 +42,7 @@ jobs:
             exit 1
           fi
 
-      - name: Determinism check (LAF-009 regression guard)
+      - name: Determinism check (BUGS-LAYOUT-003 regression guard)
         run: |
           # 3 representative files (smallest, stresstest sdjf, stresstest gag)
           # rendered with 3 different PYTHONHASHSEED values.
@@ -55,7 +55,7 @@ jobs:
             unique=$(md5sum /tmp/det_${f}_*.svg | awk '{print $1}' | sort -u | wc -l)
             if [ "$unique" != "1" ]; then
               echo "FAIL: $f has $unique unique hashes across seeds (should be 1)"
-              echo "LAF-009 regression detected. See docs/TECHNICAL_DEBT.md."
+              echo "BUGS-LAYOUT-003 regression detected. See docs/TECHNICAL_DEBT.md."
               md5sum /tmp/det_${f}_*.svg
               exit 1
             fi

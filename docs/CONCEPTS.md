@@ -16,7 +16,7 @@ Este documento es el **punto de entrada conceptual** para entender el vocabulari
 
 ### 2. Algoritmos de layout
 
-**AUTO** — Algoritmo de layout original. Respeta coordenadas manuales (`x`/`y` en el JSON) y auto-posiciona el resto. Rápido para diagramas simples y casos "dashboard" (ver workaround LAF-007).
+**AUTO** — Algoritmo de layout original. Respeta coordenadas manuales (`x`/`y` en el JSON) y auto-posiciona el resto. Rápido para diagramas simples y casos "dashboard" (ver workaround BUGS-LAF-002).
 📍 `AlmaGag/layout/auto/optimizer.py` · doc: `architecture/modules/layout/auto/AUTO.md`
 
 **LAF** — Layout Abstracto Primero. Pipeline de fases con minimización de cruces estilo Sugiyama. **Ignora coordenadas manuales** (todo se posiciona desde cero). Mejor para arquitecturas/flows densos.
@@ -43,13 +43,13 @@ Tres niveles de nodos que LAF maneja simultáneamente durante su pipeline. Cada 
 **Layout** — Value Object inmutable que contiene el estado completo del diagrama en cualquier punto del pipeline. Análisis lazy (`collision_count`, `graph`, `levels`, `groups` se calculan bajo demanda y se cachean). Invalidación de caché explícita con `invalidate_collision_cache()`.
 📍 `AlmaGag/layout/layout.py`
 
-**Container** — **No es entidad propia**. Es un `element` con campo `contains: [...]`. El código detecta containers vía `'contains' in element`. Centralización pendiente (LAF-005 en TECHNICAL_DEBT).
+**Container** — **No es entidad propia**. Es un `element` con campo `contains: [...]`. El código detecta containers vía `'contains' in element`. Centralización pendiente (WISH-LAYOUT-001 en TECHNICAL_DEBT).
 📍 dispersos: `AlmaGag/routing/router_base.py`, `AlmaGag/layout/geometry.py`, `AlmaGag/generator.py`
 
 **BWT — Banana With Tape** — Icono de fallback que aparece cuando un elemento tiene `type` que no está registrado en el sistema de iconos. Mascota informal del proyecto y mecanismo de degradación visible.
 📍 `AlmaGag/draw/bwt.py`
 
-**Routing Policy** — Política de routing por algoritmo. Encapsula **cuándo** el optimizer invoca el `ConnectionRouterManager` (biblioteca compartida en `AlmaGag/routing/`). Hay una por algoritmo: `AutoRoutingPolicy` (4 invocaciones en el pipeline AUTO) y `LAFRoutingPolicy` (1 invocación opcional en Fase 10 de LAF). Misma interfaz pública (`.route()`), construcción interna asimétrica (síntoma de LAF-008).
+**Routing Policy** — Política de routing por algoritmo. Encapsula **cuándo** el optimizer invoca el `ConnectionRouterManager` (biblioteca compartida en `AlmaGag/routing/`). Hay una por algoritmo: `AutoRoutingPolicy` (4 invocaciones en el pipeline AUTO) y `LAFRoutingPolicy` (1 invocación opcional en Fase 10 de LAF). Misma interfaz pública (`.route()`), construcción interna asimétrica (síntoma de WISH-ARCH-001).
 📍 `AlmaGag/layout/auto/routing_policy.py` · `AlmaGag/layout/laf/routing_policy.py`
 
 ---
