@@ -244,6 +244,53 @@ Las etiquetas actualmente se posicionan con reglas fijas. Un sistema inteligente
 
 ---
 
+### WISH-LAYOUT-003: Auto-Callout para Labels Grandes
+**Componente**: `AlmaGag/renderer.py` + nuevo módulo candidato `AlmaGag/draw/callout.py`
+**Severidad**: Media
+**Reportado**: 2026-06-15
+
+**Descripción**:
+Hoy un label se renderiza siempre adyacente al icono que etiqueta. Si el label tiene 6+ líneas o supera por mucho el tamaño del icono, descalibra el layout porque el algoritmo de colisiones ve un bounding box gigante alrededor de un icono pequeño (ejemplo histórico: `laf_pipeline` con label de 7 líneas describiendo las 11 fases, sobre un icono de 64×46 px — ver BUGS-DIAG-002).
+
+**Propuesta**: detectar automáticamente cuando un label excede umbrales y renderizarlo como un **callout box** separado, conectado al icono mediante una línea/flecha (leader line). El icono queda con un label corto canónico (ej: solo el `id` o las primeras N palabras), y el texto completo vive en un cuadro de texto destacado en una zona libre del canvas.
+
+**Criterio de activación propuesto** (configurables en `config.py`):
+- Label excede **N líneas** (sugerencia: 3).
+- O label excede **K caracteres totales** (sugerencia: 80).
+- O altura/anchura estimada del label excede **R veces el tamaño del icono** (sugerencia: 1.5).
+
+**Comportamiento propuesto**:
+1. Renderizar el icono con un label canónico mínimo (heurística: primera línea, o `id`, o `label.split('\n')[0]`).
+2. Crear un `<g class="callout">` en zona libre con:
+   - `<rect>` de fondo con padding y borde sutil.
+   - `<text>` multilinea con el contenido completo del label.
+3. Dibujar `<line>` (leader) desde el centro del icono al borde del callout, con marker (flecha o círculo).
+4. El callout participa del collision detection como bloque independiente (extiende `CollisionDetector`).
+
+**Inspiración**:
+- D3.js force-directed annotations.
+- Mermaid sequence diagram notes.
+- LaTeX TikZ "annotation" library.
+- mxgraph/draw.io text boxes con conector.
+
+**Beneficios**:
+- Elementos con labels descriptivos no descalibran el layout.
+- Documentación in-diagrama más rica sin sacrificar legibilidad.
+- Mantiene la coherencia conceptual: el elemento es el icono; el texto adicional es metadata visualmente separada.
+- Resuelve la familia entera de BUGS-DIAG-002 (no solo el caso de `laf_pipeline`).
+
+**Relación con otros issues**:
+- Es un caso de uso específico dentro del paraguas más amplio de `WISH-LAYOUT-001` (Sistema de Etiquetas Inteligente).
+- Habilitaría a futuros SDJF tener labels más informativos sin pagar el costo visual de BUGS-DIAG-002.
+
+**Implementación estimada**: 1-2 días.
+- Heurística de detección: ~50 líneas.
+- Renderizado del callout y leader: ~100 líneas en `draw/callout.py`.
+- Integración con `CollisionDetector`: ~50 líneas.
+- Tests: ~100 líneas (casos con labels chicos no afectados, casos con labels grandes generan callout, casos en borde del umbral).
+
+---
+
 ### WISH-LAYOUT-002: Soporte para Restricciones de Posicionamiento
 **Componente**: LAF — Fase 2 (Abstract Placement)
 **Severidad**: Enhancement
@@ -285,11 +332,11 @@ Permitir al usuario especificar restricciones en el SDJF:
 
 | | BUGS | WISH | Total |
 |---|---:|---:|---:|
-| **LAYOUT** | 3 (1 resuelto) | 2 | 5 |
+| **LAYOUT** | 3 (1 resuelto) | 3 | 6 |
 | **LAF** | 2 | 1 | 3 |
 | **ARCH** | 0 | 1 | 1 |
 | **AUTO** | 0 | 0 | 0 |
-| **Total** | **5** | **4** | **9** |
+| **Total** | **5** | **5** | **10** |
 
 Problemas visuales DIAG (8 entradas) viven en `DIAGRAM_REVIEW.md`.
 

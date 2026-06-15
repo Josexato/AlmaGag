@@ -24,9 +24,10 @@ Sigue la misma convención de códigos que `TECHNICAL_DEBT.md`: `<CATEGORÍA>-DI
   **Causa probable:** AUTO con `firewall` icons como stages no rinde bounding rect del container.
   **Fix candidato:** revisar `draw/container.py` o cambiar el `type` de los stages a uno que sí pinte container. La estrategia ya documentada en `spec/CONTAINER_GROUPING_STRATEGY.md` podría aplicarse.
 
-- [ ] **BUGS-DIAG-002 — Label gigante en `laf_pipeline` rompe la cuadrícula.**
-  El label tiene 6 líneas describiendo 11 fases: `"LAF Pipeline\n1.Structure → 2.Topology\n3.Centrality → 4.Placement\n5.Optimize → 6.NdPr Expand\n7.Iterative → 8.Inflate\n9.Redistribute → 10.Route\n11.Visualize"`. Sobre un icono de 64×46 px. Desborda el contorno del elemento y descalibra el layout circundante.
-  **Fix candidato:** acortar el label a 1-2 líneas en el SDJF; mover el detalle de las 11 fases a `docs/architecture/modules/layout/laf/LAF.md` (ya está ahí).
+- [x] **BUGS-DIAG-002 — Label gigante en `laf_pipeline` rompe la cuadrícula.** ✅ RESUELTO (2026-06-15)
+  El label tenía 7 líneas (148 caracteres) describiendo 11 fases sobre un icono de 64×46 px. Descalibraba el layout circundante.
+  **Fix aplicado:** acortado a `"LAF Pipeline\n(11 fases)"` (2 líneas, 22 caracteres, −85% caracteres). El detalle de las 11 fases ya vive en `docs/architecture/modules/layout/laf/LAF.md`. Canvas: 2012×2072 → 2012×2052 (−20 px alto).
+  **Follow-up:** `WISH-LAYOUT-003` documenta la solución sistémica (auto-callout para labels grandes) en `TECHNICAL_DEBT.md`.
 
 ### 🟠 Importantes
 
