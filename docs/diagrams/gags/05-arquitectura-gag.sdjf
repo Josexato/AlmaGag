@@ -88,7 +88,7 @@
       "id": "laf_path-stage",
       "type": "firewall",
       "label": "LAF Layout Path",
-      "contains": ["laf_optimizer", "laf_pipeline"]
+      "contains": ["laf_optimizer", "laf_pipeline", "growth_visualizer"]
     },
     {
       "id": "laf_optimizer",
@@ -149,7 +149,7 @@
       "id": "draw_module-stage",
       "type": "firewall",
       "label": "Draw Module (6 fases)",
-      "contains": ["draw_containers", "draw_icons", "draw_connections", "draw_labels"]
+      "contains": ["draw_containers", "draw_icons", "draw_connections", "draw_labels", "label_optimizer"]
     },
     {
       "id": "draw_containers",

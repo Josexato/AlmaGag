@@ -33,9 +33,12 @@ Sigue la misma convención de códigos que `TECHNICAL_DEBT.md`: `<CATEGORÍA>-DI
 
 ### 🟠 Importantes
 
-- [ ] **BUGS-DIAG-003 — Asimetría horizontal y peso desequilibrado.**
-  `label_optimizer` solo en x=108 (extremo izq), `vis_graph` solo en x=1808 (extremo der). El centro tiene gaps grandes. Visualmente los bordes "pesan" más que el centro.
-  **Fix candidato:** coordenadas manuales en SDJF que distribuyan elementos secundarios cerca de sus stages padres.
+- [x] **BUGS-DIAG-003 — Asimetría horizontal y peso desequilibrado.** ✅ RESUELTO (2026-06-15)
+  Causa raíz compartida con BUGS-DIAG-008: `growth_visualizer` y `label_optimizer` no estaban en el `contains` de ningún stage, por lo que AUTO los posicionaba sin afinidad y terminaban en los extremos.
+  **Fix aplicado:** agregados al `contains` de sus stages naturales en el SDJF:
+    - `growth_visualizer` → `laf_path-stage` (es exclusivo de LAF).
+    - `label_optimizer` → `draw_module-stage` (rol de presentación visual).
+  **Resultado:** canvas 2012×2052 → **1600×2052** (−20% ancho). Ambos elementos ahora aparecen dentro de sus stages.
 
 - [ ] **BUGS-DIAG-004 — `output` aislado de los `draw_*` que lo alimentan.**
   Flujo lógico: `draw_*` → `output`. Pero las coordenadas: `output` @ y=1685, `draw_*` @ y=1745-1815. El output queda **arriba** de sus fuentes. Lectura invertida.
@@ -53,8 +56,8 @@ Sigue la misma convención de códigos que `TECHNICAL_DEBT.md`: `<CATEGORÍA>-DI
 - [ ] **BUGS-DIAG-007 — Gap vertical de 70 px entre `auto_optimizer` (y=950) y `auto_positioner` (y=1024).**
   Iconos de 46 px de alto con gap 70 → labels casi tocándose. En LAF original había más espacio.
 
-- [ ] **BUGS-DIAG-008 — Elementos huérfanos visuales.**
-  `label_optimizer` flotando en esquina izquierda; `growth_visualizer` flotando en (1380, 894) sin un cluster claro. Ambos son hijos lógicos de stages que no se ven dibujados (relacionado con BUGS-DIAG-001).
+- [x] **BUGS-DIAG-008 — Elementos huérfanos visuales.** ✅ RESUELTO (2026-06-15)
+  Resuelto junto con BUGS-DIAG-003 (misma causa raíz, mismo fix). `growth_visualizer` y `label_optimizer` ahora están dentro de sus stages naturales en el SDJF.
 
 ---
 
