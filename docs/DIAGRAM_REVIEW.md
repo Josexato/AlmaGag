@@ -19,10 +19,12 @@ Sigue la misma convención de códigos que `TECHNICAL_DEBT.md`: `<CATEGORÍA>-DI
 
 ### 🔴 Críticos
 
-- [ ] **BUGS-DIAG-001 — Los stages no se ven como contenedores.**
-  El SDJF declara 5 stages con `contains: [...]` pero el SVG no dibuja rectángulos contenedores alrededor de cada grupo. El lector ve una nube de 32 iconos sin agrupación visual.
-  **Causa probable:** AUTO con `firewall` icons como stages no rinde bounding rect del container.
-  **Fix candidato:** revisar `draw/container.py` o cambiar el `type` de los stages a uno que sí pinte container. La estrategia ya documentada en `spec/CONTAINER_GROUPING_STRATEGY.md` podría aplicarse.
+- [x] **BUGS-DIAG-001 — Los stages no se ven como contenedores.** ✅ RESUELTO (2026-06-15)
+  Los rectángulos contenedores **sí se dibujaban**, pero con `opacity=0.3` global que afectaba al stroke también, dejándolo casi invisible.
+  **Fix aplicado:** en `AlmaGag/draw/container.py` se separó la opacidad de fill y stroke. Nuevos parámetros configurables en `config.py`:
+    - `CONTAINER_FILL_OPACITY = 0.15` (relleno aún transparente para ver hijos detrás).
+    - `CONTAINER_STROKE_OPACITY = 0.8` (borde nítido para percibir el agrupamiento).
+  **Impacto:** afectó a 5 SVGs en el repo con containers (`05-arquitectura-gag`, `06-flujo-ejecucion`, `07-containers`, `git`, `reference-cheatsheet`); todos regenerados.
 
 - [x] **BUGS-DIAG-002 — Label gigante en `laf_pipeline` rompe la cuadrícula.** ✅ RESUELTO (2026-06-15)
   El label tenía 7 líneas (148 caracteres) describiendo 11 fases sobre un icono de 64×46 px. Descalibraba el layout circundante.

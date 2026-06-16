@@ -13,7 +13,10 @@ Fecha: 2026-01-07
 
 import logging
 
-from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT, CONTAINER_PADDING, TEXT_CHAR_WIDTH, TEXT_LINE_HEIGHT
+from AlmaGag.config import (
+    ICON_WIDTH, ICON_HEIGHT, CONTAINER_PADDING, TEXT_CHAR_WIDTH, TEXT_LINE_HEIGHT,
+    CONTAINER_FILL_OPACITY, CONTAINER_STROKE_OPACITY,
+)
 from AlmaGag.draw.icons import create_gradient
 
 logger = logging.getLogger('AlmaGag')
@@ -164,16 +167,20 @@ def draw_container(dwg, container, elements_by_id, draw_label=True, layout_algor
     # Crear gradiente para el contenedor
     gradient_id = create_gradient(dwg, container['id'], color)
 
-    # Dibujar rectángulo con bordes redondeados
+    # Dibujar rectángulo con bordes redondeados.
+    # fill_opacity bajo: deja ver los hijos detrás del contenedor.
+    # stroke_opacity alto: borde nítido para percibir el agrupamiento.
+    # (Antes se usaba opacity=0.3 global, que dejaba el borde casi invisible.)
     rect = dwg.rect(
         insert=(x, y),
         size=(width, height),
         rx=radius,
         ry=radius,
         fill=gradient_id,  # create_gradient ya retorna url(#...)
+        fill_opacity=CONTAINER_FILL_OPACITY,
         stroke='black',
         stroke_width=2,
-        opacity=0.3  # Transparente para ver elementos dentro
+        stroke_opacity=CONTAINER_STROKE_OPACITY,
     )
     dwg.add(rect)
 

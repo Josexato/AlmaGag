@@ -22,6 +22,12 @@ CONTAINER_SPACING = SPACING_HUGE        # 250px - spacing between containers
 CONTAINER_ELEMENT_SPACING = SPACING_XLARGE  # 120px - spacing between elements in container
 CONTAINER_ICON_HEIGHT = ICON_HEIGHT     # 50px - height of container icon/header
 
+# Container visual opacity (fix BUGS-DIAG-001).
+# Separar opacidad de fill y stroke: fill bajo para ver hijos detrás,
+# stroke alto para que el borde del contenedor sea claramente visible.
+CONTAINER_FILL_OPACITY = 0.15           # Relleno semi-transparente (no oculta hijos)
+CONTAINER_STROKE_OPACITY = 0.8          # Borde sólido y perceptible
+
 # Text and label dimensions
 TEXT_LINE_HEIGHT = ICON_WIDTH * 0.225   # 18px - height per line of text
 TEXT_CHAR_WIDTH = ICON_WIDTH * 0.1      # 8px - approximate width per character
