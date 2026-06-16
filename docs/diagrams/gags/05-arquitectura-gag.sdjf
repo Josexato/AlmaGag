@@ -326,8 +326,22 @@
 
     {
       "from": "render",
-      "to": "draw_module-stage",
-      "label": "6 fases",
+      "to": "draw_containers",
+      "direction": "forward"
+    },
+    {
+      "from": "render",
+      "to": "draw_icons",
+      "direction": "forward"
+    },
+    {
+      "from": "render",
+      "to": "draw_connections",
+      "direction": "forward"
+    },
+    {
+      "from": "render",
+      "to": "draw_labels",
       "direction": "forward"
     },
     {

@@ -336,10 +336,10 @@ Permitir al usuario especificar restricciones en el SDJF:
 | **LAF** | 2 | 1 | 3 |
 | **ARCH** | 0 | 1 | 1 |
 | **AUTO** | 0 | 0 | 0 |
-| **DIAG** | 8 (4 resueltos) | 0 | 8 |
+| **DIAG** | 8 (5 resueltos) | 0 | 8 |
 | **Total** | **13** | **5** | **18** |
 
-Conteos DIAG viven en `DIAGRAM_REVIEW.md` (BUGS-DIAG-001/002/003/008 resueltos al 2026-06-15).
+Conteos DIAG viven en `DIAGRAM_REVIEW.md` (BUGS-DIAG-001/002/003/004/008 resueltos al 2026-06-15).
 
 Problemas visuales DIAG (8 entradas) viven en `DIAGRAM_REVIEW.md`.
 

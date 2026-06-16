@@ -40,9 +40,10 @@ Sigue la misma convención de códigos que `TECHNICAL_DEBT.md`: `<CATEGORÍA>-DI
     - `label_optimizer` → `draw_module-stage` (rol de presentación visual).
   **Resultado:** canvas 2012×2052 → **1600×2052** (−20% ancho). Ambos elementos ahora aparecen dentro de sus stages.
 
-- [ ] **BUGS-DIAG-004 — `output` aislado de los `draw_*` que lo alimentan.**
-  Flujo lógico: `draw_*` → `output`. Pero las coordenadas: `output` @ y=1685, `draw_*` @ y=1745-1815. El output queda **arriba** de sus fuentes. Lectura invertida.
-  **Fix candidato:** coords manuales para forzar `output` debajo del cluster `draw_module-stage`.
+- [x] **BUGS-DIAG-004 — `output` aislado de los `draw_*` que lo alimentan.** ✅ RESUELTO (2026-06-15)
+  Causa real: el SDJF declaraba `render → draw_module-stage` (al contenedor, no a los hijos). Como esa conexión no se propagaba a los `draw_*` individuales, estos quedaban en level=0 (sin entrantes) y AUTO los colocaba arriba sin afinidad.
+  **Fix aplicado:** reemplazar la conexión `render → draw_module-stage` por 4 conexiones individuales `render → draw_{containers,icons,connections,labels}` en el SDJF. Ahora los draw_* están en level=5 (junto con `output`) y aparecen agrupados al final del flujo en la banda inferior del diagrama.
+  **Nota:** `output` quedó en la misma banda que `render` (ambos level=5). La interpretación final: `render` orquesta usando `draw_*` y produce `output`. Si en el futuro se prefiere forzar output a level=6 (debajo de draw_*), se puede agregar `draw_* → output` en otro fix.
 
 - [ ] **BUGS-DIAG-005 — Salto vertical desproporcionado.**
   Niveles topológicos en y: 24 → 310 → 600 → 950 → **1391** → 1685. El gap de 441 px entre el cluster routing/draw y `render` crea franjas blancas injustificadas.
