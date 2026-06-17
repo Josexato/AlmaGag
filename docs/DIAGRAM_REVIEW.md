@@ -45,9 +45,13 @@ Sigue la misma convención de códigos que `TECHNICAL_DEBT.md`: `<CATEGORÍA>-DI
   **Fix aplicado:** reemplazar la conexión `render → draw_module-stage` por 4 conexiones individuales `render → draw_{containers,icons,connections,labels}` en el SDJF. Ahora los draw_* están en level=5 (junto con `output`) y aparecen agrupados al final del flujo en la banda inferior del diagrama.
   **Nota:** `output` quedó en la misma banda que `render` (ambos level=5). La interpretación final: `render` orquesta usando `draw_*` y produce `output`. Si en el futuro se prefiere forzar output a level=6 (debajo de draw_*), se puede agregar `draw_* → output` en otro fix.
 
-- [ ] **BUGS-DIAG-005 — Salto vertical desproporcionado.**
-  Niveles topológicos en y: 24 → 310 → 600 → 950 → **1391** → 1685. El gap de 441 px entre el cluster routing/draw y `render` crea franjas blancas injustificadas.
-  **Fix candidato:** revisar la lógica de espaciado vertical en AUTO; podría correlacionarse con BUGS-LAYOUT-002 (canvas excesivo).
+- [x] **BUGS-DIAG-005 — Salto vertical desproporcionado.** ✅ RESUELTO por consecuencia (2026-06-15)
+  La queja original era el gap atípico de **441 px** entre el cluster routing/draw y `render` (mientras los otros gaps eran ~290 px).
+  **No requirió fix dedicado:** tras resolver BUGS-DIAG-003/004/008 (huérfanos asignados a stages + `render → draw_*` explícitos), los gaps quedaron uniformes en 300-400 px. La asimetría original desapareció.
+  **Datos:**
+    - Antes: 286 → 290 → 350 → **441** → 294 (un outlier).
+    - Después: 300 → 300 → 350 → 400 → 350 (uniformes).
+  **Nota:** la magnitud absoluta de cada gap (~300-400 px por nivel) está dictada por la constante `VERTICAL_SPACING = 240 px` en `layout/auto/positioner.py:293`, compartida con LAF. Esto es deuda separada (`BUGS-LAYOUT-002` — canvas excesivo). Reducir el spacing aquí cambiaría TODOS los renders.
 
 ### 🟡 Menores
 
