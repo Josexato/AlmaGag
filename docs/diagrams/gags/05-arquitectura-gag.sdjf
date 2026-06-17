@@ -39,6 +39,7 @@
       "id": "shared_deps-stage",
       "type": "firewall",
       "label": "Shared Dependencies",
+      "y": 750,
       "contains": ["sizing", "geometry_calc", "collision_det"]
     },
     {
@@ -111,6 +112,7 @@
       "id": "routing_module-stage",
       "type": "firewall",
       "label": "Routing Module",
+      "y": 1150,
       "contains": ["router_mgr", "routers", "port_assign", "vis_graph"]
     },
     {

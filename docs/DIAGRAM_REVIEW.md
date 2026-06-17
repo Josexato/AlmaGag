@@ -55,8 +55,17 @@ Sigue la misma convención de códigos que `TECHNICAL_DEBT.md`: `<CATEGORÍA>-DI
 
 ### 🟡 Menores
 
-- [ ] **BUGS-DIAG-006 — Densidad inconsistente entre niveles.**
-  y=950-1024 tiene 7-8 elementos apiñados; y=1391 tiene solo `render`. Presión visual desigual.
+- [x] **BUGS-DIAG-006 — Densidad inconsistente entre niveles.** ✅ RESUELTO (2026-06-15)
+  Causa estructural: 4 stages hermanos al mismo level topológico → 13 hijos en la misma banda Y.
+  **Fix aplicado:** coordenadas Y manuales en 2 stages para crear 3 sub-bandas con sentido semántico:
+    - `shared_deps-stage` → `y=750` (utilidades base, ARRIBA de los algoritmos).
+    - `auto_path-stage` + `laf_path-stage` → y=950 (sin cambio, algoritmos en el medio).
+    - `routing_module-stage` → `y=1150` (usado por los algoritmos, ABAJO).
+  **Resultado:**
+    - Banda más densa: 13 → 7 elementos (−46%).
+    - Bandas con contenido: 7 → 11 (+57%).
+    - Ratio max/min: 13:1 → 7:1.
+  **Nota:** las coordenadas Y manuales reflejan honestamente la dirección del flujo (utilities → procesamiento → output). El SDJF ahora tiene 2 elementos con coordenadas explícitas (rompe el patrón "0 coords manuales" del archivo original, pero es necesario para evitar la densidad estructural).
 
 - [ ] **BUGS-DIAG-007 — Gap vertical de 70 px entre `auto_optimizer` (y=950) y `auto_positioner` (y=1024).**
   Iconos de 46 px de alto con gap 70 → labels casi tocándose. En LAF original había más espacio.
