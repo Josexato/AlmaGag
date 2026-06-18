@@ -196,7 +196,30 @@ api label: (-3, 350)  ← bottom del ícono ✓
 - Smoke 46/46 OK, tests 19 passed, determinismo intacto.
 - 21/23 canonical SVGs sin cambios (solo los que tienen containers se ven afectados).
 
-**Nota**: el fix no resuelve el problema **separado** de que algunos containers en `07-containers` quedan parcialmente off-canvas (icon `backend-module` a x=-93). Eso es un bug distinto sobre el cálculo de containers en AUTO, no sobre labels. Pendiente de evaluar si abrir como `BUGS-AUTO-002`.
+**Nota**: el fix no resuelve el problema **separado** de contenido off-canvas. Ese se resolvió en `BUGS-AUTO-002`.
+
+---
+
+### BUGS-AUTO-002: Contenido Cortado por el Borde (coords negativas) en AUTO ✅ RESUELTO
+**Componente**: `AlmaGag/layout/auto/optimizer.py` — `optimize()` + `_normalize_to_canvas()`
+**Severidad**: **Alta** (contenido visiblemente cortado)
+**Reportado**: 2026-06-18 (segunda inspección del usuario sobre `07-containers.svg`)
+**Resuelto**: 2026-06-18
+
+**Causa raíz**:
+La redistribución de elementos primarios alrededor de contenedores expandidos (`positioner.recalculate_positions_with_expanded_containers`) puede empujar elementos a coordenadas negativas. En `07-containers`, el container `backend-module` terminaba en x=-93 — cortado por el borde izquierdo del canvas. El cálculo de canvas (`_calculate_canvas_from_bounds`) solo miraba `x_max`/`y_max`, nunca los mínimos, así que las coords negativas nunca se compensaban.
+
+**Fix aplicado**:
+Nuevo método `_normalize_to_canvas()` llamado al final de `optimize()` (antes del return):
+- Calcula `min_x`, `min_y` de todos los elementos posicionados.
+- **Solo dispara si `min < 0`** (contenido cortado). No re-centra diagramas que ya caben — eso cambiaría layouts correctos.
+- Aplica un shift uniforme a elementos, `label_positions` y `connection_labels` para llevar el mínimo a `CANVAS_MARGIN_SMALL` (50px).
+- Re-rutea (regenera `computed_path` desde las nuevas posiciones) y recalcula el canvas.
+
+**Validación**:
+- `07-containers`: min_x pasó de **-93 a 50** (dentro del canvas). 0 elementos con x<-5 en el SVG.
+- **Solo 1/23 canonical afectado** (`07-containers` — el único con coords negativas). Confirmado que ningún otro diagrama tenía el problema.
+- Smoke 46/46 OK, tests 19 passed, determinismo intacto.
 
 ---
 
@@ -694,7 +717,7 @@ Reemplazado el placeholder "v2.2 - (Futuro)" por 3 entradas nuevas que cubren ~1
 | **LAYOUT** | 3 (3 resueltos ✅) | 3 (3 resueltos ✅) | 6 |
 | **LAF** | 2 (ambos resueltos ✅) | 1 (resuelto ✅) | 3 |
 | **ARCH** | 0 | 3 (3 resueltos ✅) | 3 |
-| **AUTO** | 1 (resuelto ✅) | 0 | 1 |
+| **AUTO** | 2 (2 resueltos ✅) | 0 | 2 |
 | **DOCS** | 0 | 2 (2 resueltos ✅) | 2 |
 | **DIAG** | 8 (8 resueltos ✅) | 0 | 8 |
 | **Total** | **13** | **9** | **22** |

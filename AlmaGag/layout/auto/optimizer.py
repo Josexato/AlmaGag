@@ -382,6 +382,10 @@ class AutoLayoutOptimizer(LayoutOptimizer):
                     best_layout.canvas['height'] > layout.canvas['height']):
                 self._log(f"Canvas expandido a {best_layout.canvas['width']}x{best_layout.canvas['height']}")
 
+        # Normalizar: trasladar todo a coords no-negativas si algo quedó
+        # fuera del borde izquierdo/superior (BUGS-AUTO-002).
+        self._normalize_to_canvas(best_layout)
+
         # Guardar dump final si está habilitado
         if dumper:
             dump_path = dumper.save(best_layout, min_collisions)
@@ -821,6 +825,60 @@ class AutoLayoutOptimizer(LayoutOptimizer):
 
         # Propagar coordenadas locales actualizadas (centrado)
         self.positioner._propagate_coordinates_to_contained(layout)
+
+    def _normalize_to_canvas(self, layout: Layout) -> None:
+        """
+        Traslada todo el contenido para que no haya coordenadas negativas
+        (fix BUGS-AUTO-002).
+
+        La redistribución de elementos primarios alrededor de contenedores
+        expandidos puede empujar elementos/contenedores a x<0 o y<0, dejándolos
+        cortados por el borde izquierdo/superior del canvas (ej: container
+        backend-module en x=-93 en 07-containers).
+
+        Calcula el bounding box real de TODO (íconos + contenedores), y si el
+        mínimo cae por debajo del margen, aplica un shift uniforme a:
+        - elementos (x, y)
+        - label_positions
+        - connection_labels
+        Luego re-rutea (regenera computed_path desde las nuevas posiciones) y
+        recalcula el canvas.
+        """
+        positioned = [e for e in layout.elements if 'x' in e and 'y' in e]
+        if not positioned:
+            return
+
+        min_x = min(e['x'] for e in positioned)
+        min_y = min(e['y'] for e in positioned)
+
+        # Solo normalizar si hay contenido cortado por el borde (coords < 0).
+        # No re-centrar diagramas que ya caben — eso cambiaría layouts correctos.
+        margin = CANVAS_MARGIN_SMALL
+        dx = (margin - min_x) if min_x < 0 else 0.0
+        dy = (margin - min_y) if min_y < 0 else 0.0
+
+        if dx == 0.0 and dy == 0.0:
+            return
+
+        for elem in positioned:
+            elem['x'] += dx
+            elem['y'] += dy
+
+        shifted_labels = {}
+        for eid, pos in layout.label_positions.items():
+            lx, ly, anchor, baseline = pos
+            shifted_labels[eid] = (lx + dx, ly + dy, anchor, baseline)
+        layout.label_positions = shifted_labels
+
+        shifted_conn = {}
+        for key, center in layout.connection_labels.items():
+            shifted_conn[key] = (center[0] + dx, center[1] + dy)
+        layout.connection_labels = shifted_conn
+
+        # Re-rutear regenera computed_path desde las posiciones ya trasladadas.
+        self.routing.route(layout)
+        self._calculate_canvas_from_bounds(layout)
+        self._log(f"Normalizado a canvas: shift ({dx:.0f}, {dy:.0f}) aplicado")
 
     def _calculate_canvas_from_bounds(self, layout: Layout) -> None:
         """
