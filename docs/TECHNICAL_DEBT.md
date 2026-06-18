@@ -21,6 +21,7 @@ Cada entrada tiene un código con estructura uniforme `<CATEGORÍA>-<COMPONENTE>
 - **`LAF`** — Issues exclusivos del algoritmo LAF (`AlmaGag/layout/laf/`).
 - **`AUTO`** — Issues exclusivos del algoritmo AUTO (`AlmaGag/layout/auto/`).
 - **`ARCH`** — Issues arquitecturales del sistema (acoplamientos, contratos, extensibilidad).
+- **`DOCS`** — Documentación que quedó desincronizada del código o del estado actual del proyecto.
 - **`DIAG`** — Problemas visuales en los SVG renderizados. Viven en `docs/DIAGRAM_REVIEW.md`, no aquí.
 
 ### ⚠️ Importante: distinción con `LAF_PHASE_N_...`
@@ -318,6 +319,80 @@ El código **funciona**: LAF corre OK, los renders son válidos. Es asimetría a
 
 ---
 
+### WISH-ARCH-003: Tier 2 Refactor — Reorganizar `draw/` + Split de `visualizer.py`
+**Componente**: `AlmaGag/draw/` + `AlmaGag/layout/laf/visualizer.py`
+**Severidad**: Media (deuda estructural, no funcional)
+**Reportado**: 2026-06-18 (durante el ciclo Tier 1)
+
+**Estado actual**:
+1. **`AlmaGag/draw/` plano con 16+ módulos mezclados**:
+   ```
+   draw/
+   ├── svg.py            ← primitivas SVG agnósticas (creado en WISH-ARCH-002)
+   ├── icons.py          ← dispatcher de iconos
+   ├── container.py
+   ├── connections.py
+   ├── bwt.py            ← banana with tape (fallback)
+   ├── server.py, cloud.py, building.py, database.py, ...  ← tipos de iconos
+   └── ...
+   ```
+   La mezcla de "primitivas + dispatcher + tipos concretos + utils" en un mismo paquete dificulta navegar y agregar nuevos tipos sin tocar todo.
+
+2. **`AlmaGag/layout/laf/visualizer.py` con ~2900 líneas**: contiene `GrowthVisualizer` que captura snapshots SVG de cada fase del pipeline LAF para `--visualize-growth`. Una sola clase con 11 métodos `capture_phaseN_*`, cada uno con lógica de renderizado específica (muchas duplicaciones del renderer principal).
+
+**Solución propuesta**:
+
+Sub-tarea **A — Reorganizar `draw/`**:
+```
+draw/
+├── primitives/
+│   ├── svg.py           ← create_canvas, markers, ndfn_wrap, draw_connections
+│   ├── container.py
+│   └── connections.py
+├── icons/
+│   ├── __init__.py      ← dispatcher (importlib)
+│   ├── server.py
+│   ├── cloud.py
+│   ├── ... (1 archivo por tipo)
+│   └── bwt.py           ← fallback
+└── __init__.py
+```
+
+Sub-tarea **B — Split de `visualizer.py`**:
+```
+laf/
+├── visualizer/
+│   ├── __init__.py            ← exports GrowthVisualizer
+│   ├── base.py                ← clase + utils compartidos
+│   ├── phase1_structure.py
+│   ├── phase2_topology.py
+│   ├── phase3_centrality.py
+│   ├── phase4_abstract.py
+│   ├── phase5_optimized.py
+│   ├── phase6_ndpr_expanded.py
+│   ├── phase7_iterative.py
+│   ├── phase8_inflated.py
+│   ├── phase9_redistributed.py
+│   ├── phase10_routed.py
+│   └── phase11_final.py
+```
+
+Cada `phaseN_*.py` expone una función `capture(visualizer, ...args)` que el `GrowthVisualizer` invoca. Reduce el tamaño de cada archivo a 200-400 líneas y permite testear fases individualmente.
+
+**Por qué es WISH y no BUGS**:
+El código funciona correctamente. Es organización del código, no corrección de comportamiento.
+
+**Impacto del fix**:
+- Sub-tarea A: ~30 min, sin cambios funcionales, solo `git mv` + actualizar imports.
+- Sub-tarea B: 2-3 horas, mayor riesgo por el tamaño (~2900 líneas), pero el resultado deja cada fase auto-contenida.
+- Re-render afectado: ninguno (refactor puro).
+
+**Estimación**: 1 día (medio refactor + medio validación visual).
+
+**Prioridad**: Media-baja. No bloquea features pero mejora mucho la mantenibilidad del módulo de visualización.
+
+---
+
 ### WISH-LAF-001: Más Optimización de Cruces de Conexiones
 **Componente**: `AlmaGag/layout/laf/abstract_placer.py` — Fase 2
 **Severidad**: Baja
@@ -457,6 +532,55 @@ Permitir al usuario especificar restricciones en el SDJF:
 
 ---
 
+### WISH-DOCS-001: Sincronizar `architecture.mmd` Benchmark con el Nuevo `.gag`
+**Componente**: `docs/diagrams/benchmark/architecture.mmd`
+**Severidad**: Baja
+**Reportado**: 2026-06-18
+
+**Descripción**:
+`docs/diagrams/benchmark/architecture.mmd` es la versión Mermaid del diagrama de arquitectura, usada para comparar el output de AlmaGag contra Mermaid (herramienta establecida). Fue creada cuando la fuente AlmaGag era `05-arquitectura-gag.sdjf` con la arquitectura previa al ciclo de refactors (Tier 1 + WISH-ARCH-001/002 + BUGS-LAF-002 + BUGS-LAYOUT-001/002).
+
+Después de reemplazar la fuente por `05-arquitectura-gag.gag` (con iconos custom y estructura actualizada: factoría OPTIMIZERS, renderers separados, draw/svg.py, Fase 1.5), el `.mmd` quedó representando una arquitectura distinta. El benchmark sigue funcionando pero **ya no compara el mismo grafo**: AlmaGag dibuja la arquitectura actual, Mermaid dibuja la antigua.
+
+**Solución propuesta**:
+Reescribir `architecture.mmd` reflejando los mismos elementos y conexiones que `05-arquitectura-gag.gag`. Mantener convenciones Mermaid (subgraphs para containers, flowchart LR/TD).
+
+**Por qué es WISH y no BUGS**:
+El benchmark "funciona" — Mermaid genera su SVG sin errores. Es la comparación lo que pierde validez al estar desincronizada.
+
+**Impacto del fix**:
+~30 min de reescritura del `.mmd` + regenerar `architecture.svg`/`architecture.png` con `mmdc`. Sin riesgo de regresión.
+
+**Prioridad**: Baja. Solo afecta al doc de benchmark.
+
+---
+
+### WISH-DOCS-002: Actualizar `EVOLUTION.md` con el Ciclo Actual
+**Componente**: `docs/architecture/EVOLUTION.md`
+**Severidad**: Baja
+**Reportado**: 2026-06-18
+
+**Descripción**:
+`docs/architecture/EVOLUTION.md` rastrea la evolución histórica de AutoLayout usando el diagrama de arquitectura como benchmark. La última entrada documentada es **v2.1 (2025-01-06)** — Movimiento Inteligente de Elementos. Faltan **~18 meses** de evolución, incluyendo todo el sistema LAF (11 fases), TOI/NdPr, BUGS-LAYOUT-003 (determinismo), WISH-ARCH-001/002 (factoría + renderers separados), BUGS-LAF-002 (dashboard reflow / Fase 1.5), y los fixes visuales BUGS-DIAG-001..008.
+
+**Solución propuesta**:
+Agregar entradas para:
+- v2.2-v3.x — Introducción de LAF (Sprint 1 al 11).
+- v3.3 — SDJF v2.1 + post-fixes BUGS-DIAG-*.
+- **v3.4 (2026-06-18)** — Ciclo "13 items en un sprint": Tier 1 refactor (WISH-ARCH-001/002), BUGS-LAYOUT-001/002/003, BUGS-LAF-001/002. Incluir métricas comparativas: generator.py 838→187 líneas, canvas waste 33%→18%, dashboard 24:1→1.8:1, simetría horizontal 74% de archivos LAF.
+
+Idealmente con snapshots del SVG de arquitectura en cada versión clave para la sección "Benchmark - Diagrama de Arquitectura" que el doc ya usa.
+
+**Por qué es WISH y no BUGS**:
+La doc histórica no afecta el funcionamiento. Es deuda de documentación.
+
+**Impacto del fix**:
+1-2 horas si se hace conservador (solo agregar las versiones nuevas con métricas). Más si se quiere incluir snapshots SVG históricos (requeriría checkouts de tags antiguos).
+
+**Prioridad**: Baja-media. Útil para onboarding y para contexto en futuras decisiones.
+
+---
+
 ## 📊 Métricas
 
 ### Conteo por categoría
@@ -465,10 +589,11 @@ Permitir al usuario especificar restricciones en el SDJF:
 |---|---:|---:|---:|
 | **LAYOUT** | 3 (3 resueltos ✅) | 3 | 6 |
 | **LAF** | 2 (ambos resueltos ✅) | 1 | 3 |
-| **ARCH** | 0 | 2 (ambos resueltos ✅) | 2 |
+| **ARCH** | 0 | 3 (2 resueltos ✅) | 3 |
 | **AUTO** | 0 | 0 | 0 |
+| **DOCS** | 0 | 2 | 2 |
 | **DIAG** | 8 (8 resueltos ✅) | 0 | 8 |
-| **Total** | **13** | **6** | **19** |
+| **Total** | **13** | **9** | **22** |
 
 Conteos DIAG viven en `DIAGRAM_REVIEW.md` — **los 8 BUGS-DIAG están RESUELTOS al 2026-06-15**.
 **Al 2026-06-18, 0 BUGS funcionales pendientes.** Resueltos en este ciclo:
@@ -478,8 +603,17 @@ Problemas visuales DIAG (8 entradas) viven en `DIAGRAM_REVIEW.md`.
 
 ### Priorización sugerida
 
-**Backlog (todo WISH, ningún BUG funcional)**:
-- `WISH-LAF-001` (más optimización de cruces), `WISH-LAYOUT-001` (sistema de etiquetas inteligente), `WISH-LAYOUT-002` (constraints de posicionamiento), `WISH-LAYOUT-003` (auto-callout para labels grandes).
+**Backlog activo (todo WISH, ningún BUG funcional al 2026-06-18)**:
+
+| Prioridad | Código | Resumen |
+|---|---|---|
+| Media | `WISH-LAYOUT-003` | Auto-callout para labels grandes (impacto visual real). |
+| Media | `WISH-ARCH-003` | Tier 2 refactor: reorganizar `draw/` + split `visualizer.py`. |
+| Media | `WISH-LAYOUT-001` | Sistema de etiquetas inteligente (paraguas; `WISH-LAYOUT-003` es un caso de uso). |
+| Media-baja | `WISH-LAYOUT-002` | Soporte para constraints (`align`, `near`, `avoid`) en SDJF. |
+| Baja | `WISH-LAF-001` | Más optimización de cruces (pesos dinámicos en barycenter). |
+| Baja | `WISH-DOCS-001` | Sincronizar `architecture.mmd` con el nuevo `.gag`. |
+| Baja | `WISH-DOCS-002` | Actualizar `EVOLUTION.md` con el ciclo 2026. |
 
 ---
 
