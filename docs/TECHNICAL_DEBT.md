@@ -319,10 +319,61 @@ El código **funciona**: LAF corre OK, los renders son válidos. Es asimetría a
 
 ---
 
-### WISH-ARCH-003: Tier 2 Refactor — Reorganizar `draw/` + Split de `visualizer.py`
+### WISH-ARCH-003: Tier 2 Refactor — Reorganizar `draw/` + Split de `visualizer.py` ✅ RESUELTO
 **Componente**: `AlmaGag/draw/` + `AlmaGag/layout/laf/visualizer.py`
 **Severidad**: Media (deuda estructural, no funcional)
-**Reportado**: 2026-06-18 (durante el ciclo Tier 1)
+**Reportado**: 2026-06-18
+**Resuelto**: 2026-06-18
+
+**Fix aplicado**:
+
+**Sub-tarea A — Reorganizar `draw/`** (commit `f51794f`):
+```
+draw/
+├── primitives/                  ← svg, container, connections, callout
+└── icons/                       ← __init__ (dispatcher) + 11 tipos
+```
+- 11 iconos movidos a `draw/icons/` vía `git mv` (historia preservada).
+- 4 primitivas movidas a `draw/primitives/` vía `git mv`.
+- Dispatcher renombrado: `draw/icons.py` → `draw/icons/__init__.py`.
+- 3 dynamic imports actualizados, imports estáticos en renderers actualizados.
+
+**Sub-tarea B — Split de `visualizer.py`**:
+Antes: 1 archivo de 2876 líneas con `GrowthVisualizer` + 10 `_generate_phaseN_svg`.
+Después: paquete `visualizer/` con 1 archivo por fase + class slim.
+
+```
+laf/visualizer/
+├── __init__.py              (862 líneas, class GrowthVisualizer + helpers + thin wrappers)
+├── phase1.py                (322 líneas)
+├── phase2_topology.py       (555 líneas)
+├── phase3_centrality.py     (298 líneas)
+├── phase4_abstract.py       (245 líneas)
+├── phase5_optimized.py      (212 líneas)
+├── phase7_iterative.py      (373 líneas)
+├── phase8_inflated.py       (53 líneas)
+├── phase9_redistributed.py  (48 líneas)
+├── phase10_routed.py        (48 líneas)
+└── phase11_final.py         (48 líneas)
+```
+
+Cada `phaseN_*.py` expone `def generate(viz, output_path)` con el body original (self → viz transformados). Los `_generate_phaseN_svg` de la clase quedan como thin wrappers de 3 líneas:
+```python
+def _generate_phase1_svg(self, output_path: str) -> None:
+    from AlmaGag.layout.laf.visualizer import phase1
+    phase1.generate(self, output_path)
+```
+
+Helpers internos (`_draw_colored_connections`, `_segments_intersect`, `_are_collinear`, `_build_ndpr_positions`, `_draw_ndpr_node`, `_build_ndfn_labels`, `_draw_elements_with_ndfn`, `_draw_straight_connections`, `_draw_routed_connections`) quedaron en la clase para acceso vía `viz.X` desde cualquier fase.
+
+Refactor mecánico: script `split_visualizer.py` extrajo cada fase + script `fix_helpers.py` reubicó helpers misplaced.
+
+**Validación**:
+- Smoke 46/46 OK (23 × 2 algoritmos).
+- Tests 19 passed.
+- `--visualize-growth` genera las 10 fases SVG correctamente.
+- 0/23 canonical SVGs afectados.
+- Refactor puro, sin cambios funcionales. (durante el ciclo Tier 1)
 
 **Estado actual**:
 1. **`AlmaGag/draw/` plano con 16+ módulos mezclados**:
@@ -580,7 +631,7 @@ La doc histórica no afecta el funcionamiento. Es deuda de documentación.
 |---|---:|---:|---:|
 | **LAYOUT** | 3 (3 resueltos ✅) | 3 (1 resuelto ✅) | 6 |
 | **LAF** | 2 (ambos resueltos ✅) | 1 | 3 |
-| **ARCH** | 0 | 3 (2 resueltos ✅) | 3 |
+| **ARCH** | 0 | 3 (3 resueltos ✅) | 3 |
 | **AUTO** | 0 | 0 | 0 |
 | **DOCS** | 0 | 2 (1 resuelto ✅) | 2 |
 | **DIAG** | 8 (8 resueltos ✅) | 0 | 8 |
@@ -598,7 +649,6 @@ Problemas visuales DIAG (8 entradas) viven en `DIAGRAM_REVIEW.md`.
 
 | Prioridad | Código | Resumen |
 |---|---|---|
-| Media | `WISH-ARCH-003` | Tier 2 refactor: reorganizar `draw/` + split `visualizer.py`. |
 | Media | `WISH-LAYOUT-001` | Sistema de etiquetas inteligente (incorporaría callouts en la optimización global). |
 | Media-baja | `WISH-LAYOUT-002` | Soporte para constraints (`align`, `near`, `avoid`) en SDJF. |
 | Baja | `WISH-LAF-001` | Más optimización de cruces (pesos dinámicos en barycenter). |
