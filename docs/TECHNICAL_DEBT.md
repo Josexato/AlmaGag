@@ -183,10 +183,45 @@ Detectar "modo dashboard" (cluster de contenedores sin conexiones inter-cluster)
 
 ---
 
-### WISH-ARCH-002: Eliminar `layout_algorithm` del Renderer
-**Componente**: `AlmaGag/renderer.py` + `AlmaGag/draw/container.py`
+### WISH-ARCH-002: Eliminar `layout_algorithm` del Renderer ✅ RESUELTO
+**Componente**: `AlmaGag/renderer.py` (eliminado) → `layout/auto/renderer.py` + `layout/laf/renderer.py`
 **Severidad**: Media
 **Reportado**: 2026-06-18 (follow-up explícito de WISH-ARCH-001)
+**Resuelto**: 2026-06-18
+
+**Fix aplicado** — separación total entre algoritmos (más fuerte que la Opción A original):
+- `AlmaGag/renderer.py` (509 líneas, compartido) **eliminado**.
+- `AlmaGag/draw/svg.py` **NUEVO**: primitivas SVG agnósticas (create_canvas, setup_arrow_markers, draw_connections, ndfn_wrap, etc.).
+- `AlmaGag/layout/auto/renderer.py` **NUEVO**: clase `AutoSVGRenderer` con toda la orquestación AUTO (no sabe que LAF existe).
+- `AlmaGag/layout/laf/renderer.py` **NUEVO**: clase `LAFSVGRenderer` con toda la orquestación LAF, incluyendo `_render_container_icons` (LAF-only).
+- Cada optimizer expone `self.renderer` en `__init__`.
+- `generator.py` ahora llama `optimizer.renderer.render(layout, output_svg, ...)`.
+
+**Principio aplicado**: "un algoritmo no sabe que el otro existe". Los renderers solo dependen de:
+- `AlmaGag/draw/` (primitivas de íconos compartidas)
+- `AlmaGag/debug.py` (helpers de debug compartidos)
+- `AlmaGag/layout/label_optimizer.py` (optimizador de labels compartido)
+
+**Estructura final**:
+```
+AlmaGag/
+├── draw/
+│   ├── svg.py           ← primitivas SVG agnósticas
+│   ├── connections.py   (compartido)
+│   ├── container.py     (compartido)
+│   └── icons.py + 12 tipos
+└── layout/
+    ├── auto/
+    │   ├── optimizer.py
+    │   ├── routing_policy.py
+    │   └── renderer.py  ← AutoSVGRenderer
+    └── laf/
+        ├── optimizer.py
+        ├── routing_policy.py
+        └── renderer.py  ← LAFSVGRenderer
+```
+
+**Validación**: smoke 46/46 SVGs, determinismo 3/3 archivos × 3 seeds = 1 hash único, tests 17 passed.
 
 **Descripción**:
 Tras resolver WISH-ARCH-001 (contrato del optimizer unificado), queda un residuo de la asimetría AUTO/LAF **en la capa de renderizado**: el parámetro `layout_algorithm` se sigue pasando a `render_containers()` y `draw_container()` para decidir cómo dibujar el icono del container.
@@ -404,7 +439,7 @@ Permitir al usuario especificar restricciones en el SDJF:
 |---|---:|---:|---:|
 | **LAYOUT** | 3 (1 resuelto) | 3 | 6 |
 | **LAF** | 2 | 1 | 3 |
-| **ARCH** | 0 | 2 (1 resuelto ✅) | 2 |
+| **ARCH** | 0 | 2 (ambos resueltos ✅) | 2 |
 | **AUTO** | 0 | 0 | 0 |
 | **DIAG** | 8 (8 resueltos ✅) | 0 | 8 |
 | **Total** | **13** | **6** | **19** |

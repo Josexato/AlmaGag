@@ -1,0 +1,211 @@
+"""
+Primitivas SVG agnósticas al algoritmo.
+
+Funciones de bajo nivel para construir SVG: crear el canvas, markers de
+flecha, palette de colores, helper de wrapping de groups. No saben nada
+sobre AUTO ni LAF ni qué representan los elementos a dibujar.
+
+Cada algoritmo de layout tiene su propio renderer (AutoSVGRenderer,
+LAFSVGRenderer) y orquesta estas primitivas a su manera.
+"""
+
+import colorsys
+import logging
+
+import svgwrite
+
+from AlmaGag.draw.connections import draw_connection_line, draw_connection_label
+
+logger = logging.getLogger('AlmaGag')
+
+
+class DrawingGroupProxy:
+    """Proxy que redirige add() a un Group manteniendo factory methods en Drawing.
+
+    Se usa para envolver elementos SVG en <g> groups con <desc> metadata para
+    etiquetas NdFn. Los factory methods (rect, text, linearGradient, defs, etc.)
+    van al Drawing real, mientras que add() pone elementos en el group.
+    """
+
+    def __init__(self, dwg, group):
+        self._dwg = dwg
+        self._group = group
+
+    def add(self, element):
+        return self._group.add(element)
+
+    def __getattr__(self, name):
+        return getattr(self._dwg, name)
+
+
+def create_canvas(output_path, canvas_width, canvas_height):
+    """Crea el Drawing SVG con filtro global de text-glow blanco para etiquetas."""
+    dwg = svgwrite.Drawing(output_path, size=(canvas_width, canvas_height), debug=False)
+    dwg.viewbox(0, 0, canvas_width, canvas_height)
+
+    text_glow = dwg.filter(id='text-glow', x='-20%', y='-20%', width='140%', height='140%')
+    text_glow.feGaussianBlur(in_='SourceGraphic', stdDeviation=2, result='blur')
+    text_glow.feFlood(flood_color='white', flood_opacity=1, result='color')
+    text_glow.feComposite(in_='color', in2='blur', operator='in', result='shadow')
+    text_glow.feMerge(layernames=['shadow', 'shadow', 'SourceGraphic'])
+    dwg.defs.add(text_glow)
+
+    return dwg
+
+
+def _generate_color_palette(n):
+    """Genera N colores distinguibles vía HSL con hue uniformemente distribuido."""
+    colors = []
+    for i in range(n):
+        hue = i / max(n, 1)
+        r, g, b = colorsys.hls_to_rgb(hue, 0.45, 0.70)
+        colors.append(f'#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}')
+    return colors
+
+
+def _create_arrow_marker(dwg, marker_id, color, direction='end'):
+    """Crea un marker de flecha triangular."""
+    if direction == 'end':
+        marker = dwg.marker(id=marker_id, insert=(10, 5), size=(10, 10), orient='auto')
+        marker.add(dwg.path(d='M 0 0 L 10 5 L 0 10 z', fill=color))
+    else:
+        marker = dwg.marker(id=marker_id, insert=(0, 5), size=(10, 10), orient='auto')
+        marker.add(dwg.path(d='M 10 0 L 0 5 L 10 10 z', fill=color))
+    dwg.defs.add(marker)
+    return marker
+
+
+def _create_circle_marker(dwg, marker_id, color):
+    """Crea un marker de círculo para origen de conexiones unidireccionales."""
+    marker = dwg.marker(id=marker_id, insert=(5, 5), size=(10, 10), orient='auto')
+    marker.add(dwg.circle(center=(5, 5), r=4, fill=color))
+    dwg.defs.add(marker)
+    return marker
+
+
+def setup_arrow_markers(dwg, connections=None, color_connections=False):
+    """Crea markers SVG para flechas y círculos direccionales."""
+    arrow_end = _create_arrow_marker(dwg, 'arrow-end', 'black', 'end')
+    arrow_start = _create_arrow_marker(dwg, 'arrow-start', 'black', 'start')
+    circle_start = _create_circle_marker(dwg, 'circle-start', 'black')
+    circle_end = _create_circle_marker(dwg, 'circle-end', 'black')
+
+    default_markers = {
+        'arrow_end': arrow_end.get_funciri(),
+        'arrow_start': arrow_start.get_funciri(),
+        'circle_start': circle_start.get_funciri(),
+        'circle_end': circle_end.get_funciri(),
+        'forward': arrow_end.get_funciri(),
+        'backward': arrow_start.get_funciri(),
+        'bidirectional': (arrow_start.get_funciri(), arrow_end.get_funciri()),
+    }
+
+    if not color_connections or not connections:
+        return default_markers
+
+    n = len(connections)
+    palette = _generate_color_palette(n)
+    per_connection = []
+
+    for i, conn in enumerate(connections):
+        color = palette[i]
+        suffix = f'-c{i}'
+        ae = _create_arrow_marker(dwg, f'arrow-end{suffix}', color, 'end')
+        ast = _create_arrow_marker(dwg, f'arrow-start{suffix}', color, 'start')
+        cs = _create_circle_marker(dwg, f'circle-start{suffix}', color)
+        ce = _create_circle_marker(dwg, f'circle-end{suffix}', color)
+
+        per_connection.append({
+            'markers': {
+                'arrow_end': ae.get_funciri(),
+                'arrow_start': ast.get_funciri(),
+                'circle_start': cs.get_funciri(),
+                'circle_end': ce.get_funciri(),
+                'forward': ae.get_funciri(),
+                'backward': ast.get_funciri(),
+                'bidirectional': (ast.get_funciri(), ae.get_funciri()),
+            },
+            'color': color,
+        })
+
+    return default_markers, per_connection
+
+
+def ndfn_wrap(target, elem_id, ndfn_labels):
+    """Wrap drawing target en un <g> con <desc> si existe etiqueta NdFn.
+
+    Returns (draw_target, group_or_None). Si envuelve, el caller debe agregar
+    group_or_None al dwg después de dibujar.
+    """
+    ndfn = ndfn_labels.get(elem_id, '')
+    if not ndfn:
+        return target, None
+    g = target.g(id=f'ndfn-{elem_id}')
+    g.set_desc(desc=f'{ndfn} | {elem_id}')
+    return DrawingGroupProxy(target, g), g
+
+
+def draw_connections(dwg, connections, elements_by_id, markers, per_conn_styles, ndfn_labels):
+    """Dibuja todas las líneas de conexión (sin etiquetas).
+
+    Retorna dict conn_centers: {key: (mid_x, mid_y)} para posicionar etiquetas después.
+    """
+    conn_centers = {}
+    for i, conn in enumerate(connections):
+        if per_conn_styles and i < len(per_conn_styles):
+            conn_markers = per_conn_styles[i]['markers']
+            conn_color = per_conn_styles[i]['color']
+        else:
+            conn_markers = markers
+            conn_color = 'black'
+
+        conn_ndfn_group = None
+        draw_target = dwg
+        if ndfn_labels:
+            from_ndfn = ndfn_labels.get(conn['from'], conn['from'])
+            to_ndfn = ndfn_labels.get(conn['to'], conn['to'])
+            from_aaa = from_ndfn.split('.')[1] if '.' in from_ndfn else conn['from']
+            to_aaa = to_ndfn.split('.')[1] if '.' in to_ndfn else conn['to']
+            conn_id = f"conn-{from_aaa}-to-{to_aaa}"
+            conn_ndfn_group = dwg.g(id=conn_id)
+            label = conn.get('label', '')
+            desc_text = f"From {from_ndfn} to {to_ndfn}"
+            if label:
+                desc_text += f" | {label}"
+            conn_ndfn_group.set_desc(desc=desc_text)
+            draw_target = DrawingGroupProxy(dwg, conn_ndfn_group)
+
+        center = draw_connection_line(draw_target, elements_by_id, conn, conn_markers, stroke_color=conn_color)
+        if conn_ndfn_group is not None:
+            dwg.add(conn_ndfn_group)
+
+        key = f"{conn['from']}->{conn['to']}"
+        conn_centers[key] = center
+
+    return conn_centers
+
+
+def draw_connection_labels(dwg, connections, conn_centers, optimized_label_positions):
+    """Dibuja etiquetas de conexiones con posiciones optimizadas o fallback al centro."""
+    for conn in connections:
+        if not conn.get('label'):
+            continue
+        key = f"{conn['from']}->{conn['to']}"
+        optimized_pos = optimized_label_positions.get(key)
+        if optimized_pos:
+            # Posición optimizada por LabelPositionOptimizer: dibujar el texto
+            # directamente con anchor y stroke.
+            dwg.add(dwg.text(
+                conn['label'],
+                insert=(optimized_pos.x, optimized_pos.y),
+                text_anchor=optimized_pos.anchor,
+                font_size="12px",
+                font_family="Arial, sans-serif",
+                fill="gray",
+                filter='url(#text-glow)',
+            ))
+        else:
+            # Fallback: centro de la conexión (default text_anchor del helper).
+            center = conn_centers.get(key)
+            if center:
+                draw_connection_label(dwg, conn, center)
