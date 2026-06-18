@@ -59,6 +59,12 @@ MOVEMENT_DEFAULT_DY = ICON_WIDTH * 0.75    # 60px - default vertical movement
 GRID_SPACING_SMALL = ICON_WIDTH * 0.25     # 20px - tight grid spacing
 GRID_SPACING_LARGE = SPACING_SMALL         # 40px - normal grid spacing
 
+# Container grid row spacing (fix BUGS-DIAG-007).
+# Spacing vertical entre filas de hijos en grids dentro de contenedores.
+# Calcula espacio para acomodar labels de hasta 2 líneas + margen:
+# = LABEL_OFFSET_BOTTOM (icon→label) + TEXT_LINE_HEIGHT*2 (2 líneas) + 10 (margen)
+CONTAINER_GRID_ROW_SPACING = LABEL_OFFSET_BOTTOM + TEXT_LINE_HEIGHT * 2 + 10  # 66px
+
 # Radial layout (for priority-based positioning)
 RADIUS_NORMAL_MAX = ICON_WIDTH * 3.125     # 250px - max radius for normal priority
 RADIUS_LOW_MAX = ICON_WIDTH * 4.375        # 350px - max radius for low priority

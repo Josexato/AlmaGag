@@ -25,6 +25,7 @@ from AlmaGag.config import (
     CONTAINER_ICON_X,
     CANVAS_MARGIN_LARGE,
     GRID_SPACING_SMALL,
+    CONTAINER_GRID_ROW_SPACING,
     RADIUS_NORMAL_MAX, RADIUS_LOW_MAX,
     TOP_MARGIN_DEBUG, TOP_MARGIN_NORMAL,
     LAF_VERTICAL_SPACING
@@ -981,13 +982,14 @@ class AutoLayoutPositioner:
             else:
                 cols = int(n ** 0.5) + 1
 
-            spacing = GRID_SPACING_SMALL
+            spacing = GRID_SPACING_SMALL  # spacing horizontal entre cols
 
             for i, elem in enumerate(full_elements):
                 row = i // cols
                 col = i % cols
                 elem['_local_x'] = padding + col * (ICON_WIDTH + spacing)
-                elem['_local_y'] = start_y + row * (ICON_HEIGHT + spacing)
+                # Row spacing acomoda label (hasta 2 líneas) entre íconos
+                elem['_local_y'] = start_y + row * (ICON_HEIGHT + CONTAINER_GRID_ROW_SPACING)
 
     def _get_scope(self, elem: dict, container: dict) -> str:
         """

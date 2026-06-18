@@ -67,8 +67,16 @@ Sigue la misma convención de códigos que `TECHNICAL_DEBT.md`: `<CATEGORÍA>-DI
     - Ratio max/min: 13:1 → 7:1.
   **Nota:** las coordenadas Y manuales reflejan honestamente la dirección del flujo (utilities → procesamiento → output). El SDJF ahora tiene 2 elementos con coordenadas explícitas (rompe el patrón "0 coords manuales" del archivo original, pero es necesario para evitar la densidad estructural).
 
-- [ ] **BUGS-DIAG-007 — Gap vertical de 70 px entre `auto_optimizer` (y=950) y `auto_positioner` (y=1024).**
-  Iconos de 46 px de alto con gap 70 → labels casi tocándose. En LAF original había más espacio.
+- [x] **BUGS-DIAG-007 — Gap vertical insuficiente entre filas dentro de containers.** ✅ RESUELTO (2026-06-15)
+  Causa raíz **sistémica** (no específica de `auto_optimizer/auto_positioner`): en `AlmaGag/layout/auto/positioner.py:990`, el spacing entre filas de un grid dentro de un container era `ICON_HEIGHT + GRID_SPACING_SMALL = 50 + 20 = 70 px`, pero el footprint visual real de un elemento con label de 2 líneas es ~106 px. Resultado: los labels de la fila superior se solapaban con los íconos de la fila inferior (gap efectivo de solo 24 px entre íconos).
+  Afectaba a TODOS los containers en TODOS los SVGs (no solo a 05-arquitectura-gag).
+  **Fix aplicado:** nueva constante en `config.py`:
+    ```python
+    CONTAINER_GRID_ROW_SPACING = LABEL_OFFSET_BOTTOM + TEXT_LINE_HEIGHT * 2 + 10  # 66px
+    ```
+    En `positioner.py:990`, reemplazar `spacing` por `CONTAINER_GRID_ROW_SPACING` para el cálculo de `_local_y`. Row spacing total ahora: `50 + 66 = 116 px`, gap efectivo entre íconos: **70 px** (suficiente para 2 líneas de label + margen).
+  **Resultado:** afectó 5 SVGs (los que tienen containers); todos regenerados. Canvas crece ~90 px de alto (esperado).
+  **Smoke test:** 23/23 OK. Determinismo: 1 hash único.
 
 - [x] **BUGS-DIAG-008 — Elementos huérfanos visuales.** ✅ RESUELTO (2026-06-15)
   Resuelto junto con BUGS-DIAG-003 (misma causa raíz, mismo fix). `growth_visualizer` y `label_optimizer` ahora están dentro de sus stages naturales en el SDJF.
