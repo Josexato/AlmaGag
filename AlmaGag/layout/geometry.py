@@ -432,8 +432,17 @@ class GeometryCalculator:
 
         Returns:
             bool: True si hay colisión, False si no
+
+        Nota (BUGS-AUTO-003): los contenedores (`contains`) son fondos
+        semi-transparentes — los labels legítimamente viven dentro de ellos
+        (ej: "queries" entre api y db, ambos dentro de backend-module). Tratar
+        el rect del container como colisión hacía que TODOS los candidatos de
+        un label interno tuvieran el mismo +100, y el desempate terminaba
+        poniendo el label encima de un icono. Se excluyen del chequeo.
         """
         for elem in elements:
+            if 'contains' in elem:
+                continue  # containers no bloquean labels (son fondos)
             elem_bbox = self.get_icon_bbox(elem)
             if elem_bbox and self.rectangles_intersect(label_bbox, elem_bbox):
                 return True

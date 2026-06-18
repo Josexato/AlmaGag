@@ -223,6 +223,33 @@ Nuevo método `_normalize_to_canvas()` llamado al final de `optimize()` (antes d
 
 ---
 
+### BUGS-AUTO-003: Connection Labels Sobre Iconos Dentro de Containers ✅ RESUELTO
+**Componente**: `AlmaGag/layout/geometry.py` — `label_intersects_elements()`
+**Severidad**: **Alta** (etiquetas ilegibles encimadas con iconos)
+**Reportado**: 2026-06-18 (tercera inspección del usuario sobre `07-containers.svg`)
+**Resuelto**: 2026-06-18
+
+**Causa raíz**:
+`label_intersects_elements()` (usada por `LabelPositionOptimizer.score_position()`) trataba el rect de un **container** como un elemento sólido para detección de colisiones de labels. Como los iconos de un container viven DENTRO de su rect, cualquier posición candidata para el label de una conexión interna (ej: "queries" entre `api` y `db`, ambos dentro de `backend-module`) caía dentro del rect del container → **todos los candidatos sumaban el mismo +100**.
+
+Con todos los candidatos empatados en la penalización de container, el desempate (por distancia/densidad) terminaba eligiendo posiciones que caían **encima de un icono**. La colisión con elementos es booleana (+100 fijo, no cuenta cantidad), así que "label sobre icono" (1 colisión real) puntuaba igual que "label en hueco libre dentro del container" (0 colisiones reales, solo el container).
+
+Reproducción (`07-containers`, pre-fix): "queries" (centro de su línea en x=190) se movía a x=139, **encima del icono REST API** (centro x=140).
+
+**Fix aplicado**:
+`label_intersects_elements()` ahora **excluye containers** (`if 'contains' in elem: continue`). Los containers son fondos semi-transparentes — los labels legítimamente viven dentro de ellos. Tras el fix, solo los iconos reales cuentan como colisión, y el optimizer elige posiciones en huecos libres en vez de sobre iconos.
+
+**Validación** (connection-labels sobre icono, antes → después):
+- `07-containers`: 1 → **0**.
+- `git`: 1 → **0**.
+- `reference-cheatsheet`: 2 → **0**.
+- `06-flujo-ejecucion`: 0 → 0 (reposicionamiento marginal).
+- Total: **4 → 0**.
+- 4 canonicals regenerados (los que tienen containers).
+- Smoke 46/46 OK, tests 19 passed, determinismo intacto.
+
+---
+
 ### BUGS-LAF-002: Layout Pobre con Contenedores Hermanos sin Conexiones (caso "dashboard") ✅ RESUELTO
 **Componente**: `AlmaGag/layout/laf/optimizer.py` — Fase 1.5 (dashboard reflow) + Fase 9 (redistribución)
 **Severidad**: Media
@@ -717,7 +744,7 @@ Reemplazado el placeholder "v2.2 - (Futuro)" por 3 entradas nuevas que cubren ~1
 | **LAYOUT** | 3 (3 resueltos ✅) | 3 (3 resueltos ✅) | 6 |
 | **LAF** | 2 (ambos resueltos ✅) | 1 (resuelto ✅) | 3 |
 | **ARCH** | 0 | 3 (3 resueltos ✅) | 3 |
-| **AUTO** | 2 (2 resueltos ✅) | 0 | 2 |
+| **AUTO** | 3 (3 resueltos ✅) | 0 | 3 |
 | **DOCS** | 0 | 2 (2 resueltos ✅) | 2 |
 | **DIAG** | 8 (8 resueltos ✅) | 0 | 8 |
 | **Total** | **13** | **9** | **22** |
