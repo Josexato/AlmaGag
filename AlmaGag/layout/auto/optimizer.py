@@ -481,9 +481,22 @@ class AutoLayoutOptimizer(LayoutOptimizer):
             best_collisions = current_collisions
             best_pos = current_pos
 
+            canvas_w = layout.canvas.get('width', 0)
+            canvas_h = layout.canvas.get('height', 0)
+            parent_container = self._get_parent_container(layout, elem)
             for pos_name in self.POSITIONS:
                 if pos_name == current_position_name:
                     continue
+
+                # BUGS-AUTO-005: rechazar posiciones off-canvas y, si el icono
+                # está dentro de un container, también fuera del container.
+                test_bbox = self.geometry.get_label_bbox(elem, pos_name)
+                if test_bbox is not None:
+                    x1, y1, x2, y2 = test_bbox
+                    if x1 < 0 or y1 < 0 or x2 > canvas_w or y2 > canvas_h:
+                        continue
+                    if parent_container is not None and not self._label_inside_container(test_bbox, parent_container):
+                        continue
 
                 # Temporalmente cambiar posición
                 num_lines = len(elem.get('label', '').split('\n'))
@@ -508,6 +521,32 @@ class AutoLayoutOptimizer(LayoutOptimizer):
             layout.invalidate_collision_cache()
 
         return improved
+
+    def _get_parent_container(self, layout: Layout, element: dict):
+        """Devuelve el container que contiene a `element`, o None."""
+        elem_id = element.get('id')
+        if not elem_id:
+            return None
+        for other in layout.elements:
+            if 'contains' not in other:
+                continue
+            for ref in other.get('contains', []):
+                ref_id = extract_item_id(ref)
+                if ref_id == elem_id:
+                    return other
+        return None
+
+    def _label_inside_container(self, label_bbox, container, header_h=40):
+        """True si el label_bbox cae dentro del container, fuera de su header."""
+        if 'x' not in container or 'y' not in container:
+            return True  # sin coords, no restringir
+        cx1 = container['x']
+        cy1 = container['y']
+        cx2 = cx1 + container.get('width', 80)
+        cy2 = cy1 + container.get('height', 50)
+        x1, y1, x2, y2 = label_bbox
+        # debe estar dentro de los bordes y debajo del header
+        return x1 >= cx1 and x2 <= cx2 and y1 >= cy1 + header_h and y2 <= cy2
 
     def _find_best_label_position(
         self,
@@ -538,21 +577,30 @@ class AutoLayoutOptimizer(LayoutOptimizer):
 
         num_lines = len(label.split('\n'))
 
-        # Ordenar posiciones con preferida primero
+        # BUGS-AUTO-005: si el icono está contenido, el label debe quedar
+        # dentro del container (y fuera del header). Calculamos el parent
+        # una vez aquí; el chequeo concreto se hace por candidato.
+        parent_container = self._get_parent_container(layout, element)
+
         positions = list(self.POSITIONS)
         if preferred in positions:
             positions.remove(preferred)
             positions.insert(0, preferred)
 
         # Recolectar bboxes de otros elementos (íconos y etiquetas existentes)
-        # Incluir contenedores con dimensiones calculadas
+        # BUGS-AUTO-005: los containers son fondos semi-transparentes — los
+        # labels viven legítimamente dentro de ellos. Si se incluyen, el
+        # optimizador termina prefiriendo posiciones FUERA del container que
+        # también caen fuera del canvas (ej: auto_opt → label en x negativo).
+        # Excluirlos siempre, igual que el fix BUGS-AUTO-003 en
+        # label_intersects_elements y BUGS-AUTO-004 en CollisionDetector.
         occupied_bboxes = []
         for elem in layout.elements:
-            if elem['id'] != element['id']:
-                # Incluir contenedores CON dimensiones, excluir sin dimensiones
-                if 'contains' in elem and not elem.get('_is_container_calculated', False):
-                    continue
-                occupied_bboxes.append(self.geometry.get_icon_bbox(elem))
+            if elem['id'] == element['id']:
+                continue
+            if 'contains' in elem:
+                continue
+            occupied_bboxes.append(self.geometry.get_icon_bbox(elem))
 
         # Añadir etiquetas de conexiones
         for conn in layout.connections:
@@ -577,9 +625,25 @@ class AutoLayoutOptimizer(LayoutOptimizer):
                 connection_lines.append(endpoints)
 
         # Probar cada posición
+        canvas_w = layout.canvas.get('width', 0)
+        canvas_h = layout.canvas.get('height', 0)
         for pos in positions:
             text_bbox = self.geometry.get_label_bbox(element, pos)
             if text_bbox is None:
+                continue
+
+            # BUGS-AUTO-005: rechazar posiciones que caen fuera del canvas.
+            # Sin esto, posiciones "libres de colisión" pero off-canvas (ej:
+            # label a la izquierda de un icono pegado al borde) ganaban sobre
+            # posiciones dentro del canvas con leve colisión.
+            x1, y1, x2, y2 = text_bbox
+            if x1 < 0 or y1 < 0 or x2 > canvas_w or y2 > canvas_h:
+                continue
+
+            # BUGS-AUTO-005: si el icono vive dentro de un container, el label
+            # también debe quedar dentro (excluyendo el header donde está el
+            # label del container).
+            if parent_container is not None and not self._label_inside_container(text_bbox, parent_container):
                 continue
 
             has_collision = False

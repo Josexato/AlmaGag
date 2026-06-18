@@ -273,6 +273,35 @@ Reproducción (`07-containers`, pre-fix): "queries" (centro de su línea en x=19
 
 ---
 
+### BUGS-AUTO-005: Labels de Iconos Contenidos Salen Fuera del Container/Canvas ✅ RESUELTO
+**Componente**: `AlmaGag/layout/auto/optimizer.py` — `_find_best_label_position` + `_try_relocate_labels` + `collision.count_element_collisions`
+**Severidad**: **Alta** (labels visiblemente cortados / fuera de su container)
+**Reportado**: 2026-06-18 (quinta inspección — diagrama de arquitectura tras los 4 AUTO previos)
+**Resuelto**: 2026-06-18
+
+**Causa raíz** (triple):
+1. **`_find_best_label_position` no verificaba off-canvas**: el primer candidato sin colisión ganaba aunque su bbox quedara con x<0 o x>canvas_w. Caso típico: icono pegado al borde izquierdo del container y label en `left` con anchor=end → texto extendido hacia x negativo (auto_opt label en x=55 con texto de ~150px → empezaba en x=-95).
+2. **`_try_relocate_labels` tenía el mismo agujero**: relocaba a `top` cuando `bottom` tenía 1-2 colisiones con líneas, sin importar si `top` salía del container o caía sobre el header del container ancestro.
+3. **`count_element_collisions` contaba containers como obstáculos** (mismo path que AUTO-003 y AUTO-004 pero en otra función).
+
+Resultado en `05-arquitectura-gag` antes del fix: `AutoLayoutOptimizer` con label en `left` (anchor=end) cortado fuera del canvas, `LAFOptimizer` en `top` pegado contra el label del container LAF.
+
+**Fix aplicado**:
+- **`_get_parent_container()`** + **`_label_inside_container()`** (nuevos): un label de un icono contenido debe quedar dentro del container ancestro y fuera de su header (40px).
+- **Chequeo de canvas y container** en `_find_best_label_position` y `_try_relocate_labels`: posiciones que se salen se descartan.
+- **`count_element_collisions`** excluye containers como obstáculos, mismo razonamiento que AUTO-003/004.
+
+**Validación** (labels off-canvas, antes → después):
+- `05-arquitectura-gag`: 2 → **0**.
+- `git`: 11 → **0**.
+- `reference-cheatsheet`: 12 → **1**.
+- **Total: 25 → 1** en los canonicals afectados.
+- Todos los iconos dentro de containers ahora con label en `bottom` dentro del container.
+- 9 canonicals regenerados.
+- Smoke 46/46, tests 19 passed, determinismo intacto.
+
+---
+
 ### BUGS-LAF-002: Layout Pobre con Contenedores Hermanos sin Conexiones (caso "dashboard") ✅ RESUELTO
 **Componente**: `AlmaGag/layout/laf/optimizer.py` — Fase 1.5 (dashboard reflow) + Fase 9 (redistribución)
 **Severidad**: Media
@@ -767,7 +796,7 @@ Reemplazado el placeholder "v2.2 - (Futuro)" por 3 entradas nuevas que cubren ~1
 | **LAYOUT** | 3 (3 resueltos ✅) | 3 (3 resueltos ✅) | 6 |
 | **LAF** | 2 (ambos resueltos ✅) | 1 (resuelto ✅) | 3 |
 | **ARCH** | 0 | 3 (3 resueltos ✅) | 3 |
-| **AUTO** | 4 (4 resueltos ✅) | 0 | 4 |
+| **AUTO** | 5 (5 resueltos ✅) | 0 | 5 |
 | **DOCS** | 0 | 2 (2 resueltos ✅) | 2 |
 | **DIAG** | 8 (8 resueltos ✅) | 0 | 8 |
 | **Total** | **13** | **9** | **22** |

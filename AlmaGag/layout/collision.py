@@ -179,9 +179,13 @@ class CollisionDetector:
                 layout.label_positions[element_id][3]
             )
 
-            # Con otros íconos
+            # Con otros íconos. BUGS-AUTO-005: excluir containers — son fondos
+            # semi-transparentes, los labels viven dentro de ellos (mismo fix
+            # que en label_intersects_elements y _collect_all_bboxes).
             for other_elem in layout.elements:
                 if other_elem['id'] == element_id:
+                    continue
+                if 'contains' in other_elem:
                     continue
                 other_icon_bbox = self.geometry.get_icon_bbox(other_elem)
                 if other_icon_bbox and self.geometry.rectangles_intersect(my_label_bbox, other_icon_bbox):
