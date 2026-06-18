@@ -214,10 +214,14 @@ class CollisionDetector:
         """
         bboxes = []
 
-        # Filtrar contenedores SIN dimensiones calculadas
-        # (Contenedores con dimensiones calculadas se tratan como elementos normales)
-        normal_elements = [e for e in layout.elements
-                          if 'contains' not in e or e.get('_is_container_calculated', False)]
+        # Containers (con o sin dimensiones calculadas) son fondos
+        # semi-transparentes — los labels y otros iconos legítimamente viven
+        # dentro de ellos. No deben contar como obstáculo para el detector
+        # de colisiones (mismo razonamiento que BUGS-AUTO-003 en
+        # label_intersects_elements). El solape container-vs-container ya
+        # lo resuelve _resolve_container_overlaps en el positioner
+        # (BUGS-AUTO-004).
+        normal_elements = [e for e in layout.elements if 'contains' not in e]
 
         # Bboxes de íconos
         for elem in normal_elements:

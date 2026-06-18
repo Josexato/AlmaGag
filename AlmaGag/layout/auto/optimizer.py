@@ -222,6 +222,16 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         # 2.6. Calcular canvas desde bounds de todos los elementos posicionados
         self._calculate_canvas_from_bounds(current)
 
+        # 2.65. Normalizar a coords no-negativas ANTES del loop de optimización.
+        # Sin esto el optimizer ve bboxes con coords negativas (containers
+        # cortados por el borde tras 2.5.5) y la heurística de víctimas
+        # genera movimientos enormes intentando "alejarse" de un fantasma
+        # en coords negativas — termina solapando containers (caso 07-containers
+        # donde frontend-module se movía ~357px a la izquierda encima de
+        # backend-module). Llamarlo acá deja al optimizer trabajar con
+        # un layout sano (BUGS-AUTO-002 / BUGS-AUTO-004).
+        self._normalize_to_canvas(current)
+
         # 2.7. Routing único: calcular paths con canvas y posiciones finales
         self.routing.route(current)
         self._log("Routing calculado")

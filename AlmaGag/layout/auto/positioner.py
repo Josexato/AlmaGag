@@ -227,12 +227,76 @@ class AutoLayoutPositioner:
                     ey = elem['y']
 
         logger.debug(f"  Ajustes realizados: {adjustments}")
+
+        # BUGS-AUTO-004: detectar y resolver solape entre containers.
+        # El positioner pone containers en niveles topológicos pero no chequea
+        # solape geométrico — frontend (nivel 0) puede terminar encima de
+        # backend (nivel 1) si frontend es alto y backend arranca temprano.
+        # Empujamos el container con y mayor hacia abajo hasta separarlos.
+        self._resolve_container_overlaps(containers, layout, MARGIN)
+
         logger.debug("[FIN AJUSTE]\n")
 
         # Mark that hierarchical layout positions are authoritative
         layout._hierarchical_layout_applied = True
 
         return layout
+
+    def _resolve_container_overlaps(self, containers, layout, margin):
+        """
+        Empuja containers solapados hacia abajo hasta separarlos.
+
+        Estrategia: ordenar por y, y para cada par solapado mover el más bajo
+        (mayor y) debajo del más alto. Mover un container implica mover sus
+        descendientes (mismo dy) para preservar la composición.
+        """
+        if len(containers) < 2:
+            return
+
+        for _ in range(len(containers)):  # iterar varias veces por cascada
+            changed = False
+            sorted_c = sorted(containers, key=lambda c: c.get('y', 0))
+            for i, c1 in enumerate(sorted_c):
+                if 'x' not in c1 or 'y' not in c1:
+                    continue
+                c1x1, c1y1 = c1['x'], c1['y']
+                c1x2 = c1x1 + c1.get('width', ICON_WIDTH)
+                c1y2 = c1y1 + c1.get('height', ICON_HEIGHT)
+                for c2 in sorted_c[i+1:]:
+                    if 'x' not in c2 or 'y' not in c2:
+                        continue
+                    c2x1, c2y1 = c2['x'], c2['y']
+                    c2x2 = c2x1 + c2.get('width', ICON_WIDTH)
+                    c2y2 = c2y1 + c2.get('height', ICON_HEIGHT)
+                    overlap_x = c1x1 < c2x2 and c2x1 < c1x2
+                    overlap_y = c1y1 < c2y2 and c2y1 < c1y2
+                    if overlap_x and overlap_y:
+                        # Mover c2 (el más bajo) debajo de c1
+                        dy = (c1y2 + margin) - c2y1
+                        if dy > 0:
+                            self._shift_container_subtree(c2, layout, 0, dy)
+                            changed = True
+                            logger.debug(
+                                f"    [OVERLAP] {c2['id']}: Y +{dy:.0f} "
+                                f"(evitar {c1['id']})"
+                            )
+            if not changed:
+                break
+
+    def _shift_container_subtree(self, container, layout, dx, dy):
+        """Mueve un container + todos sus descendientes por (dx, dy)."""
+        container['x'] += dx
+        container['y'] += dy
+        # Mover descendientes recursivamente
+        for ref in container.get('contains', []):
+            ref_id = extract_item_id(ref)
+            child = layout.elements_by_id.get(ref_id)
+            if child and 'x' in child and 'y' in child:
+                if 'contains' in child:
+                    self._shift_container_subtree(child, layout, dx, dy)
+                else:
+                    child['x'] += dx
+                    child['y'] += dy
 
     def _calculate_hierarchical_layout(self, layout: Layout, elements: List[dict]):
         """

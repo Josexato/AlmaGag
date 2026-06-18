@@ -250,6 +250,29 @@ Reproducción (`07-containers`, pre-fix): "queries" (centro de su línea en x=19
 
 ---
 
+### BUGS-AUTO-004: Containers Solapados sin Resolución (AUTO) ✅ RESUELTO
+**Componente**: `AlmaGag/layout/auto/positioner.py` + `AlmaGag/layout/collision.py`
+**Severidad**: **Alta** (solape visible entre containers)
+**Reportado**: 2026-06-18 (cuarta inspección del usuario sobre `07-containers.svg`)
+**Resuelto**: 2026-06-18
+
+**Causa raíz** (doble):
+1. **`recalculate_positions_with_expanded_containers()` solo movía elementos libres**, nunca chequeaba container-vs-container. Frontend (nivel topológico 0, alto=233) y Backend (nivel 1) terminaban solapando 137×65 sin que nadie lo arreglara.
+2. **El detector general (`CollisionDetector._collect_all_bboxes`) contaba el rect de cada container como obstáculo sólido** — mismo bug que AUTO-003 pero en otro path. Inflaba colisiones falsas y el hill-climbing reportaba 13 colisiones sin poder bajarlas, así que se rendía.
+
+**Fix aplicado**:
+- **`positioner._resolve_container_overlaps()`** (nuevo): tras mover free_elements, ordena containers por `y` e itera cascada de empujones — si dos containers solapan, el de mayor `y` se desplaza debajo del otro (+ margen).
+- **`positioner._shift_container_subtree()`** (nuevo): mueve un container y todos sus descendientes por `(dx, dy)` preservando la composición interna.
+- **`collision._collect_all_bboxes()`**: excluye TODOS los containers (con o sin `_is_container_calculated`). Son fondos semi-transparentes.
+
+**Validación**:
+- `07-containers`: overlap **137×65 → 137×0** (containers separados verticalmente con 40px de gap).
+- Colisiones reales: **13 → 4**. Las 4 que quedan son falsos positivos legítimos (conn label cerca de su propia conexión, dos "HTTP requests" solapando entre sí — caso a resolver con repulsión de labels).
+- Solo `07-containers` afectado entre canonicals (el único con containers solapados).
+- Smoke 46/46 OK, tests 19 passed, determinismo intacto.
+
+---
+
 ### BUGS-LAF-002: Layout Pobre con Contenedores Hermanos sin Conexiones (caso "dashboard") ✅ RESUELTO
 **Componente**: `AlmaGag/layout/laf/optimizer.py` — Fase 1.5 (dashboard reflow) + Fase 9 (redistribución)
 **Severidad**: Media
@@ -744,7 +767,7 @@ Reemplazado el placeholder "v2.2 - (Futuro)" por 3 entradas nuevas que cubren ~1
 | **LAYOUT** | 3 (3 resueltos ✅) | 3 (3 resueltos ✅) | 6 |
 | **LAF** | 2 (ambos resueltos ✅) | 1 (resuelto ✅) | 3 |
 | **ARCH** | 0 | 3 (3 resueltos ✅) | 3 |
-| **AUTO** | 3 (3 resueltos ✅) | 0 | 3 |
+| **AUTO** | 4 (4 resueltos ✅) | 0 | 4 |
 | **DOCS** | 0 | 2 (2 resueltos ✅) | 2 |
 | **DIAG** | 8 (8 resueltos ✅) | 0 | 8 |
 | **Total** | **13** | **9** | **22** |
