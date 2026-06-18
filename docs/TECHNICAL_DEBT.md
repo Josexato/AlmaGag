@@ -178,8 +178,65 @@ Detectar "modo dashboard" (cluster de contenedores sin conexiones inter-cluster)
 4. `LAFRoutingPolicy` se uniformó con `AutoRoutingPolicy` — acepta `sizing` y construye `router_manager` internamente. Modo legacy preservado.
 5. `generator.py` ahora usa **factoría** (`OPTIMIZERS = {'auto': ..., 'laf': ...}`) en lugar de `if/elif`. Una sola llamada a `optimizer.optimize(...)` para ambos.
 
-**Lo que NO se hizo en este fix** (queda como follow-up):
-- `layout_algorithm` sigue propagándose a `render_containers()` y `draw_container()` para decidir si dibujar el icono inline (AUTO) o como elemento separado (LAF). Es una decisión de **renderizado**, no de optimizer. Se puede atacar en un fix futuro agregando un flag al `Layout` o unificando el comportamiento.
+**Lo que NO se hizo en este fix** (queda como deuda separada):
+- `layout_algorithm` sigue propagándose a `render_containers()` y `draw_container()` para decidir si dibujar el icono inline (AUTO) o como elemento separado (LAF). Es una decisión de **renderizado**, no de optimizer. Registrado como **WISH-ARCH-002**.
+
+---
+
+### WISH-ARCH-002: Eliminar `layout_algorithm` del Renderer
+**Componente**: `AlmaGag/renderer.py` + `AlmaGag/draw/container.py`
+**Severidad**: Media
+**Reportado**: 2026-06-18 (follow-up explícito de WISH-ARCH-001)
+
+**Descripción**:
+Tras resolver WISH-ARCH-001 (contrato del optimizer unificado), queda un residuo de la asimetría AUTO/LAF **en la capa de renderizado**: el parámetro `layout_algorithm` se sigue pasando a `render_containers()` y `draw_container()` para decidir cómo dibujar el icono del container.
+
+**Comportamiento actual**:
+- **AUTO**: el icono del container se pinta **inline**, en la esquina superior izquierda del rect del container.
+- **LAF**: el icono del container se pinta como **elemento separado**, con su propia (x, y) en el grid del SVG.
+
+El renderer necesita saber qué algoritmo produjo el layout para elegir el modo. Eso es:
+1. **Acoplamiento innecesario**: el renderer está atado a los nombres `'auto'` / `'laf'`.
+2. **Falsa extensibilidad**: agregar un tercer algoritmo requeriría tocar el renderer.
+3. **Decisión en el lugar equivocado**: "¿el icono va inline o separado?" es info del **layout** (cómo se posicionaron los containers), no del **algoritmo** abstracto.
+
+**Por qué es WISH y no BUGS**:
+El código **funciona correctamente** — ambos modos producen renders válidos. Es asimetría arquitectural que querrías limpiar, no un bug funcional.
+
+**Solución propuesta — Opción A (recomendada): Flag en el container**
+
+Cada optimizer marca los containers con cómo deben renderizarse:
+
+```python
+# AutoLayoutOptimizer.optimize() antes de retornar:
+for container in containers:
+    container['_icon_inline'] = True
+
+# LAFOptimizer.optimize() antes de retornar:
+for container in containers:
+    container['_icon_inline'] = False  # el icono es elemento separado
+```
+
+Renderer queda agnóstico:
+```python
+def draw_container(dwg, container, elements_by_id, draw_label=True, draw_icon=True):
+    # Ya no recibe layout_algorithm
+    if draw_icon and container.get('_icon_inline', True):
+        # dibuja el icono en la esquina
+```
+
+**Soluciones alternativas**:
+- **B**: Unificar comportamiento (ambos algoritmos rinden inline, o ambos separado). Cambio visual visible en SVGs existentes.
+- **C**: Strategy pattern en el renderer (`InlineIconContainerRenderer` / `SeparateIconContainerRenderer`). Más OOP pero overkill.
+
+**Impacto del fix**:
+- Cambio: ~3-5 líneas en cada optimizer + simplificación en `draw/container.py` y `renderer.py`.
+- Re-render afectado: 5 SVGs con containers, deberían quedar visualmente idénticos.
+- Riesgo: bajo. Cambio puramente refactorial.
+
+**Estimación**: ~30 min de implementación + 15 min de validación visual.
+
+**Prioridad**: Media (deuda residual de WISH-ARCH-001; mejora cosmética del código).
 
 **Validación**: 46/46 SVGs smoke OK; determinismo 3/3 archivos × 3 seeds intacto; tests 17/2.
 
@@ -347,12 +404,13 @@ Permitir al usuario especificar restricciones en el SDJF:
 |---|---:|---:|---:|
 | **LAYOUT** | 3 (1 resuelto) | 3 | 6 |
 | **LAF** | 2 | 1 | 3 |
-| **ARCH** | 0 | 1 (resuelto ✅) | 1 |
+| **ARCH** | 0 | 2 (1 resuelto ✅) | 2 |
 | **AUTO** | 0 | 0 | 0 |
 | **DIAG** | 8 (8 resueltos ✅) | 0 | 8 |
-| **Total** | **13** | **5** | **18** |
+| **Total** | **13** | **6** | **19** |
 
 Conteos DIAG viven en `DIAGRAM_REVIEW.md` — **los 8 BUGS-DIAG están RESUELTOS al 2026-06-15**.
+**WISH-ARCH-001 resuelto al 2026-06-18.**
 
 Problemas visuales DIAG (8 entradas) viven en `DIAGRAM_REVIEW.md`.
 
