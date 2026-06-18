@@ -23,7 +23,7 @@ from AlmaGag.generator import generate_diagram
 
 def test_no_duplicate_container_labels():
     """Verifica que cada label de contenedor aparece exactamente 1 vez"""
-    test_file = "examples/05-arquitectura-gag.sdjf"
+    test_file = "docs/diagrams/gags/05-arquitectura-gag.gag"
 
     if not os.path.exists(test_file):
         pytest.skip(f"{test_file} no encontrado")
@@ -36,12 +36,11 @@ def test_no_duplicate_container_labels():
     with open(svg_file, 'r', encoding='utf-8') as f:
         content = f.read()
 
-    # Labels de contenedores esperados
+    # Labels de contenedores esperados (post WISH-ARCH-001/002, ver 05-arquitectura-gag.gag)
     container_labels = [
-        'Layout Module',
-        'Routing Module',
-        'Analysis Module',
-        'Draw Module'
+        'AUTO',
+        'LAF',
+        'Shared (algoritmo-agnóstico)',
     ]
 
     for label in container_labels:
@@ -54,7 +53,7 @@ def test_no_duplicate_container_labels():
 
 def test_container_labels_inside_header():
     """Verifica que labels de contenedores están dentro del header reservado"""
-    test_file = "examples/05-arquitectura-gag.sdjf"
+    test_file = "docs/diagrams/gags/05-arquitectura-gag.gag"
 
     if not os.path.exists(test_file):
         pytest.skip(f"{test_file} no encontrado")
@@ -77,10 +76,9 @@ def test_container_labels_inside_header():
 
     # Verificar que labels de contenedores conocidos están dentro de sus bounds
     expected_labels = {
-        'layout': 'Layout Module',
-        'routing': 'Routing Module',
-        'analysis': 'Analysis Module',
-        'draw': 'Draw Module'
+        'auto_box': 'AUTO',
+        'laf_box': 'LAF',
+        'shared_box': 'Shared (algoritmo-agnóstico)',
     }
 
     for container_id, height, y_str in containers:

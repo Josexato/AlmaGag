@@ -6,7 +6,7 @@ Esta carpeta contiene **el mismo diagrama de arquitectura** renderizado con dos 
 
 | Archivo | Motor | Tamaño | Notas |
 |---|---|---:|---|
-| `../svgs/05-arquitectura-gag.svg` | **AlmaGag** (AUTO, post-fixes BUGS-DIAG-*) | ~100 KB | Generado desde `../gags/05-arquitectura-gag.sdjf` |
+| `../svgs/05-arquitectura-gag.svg` | **AlmaGag** (AUTO, post-fixes BUGS-DIAG-*) | ~25 KB | Generado desde `../gags/05-arquitectura-gag.gag` (con iconos custom) |
 | `architecture.mmd` | Mermaid (fuente) | ~4 KB | Texto declarativo. Renderizable en GitHub directamente. |
 | `architecture.svg` | Mermaid (rendered) | ~150 KB | Generado con `mmdc` (mermaid-cli). |
 | `architecture.png` | Mermaid (rendered) | ~110 KB | Misma fuente, formato raster. |
@@ -54,7 +54,7 @@ Mermaid es un buen baseline porque:
 
 ### El diagrama de AlmaGag
 ```bash
-almagag docs/diagrams/gags/05-arquitectura-gag.sdjf \
+almagag docs/diagrams/gags/05-arquitectura-gag.gag \
   -o docs/diagrams/svgs/05-arquitectura-gag.svg
 ```
 

@@ -106,7 +106,7 @@ Los diagramas de ejemplo estan en `docs/diagrams/gags/`:
 python scripts/generate_docs.py
 
 # Generar uno especifico
-almagag docs/diagrams/gags/05-arquitectura-gag.sdjf --layout-algorithm=laf -o docs/diagrams/svgs/05-arquitectura-gag.svg
+almagag docs/diagrams/gags/05-arquitectura-gag.gag --layout-algorithm=laf -o docs/diagrams/svgs/05-arquitectura-gag.svg
 ```
 
 ## Licencia

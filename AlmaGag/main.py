@@ -21,7 +21,7 @@ Ejemplos:
   almagag archivo.sdjf --layout-algorithm=laf --debug              # Usar LAF (minimiza cruces)
   almagag archivo.sdjf --layout-algorithm=laf --visualize-growth   # LAF + visualización de fases
   almagag archivo.sdjf --layout-algorithm=laf --color-connections  # LAF + conexiones coloreadas
-  python -m AlmaGag.main examples/05-arquitectura-gag.sdjf --debug --visualdebug
+  python -m AlmaGag.main docs/diagrams/gags/05-arquitectura-gag.gag --debug --visualdebug
         """
     )
     parser.add_argument(

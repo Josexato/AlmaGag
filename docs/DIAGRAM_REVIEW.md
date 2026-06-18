@@ -8,7 +8,7 @@ Sigue la misma convención de códigos que `TECHNICAL_DEBT.md`: `<CATEGORÍA>-DI
 
 ## 05-arquitectura-gag.svg
 
-**Fuente:** `docs/diagrams/gags/05-arquitectura-gag.sdjf`
+**Fuente:** `docs/diagrams/gags/05-arquitectura-gag.gag` (con iconos custom: factory/gear/brush/pipeline/contract/toolbox)
 **Render actual:** AUTO (post-BUGS-LAYOUT-003 fix), sin `--visualdebug`, canvas 2012×2072
 **Histórico:** LAF + `--visualdebug` produjo canvas 5230×2360; sin debug LAF produce 11397×2300 (BUGS-LAF-002 manifestándose).
 **Última revisión:** 2026-06-15

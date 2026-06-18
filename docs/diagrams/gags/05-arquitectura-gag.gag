@@ -1,0 +1,104 @@
+{
+  "icons": {
+    "factory": "<svg viewBox='0 0 80 50'><rect x='8' y='22' width='64' height='22' fill='currentColor' stroke='black' stroke-width='2'/><rect x='18' y='10' width='8' height='14' fill='currentColor' stroke='black' stroke-width='1.5'/><rect x='44' y='4' width='8' height='20' fill='currentColor' stroke='black' stroke-width='1.5'/><path d='M 22 10 Q 22 5 26 5' fill='none' stroke='#444' stroke-width='1'/><path d='M 48 4 Q 48 -1 52 -1' fill='none' stroke='#444' stroke-width='1'/><rect x='16' y='30' width='9' height='9' fill='#fffbe6' stroke='black' stroke-width='1'/><rect x='35' y='30' width='9' height='9' fill='#fffbe6' stroke='black' stroke-width='1'/><rect x='54' y='30' width='9' height='9' fill='#fffbe6' stroke='black' stroke-width='1'/></svg>",
+
+    "gear": "<svg viewBox='0 0 80 50'><circle cx='40' cy='25' r='13' fill='currentColor' stroke='black' stroke-width='2'/><rect x='38' y='4' width='4' height='8' fill='currentColor' stroke='black' stroke-width='1.5'/><rect x='38' y='38' width='4' height='8' fill='currentColor' stroke='black' stroke-width='1.5'/><rect x='17' y='23' width='8' height='4' fill='currentColor' stroke='black' stroke-width='1.5'/><rect x='55' y='23' width='8' height='4' fill='currentColor' stroke='black' stroke-width='1.5'/><rect x='22' y='10' width='4' height='8' transform='rotate(-45 24 14)' fill='currentColor' stroke='black' stroke-width='1.5'/><rect x='54' y='32' width='4' height='8' transform='rotate(-45 56 36)' fill='currentColor' stroke='black' stroke-width='1.5'/><rect x='22' y='32' width='4' height='8' transform='rotate(45 24 36)' fill='currentColor' stroke='black' stroke-width='1.5'/><rect x='54' y='10' width='4' height='8' transform='rotate(45 56 14)' fill='currentColor' stroke='black' stroke-width='1.5'/><circle cx='40' cy='25' r='5' fill='white' stroke='black' stroke-width='1.5'/></svg>",
+
+    "brush": "<svg viewBox='0 0 80 50'><rect x='6' y='21' width='32' height='8' fill='currentColor' stroke='black' stroke-width='1.5' rx='1'/><rect x='36' y='17' width='14' height='16' fill='#8b4513' stroke='black' stroke-width='1.5'/><polygon points='48,17 72,11 72,39 48,33' fill='currentColor' stroke='black' stroke-width='1.5'/><line x1='53' y1='14' x2='53' y2='36' stroke='black' stroke-width='0.5' opacity='0.5'/><line x1='60' y1='12' x2='60' y2='38' stroke='black' stroke-width='0.5' opacity='0.5'/><line x1='66' y1='11' x2='66' y2='39' stroke='black' stroke-width='0.5' opacity='0.5'/></svg>",
+
+    "pipeline": "<svg viewBox='0 0 80 50'><rect x='8' y='6' width='64' height='6' fill='currentColor' stroke='black' stroke-width='1' rx='2'/><rect x='8' y='15' width='64' height='6' fill='currentColor' stroke='black' stroke-width='1' rx='2' opacity='0.85'/><rect x='8' y='24' width='64' height='6' fill='currentColor' stroke='black' stroke-width='1' rx='2' opacity='0.7'/><rect x='8' y='33' width='64' height='6' fill='currentColor' stroke='black' stroke-width='1' rx='2' opacity='0.55'/><rect x='8' y='42' width='64' height='4' fill='currentColor' stroke='black' stroke-width='1' rx='2' opacity='0.4'/></svg>",
+
+    "contract": "<svg viewBox='0 0 80 50'><rect x='10' y='5' width='60' height='40' fill='white' stroke='currentColor' stroke-width='2.5' stroke-dasharray='5,3' rx='3'/><text x='40' y='30' font-family='monospace' font-size='13' font-weight='bold' fill='currentColor' text-anchor='middle'>«abstract»</text><line x1='18' y1='13' x2='62' y2='13' stroke='currentColor' stroke-width='0.8' opacity='0.5'/><line x1='18' y1='38' x2='62' y2='38' stroke='currentColor' stroke-width='0.8' opacity='0.5'/></svg>",
+
+    "toolbox": "<svg viewBox='0 0 80 50'><rect x='10' y='15' width='60' height='30' fill='currentColor' stroke='black' stroke-width='2' rx='2'/><rect x='28' y='6' width='24' height='10' fill='currentColor' stroke='black' stroke-width='1.5' rx='1'/><line x1='40' y1='15' x2='40' y2='45' stroke='black' stroke-width='1.5'/><circle cx='40' cy='15' r='2.5' fill='#fffbe6' stroke='black' stroke-width='1'/><rect x='15' y='22' width='8' height='6' fill='#fffbe6' stroke='black' stroke-width='0.8'/><rect x='57' y='22' width='8' height='6' fill='#fffbe6' stroke='black' stroke-width='0.8'/><circle cx='19' cy='37' r='2.5' fill='#fffbe6' stroke='black' stroke-width='0.8'/><circle cx='61' cy='37' r='2.5' fill='#fffbe6' stroke='black' stroke-width='0.8'/></svg>"
+  },
+
+  "canvas": { "width": 2200, "height": 1500 },
+
+  "elements": [
+    { "id": "input", "type": "document", "label": "archivo.sdjf\n(o .gag con iconos custom)", "color": "lightblue", "x": 100, "y": 60 },
+
+    { "id": "main", "type": "server", "label": "main.py\nCLI + argparse", "color": "lightgreen", "x": 450, "y": 60 },
+
+    { "id": "generator", "type": "factory", "label": "generator.py\nOPTIMIZERS = {'auto':…, 'laf':…}\n187 líneas", "color": "gold", "x": 850, "y": 60 },
+
+    { "id": "contract", "type": "contract", "label": "LayoutOptimizer\n(clase base abstracta)", "color": "purple", "x": 1450, "y": 60 },
+
+    {
+      "id": "auto_box",
+      "type": "building",
+      "label": "AUTO",
+      "color": "lightblue",
+      "x": 60,
+      "y": 320,
+      "contains": [
+        { "id": "auto_opt", "scope": "full" },
+        { "id": "auto_rend", "scope": "full" }
+      ]
+    },
+    { "id": "auto_opt", "type": "gear", "label": "AutoLayoutOptimizer\n(híbrido + hill climbing)", "color": "lightskyblue" },
+    { "id": "auto_rend", "type": "brush", "label": "AutoSVGRenderer\n(icono inline)", "color": "lightskyblue" },
+
+    {
+      "id": "laf_box",
+      "type": "building",
+      "label": "LAF",
+      "color": "lightgreen",
+      "x": 720,
+      "y": 320,
+      "contains": [
+        { "id": "laf_opt", "scope": "full" },
+        { "id": "laf_pipe", "scope": "full" },
+        { "id": "laf_rend", "scope": "full" }
+      ]
+    },
+    { "id": "laf_opt", "type": "gear", "label": "LAFOptimizer\n(self-contained)", "color": "lightgreen" },
+    { "id": "laf_pipe", "type": "pipeline", "label": "Pipeline LAF\n11 fases + 1.5 dashboard reflow\n(Sugiyama)", "color": "lightgreen" },
+    { "id": "laf_rend", "type": "brush", "label": "LAFSVGRenderer\n(icono separado + NdFn)", "color": "lightgreen" },
+
+    {
+      "id": "shared_box",
+      "type": "firewall",
+      "label": "Shared (algoritmo-agnóstico)",
+      "color": "orange",
+      "x": 1380,
+      "y": 320,
+      "contains": [
+        { "id": "layout_obj", "scope": "full" },
+        { "id": "draw_svg", "scope": "full" },
+        { "id": "router_mgr", "scope": "full" },
+        { "id": "geometry_utils", "scope": "full" }
+      ]
+    },
+    { "id": "layout_obj", "type": "database", "label": "Layout\n(Value Object inmutable)", "color": "wheat" },
+    { "id": "draw_svg", "type": "toolbox", "label": "draw/svg.py\nprimitivas SVG\n(create_canvas, markers,\nndfn_wrap, draw_connections)", "color": "wheat" },
+    { "id": "router_mgr", "type": "router", "label": "ConnectionRouterManager\n(routing/router_manager.py)", "color": "wheat" },
+    { "id": "geometry_utils", "type": "building", "label": "Geometry + Collision\n+ GraphAnalyzer\n+ LabelOptimizer", "color": "wheat" },
+
+    { "id": "output", "type": "document", "label": "archivo.svg", "color": "lightblue", "x": 1000, "y": 1320 }
+  ],
+
+  "connections": [
+    { "from": "input", "to": "main", "direction": "forward" },
+    { "from": "main", "to": "generator", "direction": "forward" },
+
+    { "from": "generator", "to": "auto_opt", "label": "OPTIMIZERS['auto']", "direction": "forward" },
+    { "from": "generator", "to": "laf_opt", "label": "OPTIMIZERS['laf']", "direction": "forward" },
+
+    { "from": "auto_opt", "to": "contract", "label": "hereda", "direction": "forward" },
+    { "from": "laf_opt", "to": "contract", "label": "hereda", "direction": "forward" },
+
+    { "from": "laf_opt", "to": "laf_pipe", "direction": "forward" },
+    { "from": "auto_opt", "to": "auto_rend", "direction": "forward" },
+    { "from": "laf_pipe", "to": "laf_rend", "direction": "forward" },
+
+    { "from": "auto_opt", "to": "router_mgr", "label": "paths", "direction": "forward" },
+    { "from": "laf_pipe", "to": "router_mgr", "label": "Fase 10", "direction": "forward" },
+
+    { "from": "auto_rend", "to": "draw_svg", "direction": "forward" },
+    { "from": "laf_rend", "to": "draw_svg", "direction": "forward" },
+
+    { "from": "auto_rend", "to": "output", "direction": "forward" },
+    { "from": "laf_rend", "to": "output", "direction": "forward" }
+  ]
+}
