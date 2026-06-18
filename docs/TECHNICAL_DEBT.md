@@ -154,6 +154,52 @@ Después: Canvas 1240×700  left_margin=100  right_margin=100  Δ=0   (simétric
 
 ---
 
+### BUGS-AUTO-001: Labels Huérfanas en AUTO con Contenedores ✅ RESUELTO
+**Componente**: `AlmaGag/layout/auto/optimizer.py` — `optimize()` paso 2.5.6
+**Severidad**: **Alta** (visualmente roto en cualquier diagrama AUTO con containers)
+**Reportado**: 2026-06-18 (detectado por inspección del usuario sobre `07-containers.svg`)
+**Resuelto**: 2026-06-18
+
+**Causa raíz**:
+En `AutoLayoutOptimizer.optimize()`, el orden de pasos era:
+1. Paso 2 — calcular `label_positions` para todos los elementos según sus coords actuales.
+2. Pasos 2.5 / 2.5.4 / 2.5.5 — re-resolver containers, propagar coords locales, redistribuir elementos primarios. **Estos movían los íconos.**
+3. ... pero las `label_positions` calculadas en el paso 2 **NUNCA se recalculaban** tras ese movimiento.
+
+Resultado: las etiquetas de los elementos contenidos (api, db, webapp, mobile, …) renderizaban en posiciones donde el ícono **ya no estaba**. En `07-containers.svg` las labels "REST API" y "Database" aparecían al fondo del canvas (y=663) huérfanas, mientras los íconos estaban arriba (y=280).
+
+Reproducción (pre-fix):
+```
+api icon final position:  (-43, 280)
+api label final position: (190, 663)  ← 513px de distancia vertical
+```
+
+**Fix aplicado**:
+Nuevo paso **2.5.6** en `optimize()`: tras la redistribución (paso 2.5.5), limpiar `label_positions` y `connection_labels`, y volver a llamar `_calculate_initial_positions(current)` con las coords finales de los íconos.
+
+```python
+current.label_positions = {}
+current.connection_labels = {}
+self._calculate_initial_positions(current)
+```
+
+Post-fix:
+```
+api icon:  (-43, 280)
+api label: (-3, 350)  ← bottom del ícono ✓
+```
+
+**Validación**:
+- 2 canonical SVGs regenerados con el fix:
+  - `07-containers.svg`: labels REST API/Database/Web App/Mobile App/Redis Cache ahora pegadas a sus íconos.
+  - `reference-cheatsheet.svg`: misma causa raíz, también corregido.
+- Smoke 46/46 OK, tests 19 passed, determinismo intacto.
+- 21/23 canonical SVGs sin cambios (solo los que tienen containers se ven afectados).
+
+**Nota**: el fix no resuelve el problema **separado** de que algunos containers en `07-containers` quedan parcialmente off-canvas (icon `backend-module` a x=-93). Eso es un bug distinto sobre el cálculo de containers en AUTO, no sobre labels. Pendiente de evaluar si abrir como `BUGS-AUTO-002`.
+
+---
+
 ### BUGS-LAF-002: Layout Pobre con Contenedores Hermanos sin Conexiones (caso "dashboard") ✅ RESUELTO
 **Componente**: `AlmaGag/layout/laf/optimizer.py` — Fase 1.5 (dashboard reflow) + Fase 9 (redistribución)
 **Severidad**: Media
@@ -648,7 +694,7 @@ Reemplazado el placeholder "v2.2 - (Futuro)" por 3 entradas nuevas que cubren ~1
 | **LAYOUT** | 3 (3 resueltos ✅) | 3 (3 resueltos ✅) | 6 |
 | **LAF** | 2 (ambos resueltos ✅) | 1 (resuelto ✅) | 3 |
 | **ARCH** | 0 | 3 (3 resueltos ✅) | 3 |
-| **AUTO** | 0 | 0 | 0 |
+| **AUTO** | 1 (resuelto ✅) | 0 | 1 |
 | **DOCS** | 0 | 2 (2 resueltos ✅) | 2 |
 | **DIAG** | 8 (8 resueltos ✅) | 0 | 8 |
 | **Total** | **13** | **9** | **22** |

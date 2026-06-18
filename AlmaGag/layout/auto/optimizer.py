@@ -208,6 +208,17 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         self.positioner.recalculate_positions_with_expanded_containers(current)
         self._log("Elementos primarios redistribuidos con contenedores expandidos")
 
+        # 2.5.6. CRÍTICO: Recalcular label_positions con las posiciones FINALES de los íconos.
+        # Antes de este paso, los labels se calcularon en step 2 con coords originales,
+        # pero los íconos se movieron en steps 2.5/2.5.4/2.5.5 (containers
+        # recalculados, coords propagadas, redistribución). Sin este recálculo
+        # las etiquetas quedan "huérfanas" en posiciones donde el ícono YA NO está
+        # (visible en 07-containers como labels REST API/Database al fondo del canvas).
+        current.label_positions = {}
+        current.connection_labels = {}
+        self._calculate_initial_positions(current)
+        self._log("Label positions recalculadas tras movimiento de íconos por containers")
+
         # 2.6. Calcular canvas desde bounds de todos los elementos posicionados
         self._calculate_canvas_from_bounds(current)
 
