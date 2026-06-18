@@ -477,23 +477,30 @@ Estos follow-ups se registran agrupados como `WISH-LAF-001 follow-up`.
 
 ---
 
-### WISH-LAYOUT-001: Sistema de Etiquetas Inteligente
+### WISH-LAYOUT-001: Sistema de Etiquetas Inteligente ✅ RESUELTO (cerrado por implementaciones existentes + follow-ups específicos)
 **Componente**: Label positioning (transversal)
 **Severidad**: Enhancement
 **Reportado**: 2026-01-21
+**Resuelto**: 2026-06-18
 
-**Descripción**:
-Las etiquetas actualmente se posicionan con reglas fijas. Un sistema inteligente podría:
-- Detectar colisiones de etiquetas entre sí y con elementos.
-- Ajustar posición automáticamente (arriba/abajo/laterales).
-- Usar "leaders" (líneas guía) cuando necesite separar etiqueta del elemento.
+**Por qué se cierra**:
+El ticket original era un paraguas vago. Al auditar el código, los 3 sub-objetivos están cubiertos por implementaciones existentes o por tickets más específicos.
 
-**Beneficios**:
-- Diagramas más limpios.
-- Menos intervención manual del usuario.
-- Mejor densidad de información.
+**Mapeo bullet-a-implementación**:
 
-**Referencias**:
+| Sub-objetivo original | Estado | Implementación |
+|---|---|---|
+| Detectar colisiones de etiquetas entre sí y con elementos | ✅ Cubierto | `AlmaGag/layout/label_optimizer.py::LabelPositionOptimizer` con penalty system (`PENALTY_COLLISION_ELEMENT=100`, `PENALTY_COLLISION_LABEL=50`, `PENALTY_COLLISION_LINE=75`). Detección activa en cada render. |
+| Ajustar posición automáticamente (arriba/abajo/laterales) | ✅ Cubierto | `LabelPositionOptimizer.optimize_labels()` prueba posiciones canónicas en orden (`bottom`, `right`, `top`, `left`) eligiendo la de menor score combinado (colisiones + densidad local + bounds). |
+| Usar "leaders" (líneas guía) cuando se separa etiqueta del elemento | ✅ Cubierto | `WISH-LAYOUT-003` resuelto al 2026-06-18: `AlmaGag/draw/primitives/callout.py::draw_callout()` dibuja un leader line semipunteado desde el centro del icono al callout box. |
+
+**Lo que sigue siendo deuda** (registrado como follow-ups específicos, no parte del paraguas original):
+
+- **`WISH-LAYOUT-002` follow-up** (`constraints.near` / `constraints.avoid`): integración de proximidad/alejamiento en el barycenter de Fase 4. NO es de etiquetas; lo agrupé acá al cerrar v1 porque ambos tocan posicionamiento, pero conceptualmente no pertenece a este paraguas.
+- **`WISH-LAF-001` follow-up** (edge straightening + heurística por tipo): optimización de cruces en Fase 5. NO es de etiquetas; misma razón.
+- **Mejora del placement de callouts** (smart placement vía `CollisionDetector` en lugar del fallback derecha→abajo actual): es una mejora natural del callout v1 pero queda fuera de este paraguas — abrir si hace falta como `WISH-LAYOUT-003` v2.
+
+**Referencias originales** (mantenidas como inspiración para futuros tickets de este área):
 - Graphviz label placement algorithms.
 - D3.js force-directed label positioning.
 
@@ -638,7 +645,7 @@ Reemplazado el placeholder "v2.2 - (Futuro)" por 3 entradas nuevas que cubren ~1
 
 | | BUGS | WISH | Total |
 |---|---:|---:|---:|
-| **LAYOUT** | 3 (3 resueltos ✅) | 3 (2 resueltos ✅) | 6 |
+| **LAYOUT** | 3 (3 resueltos ✅) | 3 (3 resueltos ✅) | 6 |
 | **LAF** | 2 (ambos resueltos ✅) | 1 (resuelto ✅) | 3 |
 | **ARCH** | 0 | 3 (3 resueltos ✅) | 3 |
 | **AUTO** | 0 | 0 | 0 |
@@ -654,13 +661,15 @@ Problemas visuales DIAG (8 entradas) viven en `DIAGRAM_REVIEW.md`.
 
 ### Priorización sugerida
 
-**Backlog activo (todo WISH, ningún BUG funcional al 2026-06-18)**:
+**Backlog activo (al 2026-06-18, todo follow-ups de tickets cerrados)**:
 
 | Prioridad | Código | Resumen |
 |---|---|---|
-| Media | `WISH-LAYOUT-001` | Sistema de etiquetas inteligente (incorporaría callouts en la optimización global). |
-| Baja | `WISH-LAYOUT-002` follow-up | Implementar `constraints.near` y `constraints.avoid` (v1 cerró `align`). |
-| Baja | `WISH-LAF-001` follow-up | Edge straightening post-procesamiento + heurística por tipo de diagrama (v1 cerró pesos dinámicos). |
+| Baja | `WISH-LAYOUT-002` follow-up | Implementar `constraints.near` y `constraints.avoid` (v1 cerró `align`). Requiere integración con barycenter de Fase 4. |
+| Baja | `WISH-LAF-001` follow-up | Edge straightening post-procesamiento + heurística por tipo de diagrama (v1 cerró pesos dinámicos). Requiere modificar `position_optimizer.py`. |
+| Baja | `WISH-LAYOUT-003` v2 | Smart placement de callouts vía `CollisionDetector` (v1 usa fallback derecha→abajo). |
+
+**Todos los tickets formales originales están RESUELTOS**. Lo de arriba son extensiones acotadas y opcionales.
 
 ---
 
