@@ -597,29 +597,28 @@ Permitir al usuario especificar restricciones en el SDJF:
 
 ---
 
-### WISH-DOCS-002: Actualizar `EVOLUTION.md` con el Ciclo Actual
+### WISH-DOCS-002: Actualizar `EVOLUTION.md` con el Ciclo Actual ✅ RESUELTO
 **Componente**: `docs/architecture/EVOLUTION.md`
 **Severidad**: Baja
 **Reportado**: 2026-06-18
+**Resuelto**: 2026-06-18
 
-**Descripción**:
-`docs/architecture/EVOLUTION.md` rastrea la evolución histórica de AutoLayout usando el diagrama de arquitectura como benchmark. La última entrada documentada es **v2.1 (2025-01-06)** — Movimiento Inteligente de Elementos. Faltan **~18 meses** de evolución, incluyendo todo el sistema LAF (11 fases), TOI/NdPr, BUGS-LAYOUT-003 (determinismo), WISH-ARCH-001/002 (factoría + renderers separados), BUGS-LAF-002 (dashboard reflow / Fase 1.5), y los fixes visuales BUGS-DIAG-001..008.
+**Fix aplicado**:
+Reemplazado el placeholder "v2.2 - (Futuro)" por 3 entradas nuevas que cubren ~18 meses faltantes:
 
-**Solución propuesta**:
-Agregar entradas para:
-- v2.2-v3.x — Introducción de LAF (Sprint 1 al 11).
-- v3.3 — SDJF v2.1 + post-fixes BUGS-DIAG-*.
-- **v3.4 (2026-06-18)** — Ciclo "13 items en un sprint": Tier 1 refactor (WISH-ARCH-001/002), BUGS-LAYOUT-001/002/003, BUGS-LAF-001/002. Incluir métricas comparativas: generator.py 838→187 líneas, canvas waste 33%→18%, dashboard 24:1→1.8:1, simetría horizontal 74% de archivos LAF.
+- **v3.0 — LAF (Sprints 1-11)** — introducción del pipeline LAF de 11 fases inspirado en Sugiyama. Tabla con la responsabilidad de cada fase. Métricas vs AUTO sobre `05-arquitectura-gag`: cruces -87%, colisiones -80%.
 
-Idealmente con snapshots del SVG de arquitectura en cada versión clave para la sección "Benchmark - Diagrama de Arquitectura" que el doc ya usa.
+- **v3.3 — SDJF v2.1 + BUGS-DIAG-* (8 fixes visuales)** — pulido visual del set canonical (containers semi-transparentes, labels gigantes, bandas densas, grid spacing).
 
-**Por qué es WISH y no BUGS**:
-La doc histórica no afecta el funcionamiento. Es deuda de documentación.
+- **v3.4 — Ciclo "13 items en un sprint" (2026-06-18)** — entrada extensa del ciclo actual, con tablas separadas por categoría:
+  - Refactores: Tier 1 (WISH-ARCH-001/002, `generator.py` 838→187 líneas) + Tier 2 (WISH-ARCH-003, `visualizer.py` 2876→11 archivos).
+  - Fixes funcionales: tabla con las 5 BUGS resueltas (LAYOUT-001/002/003 + LAF-001/002) y sus métricas clave.
+  - Features: WISH-LAYOUT-003 callouts.
+  - Documentación: WISH-DOCS-001/002.
+  - Métricas globales: antes/después en una tabla.
+  - Diagrama de arquitectura: descripción del nuevo `.gag` con iconos custom.
 
-**Impacto del fix**:
-1-2 horas si se hace conservador (solo agregar las versiones nuevas con métricas). Más si se quiere incluir snapshots SVG históricos (requeriría checkouts de tags antiguos).
-
-**Prioridad**: Baja-media. Útil para onboarding y para contexto en futuras decisiones.
+**Validación**: doc renderiza correctamente en GitHub markdown.
 
 ---
 
@@ -633,7 +632,7 @@ La doc histórica no afecta el funcionamiento. Es deuda de documentación.
 | **LAF** | 2 (ambos resueltos ✅) | 1 | 3 |
 | **ARCH** | 0 | 3 (3 resueltos ✅) | 3 |
 | **AUTO** | 0 | 0 | 0 |
-| **DOCS** | 0 | 2 (1 resuelto ✅) | 2 |
+| **DOCS** | 0 | 2 (2 resueltos ✅) | 2 |
 | **DIAG** | 8 (8 resueltos ✅) | 0 | 8 |
 | **Total** | **13** | **9** | **22** |
 
@@ -652,7 +651,6 @@ Problemas visuales DIAG (8 entradas) viven en `DIAGRAM_REVIEW.md`.
 | Media | `WISH-LAYOUT-001` | Sistema de etiquetas inteligente (incorporaría callouts en la optimización global). |
 | Media-baja | `WISH-LAYOUT-002` | Soporte para constraints (`align`, `near`, `avoid`) en SDJF. |
 | Baja | `WISH-LAF-001` | Más optimización de cruces (pesos dinámicos en barycenter). |
-| Baja | `WISH-DOCS-002` | Actualizar `EVOLUTION.md` con el ciclo 2026. |
 
 ---
 

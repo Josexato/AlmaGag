@@ -353,13 +353,103 @@ Auto v4.0: 46 colisiones (vs 90 en v3.0)
 
 ---
 
-## v2.2 - (Futuro)
+## v3.0 - LAF (Layout Abstracto Primero) — Sprints 1-11
 
-**Objetivos:**
-- [ ] Pathfinding automático de waypoints (A*, Dijkstra)
-- [ ] Routing ortogonal automático
-- [ ] Detección de bucles para evitar cruces
-- [ ] Mover grupos de elementos relacionados
+**Fecha**: 2025-09 → 2026-02
+
+**Cambio mayor**: introducción del sistema **LAF** como algoritmo alternativo a AUTO. Pipeline de 11 fases inspirado en Sugiyama/Graphviz que ignora coordenadas manuales y minimiza cruces topológicos.
+
+Detalle de sprints (1-11) en `architecture/modules/layout/laf/PROGRESS.md`. Fases del pipeline:
+
+| Fase | Responsable | Objetivo |
+|---:|---|---|
+| 1 | `structure_analyzer.py` | Árbol + grafo + niveles + scores + NdPr + TOI VCs |
+| 2 | `optimizer.py` (viz) | Análisis topológico (visualización) |
+| 3 | `optimizer.py` | Centrality ordering sobre NdPr |
+| 4 | `abstract_placer.py` | Sugiyama barycenter |
+| 5 | `position_optimizer.py` | Layer-offset bisection |
+| 6 | `optimizer.py` | NdPr expansion |
+| 7 | `visualizer.py` | Iterative summary |
+| 8 | `inflator.py` + `container_grower.py` | Inflación + crecimiento |
+| 9 | `optimizer.py` | Redistribución vertical |
+| 10 | `routing_policy.py` → `router_manager.py` | Routing |
+| 11 | `renderer.py` | SVG generation |
+
+**Métricas clave** (sobre `05-arquitectura-gag`):
+- Cruces de conectores: 15 (AUTO) → 2 (LAF) → **-87%**.
+- Colisiones: 50 → 10 → **-80%**.
+- Routing calls: 5+ → 1 → **-80%**.
+
+---
+
+## v3.3 - SDJF v2.1 + BUGS-DIAG-* (8 fixes visuales)
+
+**Fecha**: 2026-06-15
+
+**Objetivo**: pulir 8 problemas visuales en el set canonical de SVGs renderizados, documentados en `docs/DIAGRAM_REVIEW.md` con códigos `BUGS-DIAG-001..008`. Cubren temas como:
+- Containers semi-transparentes ocultando hijos (DIAG-001).
+- Labels gigantes descalibrando layout (DIAG-002, antecedente directo de WISH-LAYOUT-003).
+- Bandas demasiado densas en el diagrama de arquitectura (DIAG-006).
+- Grid spacing dentro de containers (DIAG-007).
+
+Todos resueltos en este sprint.
+
+---
+
+## v3.4 - Ciclo "13 items en un sprint" (2026-06-18)
+
+**Fecha**: 2026-06-18
+
+**Objetivo**: cerrar deuda arquitectural acumulada + bugs funcionales pendientes. Backlog pasó de 13 BUGS funcionales + 6 WISH a **0 BUGS + 5 WISH** en una sola jornada.
+
+### Resoluciones — refactores estructurales
+
+**Tier 1 — `WISH-ARCH-001` + `WISH-ARCH-002`**: contrato `LayoutOptimizer` unificado.
+- `LAFOptimizer` ahora hereda de `LayoutOptimizer` con `optimize()` polimórfica.
+- `generator.py` usa factoría `OPTIMIZERS = {'auto':..., 'laf':...}` en vez de `if/elif`.
+- Cada optimizer trae su renderer (`AutoSVGRenderer`, `LAFSVGRenderer`).
+- Renderer compartido `AlmaGag/renderer.py` (509 líneas) **eliminado**; nuevo `AlmaGag/draw/svg.py` con primitivas agnósticas.
+- `generator.py` **838 → 187 líneas (-77%)**.
+
+**Tier 2 — `WISH-ARCH-003`**: reorganización por subdominio.
+- `draw/` plano (16 archivos) → `draw/primitives/` (4) + `draw/icons/` (11 + dispatcher).
+- `laf/visualizer.py` monolítico (2876 líneas) → paquete `laf/visualizer/` con 11 archivos (1 por fase) + class slim.
+
+### Resoluciones — fixes funcionales
+
+| Código | Resumen | Métrica clave |
+|---|---|---|
+| `BUGS-LAYOUT-003` | No-determinismo entre procesos Python | 7 puntos cerrados con `sorted()` + tie-break; 1 hash único en lugar de hasta 5. |
+| `BUGS-LAYOUT-002` | Margen vertical excesivo en canvas LAF | Waste promedio 33% → 18%. |
+| `BUGS-LAYOUT-001` | Etiquetas debug solapadas con elementos | 36/55 → 7/55 overlaps (los 7 restantes son falsos positivos). |
+| `BUGS-LAF-002` | Layout pobre con dashboards | 4 zonas: canvas 5900×243 (24:1) → 1165×656 (1.8:1). Nueva Fase 1.5 dashboard reflow. |
+| `BUGS-LAF-001` | Distribución horizontal asimétrica | 17/23 (74%) renders LAF perfectamente simétricos post-fix. |
+
+### Resoluciones — features
+
+`WISH-LAYOUT-003` — Auto-callout para labels grandes. Nuevo `draw/primitives/callout.py`; integración en ambos renderers. Umbrales conservadores (≥6 líneas / ≥150 chars) garantizan 0/23 canonicals afectados.
+
+### Resoluciones — documentación
+
+- `WISH-DOCS-001`: `architecture.mmd` benchmark sincronizado con el nuevo `.gag` (con 6 iconos custom).
+- `WISH-DOCS-002` (esta entrada): `EVOLUTION.md` actualizado con el ciclo.
+- `ARCHITECTURE.md` reescrito reflejando el estado post WISH-ARCH-001/002 + Fase 1.5 + factoría.
+
+### Métricas globales del ciclo
+
+| Métrica | Antes | Después |
+|---|---:|---:|
+| `generator.py` | 838 líneas | 187 líneas |
+| `visualizer.py` archivo único | 2876 líneas | 11 archivos, max 862 |
+| BUGS funcionales pendientes | 13 (5 LAYOUT/LAF + 8 DIAG) | 0 |
+| WISH resueltos en ciclo | 0 | 6 (2 ARCH + 1 ARCH Tier2 + 1 LAYOUT + 2 DOCS) |
+| Smoke render | 46/46 OK | 46/46 OK |
+| Tests | 17 + 2 skipped | 19 passed |
+| Determinismo (sin `--visualdebug`) | 1 hash único | 1 hash único |
+
+### Diagrama de arquitectura
+
+El `05-arquitectura-gag.svg` se regeneró con el nuevo `.gag` que contiene 6 iconos SVG custom (`factory`, `gear`, `brush`, `pipeline`, `contract`, `toolbox`) específicos para los roles arquitectónicos. Canvas final 2200×1520 con 3 colisiones detectadas.
 
 ---
 
@@ -376,4 +466,8 @@ mv 05-arquitectura-gag.svg docs/examples/
 # El objetivo es: 0 colisiones sin label_position hardcodeados
 ```
 
-El diagrama `05-arquitectura-gag.gag` NO tiene `label_position` especificados - AutoLayout debe resolverlo todo automáticamente.
+El diagrama `05-arquitectura-gag.gag` solo tiene coords manuales en los **containers padre** — los elementos contenidos se auto-acomodan dentro. Validado en v3.4 que LAF (con Fase 1.5 dashboard reflow) también lo maneja sin coords.
+
+---
+
+**Última actualización**: 2026-06-18 (v3.4 — WISH-DOCS-002).
