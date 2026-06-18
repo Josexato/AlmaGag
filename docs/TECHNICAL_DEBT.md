@@ -302,6 +302,36 @@ Resultado en `05-arquitectura-gag` antes del fix: `AutoLayoutOptimizer` con labe
 
 ---
 
+### BUGS-AUTO-006: Labels Bottom Encimados Horizontalmente Dentro de Containers ✅ RESUELTO
+**Componente**: `AlmaGag/layout/auto/optimizer.py` — `_stagger_overlapping_contained_labels` (nuevo)
+**Severidad**: **Alta** (labels ilegibles superpuestos)
+**Reportado**: 2026-06-18 (sexta inspección — tras AUTO-005 los labels quedaron dentro del container pero solapados entre sí)
+**Resuelto**: 2026-06-18
+
+**Causa raíz**:
+Tras AUTO-005, todos los labels de iconos contenidos se forzaron a `bottom`. Pero los containers estrechos con iconos juntos (ej: `auto_box` 200px de ancho con dos iconos a 100px center-to-center) tenían labels más anchos que el spacing (`AutoLayoutOptimizer (híbrido + hill climbing)` ~180px). Los bboxes se solapaban horizontalmente.
+
+Medición pre-fix en `05-arquitectura-gag`:
+- `auto_opt` ↔ `auto_rend`: overlap 60×36
+- `laf_opt` ↔ `laf_pipe`: overlap 88×36
+- `layout_obj` ↔ `draw_svg`: overlap 108×36
+- `router_mgr` ↔ `geometry_utils`: overlap 88×36
+
+**Fix aplicado**:
+Nuevo método `_stagger_overlapping_contained_labels()` llamado al final de `optimize()`. Por cada container:
+1. Recolecta labels `bottom` de los hijos directos.
+2. Ordena por x del bbox.
+3. Para cada label, si su bbox solapa horizontal Y verticalmente con uno previo, lo empuja `y2_anterior + GAP` (escalón).
+4. Si el escalón se sale del container, **expande la altura del container** para acomodar.
+
+**Validación**:
+- Overlaps entre labels post-fix: **4 → 0** en `05-arquitectura-gag`.
+- Containers expandidos automáticamente: `auto_box` 171→196, `shared_box` 305→330.
+- 4 canonicals regenerados (05-arq, 06-flujo, git, reference-cheatsheet).
+- Smoke 46/46, tests 19 passed, determinismo intacto.
+
+---
+
 ### BUGS-LAF-002: Layout Pobre con Contenedores Hermanos sin Conexiones (caso "dashboard") ✅ RESUELTO
 **Componente**: `AlmaGag/layout/laf/optimizer.py` — Fase 1.5 (dashboard reflow) + Fase 9 (redistribución)
 **Severidad**: Media
@@ -796,7 +826,7 @@ Reemplazado el placeholder "v2.2 - (Futuro)" por 3 entradas nuevas que cubren ~1
 | **LAYOUT** | 3 (3 resueltos ✅) | 3 (3 resueltos ✅) | 6 |
 | **LAF** | 2 (ambos resueltos ✅) | 1 (resuelto ✅) | 3 |
 | **ARCH** | 0 | 3 (3 resueltos ✅) | 3 |
-| **AUTO** | 5 (5 resueltos ✅) | 0 | 5 |
+| **AUTO** | 6 (6 resueltos ✅) | 0 | 6 |
 | **DOCS** | 0 | 2 (2 resueltos ✅) | 2 |
 | **DIAG** | 8 (8 resueltos ✅) | 0 | 8 |
 | **Total** | **13** | **9** | **22** |

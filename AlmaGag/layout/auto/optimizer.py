@@ -396,6 +396,12 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         # fuera del borde izquierdo/superior (BUGS-AUTO-002).
         self._normalize_to_canvas(best_layout)
 
+        # BUGS-AUTO-006: si labels de iconos contenidos quedan solapados
+        # horizontalmente en bottom (caso típico: container estrecho con
+        # iconos juntos y labels más anchos que el spacing), escalonar
+        # verticalmente y expandir el container para acomodar.
+        self._stagger_overlapping_contained_labels(best_layout)
+
         # Guardar dump final si está habilitado
         if dumper:
             dump_path = dumper.save(best_layout, min_collisions)
@@ -899,6 +905,86 @@ class AutoLayoutOptimizer(LayoutOptimizer):
 
         # Propagar coordenadas locales actualizadas (centrado)
         self.positioner._propagate_coordinates_to_contained(layout)
+
+    def _stagger_overlapping_contained_labels(self, layout: Layout) -> None:
+        """
+        Escalona verticalmente labels solapados de iconos contenidos
+        (fix BUGS-AUTO-006).
+
+        Cuando un container tiene iconos juntos y los labels son más anchos
+        que el spacing entre ellos, en `bottom` se solapan horizontalmente
+        (ej: auto_opt y auto_rend a 100px center-to-center, labels de 150px).
+
+        Estrategia: agrupar labels bottom por container, ordenar por x, y
+        para cada pareja solapada empujar el segundo a una y más baja
+        (escalón). Expandir la altura del container para acomodar.
+        """
+        GAP = 4
+        for container in layout.elements:
+            if 'contains' not in container:
+                continue
+            if 'x' not in container or 'y' not in container:
+                continue
+
+            # Recolectar labels bottom de los hijos directos
+            children_labels = []
+            for ref in container.get('contains', []):
+                ref_id = extract_item_id(ref)
+                child = layout.elements_by_id.get(ref_id)
+                pos = layout.label_positions.get(ref_id)
+                if not child or not pos:
+                    continue
+                if pos[3] != 'bottom':
+                    continue
+                bb = self.geometry.get_label_bbox(child, 'bottom')
+                if bb:
+                    children_labels.append((ref_id, child, list(bb), pos))
+
+            if len(children_labels) < 2:
+                continue
+
+            # Ordenar por x del bbox
+            children_labels.sort(key=lambda t: t[2][0])
+
+            # Resolver solapes: empujar el siguiente hacia abajo cuando hay
+            # overlap horizontal con cualquier anterior que esté a la misma y.
+            container_bottom = container['y'] + container.get('height', 50)
+            for i in range(1, len(children_labels)):
+                rid, child, bb, pos = children_labels[i]
+                x1, y1, x2, y2 = bb
+                # Buscar el max y2 de labels previos cuyo x e y se solapen.
+                push_to_y1 = None
+                for j in range(i):
+                    pid, pchild, pbb, ppos = children_labels[j]
+                    px1, py1, px2, py2 = pbb
+                    # Overlap real en ambos ejes (no solo x-overlap)
+                    if x1 < px2 and px1 < x2 and y1 < py2 and py1 < y2:
+                        candidate = py2 + GAP
+                        if push_to_y1 is None or candidate > push_to_y1:
+                            push_to_y1 = candidate
+
+                if push_to_y1 is None:
+                    continue
+
+                # Calcular dy: nueva y del label = push_to_y1 + altura/2
+                # (porque text y es baseline, no top)
+                label_h = y2 - y1
+                # En get_label_bbox para bottom: y1 = text_y - 14, y2 = text_y + text_height - 14
+                # Para mover el bbox a empezar en push_to_y1: nueva text_y = push_to_y1 + 14
+                old_text_y = pos[1]
+                # bbox.y1 = old_text_y - 14, así que dy = push_to_y1 - (old_text_y - 14)
+                dy = push_to_y1 - y1
+                new_text_y = old_text_y + dy
+                layout.label_positions[rid] = (pos[0], new_text_y, pos[2], pos[3])
+                # Actualizar bbox local
+                children_labels[i] = (rid, child, [x1, y1 + dy, x2, y2 + dy], (pos[0], new_text_y, pos[2], pos[3]))
+
+                # Si el label nuevo se sale del container por abajo, expandir
+                new_y2 = y2 + dy
+                if new_y2 > container_bottom:
+                    extra = new_y2 - container_bottom + GAP
+                    container['height'] = container.get('height', 50) + extra
+                    container_bottom += extra
 
     def _normalize_to_canvas(self, layout: Layout) -> None:
         """
