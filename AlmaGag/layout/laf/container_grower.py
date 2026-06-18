@@ -1017,15 +1017,13 @@ class ContainerGrower:
                 max_x = max(max_x, label_x + label_w)
                 max_y = max(max_y, label_y + label_h)
 
-        # Agregar margen
-        # Margen base: 50px
-        # Margen adicional para badge de debug que se dibuja en esquina superior derecha
-        # El badge se posiciona en x=canvas_width-200 con texto de ~232px
-        # Total: se necesita al menos 232px adicionales desde la posición del badge
-        # Margen seguro: 250px para acomodar badge + espacio
-        margin = 250
-        canvas_width = max_x + margin
-        canvas_height = max_y + margin
+        # Agregar margen — separar horizontal y vertical (BUGS-LAYOUT-002).
+        # Horizontal: protege espacio para el badge de debug (240px de ancho,
+        # esquina superior derecha) cuando --visualdebug está activo.
+        # Vertical: el badge va arriba, no abajo → margen mínimo razonable.
+        from AlmaGag.config import LAF_CANVAS_MARGIN_HORIZONTAL, LAF_CANVAS_MARGIN_VERTICAL
+        canvas_width = max_x + LAF_CANVAS_MARGIN_HORIZONTAL
+        canvas_height = max_y + LAF_CANVAS_MARGIN_VERTICAL
 
         return (canvas_width, canvas_height)
 

@@ -95,3 +95,12 @@ TOP_MARGIN_NORMAL = ICON_WIDTH * 0.25      # 20px - normal top margin
 LAF_SPACING_BASE = ICON_WIDTH * 6.0        # 480px - base spacing for LAF layout
 LAF_VERTICAL_FACTOR = 0.5                  # Vertical spacing factor (0.5 = 50%)
 LAF_VERTICAL_SPACING = LAF_SPACING_BASE * LAF_VERTICAL_FACTOR  # 240px - vertical spacing between levels
+
+# Canvas final margins (fix BUGS-LAYOUT-002).
+# Antes: margen único de 250px aplicado a ancho Y alto, justificado solo por
+# el badge de debug (que ocupa 240px de ancho en la esquina superior derecha
+# en modo --visualdebug). El badge va arriba, no abajo → 250px de margen
+# vertical no tiene justificación y desperdicia espacio (~33% del canvas
+# promedio, 78-97% en diagramas chicos).
+LAF_CANVAS_MARGIN_HORIZONTAL = 250  # px - protege espacio del badge de debug
+LAF_CANVAS_MARGIN_VERTICAL = 50     # px - margen visual mínimo abajo

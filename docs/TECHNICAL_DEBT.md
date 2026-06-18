@@ -58,29 +58,31 @@ almagag docs/diagrams/gags/05-arquitectura-gag.gag --layout-algorithm=laf --visu
 
 ---
 
-### BUGS-LAYOUT-002: Cálculo Excesivo de Altura de Canvas
-**Componente**: `AlmaGag/layout/laf/optimizer.py` — Fase 4.5
+### BUGS-LAYOUT-002: Cálculo Excesivo de Altura de Canvas ✅ RESUELTO
+**Componente**: `AlmaGag/layout/laf/container_grower.py` — `calculate_final_canvas()`
 **Severidad**: Media
 **Reportado**: 2026-01-21
+**Resuelto**: 2026-06-18
 
-**Descripción**:
-El canvas final tiene altura excesiva con mucho espacio vacío en la parte inferior. La redistribución vertical calcula bien las posiciones Y, pero la altura total parece sobrestimada.
+**Causa raíz**:
+`container_grower.calculate_final_canvas()` aplicaba un margen único de **250px** tanto al ancho como al alto. El margen estaba justificado solo por el **badge de debug** (visible en modo `--visualdebug`), que ocupa ~240px de ancho y vive **en la esquina superior derecha** del canvas. El margen vertical de 250px no tenía justificación y desperdiciaba ~33% del canvas en promedio (78-97% en diagramas pequeños).
 
-**Datos**:
-```
-Canvas calculado: 1402×3807px
-Altura utilizada real: ~2000px
-Espacio desperdiciado: ~1800px (47%)
-```
+**Fix aplicado**:
+- Nuevas constantes en `config.py`:
+  - `LAF_CANVAS_MARGIN_HORIZONTAL = 250` (protege espacio del badge).
+  - `LAF_CANVAS_MARGIN_VERTICAL = 50` (margen visual mínimo abajo).
+- `container_grower.calculate_final_canvas()` usa las dos constantes por separado.
 
-**Análisis**:
-- `container_grower.calculate_final_canvas()` en `laf/optimizer.py:388-393`.
-- Posiblemente incluye padding excesivo o calcula basándose en dimensiones intermedias.
+**Validación** (23 archivos LAF):
+| Métrica | Antes | Después |
+|---|---:|---:|
+| Waste promedio (px) | 365 | 165 |
+| Waste promedio (%) | ~33% | ~18% |
+| Archivos con waste >25% | 13 | 6 |
+| Determinismo (hashes únicos) | 1 | 1 |
+| Smoke render | 23/23 OK | 23/23 OK |
 
-**Solución propuesta**:
-1. Revisar `calculate_final_canvas()` en `ContainerGrower`.
-2. Calcular altura basándose en elemento más bajo + margen (no multiplicadores).
-3. Verificar que no se acumulen márgenes de fases diferentes.
+El caso peor restante (`13-stresstest.gag`, ~97%) es por estructura inusual del diagrama, no por margen excesivo. Si se quiere atacar, sería un issue separado de "altura mal estimada por contenido", no del margen.
 
 ---
 
@@ -437,7 +439,7 @@ Permitir al usuario especificar restricciones en el SDJF:
 
 | | BUGS | WISH | Total |
 |---|---:|---:|---:|
-| **LAYOUT** | 3 (1 resuelto) | 3 | 6 |
+| **LAYOUT** | 3 (2 resueltos) | 3 | 6 |
 | **LAF** | 2 | 1 | 3 |
 | **ARCH** | 0 | 2 (ambos resueltos ✅) | 2 |
 | **AUTO** | 0 | 0 | 0 |
@@ -445,7 +447,7 @@ Permitir al usuario especificar restricciones en el SDJF:
 | **Total** | **13** | **6** | **19** |
 
 Conteos DIAG viven en `DIAGRAM_REVIEW.md` — **los 8 BUGS-DIAG están RESUELTOS al 2026-06-15**.
-**WISH-ARCH-001 resuelto al 2026-06-18.**
+**WISH-ARCH-001, WISH-ARCH-002 y BUGS-LAYOUT-002 resueltos al 2026-06-18.**
 
 Problemas visuales DIAG (8 entradas) viven en `DIAGRAM_REVIEW.md`.
 
@@ -453,13 +455,9 @@ Problemas visuales DIAG (8 entradas) viven en `DIAGRAM_REVIEW.md`.
 
 **Atacar primero**:
 - `BUGS-LAF-002` (dashboard layout) — afecta usabilidad real.
-- `BUGS-LAYOUT-002` (canvas excesivo) — afecta todos los renders.
-
-**Cuando se planifique refactor arquitectural**:
-- `WISH-ARCH-001` (contrato LayoutOptimizer) — bloquea extensibilidad futura.
 
 **Backlog**:
-- `BUGS-LAYOUT-001` (debug labels), `BUGS-LAF-001` (distribución asimétrica), `WISH-LAF-001`, `WISH-LAYOUT-001`, `WISH-LAYOUT-002`.
+- `BUGS-LAYOUT-001` (debug labels), `BUGS-LAF-001` (distribución asimétrica), `WISH-LAF-001`, `WISH-LAYOUT-001`, `WISH-LAYOUT-002`, `WISH-LAYOUT-003`.
 
 ---
 
