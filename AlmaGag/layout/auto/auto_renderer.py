@@ -14,9 +14,9 @@ Características específicas de AUTO:
 import logging
 
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT, TEXT_LINE_HEIGHT
-from AlmaGag.draw.container import draw_container as _draw_container
+from AlmaGag.draw.primitives.container import draw_container as _draw_container
 from AlmaGag.draw.icons import draw_icon_shape as _draw_icon_shape, draw_icon_label as _draw_icon_label
-from AlmaGag.draw.svg import (
+from AlmaGag.draw.primitives.svg import (
     create_canvas,
     setup_arrow_markers,
     ndfn_wrap,
@@ -228,7 +228,7 @@ class AutoSVGRenderer:
         callout box separado con leader line; el icono queda con su label
         canónico (primera línea).
         """
-        from AlmaGag.draw.callout import should_use_callout, get_canonical_label, draw_callout
+        from AlmaGag.draw.primitives.callout import should_use_callout, get_canonical_label, draw_callout
 
         for elem in elements:
             if 'contains' not in elem and elem.get('label'):

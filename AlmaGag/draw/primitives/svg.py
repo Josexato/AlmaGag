@@ -14,7 +14,7 @@ import logging
 
 import svgwrite
 
-from AlmaGag.draw.connections import draw_connection_line, draw_connection_label
+from AlmaGag.draw.primitives.connections import draw_connection_line, draw_connection_label
 
 logger = logging.getLogger('AlmaGag')
 

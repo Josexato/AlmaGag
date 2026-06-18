@@ -331,14 +331,14 @@ def draw_icon_shape(dwg, element, embedded_icons=None):
         draw_embedded_icon(dwg, x, y, color, element_id, embedded_icons[elem_type])
         return
 
-    # Prioridad 2: módulo Python (draw/{type}.py)
+    # Prioridad 2: módulo Python (draw/icons/{type}.py)
     try:
-        module = importlib.import_module(f'AlmaGag.draw.{elem_type}')
+        module = importlib.import_module(f'AlmaGag.draw.icons.{elem_type}')
         draw_func = getattr(module, f'draw_{elem_type}')
         draw_func(dwg, x, y, color, element_id)
     except (ImportError, AttributeError) as e:
         logger.warning(f"No se pudo dibujar '{elem_type}', se usará ícono por defecto. Error: {e}")
-        from AlmaGag.draw.bwt import draw_bwt
+        from AlmaGag.draw.icons.bwt import draw_bwt
         draw_bwt(dwg, x, y)
 
 

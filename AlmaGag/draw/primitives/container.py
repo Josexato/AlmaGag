@@ -193,7 +193,7 @@ def draw_container(dwg, container, elements_by_id, draw_label=True, layout_algor
 
         # Intentar cargar módulo del ícono
         try:
-            icon_module = importlib.import_module(f'AlmaGag.draw.{icon_type}')
+            icon_module = importlib.import_module(f'AlmaGag.draw.icons.{icon_type}')
             # Obtener función específica draw_<type>
             draw_func = getattr(icon_module, f'draw_{icon_type}')
             # Dibujar ícono (el módulo crea su propio gradiente)
