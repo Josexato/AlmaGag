@@ -444,38 +444,36 @@ El código funciona correctamente. Es organización del código, no corrección 
 
 ---
 
-### WISH-LAF-001: Más Optimización de Cruces de Conexiones
-**Componente**: `AlmaGag/layout/laf/abstract_placer.py` — Fase 2
+### WISH-LAF-001: Más Optimización de Cruces de Conexiones ✅ RESUELTO (v1: pesos dinámicos)
+**Componente**: `AlmaGag/layout/laf/abstract_placer.py` — Fase 4 (barycenter)
 **Severidad**: Baja
 **Reportado**: 2026-01-21
+**Resuelto**: 2026-06-18
 
-**Descripción**:
-A pesar de implementar optimización de barycenter con conexiones del mismo nivel (peso 30%), **podrían** optimizarse aún más los cruces.
+**Fix v1 aplicado** — propuesta #1 del ticket original (ajuste dinámico de pesos):
 
-**Datos actuales**:
-```
-Diagrama: 05-arquitectura-gag.gag
-Cruces calculados (Fase 2): 134
-```
+- **`config.py`** — 2 constantes nuevas: `BARYCENTER_PREV_WEIGHT_MIN = 0.5`, `BARYCENTER_PREV_WEIGHT_MAX = 0.85`.
+- **`AbstractPlacer._compute_barycenter_weights(structure_info)`** — calcula `(prev_w, same_w)` según la proporción vertical:horizontal del grafo:
+  - Grafo puramente vertical (ratio=1.0) → `prev_w = 0.85`.
+  - Grafo balanceado (ratio≈0.5) → `prev_w ≈ 0.675`.
+  - Grafo con muchas same-layer connections (ratio=0.0) → `prev_w = 0.5`.
+- Pesos cacheados en `self._prev_weight`, `self._same_weight` durante `place_elements()`.
+- Reemplazan los 4 hardcoded `0.7` / `0.3` en `_calculate_barycenter`, `_calculate_barycenter_backward`, `_calculate_barycenter_from_graph`, `_calculate_barycenter_backward_from_graph`.
 
-**Por qué es WISH y no BUGS**:
-La optimización ya está implementada y funciona. Esto es una mejora incremental sobre algo que ya hace su trabajo.
+**Distribución observada** en las 23 fuentes:
+- 16 archivos: `prev_w=0.85` (grafos verticales puros — arquitecturas, flujos).
+- 5 archivos: `prev_w` entre 0.69-0.83 (grafos mixtos).
+- 2 archivos: `prev_w` entre 0.64-0.69 (`git`, `roadmap-versions` — más same-layer).
 
-**Análisis**:
-Implementación actual usa pesos:
-- 70% para conexiones verticales (capa anterior).
-- 30% para conexiones horizontales (mismo nivel).
+**Métrica de cruces (Fase 5)**: idéntica antes y después del fix (787 cruces totales en 23 archivos).
 
-**Solución propuesta**:
-1. **Ajuste dinámico de pesos** según proporción vertical/horizontal del grafo.
-2. **Múltiples iteraciones de barycenter** (actualmente 1 sola pasada).
-3. **Post-procesamiento**: fase de "edge straightening".
-4. **Heurística por tipo de diagrama**: pesos distintos para arquitecturas vs flows.
+**¿Por qué no bajan los cruces?** En la práctica el orden topológico domina: dentro de cada capa los elementos se ordenan por barycenter, y el cambio de pesos modifica el VALOR pero rara vez el ORDEN relativo. Para reducir cruces hace falta atacar el problema con otras técnicas (propuestas #2 y #3 del ticket original).
 
-**Experimentos sugeridos**:
-```python
-pesos = [(0.7, 0.3), (0.6, 0.4), (0.5, 0.5)]
-```
+**Lo que NO se hizo en v1 (queda como follow-ups)**:
+- **Edge straightening post-procesamiento**: nueva sub-fase después de Fase 5 que mueve nodos en pequeñas magnitudes para enderezar líneas que cruzan tangencialmente. Requiere modificar `position_optimizer.py`.
+- **Heurística por tipo de diagrama**: aprender de un corpus de SDJF qué tipo de layout (architecture/flow/poster) se beneficia de qué presets.
+
+Estos follow-ups se registran agrupados como `WISH-LAF-001 follow-up`.
 
 ---
 
@@ -641,7 +639,7 @@ Reemplazado el placeholder "v2.2 - (Futuro)" por 3 entradas nuevas que cubren ~1
 | | BUGS | WISH | Total |
 |---|---:|---:|---:|
 | **LAYOUT** | 3 (3 resueltos ✅) | 3 (2 resueltos ✅) | 6 |
-| **LAF** | 2 (ambos resueltos ✅) | 1 | 3 |
+| **LAF** | 2 (ambos resueltos ✅) | 1 (resuelto ✅) | 3 |
 | **ARCH** | 0 | 3 (3 resueltos ✅) | 3 |
 | **AUTO** | 0 | 0 | 0 |
 | **DOCS** | 0 | 2 (2 resueltos ✅) | 2 |
@@ -661,8 +659,8 @@ Problemas visuales DIAG (8 entradas) viven en `DIAGRAM_REVIEW.md`.
 | Prioridad | Código | Resumen |
 |---|---|---|
 | Media | `WISH-LAYOUT-001` | Sistema de etiquetas inteligente (incorporaría callouts en la optimización global). |
-| Baja | `WISH-LAF-001` | Más optimización de cruces (pesos dinámicos en barycenter). |
 | Baja | `WISH-LAYOUT-002` follow-up | Implementar `constraints.near` y `constraints.avoid` (v1 cerró `align`). |
+| Baja | `WISH-LAF-001` follow-up | Edge straightening post-procesamiento + heurística por tipo de diagrama (v1 cerró pesos dinámicos). |
 
 ---
 

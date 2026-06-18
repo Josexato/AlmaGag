@@ -42,6 +42,51 @@ class AbstractPlacer:
         """
         self.debug = debug
         self._connection_graph = None  # Set during place_elements when in NdDp mode
+        # Pesos dinámicos del barycenter (WISH-LAF-001). Se computan en
+        # place_elements() según la proporción vertical/horizontal del grafo.
+        self._prev_weight = 0.7
+        self._same_weight = 0.3
+
+    def _compute_barycenter_weights(self, structure_info):
+        """
+        Calcula pesos prev:same para el barycenter según la proporción de
+        conexiones verticales (cross-layer) vs horizontales (same-layer)
+        del grafo (WISH-LAF-001).
+
+        - Grafo puramente vertical → prev ≈ BARYCENTER_PREV_WEIGHT_MAX (0.85).
+        - Grafo con muchas conexiones same-layer → prev ≈ MIN (0.5).
+
+        Returns:
+            (prev_weight, same_weight) sumando 1.
+        """
+        from AlmaGag.config import BARYCENTER_PREV_WEIGHT_MIN, BARYCENTER_PREV_WEIGHT_MAX
+
+        levels = structure_info.topological_levels
+        conn_graph = structure_info.connection_graph
+        if not levels or not conn_graph:
+            return (BARYCENTER_PREV_WEIGHT_MAX, 1 - BARYCENTER_PREV_WEIGHT_MAX)
+
+        vertical = 0
+        horizontal = 0
+        for from_id, to_list in conn_graph.items():
+            lv_from = levels.get(from_id, 0)
+            for to_id in to_list:
+                lv_to = levels.get(to_id, 0)
+                if lv_from == lv_to:
+                    horizontal += 1
+                else:
+                    vertical += 1
+
+        total = vertical + horizontal
+        if total == 0:
+            return (BARYCENTER_PREV_WEIGHT_MAX, 1 - BARYCENTER_PREV_WEIGHT_MAX)
+
+        ratio = vertical / total
+        prev_weight = (
+            BARYCENTER_PREV_WEIGHT_MIN
+            + (BARYCENTER_PREV_WEIGHT_MAX - BARYCENTER_PREV_WEIGHT_MIN) * ratio
+        )
+        return (prev_weight, 1 - prev_weight)
 
     def _calculate_centrality_weight(self, accessibility_score: float) -> float:
         """
@@ -116,6 +161,14 @@ class AbstractPlacer:
         self._connection_graph = connection_graph
         self._seed_positions = seed_positions
         self._accessibility_scores = accessibility_scores
+
+        # WISH-LAF-001: pesos dinámicos del barycenter según ratio vertical:horizontal.
+        self._prev_weight, self._same_weight = self._compute_barycenter_weights(structure_info)
+        if self.debug:
+            logger.debug(
+                f"[BARYCENTER] pesos dinámicos prev={self._prev_weight:.2f} "
+                f"same={self._same_weight:.2f}"
+            )
 
         # Fase 1: Layering (asignar elementos a capas)
         if topological_levels and connection_graph:
@@ -990,17 +1043,19 @@ class AbstractPlacer:
         total_weight = 0
         weighted_sum = 0
 
-        # Peso para conexiones de capa anterior: 70%
+        # Pesos dinámicos según ratio vertical:horizontal del grafo (WISH-LAF-001).
+        prev_w = self._prev_weight
+        same_w = self._same_weight
+
         if prev_neighbor_positions:
             prev_barycenter = sum(prev_neighbor_positions) / len(prev_neighbor_positions)
-            weighted_sum += prev_barycenter * 0.7 * len(prev_neighbor_positions)
-            total_weight += 0.7 * len(prev_neighbor_positions)
+            weighted_sum += prev_barycenter * prev_w * len(prev_neighbor_positions)
+            total_weight += prev_w * len(prev_neighbor_positions)
 
-        # Peso para conexiones del mismo nivel: 30%
         if same_level_neighbor_positions:
             same_barycenter = sum(same_level_neighbor_positions) / len(same_level_neighbor_positions)
-            weighted_sum += same_barycenter * 0.3 * len(same_level_neighbor_positions)
-            total_weight += 0.3 * len(same_level_neighbor_positions)
+            weighted_sum += same_barycenter * same_w * len(same_level_neighbor_positions)
+            total_weight += same_w * len(same_level_neighbor_positions)
 
         # 5. Retornar barycenter final
         if total_weight > 0:
@@ -1155,19 +1210,22 @@ class AbstractPlacer:
             elif from_id in current_positions and from_id != elem_id:
                 same_level_positions.append(current_positions[from_id])
 
-        # Weighted combination: 70% prev layer, 30% same level
+        # Pesos dinámicos según ratio vertical:horizontal del grafo (WISH-LAF-001).
+        prev_w = self._prev_weight
+        same_w = self._same_weight
+
         total_weight = 0.0
         weighted_sum = 0.0
 
         if prev_neighbor_positions:
             avg = sum(prev_neighbor_positions) / len(prev_neighbor_positions)
-            weighted_sum += avg * 0.7 * len(prev_neighbor_positions)
-            total_weight += 0.7 * len(prev_neighbor_positions)
+            weighted_sum += avg * prev_w * len(prev_neighbor_positions)
+            total_weight += prev_w * len(prev_neighbor_positions)
 
         if same_level_positions:
             avg = sum(same_level_positions) / len(same_level_positions)
-            weighted_sum += avg * 0.3 * len(same_level_positions)
-            total_weight += 0.3 * len(same_level_positions)
+            weighted_sum += avg * same_w * len(same_level_positions)
+            total_weight += same_w * len(same_level_positions)
 
         if total_weight > 0:
             return weighted_sum / total_weight

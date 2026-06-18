@@ -124,3 +124,15 @@ CALLOUT_BOX_PADDING = 10           # px de padding interno del callout box
 CALLOUT_LEADER_OFFSET = 40         # px de separación entre icono y callout box
 CALLOUT_BOX_FILL_OPACITY = 0.85    # opacidad del fondo del callout box
 CALLOUT_LEADER_DASHARRAY = "4,3"   # línea leader semipunteada
+
+# Barycenter dinámico para Sugiyama (WISH-LAF-001).
+# El barycenter en abstract_placer.py combina dos términos:
+# - Posiciones de la capa anterior (cross-layer / "vertical").
+# - Posiciones de la misma capa (same-layer / "horizontal").
+# Los pesos antes eran fijos (0.7 / 0.3). Ahora se ajustan según la proporción
+# vertical:horizontal de conexiones del grafo:
+# - Grafo puramente vertical (arquitectura clásica) → prev_weight cerca de MAX.
+# - Grafo balanceado (flow con muchas conexiones same-level) → prev_weight
+#   cerca de MIN, dando más peso al barycenter horizontal.
+BARYCENTER_PREV_WEIGHT_MIN = 0.5   # menos peso a prev cuando hay muchas same-level conns
+BARYCENTER_PREV_WEIGHT_MAX = 0.85  # más peso a prev cuando el grafo es jerárquico puro
