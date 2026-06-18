@@ -112,3 +112,15 @@ LAF_CANVAS_MARGIN_VERTICAL = 50     # px - margen visual mínimo abajo
 # detecta esos clusters y los redistribuye en grid 2D (ceil(sqrt(N))
 # columnas × ceil(N/cols) filas) modificando topological_levels.
 LAF_DASHBOARD_MIN_CONTAINERS = 3   # umbral para activar grid reflow
+
+# Auto-callout para labels grandes (fix WISH-LAYOUT-003).
+# Cuando un label excede los umbrales abajo, se renderiza como un
+# callout box separado conectado al icono con una línea (leader). El
+# icono queda con un label canónico corto (primera línea o id).
+# Soporta override explícito por elemento: "callout": true/false en SDJF.
+CALLOUT_MIN_LINES = 6              # >= N líneas activa callout (conservador para no afectar diagramas existentes)
+CALLOUT_MIN_CHARS = 150            # >= K caracteres totales activa callout
+CALLOUT_BOX_PADDING = 10           # px de padding interno del callout box
+CALLOUT_LEADER_OFFSET = 40         # px de separación entre icono y callout box
+CALLOUT_BOX_FILL_OPACITY = 0.85    # opacidad del fondo del callout box
+CALLOUT_LEADER_DASHARRAY = "4,3"   # línea leader semipunteada

@@ -450,50 +450,47 @@ Las etiquetas actualmente se posicionan con reglas fijas. Un sistema inteligente
 
 ---
 
-### WISH-LAYOUT-003: Auto-Callout para Labels Grandes
-**Componente**: `AlmaGag/renderer.py` + nuevo módulo candidato `AlmaGag/draw/callout.py`
+### WISH-LAYOUT-003: Auto-Callout para Labels Grandes ✅ RESUELTO (v1)
+**Componente**: `AlmaGag/draw/callout.py` (nuevo) + ambos renderers
 **Severidad**: Media
 **Reportado**: 2026-06-15
+**Resuelto**: 2026-06-18
 
-**Descripción**:
-Hoy un label se renderiza siempre adyacente al icono que etiqueta. Si el label tiene 6+ líneas o supera por mucho el tamaño del icono, descalibra el layout porque el algoritmo de colisiones ve un bounding box gigante alrededor de un icono pequeño (ejemplo histórico: `laf_pipeline` con label de 7 líneas describiendo las 11 fases, sobre un icono de 64×46 px — ver BUGS-DIAG-002).
+**Fix v1 aplicado**:
 
-**Propuesta**: detectar automáticamente cuando un label excede umbrales y renderizarlo como un **callout box** separado, conectado al icono mediante una línea/flecha (leader line). El icono queda con un label corto canónico (ej: solo el `id` o las primeras N palabras), y el texto completo vive en un cuadro de texto destacado en una zona libre del canvas.
+- **`config.py`** — 6 constantes nuevas:
+  - `CALLOUT_MIN_LINES = 6` (umbral conservador para no afectar diagramas existentes).
+  - `CALLOUT_MIN_CHARS = 150`.
+  - `CALLOUT_BOX_PADDING = 10`.
+  - `CALLOUT_LEADER_OFFSET = 40` (gap entre icono y callout box).
+  - `CALLOUT_BOX_FILL_OPACITY = 0.85`.
+  - `CALLOUT_LEADER_DASHARRAY = "4,3"` (línea semipunteada).
 
-**Criterio de activación propuesto** (configurables en `config.py`):
-- Label excede **N líneas** (sugerencia: 3).
-- O label excede **K caracteres totales** (sugerencia: 80).
-- O altura/anchura estimada del label excede **R veces el tamaño del icono** (sugerencia: 1.5).
+- **`AlmaGag/draw/callout.py`** (nuevo, ~135 líneas) — API:
+  - `should_use_callout(elem, label_text)` — detección con override `"callout": true/false` en SDJF.
+  - `get_canonical_label(label)` — primera línea como label visible adyacente al icono.
+  - `calculate_callout_position(elem, canvas_w, canvas_h)` — v1: derecha del icono con fallback a abajo si overflow.
+  - `draw_callout(dwg, elem, full_text, canvas_w, canvas_h)` — renderiza rect + text multilínea + leader line.
 
-**Comportamiento propuesto**:
-1. Renderizar el icono con un label canónico mínimo (heurística: primera línea, o `id`, o `label.split('\n')[0]`).
-2. Crear un `<g class="callout">` en zona libre con:
-   - `<rect>` de fondo con padding y borde sutil.
-   - `<text>` multilinea con el contenido completo del label.
-3. Dibujar `<line>` (leader) desde el centro del icono al borde del callout, con marker (flecha o círculo).
-4. El callout participa del collision detection como bloque independiente (extiende `CollisionDetector`).
+- **`auto_renderer.py` + `laf_renderer.py`** — `_render_element_labels()` modificado:
+  - Detecta callout, renderiza label canónico en el icono, dibuja callout box.
+  - Cambio replicado en ambos renderers (siguen independientes desde WISH-ARCH-002).
 
-**Inspiración**:
-- D3.js force-directed annotations.
-- Mermaid sequence diagram notes.
-- LaTeX TikZ "annotation" library.
-- mxgraph/draw.io text boxes con conector.
+**Override explícito**: SDJF puede forzar/desactivar con `"callout": true/false` por elemento (gana sobre umbrales).
 
-**Beneficios**:
-- Elementos con labels descriptivos no descalibran el layout.
-- Documentación in-diagrama más rica sin sacrificar legibilidad.
-- Mantiene la coherencia conceptual: el elemento es el icono; el texto adicional es metadata visualmente separada.
-- Resuelve la familia entera de BUGS-DIAG-002 (no solo el caso de `laf_pipeline`).
+**Validación**:
+- Caso sintético `callout_test.sdjf` con label de 12 líneas (Pipeline LAF 11 fases): callout box renderizado + leader line ✓.
+- **0/23 canonical SVGs afectados** (umbral conservador deja diagramas existentes intactos).
+- Smoke 46/46 OK.
+- Tests 19 passed.
+- Determinismo: 1 hash único × 3 seeds × 3 archivos.
 
-**Relación con otros issues**:
-- Es un caso de uso específico dentro del paraguas más amplio de `WISH-LAYOUT-001` (Sistema de Etiquetas Inteligente).
-- Habilitaría a futuros SDJF tener labels más informativos sin pagar el costo visual de BUGS-DIAG-002.
+**Limitaciones de v1 (follow-ups documentados como parte de `WISH-LAYOUT-001`)**:
+- Placement naive (derecha con fallback a abajo). No usa `CollisionDetector` para evitar solapamientos con otros elementos.
+- No participa del collision detection del `LabelPositionOptimizer`.
+- Si hay múltiples callouts en el mismo cuadrante, se solapan.
 
-**Implementación estimada**: 1-2 días.
-- Heurística de detección: ~50 líneas.
-- Renderizado del callout y leader: ~100 líneas en `draw/callout.py`.
-- Integración con `CollisionDetector`: ~50 líneas.
-- Tests: ~100 líneas (casos con labels chicos no afectados, casos con labels grandes generan callout, casos en borde del umbral).
+Estas mejoras se integran al sistema más amplio de etiquetas inteligente (WISH-LAYOUT-001).
 
 ---
 
@@ -581,7 +578,7 @@ La doc histórica no afecta el funcionamiento. Es deuda de documentación.
 
 | | BUGS | WISH | Total |
 |---|---:|---:|---:|
-| **LAYOUT** | 3 (3 resueltos ✅) | 3 | 6 |
+| **LAYOUT** | 3 (3 resueltos ✅) | 3 (1 resuelto ✅) | 6 |
 | **LAF** | 2 (ambos resueltos ✅) | 1 | 3 |
 | **ARCH** | 0 | 3 (2 resueltos ✅) | 3 |
 | **AUTO** | 0 | 0 | 0 |
@@ -601,9 +598,8 @@ Problemas visuales DIAG (8 entradas) viven en `DIAGRAM_REVIEW.md`.
 
 | Prioridad | Código | Resumen |
 |---|---|---|
-| Media | `WISH-LAYOUT-003` | Auto-callout para labels grandes (impacto visual real). |
 | Media | `WISH-ARCH-003` | Tier 2 refactor: reorganizar `draw/` + split `visualizer.py`. |
-| Media | `WISH-LAYOUT-001` | Sistema de etiquetas inteligente (paraguas; `WISH-LAYOUT-003` es un caso de uso). |
+| Media | `WISH-LAYOUT-001` | Sistema de etiquetas inteligente (incorporaría callouts en la optimización global). |
 | Media-baja | `WISH-LAYOUT-002` | Soporte para constraints (`align`, `near`, `avoid`) en SDJF. |
 | Baja | `WISH-LAF-001` | Más optimización de cruces (pesos dinámicos en barycenter). |
 | Baja | `WISH-DOCS-002` | Actualizar `EVOLUTION.md` con el ciclo 2026. |

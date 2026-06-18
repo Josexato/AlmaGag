@@ -106,7 +106,7 @@ class LAFSVGRenderer:
         label_optimizer = LabelPositionOptimizer(self.geometry, canvas_width, canvas_height, debug=debug)
         labels_to_optimize = self._collect_labels(elements, connections, containers, conn_centers, layout.label_positions)
         optimized_label_positions = label_optimizer.optimize_labels(labels_to_optimize, elements, connections)
-        self._render_element_labels(dwg, elements, optimized_label_positions, layout.label_positions)
+        self._render_element_labels(dwg, elements, optimized_label_positions, layout.label_positions, canvas_width, canvas_height)
         draw_connection_labels(dwg, connections, conn_centers, optimized_label_positions)
         self._render_container_labels(dwg, containers, elements_by_id)
 
@@ -270,14 +270,24 @@ class LAFSVGRenderer:
                 ))
         return labels_to_optimize
 
-    def _render_element_labels(self, dwg, elements, optimized_label_positions, label_positions):
-        """Dibuja etiquetas de elementos no-container."""
+    def _render_element_labels(self, dwg, elements, optimized_label_positions, label_positions, canvas_width=0, canvas_height=0):
+        """Dibuja etiquetas de elementos no-container.
+
+        Si el label excede umbrales (WISH-LAYOUT-003), se renderiza como
+        callout box separado con leader line; el icono queda con su label
+        canónico (primera línea).
+        """
+        from AlmaGag.draw.callout import should_use_callout, get_canonical_label, draw_callout
+
         for elem in elements:
             if 'contains' not in elem and elem.get('label'):
+                full_label = elem['label']
+                use_callout = should_use_callout(elem, full_label)
+                visible_label = get_canonical_label(full_label) if use_callout else full_label
+
                 optimized_pos = optimized_label_positions.get(elem['id'])
                 if optimized_pos:
-                    label_text = elem['label']
-                    lines = label_text.split('\n')
+                    lines = visible_label.split('\n')
                     for i, line in enumerate(lines):
                         dwg.add(dwg.text(
                             line,
@@ -288,7 +298,15 @@ class LAFSVGRenderer:
                         ))
                 else:
                     position_info = label_positions.get(elem['id'])
-                    _draw_icon_label(dwg, elem, position_info)
+                    if use_callout:
+                        elem_short = dict(elem)
+                        elem_short['label'] = visible_label
+                        _draw_icon_label(dwg, elem_short, position_info)
+                    else:
+                        _draw_icon_label(dwg, elem, position_info)
+
+                if use_callout:
+                    draw_callout(dwg, elem, full_label, canvas_width, canvas_height)
 
     def _render_container_labels(self, dwg, containers, elements_by_id):
         """Dibuja etiquetas de contenedores en posición fija."""
