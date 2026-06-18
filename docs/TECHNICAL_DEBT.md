@@ -545,38 +545,50 @@ Estas mejoras se integran al sistema más amplio de etiquetas inteligente (WISH-
 
 ---
 
-### WISH-LAYOUT-002: Soporte para Restricciones de Posicionamiento
-**Componente**: LAF — Fase 2 (Abstract Placement)
+### WISH-LAYOUT-002: Soporte para Restricciones de Posicionamiento ✅ RESUELTO (v1: solo `align`)
+**Componente**: `AlmaGag/layout/laf/optimizer.py` — nueva Fase 1.4
 **Severidad**: Enhancement
 **Reportado**: 2026-01-21
+**Resuelto**: 2026-06-18
 
-**Descripción**:
-Permitir al usuario especificar restricciones en el SDJF:
+**Fix v1 aplicado**: soporte para `constraints.align` en SDJF.
+
 ```json
 {
   "elements": [
     {
       "id": "database",
       "type": "database",
-      "constraints": {
-        "align": "bottom",
-        "near": ["api", "cache"],
-        "avoid": ["frontend"]
-      }
+      "constraints": {"align": "bottom"}
     }
   ]
 }
 ```
 
-**Beneficios**:
-- Control sobre layout final.
-- Preservar convenciones de arquitectura (ej: DB siempre abajo).
-- Respetar agrupamientos semánticos.
+Valores soportados:
+- `"top"` → fuerza nivel topológico 0.
+- `"bottom"` → fuerza nivel topológico max (=N-1 niveles).
+- `"center"` → fuerza nivel topológico max // 2.
 
 **Implementación**:
-- Extender `StructureInfo` con constraints.
-- Modificar barycenter calculation para incluir pesos de constraints.
-- Validar constraints no conflictivas.
+- Nuevo método `LAFOptimizer._apply_alignment_constraints()`.
+- Llamado entre Fase 1.5 (dashboard reflow) y Fase 2 (topology display).
+- Modifica `structure_info.topological_levels` Y `ndpr_topological_levels` (este último es lo que usa la fase iterativa 4-5-6 vía NdPr; sin actualizarlo el constraint se ignoraba).
+- Descendientes heredan el nivel del ancestro alineado.
+
+**Validación**:
+- Caso `legend con align:bottom`: elemento sin conexiones bajaba a nivel 0 → ahora va a nivel max. ✓
+- Caso `trigger con align:top`: ya estaba en nivel 0, no movement (comportamiento correcto). ✓
+- Caso `trigger con align:center` en grafo de 5 niveles: trigger pasa de nivel 0 a un nivel medio. ✓
+- Smoke 46/46 OK, tests 19 passed, determinismo intacto.
+- 0/23 canonical SVGs afectados (los canonical no usan `constraints`).
+
+**Lo que NO se implementó en v1 (queda como deuda separada)**:
+
+- **`near: ["api", "cache"]`** — agruparía elementos por proximidad horizontal. Requeriría integrar pesos en el barycenter de Fase 4 (`abstract_placer.py`). Más complejo porque hay que balancear con la minimización de cruces.
+- **`avoid: ["frontend"]`** — alejaría elementos. Mismo nivel de complejidad que `near` pero con peso negativo.
+
+Estas dos quedan como **follow-up de WISH-LAYOUT-002**: requieren entender la interacción con cruces/Sugiyama y probablemente merecen un sub-ticket o entrada en `WISH-LAYOUT-001` (etiquetas inteligentes ↔ posicionamiento inteligente).
 
 ---
 
@@ -628,7 +640,7 @@ Reemplazado el placeholder "v2.2 - (Futuro)" por 3 entradas nuevas que cubren ~1
 
 | | BUGS | WISH | Total |
 |---|---:|---:|---:|
-| **LAYOUT** | 3 (3 resueltos ✅) | 3 (1 resuelto ✅) | 6 |
+| **LAYOUT** | 3 (3 resueltos ✅) | 3 (2 resueltos ✅) | 6 |
 | **LAF** | 2 (ambos resueltos ✅) | 1 | 3 |
 | **ARCH** | 0 | 3 (3 resueltos ✅) | 3 |
 | **AUTO** | 0 | 0 | 0 |
@@ -649,8 +661,8 @@ Problemas visuales DIAG (8 entradas) viven en `DIAGRAM_REVIEW.md`.
 | Prioridad | Código | Resumen |
 |---|---|---|
 | Media | `WISH-LAYOUT-001` | Sistema de etiquetas inteligente (incorporaría callouts en la optimización global). |
-| Media-baja | `WISH-LAYOUT-002` | Soporte para constraints (`align`, `near`, `avoid`) en SDJF. |
 | Baja | `WISH-LAF-001` | Más optimización de cruces (pesos dinámicos en barycenter). |
+| Baja | `WISH-LAYOUT-002` follow-up | Implementar `constraints.near` y `constraints.avoid` (v1 cerró `align`). |
 
 ---
 

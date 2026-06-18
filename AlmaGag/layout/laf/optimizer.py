@@ -242,6 +242,86 @@ class LAFOptimizer(LayoutOptimizer):
                     f"{N} contenedores → grid {rows}x{cols}"
                 )
 
+    def _apply_alignment_constraints(self, structure_info, layout):
+        """
+        Aplica constraints de alineación vertical (WISH-LAYOUT-002 v1).
+
+        Soporta `constraints.align` en cada elemento del SDJF:
+        - "top"    → fuerza nivel topológico 0.
+        - "bottom" → fuerza nivel topológico max.
+        - "center" → fuerza nivel topológico max // 2.
+
+        Los descendientes heredan el nivel del ancestro alineado.
+
+        Las constraints `near` y `avoid` quedan documentadas como v2
+        (requieren integración en el barycenter de Fase 4).
+        """
+        VALID_ALIGNS = ('top', 'bottom', 'center')
+
+        aligned = {a: [] for a in VALID_ALIGNS}
+        for elem in layout.elements:
+            constraints = elem.get('constraints')
+            if not constraints:
+                continue
+            align = constraints.get('align')
+            if align not in VALID_ALIGNS:
+                if align is not None and self.debug:
+                    logger.debug(
+                        f"[CONSTRAINTS] {elem['id']}: align='{align}' inválido "
+                        f"(esperado: {VALID_ALIGNS}). Ignorado."
+                    )
+                continue
+            aligned[align].append(elem['id'])
+
+        if not any(aligned.values()):
+            return
+
+        levels = structure_info.topological_levels
+        if not levels:
+            return
+
+        current_max = max(levels.values())
+        targets = {
+            'top': 0,
+            'bottom': current_max,
+            'center': current_max // 2,
+        }
+
+        def collect_descendants(elem_id):
+            descendants = []
+            node = structure_info.element_tree.get(elem_id, {})
+            for child_id in node.get('children', []):
+                descendants.append(child_id)
+                descendants.extend(collect_descendants(child_id))
+            return descendants
+
+        ndpr_levels = structure_info.ndpr_topological_levels
+
+        for align, eids in aligned.items():
+            target_level = targets[align]
+            for eid in eids:
+                current_level = levels.get(eid, 0)
+                if current_level == target_level:
+                    continue
+                levels[eid] = target_level
+                for desc_id in collect_descendants(eid):
+                    levels[desc_id] = target_level
+
+                # Propagar también a ndpr_topological_levels (usado por
+                # Fase 3 cuando hay NdPr disponible). Las keys de ese mapa
+                # son element_ids (no NdDp01-IDs).
+                if eid in ndpr_levels:
+                    ndpr_levels[eid] = target_level
+                for desc_id in collect_descendants(eid):
+                    if desc_id in ndpr_levels:
+                        ndpr_levels[desc_id] = target_level
+
+                if self.debug:
+                    logger.debug(
+                        f"[CONSTRAINTS] {eid} alineado a '{align}' "
+                        f"(nivel {current_level} → {target_level})"
+                    )
+
     def _dump_layout(self, layout, phase_name):
         """Helper para hacer dump del layout en cada fase (solo con --dump-iterations)."""
         if getattr(layout, '_dump_iterations', False):
@@ -1000,6 +1080,11 @@ class LAFOptimizer(LayoutOptimizer):
         # Promueve contenedores a niveles distintos cuando hay 3+ en el mismo
         # nivel sin conexiones inter-contenedor (forma grid en vez de fila).
         self._apply_dashboard_reflow(structure_info, layout)
+
+        # WISH-LAYOUT-002: constraints de alineación (align: top/bottom/center).
+        # Se aplica DESPUÉS del dashboard reflow para que los elementos alineados
+        # respeten el max_level final del grafo.
+        self._apply_alignment_constraints(structure_info, layout)
 
         # FASE 2: Análisis topológico (ya calculado en Fase 1, solo visualizar)
         if self.visualizer:
