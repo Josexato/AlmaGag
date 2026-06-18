@@ -267,7 +267,11 @@ class AutoSVGRenderer:
                 ))
 
     def _render_debug_levels(self, dwg, elements, containers, levels):
-        """Dibuja niveles topológicos de elementos primarios (visualdebug)."""
+        """Dibuja niveles topológicos de elementos primarios (visualdebug).
+
+        Los textos van ARRIBA del elemento (fuera del bbox) para no solapar
+        con íconos/etiquetas/conexiones (fix BUGS-LAYOUT-001).
+        """
         contained_ids = set()
         for container in containers:
             for item in container.get('contains', []):
@@ -300,13 +304,21 @@ class AutoSVGRenderer:
                 stroke_dasharray='5,5', opacity=0.7,
             ))
             dwg.add(dwg.text(
-                str(level), insert=(elem_x, elem_y + 10),
+                str(level), insert=(elem_x, elem_y - 8),
                 text_anchor="start", font_size="14px",
                 font_family="Arial, sans-serif", font_weight="bold", fill="red",
+                filter='url(#text-glow)',
             ))
 
     def _render_debug_ndfn(self, dwg, elements, ndfn_labels):
-        """Dibuja anotaciones NdFn visibles sobre elementos (visualdebug)."""
+        """Dibuja anotaciones NdFn arriba de elementos (visualdebug).
+
+        Posicionado por encima del nivel topológico (fix BUGS-LAYOUT-001).
+        Stack vertical desde el elemento hacia arriba:
+          elem_y - 8  : nivel topológico (14px)
+          elem_y - 24 : NdFn (7px)
+          elem_y - 33 : NdFn icon (7px)
+        """
         for elem in elements:
             eid = elem.get('id', '')
             if 'x' not in elem or 'y' not in elem:
@@ -316,14 +328,16 @@ class AutoSVGRenderer:
             ndfn = ndfn_labels.get(eid, '')
             if ndfn:
                 dwg.add(dwg.text(
-                    ndfn, insert=(x + 2, y + 8),
+                    ndfn, insert=(x + 2, y - 24),
                     font_size='7px', fill='red',
-                    font_family='monospace', font_weight='bold', opacity=0.8,
+                    font_family='monospace', font_weight='bold', opacity=0.9,
+                    filter='url(#text-glow)',
                 ))
             ndfn_icon = ndfn_labels.get(f"{eid}__icon", '')
             if ndfn_icon:
                 dwg.add(dwg.text(
-                    ndfn_icon, insert=(x + 2, y + 16),
+                    ndfn_icon, insert=(x + 2, y - 33),
                     font_size='7px', fill='#e85d04',
-                    font_family='monospace', font_weight='bold', opacity=0.8,
+                    font_family='monospace', font_weight='bold', opacity=0.9,
+                    filter='url(#text-glow)',
                 ))

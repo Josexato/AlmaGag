@@ -36,25 +36,34 @@ El código de runtime usa identificadores como `LAF_PHASE_6_NDPR_EXPANDED` para 
 
 ## 🐛 BUGS
 
-### BUGS-LAYOUT-001: Etiquetas de Debug Solapadas en Modo VisualDebug
-**Componente**: `generator.py` — Renderizado SVG
+### BUGS-LAYOUT-001: Etiquetas de Debug Solapadas en Modo VisualDebug ✅ RESUELTO
+**Componente**: `layout/auto/auto_renderer.py` + `layout/laf/laf_renderer.py` — `_render_debug_levels` / `_render_debug_ndfn`
 **Severidad**: Media
 **Reportado**: 2026-01-21
+**Resuelto**: 2026-06-18
 
-**Descripción**:
-Las etiquetas naranjas de debug (nivel topológico) en modo `--visualdebug` se solapan con elementos del diagrama, dificultando la lectura.
+**Causa raíz**:
+Las etiquetas de debug (nivel topológico en rojo, NdFn en rojo/naranja) se renderizaban DENTRO del bbox de cada elemento primario:
+- Nivel: `(elem_x, elem_y + 10)` — encima del ícono.
+- NdFn: `(elem_x + 2, elem_y + 8)` — pegada al nivel.
+- NdFn icon: `(elem_x + 2, elem_y + 16)` — abajo de NdFn.
 
-**Reproducción**:
-```bash
-almagag docs/diagrams/gags/05-arquitectura-gag.gag --layout-algorithm=laf --visualdebug --exportpng
-```
+Resultado en `--visualdebug`: 36/55 etiquetas (65%) solapadas con íconos en el caso de prueba `05-arquitectura-gag`, ilegibles sobre la mayoría de los elementos.
 
-**Solución propuesta**:
-- Calcular posición automática de etiquetas debug evitando colisiones.
-- Alternativamente: usar sistema de capas SVG con transparencia.
-- Considerar fondo semi-transparente para legibilidad.
+**Fix aplicado** (replicado en ambos renderers — son independientes desde WISH-ARCH-002):
+Posicionamiento de las etiquetas FUERA del bbox, apiladas arriba del elemento:
+- Nivel: `(elem_x, elem_y - 8)` — texto baseline 8px arriba del top del bbox.
+- NdFn: `(elem_x + 2, elem_y - 24)` — arriba del nivel.
+- NdFn icon: `(elem_x + 2, elem_y - 33)` — arriba de NdFn.
+- Las tres usan `filter='url(#text-glow)'` para halo blanco que asegura legibilidad sobre fondos arbitrarios (mismo filtro que las etiquetas normales).
 
-**Workaround**: usar modo normal sin `--visualdebug` para diagramas finales.
+Aprovecha el `TOP_MARGIN_DEBUG = 80px` que ya se reservaba arriba del canvas en modo debug — los textos quedan en esa franja sin off-canvas.
+
+**Validación**:
+- Solapamientos en `05-arquitectura-gag --laf --visualdebug`: 36/55 → 7/55. Los 7 restantes son **falsos positivos**: 2 dentro del strip de debug del canvas (zona reservada), 5 dentro de un container (arriba de sus hijos, donde el "rect contenedor" cubre toda el área). **Cero solapamientos con íconos reales**.
+- Smoke 23/23 LAF + 23/23 AUTO OK.
+- Tests 17/2.
+- Determinismo sin `--visualdebug`: 1 hash único × 3 seeds × 4 archivos. Con `--visualdebug` sigue no-determinista (causa preexistente: badge usa `datetime.now()`, no introducido por este fix).
 
 ---
 
@@ -446,7 +455,7 @@ Permitir al usuario especificar restricciones en el SDJF:
 
 | | BUGS | WISH | Total |
 |---|---:|---:|---:|
-| **LAYOUT** | 3 (2 resueltos) | 3 | 6 |
+| **LAYOUT** | 3 (3 resueltos ✅) | 3 | 6 |
 | **LAF** | 2 (1 resuelto) | 1 | 3 |
 | **ARCH** | 0 | 2 (ambos resueltos ✅) | 2 |
 | **AUTO** | 0 | 0 | 0 |
@@ -454,14 +463,14 @@ Permitir al usuario especificar restricciones en el SDJF:
 | **Total** | **13** | **6** | **19** |
 
 Conteos DIAG viven en `DIAGRAM_REVIEW.md` — **los 8 BUGS-DIAG están RESUELTOS al 2026-06-15**.
-**WISH-ARCH-001, WISH-ARCH-002, BUGS-LAYOUT-002 y BUGS-LAF-002 resueltos al 2026-06-18.**
+**WISH-ARCH-001, WISH-ARCH-002, BUGS-LAYOUT-001, BUGS-LAYOUT-002 y BUGS-LAF-002 resueltos al 2026-06-18.**
 
 Problemas visuales DIAG (8 entradas) viven en `DIAGRAM_REVIEW.md`.
 
 ### Priorización sugerida
 
 **Backlog**:
-- `BUGS-LAYOUT-001` (debug labels), `BUGS-LAF-001` (distribución asimétrica), `WISH-LAF-001`, `WISH-LAYOUT-001`, `WISH-LAYOUT-002`, `WISH-LAYOUT-003`.
+- `BUGS-LAF-001` (distribución asimétrica), `WISH-LAF-001`, `WISH-LAYOUT-001`, `WISH-LAYOUT-002`, `WISH-LAYOUT-003`.
 
 ---
 
