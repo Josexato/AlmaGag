@@ -1,0 +1,115 @@
+%%{init: {'theme':'base', 'themeVariables': {'fontFamily': 'sans-serif', 'fontSize': '14px'}, 'flowchart': {'htmlLabels': true, 'curve': 'basis'}} }%%
+flowchart TD
+    %% =====================================================
+    %% Same scope as docs/diagrams/svgs/05-arquitectura-gag.svg
+    %% Rendered with Mermaid (dagre auto-layout) for benchmark.
+    %% =====================================================
+
+    input[(archivo<br/>.sdjf/.gag)]:::io
+    main[main.py<br/><i>CLI + args</i>]:::server
+    config[/"config.py<br/><i>constantes</i>"/]:::data
+    generator[generator.py<br/><i>orquestador</i>]:::server
+    layout[Layout<br/><i>data container</i>]:::data
+    svgwrite([svgwrite<br/><i>lib externa</i>]):::external
+
+    %% Shared infrastructure
+    subgraph shared["🔧 Shared Dependencies"]
+        direction LR
+        sizing[SizingCalculator]:::utility
+        geometry_calc[GeometryCalculator]:::utility
+        collision_det[CollisionDetector]:::utility
+    end
+
+    %% AUTO pipeline
+    subgraph autopath["🅰️ Auto Layout Path"]
+        direction TB
+        auto_optimizer[AutoLayoutOptimizer<br/><i>v2.1 Jerárquico</i>]:::server
+        auto_positioner[AutoPositioner]:::utility
+        graph_analyzer[GraphAnalyzer]:::utility
+        container_calc[ContainerCalculator]:::utility
+        auto_routing[AutoRoutingPolicy]:::policy
+    end
+
+    %% LAF pipeline
+    subgraph lafpath["🅻 LAF Layout Path"]
+        direction TB
+        laf_optimizer[LAFOptimizer<br/><i>v1.8 - 11 fases</i>]:::server
+        laf_pipeline[LAF Pipeline<br/><i>11 fases</i>]:::utility
+        growth_visualizer[GrowthVisualizer<br/><i>10 SVGs debug</i>]:::utility
+        laf_routing[LAFRoutingPolicy]:::policy
+    end
+
+    %% Routing library
+    subgraph routing["🔀 Routing Module"]
+        direction LR
+        router_mgr[RouterManager]:::server
+        routers([5 Routers<br/><i>straight, orthogonal,<br/>bezier, arc, manual</i>]):::utility
+        port_assign[PortAssignment]:::utility
+        vis_graph[VisibilityGraph<br/><i>A* pathfinding</i>]:::utility
+    end
+
+    %% Render
+    render[renderer.py]:::server
+
+    %% Draw module
+    subgraph drawmod["🎨 Draw Module"]
+        direction LR
+        draw_containers[draw_containers]:::utility
+        draw_icons[draw_icons]:::utility
+        draw_connections[draw_connections]:::utility
+        draw_labels[draw_labels]:::utility
+        label_optimizer[LabelPositionOptimizer<br/><i>v3.0</i>]:::utility
+    end
+
+    output[(archivo<br/>.svg)]:::io
+
+    %% ------- Main flow -------
+    input --> main
+    main --> generator
+    config --> generator
+    generator --> layout
+    generator --> svgwrite
+    generator --> auto_optimizer
+    generator --> laf_optimizer
+
+    %% Shared deps internal
+    sizing --> geometry_calc
+    geometry_calc --> collision_det
+
+    %% AUTO internals
+    auto_optimizer --> graph_analyzer
+    auto_optimizer --> auto_positioner
+    auto_optimizer --> container_calc
+    auto_optimizer --> collision_det
+    auto_optimizer --> auto_routing
+    auto_routing --> router_mgr
+
+    %% LAF internals
+    laf_optimizer --> laf_pipeline
+    laf_optimizer --> growth_visualizer
+    laf_optimizer --> laf_routing
+    laf_routing --> router_mgr
+    laf_pipeline --> router_mgr
+
+    %% Routing internals
+    router_mgr --> routers
+    router_mgr --> port_assign
+    router_mgr --> vis_graph
+
+    %% Output chain
+    auto_optimizer --> render
+    laf_optimizer --> render
+    render --> draw_containers
+    render --> draw_icons
+    render --> draw_connections
+    render --> draw_labels
+    render --> label_optimizer
+    render --> output
+
+    %% Class styles
+    classDef server fill:#b1f3b1,stroke:#64a664,color:#000,stroke-width:1.5px
+    classDef utility fill:#c5e3ed,stroke:#7997a1,color:#000,stroke-width:1.2px
+    classDef data fill:#ffc04c,stroke:#b27300,color:#000,stroke-width:1.5px
+    classDef policy fill:#ffd2da,stroke:#b2868e,color:#000,stroke-width:1.2px
+    classDef external fill:#4cffff,stroke:#00b2b2,color:#000,stroke-width:1.2px
+    classDef io fill:#fffde0,stroke:#8a8500,color:#000,stroke-width:1.5px
