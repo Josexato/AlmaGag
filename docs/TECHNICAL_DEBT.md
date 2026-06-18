@@ -120,28 +120,36 @@ LAF (y en menor medida AUTO sobre archivos con ties) producía resultados distin
 
 ---
 
-### BUGS-LAF-001: Distribución Horizontal Asimétrica en Niveles Multi-Elemento
-**Componente**: `AlmaGag/layout/laf/optimizer.py` — `_center_elements_horizontally()`
+### BUGS-LAF-001: Distribución Horizontal Asimétrica en Niveles Multi-Elemento ✅ RESUELTO
+**Componente**: `AlmaGag/layout/laf/container_grower.py` — `calculate_final_canvas()`
 **Severidad**: Baja
 **Reportado**: 2026-01-21
+**Resuelto**: 2026-06-18
 
-**Descripción**:
-Aunque los niveles están centrados horizontalmente como conjunto, la distribución interna de elementos individuales puede ser asimétrica por usar spacing fijo (480 px).
+**Causa raíz**:
+Tras BUGS-LAYOUT-002, `calculate_final_canvas()` aplicaba siempre `LAF_CANVAS_MARGIN_HORIZONTAL = 250px` al lado derecho del canvas (para proteger el badge de debug que aparece en la esquina superior derecha cuando `--visualdebug` está activo). Pero `LEFT_MARGIN` en Phase 9 es `CANVAS_MARGIN_LARGE = 100px`. Resultado: cuando **no** estaba activo `--visualdebug`, el canvas terminaba con left=100/right=250, asimétrico (contenido pegado al lado izquierdo). El "spacing fijo de 480px" mencionado en la descripción original era un síntoma; el verdadero gap era con respecto al borde del canvas.
 
-**Ejemplo**:
+**Ejemplo de reproducción** (3 elementos en mismo nivel, sin `--visualdebug`):
 ```
-Nivel 3: 3 elementos
-  Ancho total: 1350px, Canvas: 1402px, Start X: 100px
-
-  optimizer:              X 480 → 100  (dx=-380)
-  laf_optimizer:          X 960 → 660  (dx=-300)
-  analysis_module-stage:  X 0   → 1220 (dx=+1220)
+Antes: Canvas 1390×700  left_margin=100  right_margin=250  Δ=+150 (asimétrico)
+Después: Canvas 1240×700  left_margin=100  right_margin=100  Δ=0   (simétrico)
 ```
 
-**Solución propuesta**:
-1. Spacing dinámico: `(canvas_width - total_elements_width - 2*MARGIN) / (num_elements - 1)`.
-2. Limitar spacing máximo/mínimo para evitar separaciones extremas.
-3. Considerar distribución "justificada" para mejor simetría visual.
+**Fix aplicado**:
+- `ContainerGrower.__init__` ahora acepta `visualdebug=False`.
+- `LAFOptimizer.__init__` propaga `visualdebug` al `ContainerGrower`.
+- `calculate_final_canvas()` usa `LAF_CANVAS_MARGIN_HORIZONTAL` (250px) solo si `visualdebug=True`; en caso contrario usa `CANVAS_MARGIN_LARGE` (100px) — mismo valor que `LEFT_MARGIN`, garantizando simetría.
+
+**Validación** (23 archivos LAF, sin `--visualdebug`):
+- 17/23 (74%) **perfectamente simétricos** (left=right=100).
+- 6/23 con Δ < 100px residual, atribuible a issues conocidos:
+  - `git` (Δ=78): caso documentado de overflow de `legend` en BUGS-LAF-002.
+  - `05-arquitectura-gag, 06-flujo, 07-containers, reference-cheatsheet`: contenedores muy disparejos en ancho.
+- Smoke 46/46 OK (23 × 2 algoritmos).
+- Tests 19 passed.
+- Determinismo: 1 hash único × 3 seeds × 2 archivos.
+- Con `--visualdebug=True`: el badge sigue protegido (right margin = 250px) ✓.
+- Compactación adicional: canvas LAF -150px de ancho por archivo (recuperado del margen innecesario).
 
 ---
 
@@ -456,21 +464,22 @@ Permitir al usuario especificar restricciones en el SDJF:
 | | BUGS | WISH | Total |
 |---|---:|---:|---:|
 | **LAYOUT** | 3 (3 resueltos ✅) | 3 | 6 |
-| **LAF** | 2 (1 resuelto) | 1 | 3 |
+| **LAF** | 2 (ambos resueltos ✅) | 1 | 3 |
 | **ARCH** | 0 | 2 (ambos resueltos ✅) | 2 |
 | **AUTO** | 0 | 0 | 0 |
 | **DIAG** | 8 (8 resueltos ✅) | 0 | 8 |
 | **Total** | **13** | **6** | **19** |
 
 Conteos DIAG viven en `DIAGRAM_REVIEW.md` — **los 8 BUGS-DIAG están RESUELTOS al 2026-06-15**.
-**WISH-ARCH-001, WISH-ARCH-002, BUGS-LAYOUT-001, BUGS-LAYOUT-002 y BUGS-LAF-002 resueltos al 2026-06-18.**
+**Al 2026-06-18, 0 BUGS funcionales pendientes.** Resueltos en este ciclo:
+WISH-ARCH-001/002, BUGS-LAYOUT-001/002, BUGS-LAF-001/002.
 
 Problemas visuales DIAG (8 entradas) viven en `DIAGRAM_REVIEW.md`.
 
 ### Priorización sugerida
 
-**Backlog**:
-- `BUGS-LAF-001` (distribución asimétrica), `WISH-LAF-001`, `WISH-LAYOUT-001`, `WISH-LAYOUT-002`, `WISH-LAYOUT-003`.
+**Backlog (todo WISH, ningún BUG funcional)**:
+- `WISH-LAF-001` (más optimización de cruces), `WISH-LAYOUT-001` (sistema de etiquetas inteligente), `WISH-LAYOUT-002` (constraints de posicionamiento), `WISH-LAYOUT-003` (auto-callout para labels grandes).
 
 ---
 

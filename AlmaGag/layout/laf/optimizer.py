@@ -158,7 +158,9 @@ class LAFOptimizer(LayoutOptimizer):
         self.inflator = ElementInflator(
             label_optimizer=self.label_optimizer, debug=verbose, visualdebug=visualdebug
         )
-        self.container_grower = ContainerGrower(sizing_calculator=self.sizing, debug=verbose)
+        self.container_grower = ContainerGrower(
+            sizing_calculator=self.sizing, debug=verbose, visualdebug=visualdebug,
+        )
         self.visualizer = GrowthVisualizer(debug=verbose) if visualize_growth else None
 
     def _apply_dashboard_reflow(self, structure_info, layout):

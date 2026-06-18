@@ -32,16 +32,19 @@ class ContainerGrower:
        - Propagar coordenadas globales a hijos
     """
 
-    def __init__(self, sizing_calculator=None, debug: bool = False):
+    def __init__(self, sizing_calculator=None, debug: bool = False, visualdebug: bool = False):
         """
         Inicializa el crecedor de contenedores.
 
         Args:
             sizing_calculator: SizingCalculator para obtener tamaños con hp/wp
             debug: Si True, imprime logs de debug
+            visualdebug: Si True, reserva 250px a la derecha para el badge de
+                debug; si False, usa margen horizontal simétrico (fix BUGS-LAF-001).
         """
         self.sizing = sizing_calculator
         self.debug = debug
+        self.visualdebug = visualdebug
 
     def grow_containers(
         self,
@@ -1018,11 +1021,19 @@ class ContainerGrower:
                 max_y = max(max_y, label_y + label_h)
 
         # Agregar margen — separar horizontal y vertical (BUGS-LAYOUT-002).
-        # Horizontal: protege espacio para el badge de debug (240px de ancho,
-        # esquina superior derecha) cuando --visualdebug está activo.
+        # Horizontal: con --visualdebug usar 250px para proteger el badge
+        # (esquina superior derecha). Sin --visualdebug usar CANVAS_MARGIN_LARGE
+        # (=100, igual al LEFT_MARGIN de Phase 9) para que el canvas quede
+        # simétrico horizontalmente (fix BUGS-LAF-001).
         # Vertical: el badge va arriba, no abajo → margen mínimo razonable.
-        from AlmaGag.config import LAF_CANVAS_MARGIN_HORIZONTAL, LAF_CANVAS_MARGIN_VERTICAL
-        canvas_width = max_x + LAF_CANVAS_MARGIN_HORIZONTAL
+        from AlmaGag.config import (
+            LAF_CANVAS_MARGIN_HORIZONTAL, LAF_CANVAS_MARGIN_VERTICAL,
+            CANVAS_MARGIN_LARGE,
+        )
+        horizontal_margin = (
+            LAF_CANVAS_MARGIN_HORIZONTAL if self.visualdebug else CANVAS_MARGIN_LARGE
+        )
+        canvas_width = max_x + horizontal_margin
         canvas_height = max_y + LAF_CANVAS_MARGIN_VERTICAL
 
         return (canvas_width, canvas_height)
