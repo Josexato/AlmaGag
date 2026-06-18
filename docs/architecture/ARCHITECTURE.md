@@ -1,11 +1,28 @@
 # Arquitectura de AlmaGag
 
-**Versión del Código**: v3.3.0 + SDJF v2.1
-**Fecha**: 2026-02-28
+**Versión del Código**: v3.4.0 + SDJF v2.1
+**Fecha**: 2026-06-18
 
 ## Visión General
 
-AlmaGag es un generador de diagramas SVG que transforma archivos JSON (formato SDJF) en gráficos vectoriales mediante un pipeline de procesamiento modular. Soporta dos algoritmos de layout: **AUTO** (legacy, basado en colisiones) y **LAF** (recomendado, Layout Abstracto Primero con 10 fases).
+AlmaGag es un generador de diagramas SVG que transforma archivos JSON (formato SDJF) en gráficos vectoriales mediante un pipeline de procesamiento modular. Soporta dos algoritmos de layout:
+
+- **AUTO** — Híbrido. Respeta coordenadas manuales y auto-posiciona el resto vía optimización iterativa (hill climbing).
+- **LAF** — Layout Abstracto Primero. Pipeline de 11 fases inspirado en Sugiyama/Graphviz que ignora coordenadas y minimiza cruces.
+
+Ambos cumplen el mismo contrato `LayoutOptimizer` y son seleccionables vía CLI (`--layout-algorithm`).
+
+### Refactores recientes (resumen)
+
+| Código | Resuelto | Resumen |
+|---|---|---|
+| WISH-ARCH-001 | 2026-06-18 | `LAFOptimizer` hereda de `LayoutOptimizer`; `generator.py` usa factoría (`OPTIMIZERS` dict) en vez de `if/elif`. |
+| WISH-ARCH-002 | 2026-06-18 | Renderers separados por algoritmo (`AutoSVGRenderer`, `LAFSVGRenderer`); primitivas SVG agnósticas en `draw/svg.py`. Eliminado `AlmaGag/renderer.py` (legacy compartido). |
+| BUGS-LAYOUT-002 | 2026-06-18 | LAF: margen vertical de canvas separado del horizontal (waste ~33% → ~18%). |
+| BUGS-LAF-002 | 2026-06-18 | LAF: nuevo Fase 1.5 "dashboard reflow" + skip de doble-mover de hijos en Fase 9. |
+| BUGS-LAYOUT-001 | 2026-06-18 | Renderers: etiquetas de `--visualdebug` movidas fuera del bbox del elemento, con `text-glow`. |
+| BUGS-LAYOUT-003 | 2026-06-14 | LAF + AUTO: 7 puntos de no-determinismo cerrados con `sorted()` + tie-break por `elem_id`. |
+| BUGS-DIAG-001..008 | 2026-06-15 | 8 fixes visuales en SVGs canónicos (ver `DIAGRAM_REVIEW.md`). |
 
 ## Diagrama de Arquitectura
 
@@ -21,35 +38,37 @@ AlmaGag es un generador de diagramas SVG que transforma archivos JSON (formato S
        │
        v
 ┌─────────────┐
-│  main.py    │  CLI entry point
+│  main.py    │  CLI entry point (argparse + dispatch a generator)
 └──────┬──────┘
        │
        v
-┌─────────────────────────────────────────────────────┐
-│  generator.py  (Orquestador)                         │
-│  ┌───────────────────────────────────────────────┐  │
-│  │  1. Parse JSON → Layout (inmutable)           │  │
-│  │  2. Selección de algoritmo:                   │  │
-│  │     ├─ LAF: LAFOptimizer (10 fases)           │  │
-│  │     └─ AUTO: AutoLayoutOptimizer (legacy)     │  │
-│  │  3. Create SVG canvas + filters (blur glow)   │  │
-│  │  4. NdFn metadata wrapping (DrawingGroupProxy)│  │
-│  │  5. Render: containers → icons → connections  │  │
-│  │  6. Labels con filter="url(#text-glow)"       │  │
-│  │  7. Label optimization (excluir contenidos)   │  │
-│  └───────────────────────────────────────────────┘  │
-└──────┬──────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│  generator.py (187 líneas)  —  Orquestador delgado      │
+│  ┌────────────────────────────────────────────────┐     │
+│  │ 1. Parse JSON → Layout (Value Object inmutable)│     │
+│  │ 2. Factoría: OPTIMIZERS[layout_algorithm]      │     │
+│  │       ├─ 'auto' → AutoLayoutOptimizer          │     │
+│  │       └─ 'laf'  → LAFOptimizer                 │     │
+│  │ 3. optimizer.optimize(layout)                  │     │
+│  │ 4. optimizer.renderer.render(layout, output)   │     │
+│  │       AutoSVGRenderer (inline icon)            │     │
+│  │       LAFSVGRenderer (separate icon + NdFn)    │     │
+│  └────────────────────────────────────────────────┘     │
+└──────┬──────────────────────────────────────────────────┘
        │
        v
 ┌─────────────┐
-│ archivo.svg │  (con <desc> NdFn metadata)
+│ archivo.svg │  (con <desc> NdFn metadata si LAF + visualdebug)
 └─────────────┘
 ```
 
-### Pipeline LAF (11 Fases)
+Tras WISH-ARCH-002 (2026-06-18), cada algoritmo es **autosuficiente**: su optimizer construye su propio renderer en `__init__`, y `generator.py` solo despacha sin conocer detalles de cada algoritmo. Las primitivas SVG agnósticas (`create_canvas`, `setup_arrow_markers`, `draw_connections`, etc.) viven en `AlmaGag/draw/svg.py`.
+
+### Pipeline LAF (12 fases — 11 numeradas + 1.5)
 
 ```
 Fase 1:    Structure Analysis      → laf/structure_analyzer.py
+Fase 1.5:  Dashboard Reflow        → laf/optimizer.py (fix BUGS-LAF-002)
 Fase 2:    Topology Analysis       → laf/optimizer.py (viz)
 Fase 3:    Centrality Ordering     → laf/optimizer.py
 Fase 4:    Abstract Placement      → laf/abstract_placer.py
@@ -60,10 +79,10 @@ Fase 8:    Inflation + Growth      → laf/inflator.py + laf/container_grower.py
 Fase 9:    Vertical Redistribution → laf/optimizer.py
 Fase 10:   Routing                 → laf/routing_policy.py → routing/router_manager.py
 Fase 10.5: Re-optimize labels      → laf/optimizer.py (post-routing)
-Fase 11:   SVG Generation          → generator.py + renderer.py
+Fase 11:   SVG Generation          → laf/laf_renderer.py
 ```
 
-> Documentación histórica menciona "10 fases" (sin contar Fase 11). El código actual define 11; ver `modules/layout/laf/LAF.md` para detalle.
+**Fase 1.5 (dashboard reflow)** detecta clusters de 3+ contenedores root en el mismo nivel topológico sin conexiones inter-contenedor y los redistribuye en grid `ceil(sqrt(N))` cols × `ceil(N/cols)` filas. Sin esto, LAF apilaba esos contenedores en fila horizontal generando canvas extremos (5900×243 en posters). Ver `modules/layout/laf/LAF.md`.
 
 ## Módulos Principales
 
@@ -85,59 +104,54 @@ Fase 11:   SVG Generation          → generator.py + renderer.py
 
 ### 2. `generator.py`
 
-**Responsabilidad:** Orquestador del proceso completo
+**Responsabilidad:** Orquestador delgado del proceso completo (187 líneas tras Tier 1).
 
 ```python
-def generate_diagram(input_file):
-    # 1. Leer y parsear JSON
-    with open(input_file, 'r', encoding='utf-8') as f:
-        data = json.load(f)
+from AlmaGag.layout import Layout, AutoLayoutOptimizer
+from AlmaGag.layout.laf.optimizer import LAFOptimizer
 
-    # 2. Crear Layout inmutable
-    initial_layout = Layout(
+# Factoría: ambos optimizers heredan de LayoutOptimizer (WISH-ARCH-001).
+OPTIMIZERS = {
+    'auto': AutoLayoutOptimizer,
+    'laf':  LAFOptimizer,
+}
+
+def generate_diagram(json_file, layout_algorithm='auto', ...):
+    # 1. Parse + Layout inmutable
+    with open(json_file, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    layout = Layout(
         elements=data['elements'],
         connections=data['connections'],
-        canvas=data.get('canvas', {'width': 1400, 'height': 900})
+        canvas=data.get('canvas', {'width': WIDTH, 'height': HEIGHT}),
     )
 
-    # 3. Optimizar (auto-layout + collision resolution)
-    optimizer = AutoLayoutOptimizer()
-    optimized_layout = optimizer.optimize(initial_layout, max_iterations=10)
+    # 2. Optimizer self-contained — construye sus propios colaboradores.
+    optimizer_cls = OPTIMIZERS[layout_algorithm]
+    optimizer = optimizer_cls(verbose=debug, visualdebug=visualdebug, ...)
 
-    # 4. Crear canvas SVG
-    dwg = svgwrite.Drawing(output_file, size=(width, height))
+    # 3. Optimizar con firma unificada.
+    optimizer.optimize(layout, max_iterations=10, ...)
 
-    # 5. Definir markers (flechas)
-    define_arrow_markers(dwg)
-
-    # 6. Renderizar en orden
-    #    a. Contenedores (fondo)
-    for container in containers:
-        draw_container(dwg, container, elements_by_id)
-
-    #    b. Íconos (sin labels)
-    for element in normal_elements:
-        draw_icon_shape(dwg, element)
-
-    #    c. Conexiones (sin labels)
-    for connection in connections:
-        draw_connection_line(dwg, elements_by_id, connection, markers)
-
-    #    d. Todas las labels (íconos + conexiones)
-    for element in normal_elements:
-        draw_icon_label(dwg, element, label_positions[element['id']])
-    for connection in connections:
-        draw_connection_label(dwg, elements_by_id, connection)
-
-    # 7. Guardar archivo
-    dwg.save()
+    # 4. Renderizar — cada optimizer trae su renderer (WISH-ARCH-002).
+    optimizer.renderer.render(
+        layout, output_svg,
+        visualdebug=visualdebug, debug=debug, ...,
+    )
 ```
 
-**Orden de renderizado (crítico para z-index visual):**
-1. **Contenedores** → Fondo transparente
-2. **Íconos** (shapes) → Encima de contenedores
-3. **Conexiones** (líneas) → Encima de íconos
-4. **Labels** → Encima de todo (legibilidad)
+**Lo que `generator.py` ya NO hace** (tras WISH-ARCH-001/002):
+- No conoce el orden de renderizado por algoritmo (eso vive en cada renderer).
+- No instancia colaboradores del optimizer (`sizing`, `geometry`, `router_manager`, etc.) — el optimizer los construye internamente.
+- No usa `if layout_algorithm == 'laf' / elif ...` — la factoría desacopla.
+
+**Orden de renderizado** (definido por cada renderer, idéntico en ambos):
+1. **Container backgrounds** → rect de fondo (LAF + AUTO).
+2. **Icons** de elementos no-container.
+3. **Container icons** (solo LAF — elemento separado; AUTO los dibuja inline en el rect).
+4. **Connections** (líneas + markers).
+5. **Labels** optimizados (`LabelPositionOptimizer`) + container labels.
+6. **Debug overlays** (solo si `--visualdebug`).
 
 ---
 
@@ -199,16 +213,23 @@ class Layout:
 ```python
 class LayoutOptimizer(ABC):
     @abstractmethod
-    def optimize(self, layout: Layout, max_iterations: int) -> Layout:
+    def optimize(self, layout: Layout, max_iterations: int = 10,
+                 dump_iterations: bool = False, input_file=None) -> Layout:
         """Optimiza layout, retorna nuevo layout."""
         pass
 ```
 
-**Propósito:** Interfaz para futuros algoritmos (force-directed, genetic, etc.)
+**Contrato actual (post WISH-ARCH-001)**:
+- Ambos optimizers (`AutoLayoutOptimizer`, `LAFOptimizer`) heredan de esta clase.
+- Firma `optimize()` unificada: LAF ignora silenciosamente los kwargs que no aplican.
+- Cada optimizer expone `self.renderer` (instancia de `AutoSVGRenderer` o `LAFSVGRenderer`), construido en `__init__`.
+- Construcción **self-contained**: el optimizer crea sus propios colaboradores (`sizing`, `geometry`, `router_manager`, etc.). Acepta inyección opcional vía kwargs (legacy / tests).
 
-#### `layout/auto/optimizer.py` (post-refactor)
+**Propósito**: contrato estable para algoritmos. Agregar un tercer algoritmo solo requiere implementar `LayoutOptimizer` + un renderer y agregar una entrada al dict `OPTIMIZERS` en `generator.py`.
 
-**Clase `AutoLayoutOptimizer`** — algoritmo de layout original. Respeta coordenadas manuales y resuelve el resto con auto-positioning + optimización iterativa (hill climbing) de colisiones. Routing encapsulado en `AutoRoutingPolicy`.
+#### `layout/auto/optimizer.py`
+
+**Clase `AutoLayoutOptimizer`** — algoritmo de layout original. Respeta coordenadas manuales y resuelve el resto con auto-positioning + optimización iterativa (hill climbing) de colisiones. Routing encapsulado en `AutoRoutingPolicy`. Su `renderer` es `AutoSVGRenderer` (definido en `layout/auto/auto_renderer.py`).
 
 📍 Referencia detallada (5 fases, tabla AUTO vs LAF, workaround Dashboard layout): `modules/layout/auto/AUTO.md`.
 
@@ -379,30 +400,47 @@ class GraphAnalyzer:
 
 ---
 
-### 5. Módulo `layout/laf/` (post-refactor)
+### 5. Módulo `layout/laf/`
 
-**Responsabilidad:** Layout jerárquico de 11 fases minimizando cruces (filosofía "abstracto primero, geometría después", inspirado en Sugiyama/Graphviz).
+**Responsabilidad:** Layout jerárquico minimizando cruces (filosofía "abstracto primero, geometría después", inspirado en Sugiyama/Graphviz).
 
-**Coordinador:** `layout/laf/optimizer.py:LAFOptimizer`
+**Coordinador:** `layout/laf/optimizer.py:LAFOptimizer` — hereda de `LayoutOptimizer`.
 
 **Módulos principales** (cada uno cubre fases específicas del pipeline):
-- `structure_analyzer.py` — Fase 1 (árbol, grafo, niveles, scores, NdPr, TOI Virtual Containers)
-- `abstract_placer.py` — Fase 4 (placement abstracto, Sugiyama barycenter)
-- `position_optimizer.py` — Fase 5 (layer-offset bisection)
-- `inflator.py` — Fase 8 (abstract → coordenadas reales)
-- `container_grower.py` — Fase 8 (crecimiento bottom-up, label-aware)
-- `visualizer.py` — SVGs de debug del proceso
-- `routing_policy.py` — `LAFRoutingPolicy` (Fase 10)
+- `structure_analyzer.py` — Fase 1 (árbol, grafo, niveles, scores, NdPr, TOI Virtual Containers).
+- `optimizer.py::_apply_dashboard_reflow()` — Fase 1.5 (detecta y redistribuye clusters de dashboard en grid 2D, fix BUGS-LAF-002).
+- `abstract_placer.py` — Fase 4 (placement abstracto, Sugiyama barycenter).
+- `position_optimizer.py` — Fase 5 (layer-offset bisection).
+- `inflator.py` — Fase 8 (abstract → coordenadas reales).
+- `container_grower.py` — Fase 8 (crecimiento bottom-up, label-aware) + `calculate_final_canvas()` con márgenes separados H/V (BUGS-LAYOUT-002).
+- `visualizer.py` — SVGs de debug del proceso (sólo con `--visualize-growth`).
+- `routing_policy.py` — `LAFRoutingPolicy` (Fase 10).
+- `laf_renderer.py` — `LAFSVGRenderer` (Fase 11): dibuja containers + iconos separados + NdFn metadata (WISH-ARCH-002).
 
 **Resultado:** -87% cruces, -24% colisiones vs AUTO (medido en suite de regresión).
 
-📍 Referencia detallada (11 fases comentadas, configuración, limitaciones BUGS-LAF-002 / WISH-ARCH-001 / BUGS-LAYOUT-003): `modules/layout/laf/LAF.md`.
+**Issues activos al 2026-06-18**: `BUGS-LAF-001` (distribución asimétrica horizontal, cosmético). Histórico de issues resueltos: BUGS-LAF-002, BUGS-LAYOUT-002, BUGS-LAYOUT-003, WISH-ARCH-001/002.
+
+📍 Referencia detallada: `modules/layout/laf/LAF.md`.
 
 ---
 
 ### 6. Módulo `draw/`
 
-**Responsabilidad:** Renderizado SVG
+**Responsabilidad:** Primitivas de dibujo SVG **agnósticas del algoritmo**.
+
+Tras WISH-ARCH-002 (2026-06-18), la orquestación específica de cada algoritmo vive en su propio renderer (`layout/auto/auto_renderer.py`, `layout/laf/laf_renderer.py`). El módulo `draw/` queda como librería pura de primitivas: tipos de iconos, contenedor rect, conexiones, y utilities SVG compartidas.
+
+#### `draw/svg.py` (NUEVO 2026-06-18)
+
+Primitivas SVG compartidas entre los renderers, sin conocimiento de algoritmo:
+
+- `create_canvas(output_path, width, height)` — crea el `Drawing` con filtro `text-glow` global.
+- `setup_arrow_markers(dwg, connections, color_connections)` — markers de flechas (arrow-end/start, circle-end/start) + estilos per-connection si está activo `--color-connections`.
+- `ndfn_wrap(dwg, elem_id, ndfn_labels)` — envuelve el dibujo de un elemento en un `<g>` con `<desc>` NdFn cuando hay metadata.
+- `draw_connections(dwg, connections, ...)` — dibuja líneas/curvas con markers.
+- `draw_connection_labels(dwg, connections, conn_centers, optimized_positions)` — labels de conexiones con posición optimizada.
+- `DrawingGroupProxy` — proxy que difiere el `add()` al drawing real hasta tener el wrapping completo.
 
 #### `draw/icons.py`
 
@@ -614,60 +652,114 @@ Parse → Layout → Optimize → Create Canvas → Render → Save
 - Fácil insertar pasos intermedios
 - Cada paso tiene responsabilidad única
 
+### 6. Factory Pattern (Selección de Optimizer) — NUEVO 2026-06-18
+
+```python
+# AlmaGag/generator.py
+OPTIMIZERS = {
+    'auto': AutoLayoutOptimizer,
+    'laf':  LAFOptimizer,
+}
+
+optimizer_cls = OPTIMIZERS[layout_algorithm]
+optimizer = optimizer_cls(verbose=debug, visualdebug=visualdebug, ...)
+```
+
+**Beneficios:**
+- Selección por CLI sin `if/elif` ni acoplamiento al nombre del algoritmo.
+- Agregar un tercer algoritmo: implementar `LayoutOptimizer` + renderer, añadir entrada al dict.
+- Cumple el contrato `LayoutOptimizer` (Strategy Pattern) en la práctica, no solo en intención.
+
+### 7. Self-contained Construction — NUEVO 2026-06-18
+
+Cada optimizer construye sus propios colaboradores dentro de `__init__`:
+
+```python
+class LAFOptimizer(LayoutOptimizer):
+    def __init__(self, verbose=False, visualdebug=False, ..., **legacy_kwargs):
+        super().__init__(verbose=verbose)
+        # Construcción interna de defaults estándar.
+        self.sizing = SizingCalculator()
+        self.geometry = GeometryCalculator(self.sizing)
+        # ...
+        # Cada optimizer tiene su propio renderer.
+        self.renderer = LAFSVGRenderer(self.geometry)
+        # Inyección opcional para legacy/tests (kwargs).
+```
+
+**Beneficios:**
+- `generator.py` queda agnóstico de las dependencias internas del algoritmo.
+- Cambiar las dependencias por defecto de un algoritmo no propaga a otros sitios.
+- Mantiene inyección opcional vía kwargs para retrocompatibilidad con tests.
+
 ---
 
-## Estructura de Directorios
+## Estructura de Directorios (2026-06-18)
 
 ```
 AlmaGag/
-├── main.py                 # CLI entry point
-├── generator.py            # Orquestador + NdFn metadata + blur filter
-├── config.py               # Constantes globales
+├── main.py                          # CLI entry point (argparse + dispatch)
+├── generator.py                     # Orquestador delgado (187 líneas, factoría)
+├── config.py                        # Constantes globales (LAF_DASHBOARD_MIN_CONTAINERS,
+│                                    #   LAF_CANVAS_MARGIN_HORIZONTAL/VERTICAL, etc.)
+├── debug.py                         # Helpers de debug: badge, grid, guide_lines
 │
-├── layout/                 # Módulo de Layout y Optimización
-│   ├── __init__.py
-│   ├── layout.py           # Clase Layout (inmutable)
-│   ├── optimizer_base.py   # Interfaz LayoutOptimizer
-│   ├── auto/
-│   │   ├── optimizer.py     # AutoLayoutOptimizer
-│   │   ├── positioner.py    # AutoLayoutPositioner
-│   │   └── routing_policy.py # AutoRoutingPolicy
-│   ├── laf/
-│   │   ├── optimizer.py     # LAFOptimizer (11 fases, recomendado)
-│   │   ├── routing_policy.py # LAFRoutingPolicy
-│   │   └── ...              # structure_analyzer, abstract_placer, etc.
-│   ├── sizing.py           # SizingCalculator (SDJF v2.0)
-│   ├── geometry.py         # GeometryCalculator
-│   ├── collision.py        # CollisionDetector (skip parent-child)
-│   ├── graph_analysis.py   # GraphAnalyzer + topología + centralidad
-│   └── laf/                # Módulos del pipeline LAF
-│       ├── __init__.py
-│       ├── README.md             # Documentación técnica LAF
-│       ├── structure_analyzer.py # Fase 1: Estructura + niveles + scores
-│       ├── abstract_placer.py    # Fase 4: Sugiyama-style placement
-│       ├── position_optimizer.py # Fase 5: Layer-offset bisection
-│       ├── inflator.py           # Fase 7: Inflación
-│       ├── container_grower.py   # Fase 7: Crecimiento + label-aware
-│       └── visualizer.py         # 10 SVGs de visualización
+├── draw/                            # Primitivas de dibujo SVG (algoritmo-agnósticas)
+│   ├── svg.py                       # NUEVO: create_canvas, markers, ndfn_wrap, draw_connections
+│   ├── icons.py                     # Dispatcher de iconos + gradientes
+│   ├── connections.py               # Líneas + self-loops + colored connections
+│   ├── container.py                 # Container rect + label-aware bounds
+│   ├── bwt.py                       # Banana With Tape (fallback)
+│   └── server.py, cloud.py, ...     # Tipos de iconos específicos
 │
-├── routing/                # Módulo de routing de conexiones
-│   └── router_manager.py   # Self-loops, container borders, arc/ortho/direct
+├── layout/                          # Módulo de Layout y Optimización
+│   ├── layout.py                    # Layout (Value Object inmutable)
+│   ├── optimizer_base.py            # LayoutOptimizer (contrato base)
+│   ├── sizing.py                    # SizingCalculator (hp/wp)
+│   ├── geometry.py                  # GeometryCalculator
+│   ├── collision.py                 # CollisionDetector
+│   ├── graph_analysis.py            # GraphAnalyzer
+│   ├── label_optimizer.py           # LabelPositionOptimizer
+│   ├── container_calculator.py      # ContainerCalculator
+│   ├── auto/                        # Algoritmo AUTO
+│   │   ├── optimizer.py             # AutoLayoutOptimizer (hereda LayoutOptimizer)
+│   │   ├── positioner.py            # AutoLayoutPositioner (Fase 0)
+│   │   ├── routing_policy.py        # AutoRoutingPolicy
+│   │   └── auto_renderer.py         # NUEVO: AutoSVGRenderer (Fase 5 equiv.)
+│   └── laf/                         # Algoritmo LAF
+│       ├── optimizer.py             # LAFOptimizer (hereda LayoutOptimizer)
+│       │                            #   con _apply_dashboard_reflow (Fase 1.5)
+│       ├── structure_analyzer.py    # Fase 1
+│       ├── abstract_placer.py       # Fase 4
+│       ├── position_optimizer.py    # Fase 5
+│       ├── inflator.py              # Fase 8 (inflación)
+│       ├── container_grower.py      # Fase 8 (crecimiento)
+│       ├── visualizer.py            # Snapshots de fases con --visualize-growth
+│       ├── routing_policy.py        # LAFRoutingPolicy (Fase 10)
+│       └── laf_renderer.py          # NUEVO: LAFSVGRenderer (Fase 11)
 │
-├── draw/                   # Módulo de renderizado SVG
-│   ├── __init__.py
-│   ├── icons.py            # Dispatcher + gradientes + blur glow
-│   ├── connections.py      # Líneas + self-loops + colored connections
-│   ├── container.py        # Contenedores + label-aware bounds
-│   ├── bwt.py              # Banana With Tape (fallback)
-│   ├── server.py, cloud.py, building.py, firewall.py, ...
-│   └── (nuevos tipos via dynamic import)
-│
-└── docs/                   # Documentación
-    ├── spec/               # Especificaciones SDJF
-    ├── architecture/       # Arquitectura del código
-    ├── guides/             # Guías de uso + CLI reference
-    └── diagrams/           # .gag fuentes + .svg generados
+└── routing/                         # Cálculo de paths (compartido por ambos algoritmos)
+    └── router_manager.py            # ConnectionRouterManager
+
+docs/
+├── architecture/                    # ARCHITECTURE.md + EVOLUTION.md + modules/
+├── guides/                          # CLI-REFERENCE, QUICKSTART, LAYOUT-DECISION
+├── spec/                            # Especificaciones SDJF
+├── diagrams/                        # .gag/.sdjf + .svg + benchmark/ (mermaid)
+├── TECHNICAL_DEBT.md                # BUGS-* + WISH-* + métricas
+└── DIAGRAM_REVIEW.md                # BUGS-DIAG-* visuales
+
+tests/                               # 17 pasados + 2 skipped al 2026-06-18
+
+.github/workflows/ci.yml             # Tests + render smoke + determinism guard
 ```
+
+**Cambios estructurales recientes** (todos al 2026-06-18):
+- `AlmaGag/renderer.py` (509 líneas, compartido) **eliminado** — split en `auto_renderer.py` + `laf_renderer.py`.
+- `AlmaGag/draw/svg.py` **creado** — primitivas SVG agnósticas.
+- `AlmaGag/layout/auto/auto_renderer.py` **creado** — `AutoSVGRenderer`.
+- `AlmaGag/layout/laf/laf_renderer.py` **creado** — `LAFSVGRenderer`.
+- `AlmaGag/generator.py` reducido de 838 → 187 líneas (-77%) usando la factoría.
 
 ---
 
@@ -701,25 +793,62 @@ def draw_mi_icono(dwg, x, y, color, element_id):
 
 ### Agregar Nuevo Optimizador
 
-1. Crear `layout/mi_optimizer.py`:
+1. Crear paquete `layout/mi_algoritmo/`:
+
 ```python
+# layout/mi_algoritmo/optimizer.py
 from AlmaGag.layout.optimizer_base import LayoutOptimizer
+from AlmaGag.layout.mi_algoritmo.mi_renderer import MiSVGRenderer
 
 class MiOptimizer(LayoutOptimizer):
-    def optimize(self, layout, max_iterations):
-        # Implementación personalizada
-        optimized_layout = layout.copy()
+    def __init__(self, verbose=False, visualdebug=False, **kwargs):
+        super().__init__(verbose=verbose)
+        # Construir colaboradores internamente (self-contained).
+        self.sizing = SizingCalculator()
+        self.geometry = GeometryCalculator(self.sizing)
+        # ...
+        self.renderer = MiSVGRenderer(self.geometry)
+
+    def optimize(self, layout, max_iterations=10, dump_iterations=False, input_file=None):
+        # Implementación personalizada — ignorar kwargs que no aplican.
         # ... algoritmo ...
-        return optimized_layout
+        return layout
 ```
 
-2. Usar en `generator.py`:
 ```python
-from AlmaGag.layout.mi_optimizer import MiOptimizer
+# layout/mi_algoritmo/mi_renderer.py
+class MiSVGRenderer:
+    def __init__(self, geometry_calculator):
+        self.geometry = geometry_calculator
 
-optimizer = MiOptimizer()
-optimized_layout = optimizer.optimize(initial_layout)
+    def render(self, layout, output_svg, *, visualdebug=False, debug=False, ...):
+        # Usar primitivas de draw/svg.py (agnósticas)
+        # y dibujar el SVG completo.
 ```
+
+2. Registrarlo en `generator.py`:
+
+```python
+from AlmaGag.layout.mi_algoritmo.optimizer import MiOptimizer
+
+OPTIMIZERS = {
+    'auto':         AutoLayoutOptimizer,
+    'laf':          LAFOptimizer,
+    'mi_algoritmo': MiOptimizer,  # ← una línea
+}
+```
+
+3. Agregarlo a las choices del CLI en `main.py`:
+
+```python
+parser.add_argument(
+    "--layout-algorithm",
+    choices=['auto', 'laf', 'mi_algoritmo'],
+    default='auto',
+)
+```
+
+**No requiere tocar el código de los otros algoritmos** — el principio "un algoritmo no sabe que los otros existen" se cumple desde WISH-ARCH-002.
 
 ---
 
@@ -802,5 +931,5 @@ svgwrite>=1.4.3     # Generación de SVG
 
 ---
 
-**Última actualización**: 2026-02-19
-**Versión documentada**: AlmaGag v3.3.0 + SDJF v2.1 | LAF Pipeline 10 fases
+**Última actualización**: 2026-06-18
+**Versión documentada**: AlmaGag v3.4.0 + SDJF v2.1 | LAF Pipeline 11 fases (12 con 1.5 dashboard reflow)

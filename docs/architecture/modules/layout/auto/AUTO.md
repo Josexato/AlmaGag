@@ -67,7 +67,7 @@ Solo se aceptan candidatos que reduzcan el conteo de colisiones (hill climbing p
 
 ### Fase 5 — Routing final + re-evaluación
 
-Tras movimientos, `AutoRoutingPolicy.route()` se invoca de nuevo para recalcular paths con las posiciones finales. El `Layout` resultante es lo que `renderer.py` consume.
+Tras movimientos, `AutoRoutingPolicy.route()` se invoca de nuevo para recalcular paths con las posiciones finales. El `Layout` resultante es lo que `AutoSVGRenderer` (en `layout/auto/auto_renderer.py`) consume. Característica distintiva de AUTO: los iconos de containers se dibujan **inline en el rect del container** (a diferencia de LAF, que los dibuja como elementos separados).
 
 ---
 
@@ -114,6 +114,8 @@ Ver `docs/guides/EXAMPLES.md` (sección "Dashboard layout") para más patrones.
 
 ## Atributos del optimizer
 
+`AutoLayoutOptimizer.__init__` es **self-contained** (post WISH-ARCH-001) — construye sus dependencias internamente:
+
 - `sizing` — `SizingCalculator` (dimensiones desde hp/wp).
 - `geometry` — `GeometryCalculator` (bounding boxes, intersecciones).
 - `collision_detector` — `CollisionDetector`.
@@ -121,6 +123,7 @@ Ver `docs/guides/EXAMPLES.md` (sección "Dashboard layout") para más patrones.
 - `positioner` — `AutoLayoutPositioner`.
 - `container_calculator` — `ContainerCalculator`.
 - `routing` — `AutoRoutingPolicy`.
+- `renderer` — **`AutoSVGRenderer`** (definido en `auto_renderer.py`).
 
 ---
 

@@ -21,7 +21,7 @@ A diferencia de AUTO, que respeta coordenadas manuales y optimiza iterativamente
 | Grafo denso con muchas conexiones, querés minimizar cruces | **LAF** |
 | Diagrama de arquitectura / flow / pipeline | **LAF** |
 | Tenés coordenadas manuales que querés respetar | **AUTO** |
-| Dashboard / poster (contenedores agrupando, sin conexiones inter) | **AUTO** (BUGS-LAF-002: LAF los layoutea pobremente) |
+| Dashboard / poster (contenedores agrupando, sin conexiones inter) | **LAF** (con grid auto desde 2026-06-18, BUGS-LAF-002 resuelto) o **AUTO** con coords manuales si querés control total |
 | Velocidad sobre calidad de layout | **AUTO** |
 | Debug parcial del pipeline (correr sin routing) | **LAF** con `router_manager=None` |
 
@@ -29,15 +29,25 @@ Para detalle cuantitativo, ver `COMPARISON.md`.
 
 ---
 
-## Las 11 fases del pipeline
+## Las 11 fases del pipeline (+ Fase 1.5)
 
-> **Nota sobre "10 vs 11 fases"**: documentación histórica menciona "10 fases". El código actual define **11**, contando la generación de SVG como Fase 11. La discrepancia es solo de etiquetado — el pipeline real es el mismo. La numeración de este doc es la del código (`LAFOptimizer` docstring + `laf/README.md`).
+> **Nota sobre "10 vs 11 fases"**: documentación histórica menciona "10 fases". El código actual define **11** numeradas, contando la generación de SVG como Fase 11, más una **Fase 1.5** insertada en 2026-06-18 para el reflow de dashboards (fix BUGS-LAF-002). La numeración de este doc es la del código (`LAFOptimizer` docstring + `laf/README.md`).
 
 ### Fase 1 — Análisis de estructura
 
 Construye el árbol de elementos, analiza el grafo de conexiones, calcula niveles topológicos (longest-path), computa accessibility scores, detecta **TOI Virtual Containers**, y construye el grafo abstracto **NdPr** (Nodo Primario).
 
 📍 `AlmaGag/layout/laf/structure_analyzer.py`
+
+### Fase 1.5 — Reflow de dashboard (BUGS-LAF-002)
+
+Detecta clusters de **3+ contenedores root en el mismo nivel topológico sin conexiones inter-contenedor** (caso "dashboard"/"poster") y los redistribuye en grid 2D modificando `topological_levels`: cada fila del grid recibe un nivel propio (`lv`, `lv+1`, ...). Los descendientes heredan el nuevo nivel.
+
+Sin esta fase, LAF apilaba los contenedores en fila horizontal y el canvas se expandía a >5.000-20.000 px de ancho. Con ella, un poster de 4 contenedores baja de 5900×243 (ratio 24:1) a 1165×656 (ratio 1.8:1).
+
+Umbral configurable en `config.py::LAF_DASHBOARD_MIN_CONTAINERS` (default: 3).
+
+📍 `AlmaGag/layout/laf/optimizer.py::_apply_dashboard_reflow`
 
 ### Fase 2 — Análisis topológico (visualización)
 
@@ -91,9 +101,9 @@ Sub-fase post-routing. Etiquetas dentro de contenedores pueden necesitar ajuste 
 
 ### Fase 11 — Generación de SVG
 
-Emite el SVG final: metadata NdFn (`<desc>` elements), filtro Gaussian blur de text glow, `DrawingGroupProxy` para wrapping, canvas ajustado dinámicamente.
+Emite el SVG final: metadata NdFn (`<desc>` elements), filtro Gaussian blur de text glow, `DrawingGroupProxy` para wrapping, canvas ajustado dinámicamente. Dibuja los iconos de containers como **elementos separados** (a diferencia de AUTO, que los pinta inline en el rect del container).
 
-📍 `AlmaGag/generator.py` + `AlmaGag/renderer.py`
+📍 `AlmaGag/layout/laf/laf_renderer.py` (`LAFSVGRenderer`). Las primitivas SVG agnósticas (`create_canvas`, `setup_arrow_markers`, `draw_connections`, etc.) viven en `AlmaGag/draw/svg.py` y son compartidas con `AutoSVGRenderer`. Tras WISH-ARCH-002 (2026-06-18), `AlmaGag/renderer.py` original (compartido) fue eliminado.
 
 ---
 
@@ -114,27 +124,38 @@ Son experimentales: si activos sugiere que aún se exploran combinaciones óptim
 
 ---
 
-## Limitaciones conocidas
+## Limitaciones conocidas e historial
 
-- **BUGS-LAF-002** — Layout pobre con dashboards. Cuando hay 3+ contenedores en el mismo nivel sin conexiones inter-contenedor, LAF los pone en fila horizontal expandiendo el canvas a >20.000 px. **Workaround**: usar AUTO con coordenadas manuales en los contenedores padre. Ver `../auto/AUTO.md` sección "Dashboard layout".
+### Activas
 
-- **WISH-ARCH-001** — `LAFOptimizer` no cumple el contrato `LayoutOptimizer`. A diferencia de `AutoLayoutOptimizer` (que hereda de la base), LAF tiene firma propia y `generator.py` lo distingue con `if/elif`. Imposible agregar un tercer algoritmo sin tocar generator. Ver `../../../TECHNICAL_DEBT.md`.
+- **BUGS-LAF-001** — Distribución horizontal asimétrica en niveles multi-elemento (cosmético; los niveles están centrados como conjunto pero el spacing interno puede ser disparejo).
 
-- **BUGS-LAYOUT-003** ✅ — No-determinismo entre procesos (RESUELTO 2026-06-14). Era causado por iteraciones de `set`/`dict` sin orden estable y sorts sin tie-break. Detalle en `../../../TECHNICAL_DEBT.md`.
+### Resueltas (2026)
+
+- **BUGS-LAF-002** ✅ (2026-06-18) — Layout pobre con dashboards. La nueva Fase 1.5 redistribuye clusters en grid 2D. Documentado arriba.
+- **BUGS-LAYOUT-001** ✅ (2026-06-18) — Etiquetas de `--visualdebug` solapadas con elementos. Reposicionadas arriba del bbox con `filter='url(#text-glow)'`.
+- **BUGS-LAYOUT-002** ✅ (2026-06-18) — Margen vertical excesivo en el canvas final. Separado del horizontal: 250px H (badge de debug) + 50px V.
+- **BUGS-LAYOUT-003** ✅ (2026-06-14) — No-determinismo entre procesos. 7 puntos corregidos con `sorted()` + tie-break por `elem_id`.
+- **WISH-ARCH-001** ✅ (2026-06-18) — `LAFOptimizer` ahora hereda de `LayoutOptimizer`. `generator.py` usa factoría (`OPTIMIZERS` dict) en vez de `if/elif`.
+- **WISH-ARCH-002** ✅ (2026-06-18) — Renderers separados por algoritmo (`LAFSVGRenderer`, `AutoSVGRenderer`). Eliminado `AlmaGag/renderer.py` compartido.
 
 ---
 
 ## Atributos del optimizer
 
-`LAFOptimizer.__init__` recibe estos componentes (todos opcionales, inyectados desde `generator.py`):
+`LAFOptimizer.__init__` (post WISH-ARCH-001) es **self-contained**: construye sus propios colaboradores internamente y acepta inyección opcional vía kwargs (legacy / tests):
 
-- `positioner` — `AutoLayoutPositioner` (no usado activamente en LAF, mantenido por compatibilidad).
-- `container_calculator` — `ContainerCalculator`.
-- `routing` — `LAFRoutingPolicy` (envuelve el `router_manager` recibido).
-- `collision_detector` — `CollisionDetector`.
-- `label_optimizer` — `LabelPositionOptimizer`.
+- `sizing` — `SizingCalculator`.
 - `geometry` — `GeometryCalculator`.
+- `collision_detector` — `CollisionDetector`.
+- `container_calculator` — `ContainerCalculator`.
+- `positioner` — `AutoLayoutPositioner` (compatibilidad; no usado activamente en LAF).
+- `label_optimizer` — `LabelPositionOptimizer`.
+- `routing` — `LAFRoutingPolicy` (envuelve un `ConnectionRouterManager`).
+- `renderer` — **`LAFSVGRenderer`** (definido en `laf_renderer.py`).
 - Hiperparámetros de centralidad (ver tabla arriba).
+
+Si pasás `router_manager=None` al constructor, la Fase 10 (routing) se salta — útil para debug parcial del pipeline.
 
 ---
 

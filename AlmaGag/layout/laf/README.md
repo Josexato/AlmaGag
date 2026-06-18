@@ -15,7 +15,7 @@ En lugar de posicionar elementos con sus dimensiones reales desde el inicio (lo 
 5. **Redistribuye** con escala X basada en half-widths de grupos NdFn
 6. **Renderiza** con metadata SVG (descriptores NdFn) y Gaussian blur text glow
 
-## Pipeline de 11 Fases
+## Pipeline de 11 Fases (+ Fase 1.5)
 
 ```
 FASE 1: STRUCTURE ANALYSIS          → structure_analyzer.py
@@ -25,6 +25,15 @@ FASE 1: STRUCTURE ANALYSIS          → structure_analyzer.py
 ├─ Calcular accessibility scores
 ├─ Detectar TOI Virtual Containers (VCs)
 └─ Construir grafo abstracto NdPr (Nodo Primario)
+
+FASE 1.5: DASHBOARD REFLOW          → optimizer.py::_apply_dashboard_reflow
+├─ Detectar clusters de N>=3 contenedores root en el mismo nivel
+│   topologico sin conexiones inter-contenedor.
+├─ Redistribuir en grid ceil(sqrt(N)) cols x ceil(N/cols) filas
+│   modificando topological_levels (cada fila obtiene un nivel propio).
+├─ Descendientes heredan el nuevo nivel.
+└─ Fix BUGS-LAF-002 (2026-06-18). Sin esto, dashboards generaban canvas
+   extremadamente horizontales (>5000px de ancho).
 
 FASE 2: TOPOLOGY ANALYSIS           → optimizer.py (visualizacion)
 ├─ Visualizar niveles y scores
@@ -79,10 +88,12 @@ FASE 10: ROUTING                    → router_manager.py (integracion)
 ├─ Self-loop detection + arc routing
 └─ Container border routing
 
-FASE 11: SVG GENERATION             → generator.py (integracion)
+FASE 11: SVG GENERATION             → laf_renderer.py (LAFSVGRenderer)
 ├─ NdFn metadata (<desc> elements)
-├─ Gaussian blur text glow filter
+├─ Gaussian blur text glow filter (compartido en draw/svg.py)
 ├─ DrawingGroupProxy para wrapping
+├─ Iconos de containers como elementos SEPARADOS
+│   (distinto a AUTO, que los pinta inline)
 └─ Canvas ajustado dinamicamente
 ```
 
@@ -92,24 +103,32 @@ FASE 11: SVG GENERATION             → generator.py (integracion)
 AlmaGag/layout/laf/
 ├── __init__.py              # Exports y version
 ├── README.md                # Este archivo
-├── optimizer.py             # Coordinador LAF v1.8 (11 fases)
-│   └── LAFOptimizer         # Orquesta todo el pipeline
+├── optimizer.py             # Coordinador LAF (hereda LayoutOptimizer)
+│   ├── LAFOptimizer         # Orquesta el pipeline. Self-contained desde WISH-ARCH-001.
+│   ├── _apply_dashboard_reflow  # Fase 1.5 (BUGS-LAF-002)
+│   └── self.renderer        # LAFSVGRenderer (Fase 11)
 ├── routing_policy.py        # LAFRoutingPolicy (Fase 10)
+├── laf_renderer.py          # LAFSVGRenderer (Fase 11) — WISH-ARCH-002
+│                            # Iconos de containers como elementos separados
 ├── structure_analyzer.py    # Fase 1: Analisis de estructura
 │   ├── StructureInfo        # Dataclass con metadata (incl. NdPr fields)
 │   └── StructureAnalyzer    # Arbol + grafo + metricas + TOI VCs + NdPr graph
 ├── abstract_placer.py       # Fase 4: Layout abstracto
 │   └── AbstractPlacer       # Sugiyama-style placement + count_crossings
-│                            # Soporta modo NdPr (connection_graph param)
 ├── position_optimizer.py    # Fase 5: Optimizacion de posiciones
 │   └── PositionOptimizer    # Layer-offset bisection
-│                            # Soporta modo NdPr (connection_graph + levels params)
 ├── inflator.py              # Fase 8: Inflacion
 │   └── ElementInflator      # Abstract → real coordinates
 ├── container_grower.py      # Fase 8: Crecimiento de contenedores
-│   └── ContainerGrower      # Bottom-up expansion + label-aware bounds
-└── visualizer.py            # 10 SVGs de visualizacion (fases 1-5, 7-11)
+│   └── ContainerGrower      # Bottom-up + label-aware
+│                            # calculate_final_canvas con margenes H/V separados (BUGS-LAYOUT-002)
+└── visualizer.py            # SVGs de visualizacion (con --visualize-growth)
     └── GrowthVisualizer     # Snapshots de cada fase (NdPr-aware)
+
+AlmaGag/draw/
+└── svg.py                   # NUEVO 2026-06-18 — Primitivas SVG agnósticas
+                             # (create_canvas, setup_arrow_markers, ndfn_wrap,
+                             #  draw_connections, draw_connection_labels)
 
 AlmaGag/layout/
 └── collision.py             # Deteccion de colisiones (skip parent-child)
