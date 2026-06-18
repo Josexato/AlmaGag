@@ -67,7 +67,7 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         self.container_calculator = ContainerCalculator(self.sizing, self.geometry)
         self.routing = AutoRoutingPolicy(self.sizing)
         # Cada algoritmo expone su propio renderer (separación total — WISH-ARCH-002).
-        from AlmaGag.layout.auto.renderer import AutoSVGRenderer
+        from AlmaGag.layout.auto.auto_renderer import AutoSVGRenderer
         self.renderer = AutoSVGRenderer(self.geometry)
 
     def analyze(self, layout: Layout) -> None:

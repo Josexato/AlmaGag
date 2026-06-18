@@ -130,7 +130,7 @@ class LAFOptimizer(LayoutOptimizer):
             self.routing = LAFRoutingPolicy(self.sizing)
 
         # Cada algoritmo expone su propio renderer (separación total — WISH-ARCH-002).
-        from AlmaGag.layout.laf.renderer import LAFSVGRenderer
+        from AlmaGag.layout.laf.laf_renderer import LAFSVGRenderer
         self.renderer = LAFSVGRenderer(self.geometry)
 
         # === Label optimizer (necesita canvas dims; usa default si no fue inyectado) ===
