@@ -532,26 +532,20 @@ Permitir al usuario especificar restricciones en el SDJF:
 
 ---
 
-### WISH-DOCS-001: Sincronizar `architecture.mmd` Benchmark con el Nuevo `.gag`
+### WISH-DOCS-001: Sincronizar `architecture.mmd` Benchmark con el Nuevo `.gag` ✅ RESUELTO
 **Componente**: `docs/diagrams/benchmark/architecture.mmd`
 **Severidad**: Baja
 **Reportado**: 2026-06-18
+**Resuelto**: 2026-06-18
 
-**Descripción**:
-`docs/diagrams/benchmark/architecture.mmd` es la versión Mermaid del diagrama de arquitectura, usada para comparar el output de AlmaGag contra Mermaid (herramienta establecida). Fue creada cuando la fuente AlmaGag era `05-arquitectura-gag.sdjf` con la arquitectura previa al ciclo de refactors (Tier 1 + WISH-ARCH-001/002 + BUGS-LAF-002 + BUGS-LAYOUT-001/002).
+**Causa**: `architecture.mmd` representaba la arquitectura pre-ciclo (con `auto_optimizer v2.1`, `laf_optimizer v1.8`, `renderer.py` único, módulo `Routing` granular). El nuevo `05-arquitectura-gag.gag` ya reflejaba post WISH-ARCH-001/002 + BUGS-LAF-002 con factoría OPTIMIZERS, renderers separados y `draw/svg.py`. El benchmark seguía corriendo pero comparaba grafos distintos.
 
-Después de reemplazar la fuente por `05-arquitectura-gag.gag` (con iconos custom y estructura actualizada: factoría OPTIMIZERS, renderers separados, draw/svg.py, Fase 1.5), el `.mmd` quedó representando una arquitectura distinta. El benchmark sigue funcionando pero **ya no compara el mismo grafo**: AlmaGag dibuja la arquitectura actual, Mermaid dibuja la antigua.
+**Fix aplicado**:
+- `architecture.mmd` reescrito: mismos 16 elementos en 3 containers (AUTO, LAF, Shared) que el `.gag`. Heritage de optimizers al contrato `LayoutOptimizer` representada con flechas punteadas (`-. "hereda" .->`). Forma `>...]` (parallelogram-asymmetric) para distinguir la clase abstracta.
+- `architecture.svg` y `architecture.png` regenerados con `mmdc` (puppeteer config con `--no-sandbox`).
+- `benchmark/README.md` actualizado: tabla de archivos, métricas objetivas (canvas, tamaños, líneas), próximos benchmarks. Mencionado explícitamente WISH-DOCS-001 como ancla de sync.
 
-**Solución propuesta**:
-Reescribir `architecture.mmd` reflejando los mismos elementos y conexiones que `05-arquitectura-gag.gag`. Mantener convenciones Mermaid (subgraphs para containers, flowchart LR/TD).
-
-**Por qué es WISH y no BUGS**:
-El benchmark "funciona" — Mermaid genera su SVG sin errores. Es la comparación lo que pierde validez al estar desincronizada.
-
-**Impacto del fix**:
-~30 min de reescritura del `.mmd` + regenerar `architecture.svg`/`architecture.png` con `mmdc`. Sin riesgo de regresión.
-
-**Prioridad**: Baja. Solo afecta al doc de benchmark.
+**Validación**: ambos diagramas representan ahora el mismo grafo (16 elementos × 3 containers × ~15 conexiones).
 
 ---
 
@@ -591,7 +585,7 @@ La doc histórica no afecta el funcionamiento. Es deuda de documentación.
 | **LAF** | 2 (ambos resueltos ✅) | 1 | 3 |
 | **ARCH** | 0 | 3 (2 resueltos ✅) | 3 |
 | **AUTO** | 0 | 0 | 0 |
-| **DOCS** | 0 | 2 | 2 |
+| **DOCS** | 0 | 2 (1 resuelto ✅) | 2 |
 | **DIAG** | 8 (8 resueltos ✅) | 0 | 8 |
 | **Total** | **13** | **9** | **22** |
 
@@ -612,7 +606,6 @@ Problemas visuales DIAG (8 entradas) viven en `DIAGRAM_REVIEW.md`.
 | Media | `WISH-LAYOUT-001` | Sistema de etiquetas inteligente (paraguas; `WISH-LAYOUT-003` es un caso de uso). |
 | Media-baja | `WISH-LAYOUT-002` | Soporte para constraints (`align`, `near`, `avoid`) en SDJF. |
 | Baja | `WISH-LAF-001` | Más optimización de cruces (pesos dinámicos en barycenter). |
-| Baja | `WISH-DOCS-001` | Sincronizar `architecture.mmd` con el nuevo `.gag`. |
 | Baja | `WISH-DOCS-002` | Actualizar `EVOLUTION.md` con el ciclo 2026. |
 
 ---

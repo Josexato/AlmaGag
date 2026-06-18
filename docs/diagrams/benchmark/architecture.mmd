@@ -3,62 +3,37 @@ flowchart TD
     %% =====================================================
     %% Same scope as docs/diagrams/svgs/05-arquitectura-gag.svg
     %% Rendered with Mermaid (dagre auto-layout) for benchmark.
+    %% Reflects current architecture post WISH-ARCH-001/002 +
+    %% BUGS-LAF-002 + BUGS-LAYOUT-001/002 (2026-06-18).
     %% =====================================================
 
     input[(archivo<br/>.sdjf/.gag)]:::io
-    main[main.py<br/><i>CLI + args</i>]:::server
-    config[/"config.py<br/><i>constantes</i>"/]:::data
-    generator[generator.py<br/><i>orquestador</i>]:::server
-    layout[Layout<br/><i>data container</i>]:::data
-    svgwrite([svgwrite<br/><i>lib externa</i>]):::external
+    main[main.py<br/><i>CLI + argparse</i>]:::server
+    generator["generator.py<br/><i>OPTIMIZERS = {auto, laf}</i><br/>187 líneas"]:::factory
+    contract>"LayoutOptimizer<br/><i>clase base abstracta</i>"]:::contract
 
-    %% Shared infrastructure
-    subgraph shared["🔧 Shared Dependencies"]
-        direction LR
-        sizing[SizingCalculator]:::utility
-        geometry_calc[GeometryCalculator]:::utility
-        collision_det[CollisionDetector]:::utility
-    end
-
-    %% AUTO pipeline
-    subgraph autopath["🅰️ Auto Layout Path"]
+    %% AUTO algorithm — self-contained
+    subgraph autobox["🅰️ AUTO"]
         direction TB
-        auto_optimizer[AutoLayoutOptimizer<br/><i>v2.1 Jerárquico</i>]:::server
-        auto_positioner[AutoPositioner]:::utility
-        graph_analyzer[GraphAnalyzer]:::utility
-        container_calc[ContainerCalculator]:::utility
-        auto_routing[AutoRoutingPolicy]:::policy
+        auto_opt["AutoLayoutOptimizer<br/><i>híbrido + hill climbing</i>"]:::optimizer
+        auto_rend["AutoSVGRenderer<br/><i>icono inline</i>"]:::renderer
     end
 
-    %% LAF pipeline
-    subgraph lafpath["🅻 LAF Layout Path"]
+    %% LAF algorithm — self-contained, 11 + 1.5 phases
+    subgraph lafbox["🅻 LAF"]
         direction TB
-        laf_optimizer[LAFOptimizer<br/><i>v1.8 - 11 fases</i>]:::server
-        laf_pipeline[LAF Pipeline<br/><i>11 fases</i>]:::utility
-        growth_visualizer[GrowthVisualizer<br/><i>10 SVGs debug</i>]:::utility
-        laf_routing[LAFRoutingPolicy]:::policy
+        laf_opt["LAFOptimizer<br/><i>self-contained</i>"]:::optimizer
+        laf_pipe["Pipeline LAF<br/><i>11 fases + 1.5 dashboard reflow</i><br/><i>(Sugiyama)</i>"]:::pipeline
+        laf_rend["LAFSVGRenderer<br/><i>icono separado + NdFn</i>"]:::renderer
     end
 
-    %% Routing library
-    subgraph routing["🔀 Routing Module"]
+    %% Shared algorithm-agnostic infrastructure
+    subgraph shared["🔧 Shared (algoritmo-agnóstico)"]
         direction LR
-        router_mgr[RouterManager]:::server
-        routers([5 Routers<br/><i>straight, orthogonal,<br/>bezier, arc, manual</i>]):::utility
-        port_assign[PortAssignment]:::utility
-        vis_graph[VisibilityGraph<br/><i>A* pathfinding</i>]:::utility
-    end
-
-    %% Render
-    render[renderer.py]:::server
-
-    %% Draw module
-    subgraph drawmod["🎨 Draw Module"]
-        direction LR
-        draw_containers[draw_containers]:::utility
-        draw_icons[draw_icons]:::utility
-        draw_connections[draw_connections]:::utility
-        draw_labels[draw_labels]:::utility
-        label_optimizer[LabelPositionOptimizer<br/><i>v3.0</i>]:::utility
+        layout_obj[("Layout<br/><i>Value Object inmutable</i>")]:::data
+        draw_svg["draw/svg.py<br/><i>primitivas SVG<br/>(create_canvas, markers,<br/>ndfn_wrap, draw_connections)</i>"]:::toolbox
+        router_mgr[ConnectionRouterManager<br/><i>routing/router_manager.py</i>]:::utility
+        geometry_utils[Geometry + Collision<br/>+ GraphAnalyzer<br/>+ LabelOptimizer]:::utility
     end
 
     output[(archivo<br/>.svg)]:::io
@@ -66,50 +41,42 @@ flowchart TD
     %% ------- Main flow -------
     input --> main
     main --> generator
-    config --> generator
-    generator --> layout
-    generator --> svgwrite
-    generator --> auto_optimizer
-    generator --> laf_optimizer
 
-    %% Shared deps internal
-    sizing --> geometry_calc
-    geometry_calc --> collision_det
+    %% Factory dispatches by --layout-algorithm
+    generator -- "OPTIMIZERS['auto']" --> auto_opt
+    generator -- "OPTIMIZERS['laf']" --> laf_opt
 
-    %% AUTO internals
-    auto_optimizer --> graph_analyzer
-    auto_optimizer --> auto_positioner
-    auto_optimizer --> container_calc
-    auto_optimizer --> collision_det
-    auto_optimizer --> auto_routing
-    auto_routing --> router_mgr
+    %% Both optimizers inherit from LayoutOptimizer (contract)
+    auto_opt -. "hereda" .-> contract
+    laf_opt -. "hereda" .-> contract
 
-    %% LAF internals
-    laf_optimizer --> laf_pipeline
-    laf_optimizer --> growth_visualizer
-    laf_optimizer --> laf_routing
-    laf_routing --> router_mgr
-    laf_pipeline --> router_mgr
+    %% LAF pipeline composition
+    laf_opt --> laf_pipe
 
-    %% Routing internals
-    router_mgr --> routers
-    router_mgr --> port_assign
-    router_mgr --> vis_graph
+    %% Each optimizer owns its renderer (WISH-ARCH-002)
+    auto_opt --> auto_rend
+    laf_pipe --> laf_rend
+
+    %% Routing — shared between algos
+    auto_opt -- "paths" --> router_mgr
+    laf_pipe -- "Fase 10" --> router_mgr
+
+    %% Renderers use shared SVG primitives
+    auto_rend --> draw_svg
+    laf_rend --> draw_svg
 
     %% Output chain
-    auto_optimizer --> render
-    laf_optimizer --> render
-    render --> draw_containers
-    render --> draw_icons
-    render --> draw_connections
-    render --> draw_labels
-    render --> label_optimizer
-    render --> output
+    auto_rend --> output
+    laf_rend --> output
 
     %% Class styles
     classDef server fill:#b1f3b1,stroke:#64a664,color:#000,stroke-width:1.5px
-    classDef utility fill:#c5e3ed,stroke:#7997a1,color:#000,stroke-width:1.2px
+    classDef factory fill:#ffe34c,stroke:#b29600,color:#000,stroke-width:1.8px
+    classDef contract fill:#e5d4ff,stroke:#7a4cb2,color:#000,stroke-width:1.5px,stroke-dasharray:5 3
+    classDef optimizer fill:#c5e3ed,stroke:#7997a1,color:#000,stroke-width:1.5px
+    classDef renderer fill:#b1f3b1,stroke:#64a664,color:#000,stroke-width:1.2px
+    classDef pipeline fill:#a6e7a6,stroke:#487748,color:#000,stroke-width:1.5px
     classDef data fill:#ffc04c,stroke:#b27300,color:#000,stroke-width:1.5px
-    classDef policy fill:#ffd2da,stroke:#b2868e,color:#000,stroke-width:1.2px
-    classDef external fill:#4cffff,stroke:#00b2b2,color:#000,stroke-width:1.2px
+    classDef toolbox fill:#ffd9a6,stroke:#b27300,color:#000,stroke-width:1.2px
+    classDef utility fill:#ffe3b3,stroke:#b27300,color:#000,stroke-width:1.2px
     classDef io fill:#fffde0,stroke:#8a8500,color:#000,stroke-width:1.5px

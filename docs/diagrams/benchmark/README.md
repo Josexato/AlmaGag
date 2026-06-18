@@ -6,12 +6,13 @@ Esta carpeta contiene **el mismo diagrama de arquitectura** renderizado con dos 
 
 | Archivo | Motor | Tamaño | Notas |
 |---|---|---:|---|
-| `../svgs/05-arquitectura-gag.svg` | **AlmaGag** (AUTO, post-fixes BUGS-DIAG-*) | ~25 KB | Generado desde `../gags/05-arquitectura-gag.gag` (con iconos custom) |
-| `architecture.mmd` | Mermaid (fuente) | ~4 KB | Texto declarativo. Renderizable en GitHub directamente. |
-| `architecture.svg` | Mermaid (rendered) | ~150 KB | Generado con `mmdc` (mermaid-cli). |
-| `architecture.png` | Mermaid (rendered) | ~110 KB | Misma fuente, formato raster. |
+| `../svgs/05-arquitectura-gag.svg` | **AlmaGag** (AUTO, post WISH-ARCH-001/002) | ~25 KB | Generado desde `../gags/05-arquitectura-gag.gag` (con 6 iconos custom: factory/gear/brush/pipeline/contract/toolbox) |
+| `architecture.mmd` | Mermaid (fuente) | ~4 KB | Texto declarativo. Renderizable en GitHub directamente. Sincronizado con el `.gag` el 2026-06-18 (WISH-DOCS-001). |
+| `architecture.svg` | Mermaid (rendered) | ~45 KB | Generado con `mmdc` (mermaid-cli). |
+| `architecture.png` | Mermaid (rendered) | ~46 KB | Misma fuente, formato raster. |
 
-Ambos diagramas representan el **mismo grafo de arquitectura**: input → main → generator → algoritmos (AUTO/LAF) → routing → render → draw → output. Los 32 elementos y 5 stages son los mismos.
+Ambos diagramas representan el **mismo grafo de arquitectura post WISH-ARCH-001/002 + BUGS-LAF-002 + BUGS-LAYOUT-001/002**:
+input → main → generator (factoría OPTIMIZERS) → AUTO/LAF (cada uno con su renderer) → ConnectionRouterManager → draw/svg.py → output. Heritage punteada de ambos optimizers al contrato `LayoutOptimizer`. 16 elementos en 3 containers (AUTO, LAF, Shared) idénticos en ambas renderizaciones.
 
 ## Por qué hacer este benchmark
 
@@ -37,10 +38,10 @@ Mermaid es un buen baseline porque:
 
 ### Donde AlmaGag está **peor**
 
-1. **Layout más compacto**: Mermaid usa dagre que minimiza cruces y espacio vacío. AlmaGag (post-fixes) sigue siendo más grande (canvas ~1600×2144 vs Mermaid ~más compacto en aspect ratio similar al diagrama).
+1. **Layout más compacto**: Mermaid usa dagre que minimiza cruces y espacio vacío. AlmaGag (post-fixes) sigue siendo más grande (canvas 2200×1520 con coords manuales vs Mermaid en aspect ratio similar más compacto).
 2. **Routing de conexiones**: Mermaid usa rutas suaves (curvas o ortogonales bien ajustadas). AlmaGag a veces tiene segmentos no óptimos.
-3. **Labels grandes**: Mermaid maneja labels multi-línea sin descalibrar el layout. AlmaGag tiene BUGS-DIAG-002 (label gigante) como deuda recurrente — relacionado con WISH-LAYOUT-003 (auto-callout).
-4. **Auto-stagger por niveles**: dagre detecta automáticamente cuántos niveles necesita. AlmaGag (sin coords manuales) puede colapsar muchos hermanos en una sola banda — ese fue BUGS-DIAG-006.
+3. **Labels grandes**: Mermaid maneja labels multi-línea sin descalibrar el layout. AlmaGag mejoró tras BUGS-DIAG-001..008 pero sigue con WISH-LAYOUT-003 (auto-callout) como mejora pendiente.
+4. **Auto-stagger por niveles**: dagre detecta automáticamente cuántos niveles necesita. AlmaGag (sin coords manuales) puede colapsar hermanos en una sola banda — mitigado con la nueva Fase 1.5 de LAF (dashboard reflow, BUGS-LAF-002) y con coords manuales en containers padre.
 
 ### Donde AlmaGag tiene **features únicas**
 
@@ -74,16 +75,17 @@ flowchart TD
 ```
 ````
 
-## Métricas objetivas medidas
+## Métricas objetivas medidas (2026-06-18)
 
 | Métrica | AlmaGag | Mermaid |
 |---|---:|---:|
-| Líneas de fuente | 340 (SDJF) | 105 (.mmd) |
-| Tamaño del SVG | ~100 KB | ~150 KB |
-| Densidad max por banda (post-DIAG-006 fix) | 7 elem | (sin "bandas" — usa flow libre) |
+| Líneas de fuente | ~125 (.gag incluye iconos SVG embebidos) | ~75 (.mmd) |
+| Tamaño del SVG | ~25 KB | ~45 KB |
+| Canvas (px) | 2200×1520 | (auto) |
 | Maneja containers? | ✅ (post-DIAG-001) | ✅ (subgraphs) |
-| Maneja labels multi-línea sin colapsar? | ⚠️ parcial | ✅ |
-| Iconos visualmente distinguidos por tipo? | ✅ | ❌ |
+| Maneja labels multi-línea sin colapsar? | ✅ | ✅ |
+| Iconos visualmente distinguidos por tipo? | ✅ (6 iconos custom embebidos) | ❌ |
+| Refleja heritage abstracta? | ✅ (icono `contract` dedicado) | ✅ (forma `>...]` parallelogram) |
 
 ## Próximos benchmarks candidatos
 
@@ -91,7 +93,7 @@ flowchart TD
 - **D3.js / force-directed** — diagramas dinámicos con interactividad.
 - **PlantUML** — popular en docs de software.
 
-Esta comparación informa qué BUGS/WISH del tablero priorizar:
-- **WISH-LAYOUT-001** (Sistema de Etiquetas Inteligente) → cerrar gap vs Mermaid en labels.
-- **WISH-LAYOUT-003** (Auto-callout) → mejorar manejo de labels grandes.
-- **BUGS-LAYOUT-002** (Canvas excesivo) → competir con la compactación de dagre.
+Esta comparación informa qué WISH del tablero priorizar:
+- **WISH-LAYOUT-001** (Sistema de Etiquetas Inteligente) → cerrar el gap residual vs Mermaid en labels.
+- **WISH-LAYOUT-003** (Auto-callout) → mejorar manejo de labels grandes (caso `laf_pipe` en el diagrama de arquitectura).
+- **WISH-LAF-001** (más optimización de cruces) → competir con dagre en grafos densos.
