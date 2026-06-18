@@ -26,86 +26,142 @@ from AlmaGag.layout.laf.inflator import ElementInflator
 from AlmaGag.layout.laf.container_grower import ContainerGrower
 from AlmaGag.layout.laf.visualizer import GrowthVisualizer
 from AlmaGag.layout.laf.routing_policy import LAFRoutingPolicy
+from AlmaGag.layout.optimizer_base import LayoutOptimizer
 from AlmaGag.layout.sizing import SizingCalculator
-from AlmaGag.config import LAF_SPACING_BASE
+from AlmaGag.layout.geometry import GeometryCalculator
+from AlmaGag.layout.collision import CollisionDetector
+from AlmaGag.layout.container_calculator import ContainerCalculator
+from AlmaGag.layout.graph_analysis import GraphAnalyzer
+from AlmaGag.layout.auto.positioner import AutoLayoutPositioner
+from AlmaGag.layout.label_optimizer import LabelPositionOptimizer
+from AlmaGag.routing.router_manager import ConnectionRouterManager
+from AlmaGag.config import LAF_SPACING_BASE, WIDTH as DEFAULT_CANVAS_WIDTH, HEIGHT as DEFAULT_CANVAS_HEIGHT
 import logging
 
 # Importar la función de dump_layout_table si está en debug
 logger = logging.getLogger('AlmaGag')
 
 
-class LAFOptimizer:
+class LAFOptimizer(LayoutOptimizer):
     """
     Optimizador LAF (Layout Abstracto Primero).
 
     Ejecuta layout en 11 fases para minimizar cruces y distancias de conectores.
     Fase 5 (Claude-SolFase5): Optimiza posiciones de nodos primarios para
     minimizar la distancia total de conectores, sin realizar inflación.
+
+    Construcción: self-contained. Construye sus propias dependencias internamente.
+    Acepta inyección opcional de colaboradores (kwargs legacy) para retrocompatibilidad
+    con tests y scripts antiguos.
+
+    Cumple el contrato LayoutOptimizer (WISH-ARCH-001 resuelto): hereda de la
+    clase base y expone optimize() con firma compatible con AutoLayoutOptimizer.
     """
 
     def __init__(
         self,
+        verbose: bool = False,
+        visualdebug: bool = False,
+        visualize_growth: bool = False,
+        centrality_alpha: float = 0.15,
+        centrality_beta: float = 0.10,
+        centrality_gamma: float = 0.15,
+        centrality_max_score: float = 100.0,
+        # Inyección opcional de dependencias (legacy / tests).
+        # Si None, se construyen internamente.
         positioner=None,
         container_calculator=None,
         router_manager=None,
         collision_detector=None,
         label_optimizer=None,
         geometry=None,
-        visualize_growth: bool = False,
-        debug: bool = False,
-        centrality_alpha: float = 0.15,
-        centrality_beta: float = 0.10,
-        centrality_gamma: float = 0.15,
-        centrality_max_score: float = 100.0,
+        debug=None,  # legacy alias para 'verbose'
     ):
         """
         Inicializa el optimizador LAF.
 
         Args:
-            positioner: AutoLayoutPositioner (no usado en LAF, pero para compatibilidad)
-            container_calculator: ContainerCalculator
-            router_manager: ConnectionRouterManager opcional (se envuelve en LAFRoutingPolicy)
-            collision_detector: CollisionDetector
-            label_optimizer: LabelOptimizer
-            geometry: GeometryCalculator
-            visualize_growth: Si True, genera SVGs de cada fase
-            debug: Si True, imprime logs de debug
-            centrality_alpha: Peso por distancia en skip connections (Fase 3)
-            centrality_beta: Peso por hijo extra / hub-ness (Fase 3)
-            centrality_gamma: Peso por fan-in extra (Fase 3, 0=desactivado)
-            centrality_max_score: Clamp máximo del score de accesibilidad (Fase 3)
+            verbose: Si True, imprime logs de debug (alias: debug).
+            visualdebug: Si True, activa elementos visuales de debug.
+            visualize_growth: Si True, genera SVGs de cada fase.
+            centrality_alpha/beta/gamma/max_score: Hiperparámetros de Fase 3.
+
+        Args opcionales (inyección de dependencias para tests):
+            positioner, container_calculator, router_manager,
+            collision_detector, label_optimizer, geometry: si None,
+            se construyen internamente con defaults estándar.
+            debug: alias legacy para verbose.
         """
-        self.positioner = positioner
-        self.container_calculator = container_calculator
-        self.routing = LAFRoutingPolicy(router_manager)
-        self.collision_detector = collision_detector
-        self.label_optimizer = label_optimizer
-        self.geometry = geometry
+        # Aceptar 'debug' como alias legacy de 'verbose'
+        if debug is not None:
+            verbose = debug
+        super().__init__(verbose=verbose)
+        self.debug = verbose  # alias para llamadas internas existentes
+        self.visualdebug = visualdebug
         self.visualize_growth = visualize_growth
-        self.debug = debug
 
-        # Obtener visualdebug del positioner si está disponible
-        visualdebug = getattr(positioner, 'visualdebug', False) if positioner else False
-
-        # SizingCalculator para dimensiones reales (hp/wp)
+        # === Dependencias base (construcción o inyección) ===
         self.sizing = SizingCalculator()
+        self.geometry = geometry if geometry is not None else GeometryCalculator(self.sizing)
+        self.collision_detector = (
+            collision_detector
+            if collision_detector is not None
+            else CollisionDetector(self.geometry)
+        )
+        self.graph_analyzer = GraphAnalyzer()
+        self.container_calculator = (
+            container_calculator
+            if container_calculator is not None
+            else ContainerCalculator(self.sizing, self.geometry)
+        )
+        self.positioner = (
+            positioner
+            if positioner is not None
+            else AutoLayoutPositioner(self.sizing, self.graph_analyzer, visualdebug=visualdebug)
+        )
 
-        # Módulos LAF
-        self.structure_analyzer = StructureAnalyzer(debug=debug, centrality_alpha=centrality_alpha,
-                                                    centrality_beta=centrality_beta,
-                                                    centrality_gamma=centrality_gamma,
-                                                    centrality_max_score=centrality_max_score)
-        self.abstract_placer = AbstractPlacer(debug=debug)
-        self.position_optimizer = PositionOptimizer(debug=debug)
-        self.inflator = ElementInflator(label_optimizer=label_optimizer, debug=debug, visualdebug=visualdebug)
-        self.container_grower = ContainerGrower(sizing_calculator=self.sizing, debug=debug)
-        self.visualizer = GrowthVisualizer(debug=debug) if visualize_growth else None
+        # === Routing policy ===
+        # Si el caller inyectó un router_manager (legacy), lo usamos.
+        # Si no, LAFRoutingPolicy lo construye internamente desde sizing
+        # (simétrico a AutoRoutingPolicy ahora que WISH-ARCH-001 está resuelto).
+        if router_manager is not None:
+            self.routing = LAFRoutingPolicy(router_manager)
+        else:
+            self.routing = LAFRoutingPolicy(self.sizing)
+
+        # === Label optimizer (necesita canvas dims; usa default si no fue inyectado) ===
+        # Si el caller no inyectó uno, lo construimos con defaults. En optimize()
+        # se reemplaza con uno dimensionado al canvas real del layout.
+        if label_optimizer is not None:
+            self.label_optimizer = label_optimizer
+            self._label_optimizer_injected = True
+        else:
+            self.label_optimizer = LabelPositionOptimizer(
+                self.geometry, DEFAULT_CANVAS_WIDTH, DEFAULT_CANVAS_HEIGHT, debug=verbose
+            )
+            self._label_optimizer_injected = False
+
+        # === Módulos LAF ===
+        self.structure_analyzer = StructureAnalyzer(
+            debug=verbose,
+            centrality_alpha=centrality_alpha,
+            centrality_beta=centrality_beta,
+            centrality_gamma=centrality_gamma,
+            centrality_max_score=centrality_max_score,
+        )
+        self.abstract_placer = AbstractPlacer(debug=verbose)
+        self.position_optimizer = PositionOptimizer(debug=verbose)
+        self.inflator = ElementInflator(
+            label_optimizer=self.label_optimizer, debug=verbose, visualdebug=visualdebug
+        )
+        self.container_grower = ContainerGrower(sizing_calculator=self.sizing, debug=verbose)
+        self.visualizer = GrowthVisualizer(debug=verbose) if visualize_growth else None
 
     def _dump_layout(self, layout, phase_name):
         """Helper para hacer dump del layout en cada fase (solo con --dump-iterations)."""
         if getattr(layout, '_dump_iterations', False):
             try:
-                from AlmaGag.generator import dump_layout_table
+                from AlmaGag.debug import dump_layout_table
                 containers = [e for e in layout.elements if 'contains' in e]
                 dump_layout_table(layout, layout.elements_by_id, containers, phase=phase_name)
             except (ImportError, KeyError, TypeError, ValueError, OSError) as e:
@@ -733,7 +789,38 @@ class LAFOptimizer:
             # Avanzar a la siguiente posición
             current_x += elem_width + spacing
 
-    def optimize(self, layout):
+    def optimize(self, layout, max_iterations: int = 10, dump_iterations: bool = False, input_file=None):
+        """
+        Optimiza un layout aplicando el pipeline LAF de 11 fases.
+
+        Acepta los kwargs de AutoLayoutOptimizer.optimize() para compatibilidad
+        de firma con el contrato LayoutOptimizer (WISH-ARCH-001), aunque LAF
+        no usa max_iterations, dump_iterations ni input_file:
+        - LAF no itera por número fijo de pasos (cada fase es determinística).
+        - LAF tiene su propio mecanismo de dump (_dump_layout por fase).
+        - LAF no necesita el path del input para nada.
+        """
+        # Si el layout viene con un canvas distinto al default, reconstruir
+        # label_optimizer con las dimensiones reales (a menos que el caller
+        # haya inyectado uno explícito).
+        if not self._label_optimizer_injected:
+            canvas_width = layout.canvas.get('width', DEFAULT_CANVAS_WIDTH)
+            canvas_height = layout.canvas.get('height', DEFAULT_CANVAS_HEIGHT)
+            if (canvas_width != self.label_optimizer.canvas_width
+                    or canvas_height != self.label_optimizer.canvas_height):
+                self.label_optimizer = LabelPositionOptimizer(
+                    self.geometry, canvas_width, canvas_height, debug=self.verbose
+                )
+                # Reconstruir inflator también, depende de label_optimizer
+                self.inflator = ElementInflator(
+                    label_optimizer=self.label_optimizer,
+                    debug=self.verbose,
+                    visualdebug=self.visualdebug,
+                )
+
+        return self._optimize_impl(layout)
+
+    def _optimize_impl(self, layout):
         """
         Ejecuta el pipeline LAF de 11 fases.
 

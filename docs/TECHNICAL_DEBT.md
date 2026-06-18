@@ -159,16 +159,29 @@ Detectar "modo dashboard" (cluster de contenedores sin conexiones inter-cluster)
 
 ## 🌟 WISH
 
-### WISH-ARCH-001: LAFOptimizer Cumpla el Contrato LayoutOptimizer
+### WISH-ARCH-001: LAFOptimizer Cumpla el Contrato LayoutOptimizer ✅ RESUELTO
 **Componente**: `AlmaGag/layout/laf/optimizer.py` + `AlmaGag/generator.py`
 **Severidad**: Media-Alta
 **Reportado**: 2026-05-14 (detectado durante refactor de routing_policy)
+**Resuelto**: 2026-06-18
 
-**Estado actual**:
+**Estado anterior**:
 - `AutoLayoutOptimizer` hereda de `LayoutOptimizer` (clase base en `optimizer_base.py`).
 - `LAFOptimizer` no hereda de nadie y tiene firma de `__init__` distinta (recibe colaboradores por inyección).
 - `generator.py` usa `if/elif layout_algorithm == ...` para distinguir (líneas ~578, ~625).
 - `render_containers()` recibe `layout_algorithm` como parámetro.
+
+**Fix aplicado** (Tier 1):
+1. `LAFOptimizer` ahora hereda de `LayoutOptimizer`.
+2. `__init__` self-contained: construye sus deps internamente. Acepta inyección opcional (retrocompat).
+3. `optimize()` firma unificada: `(layout, max_iterations=10, dump_iterations=False, input_file=None)`. LAF ignora los kwargs que no aplican.
+4. `LAFRoutingPolicy` se uniformó con `AutoRoutingPolicy` — acepta `sizing` y construye `router_manager` internamente. Modo legacy preservado.
+5. `generator.py` ahora usa **factoría** (`OPTIMIZERS = {'auto': ..., 'laf': ...}`) en lugar de `if/elif`. Una sola llamada a `optimizer.optimize(...)` para ambos.
+
+**Lo que NO se hizo en este fix** (queda como follow-up):
+- `layout_algorithm` sigue propagándose a `render_containers()` y `draw_container()` para decidir si dibujar el icono inline (AUTO) o como elemento separado (LAF). Es una decisión de **renderizado**, no de optimizer. Se puede atacar en un fix futuro agregando un flag al `Layout` o unificando el comportamiento.
+
+**Validación**: 46/46 SVGs smoke OK; determinismo 3/3 archivos × 3 seeds intacto; tests 17/2.
 
 **Por qué es WISH y no BUGS**:
 El código **funciona**: LAF corre OK, los renders son válidos. Es asimetría arquitectural que querrías limpiar, no un crash o resultado incorrecto.
@@ -334,7 +347,7 @@ Permitir al usuario especificar restricciones en el SDJF:
 |---|---:|---:|---:|
 | **LAYOUT** | 3 (1 resuelto) | 3 | 6 |
 | **LAF** | 2 | 1 | 3 |
-| **ARCH** | 0 | 1 | 1 |
+| **ARCH** | 0 | 1 (resuelto ✅) | 1 |
 | **AUTO** | 0 | 0 | 0 |
 | **DIAG** | 8 (8 resueltos ✅) | 0 | 8 |
 | **Total** | **13** | **5** | **18** |
