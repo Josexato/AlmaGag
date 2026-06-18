@@ -104,3 +104,11 @@ LAF_VERTICAL_SPACING = LAF_SPACING_BASE * LAF_VERTICAL_FACTOR  # 240px - vertica
 # promedio, 78-97% en diagramas chicos).
 LAF_CANVAS_MARGIN_HORIZONTAL = 250  # px - protege espacio del badge de debug
 LAF_CANVAS_MARGIN_VERTICAL = 50     # px - margen visual mínimo abajo
+
+# Dashboard reflow (fix BUGS-LAF-002).
+# Cuando 3+ contenedores root viven en el mismo nivel topológico sin
+# conexiones entre ellos (caso "dashboard"/"poster"), LAF los pone en
+# fila horizontal y el canvas explota (>20.000 px de ancho). El reflow
+# detecta esos clusters y los redistribuye en grid 2D (ceil(sqrt(N))
+# columnas × ceil(N/cols) filas) modificando topological_levels.
+LAF_DASHBOARD_MIN_CONTAINERS = 3   # umbral para activar grid reflow

@@ -82,11 +82,13 @@ Esto habilita un patrón muy usado: **definir coordenadas solo en los contenedor
 
 ---
 
-## Limitación conocida: BUGS-LAF-002 → workaround "Dashboard layout" con AUTO
+## ~~Limitación conocida: BUGS-LAF-002~~ (RESUELTO 2026-06-18)
 
-LAF maneja mal el caso "dashboard": 3+ contenedores en el mismo nivel sin conexiones entre sí. Los pone en fila horizontal expandiendo el canvas a >20.000px.
+> Anterior a 2026-06-18, LAF manejaba mal el caso "dashboard" (3+ contenedores en el mismo nivel sin conexiones inter-contenedor): los ponía en fila horizontal con canvas >20.000px de ancho. **Resuelto** en LAFOptimizer con el reflow de dashboard en Fase 1.5 — ahora LAF distribuye automáticamente esos clusters en grid 2D.
+>
+> El workaround AUTO descrito abajo sigue siendo válido y útil cuando se quiere control manual sobre la disposición de los contenedores en un poster.
 
-**Workaround actual con AUTO**: definir coordenadas manuales en los **contenedores padre**, dejar los hijos sin coordenadas, usar `--layout-algorithm=auto`. AUTO respeta las coords de los contenedores y los hijos se auto-acomodan dentro.
+**Workaround opcional con AUTO** (para layouts manuales/posters): definir coordenadas manuales en los **contenedores padre**, dejar los hijos sin coordenadas, usar `--layout-algorithm=auto`. AUTO respeta las coords de los contenedores y los hijos se auto-acomodan dentro.
 
 ```json
 {

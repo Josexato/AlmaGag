@@ -39,12 +39,12 @@ AlmaGag/layout/
 | Respeta coordenadas manuales (`x`/`y`) | **Sí** | No (las ignora) |
 | Minimización de cruces estilo Sugiyama | No | **Sí** |
 | Grafos densos con muchas conexiones | Aceptable | **Mejor** |
-| Posters / dashboards (contenedores sin conexiones inter) | **Workaround: AUTO + coords manuales** | BUGS-LAF-002 los layoutea pobremente |
+| Posters / dashboards (contenedores sin conexiones inter) | Apto (coords manuales) | **Apto** (grid auto desde 2026-06-18, ver BUGS-LAF-002) |
 | Velocidad | Rápido | Más caro |
 
 Resumen pragmático:
 - **Si tenés un grafo y querés que se vea bien automáticamente** → LAF.
-- **Si querés controlar posiciones manualmente o estás en caso dashboard** → AUTO.
+- **Si querés controlar posiciones manualmente** → AUTO.
 
 Detalles en `auto/AUTO.md` y `laf/LAF.md`.
 

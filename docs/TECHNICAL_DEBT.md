@@ -136,26 +136,33 @@ Nivel 3: 3 elementos
 
 ---
 
-### BUGS-LAF-002: Layout Pobre con Contenedores Hermanos sin Conexiones (caso "dashboard")
-**Componente**: `AlmaGag/layout/laf/optimizer.py` — Fases 4-5-6 + Fase 8
+### BUGS-LAF-002: Layout Pobre con Contenedores Hermanos sin Conexiones (caso "dashboard") ✅ RESUELTO
+**Componente**: `AlmaGag/layout/laf/optimizer.py` — Fase 1.5 (dashboard reflow) + Fase 9 (redistribución)
 **Severidad**: Media
 **Reportado**: 2026-05-14 (auditoría externa)
+**Resuelto**: 2026-06-18
 
-**Descripción**:
-Cuando hay 3+ contenedores en el mismo nivel sin conexiones entre ellos (típico de dashboards/posters), LAF los pone en fila horizontal y expande el canvas a >20.000 px de ancho.
+**Causa raíz** (doble):
+1. Cuando 3+ contenedores root viven en el mismo nivel topológico sin conexiones entre ellos, el pipeline LAF los pone en fila horizontal (todos `abstract_y=0`). El canvas se vuelve extremadamente horizontal (caso de prueba 4 contenedores → 5900×243 px, ratio 24:1).
+2. Bug secundario en Fase 9 (`_redistribute_vertical_after_growth`): los hijos de un contenedor aparecían en `optimized_layer_order` y eran reposicionados **dos veces** — una vez con el contenedor (correcto), otra independientemente con su `abstract_x` (incorrecto), terminando fuera del contenedor.
 
-**Reproducción**:
-```bash
-# JSON con 4 contenedores agrupando elementos, sin connections inter-contenedor
-almagag dashboard.sdjf --layout-algorithm=laf
-# Resultado: canvas ~20526×463 (extremadamente horizontal)
-```
+**Fix aplicado**:
+- **`config.py`**: nueva constante `LAF_DASHBOARD_MIN_CONTAINERS = 3` (umbral).
+- **`optimizer.py::_apply_dashboard_reflow()`** (nuevo método, llamado entre Fase 1 y Fase 2): detecta clusters de dashboard (N≥3 contenedores root en mismo nivel sin conexiones inter-contenedor) y promueve cada contenedor a un nuevo nivel topológico siguiendo grid `ceil(sqrt(N))` columnas × `ceil(N/cols)` filas. Los descendientes heredan el nuevo nivel.
+- **`optimizer.py::_redistribute_vertical_after_growth()`**: skip de elementos cuyo padre contenedor está en la misma capa (evita doble movimiento).
+- **`optimizer.py::_redistribute_vertical_fallback()`**: mismo skip aplicado al fallback.
 
-**Workaround actual**:
-Usar AUTO con coordenadas manuales en los contenedores padre. Documentado en `architecture/modules/layout/auto/AUTO.md` (sección "Dashboard layout").
+**Validación**:
+- Caso de prueba dashboard (4 contenedores root sin connections): canvas 5900×243 → 1165×656 (ratio 24:1 → 1.8:1).
+- Smoke 23/23 LAF + 23/23 AUTO OK.
+- Tests 17 passed, 2 skipped.
+- Determinismo: 1 hash único × 5 seeds × 3 archivos.
+- Efectos colaterales positivos en LAF: `07-containers` 3116→2614 (-16%), `11-stresstest` 700→410 (-41% alto), `git` 7875→1797 ancho (-77%).
+- Canonical SVGs (AUTO) sin cambios.
 
-**Solución propuesta**:
-Detectar "modo dashboard" (cluster de contenedores sin conexiones inter-cluster) y aplicar layout en grid 2×2, 2×3, o stack vertical según cantidad.
+**Limitaciones conocidas (no bloquean cierre)**:
+- En el caso `git.sdjf`, el contenedor `legend` queda ~40px fuera del borde izquierdo del canvas (problema de centrado global cuando el grid tiene contenedores muy disparejos en ancho). Pendiente de evaluar como issue separado si molesta.
+- El segundo hijo de cada contenedor puede sobresalir ~35px del borde derecho — bug preexistente del `container_grower` (no introducido por este fix).
 
 ---
 
@@ -440,21 +447,18 @@ Permitir al usuario especificar restricciones en el SDJF:
 | | BUGS | WISH | Total |
 |---|---:|---:|---:|
 | **LAYOUT** | 3 (2 resueltos) | 3 | 6 |
-| **LAF** | 2 | 1 | 3 |
+| **LAF** | 2 (1 resuelto) | 1 | 3 |
 | **ARCH** | 0 | 2 (ambos resueltos ✅) | 2 |
 | **AUTO** | 0 | 0 | 0 |
 | **DIAG** | 8 (8 resueltos ✅) | 0 | 8 |
 | **Total** | **13** | **6** | **19** |
 
 Conteos DIAG viven en `DIAGRAM_REVIEW.md` — **los 8 BUGS-DIAG están RESUELTOS al 2026-06-15**.
-**WISH-ARCH-001, WISH-ARCH-002 y BUGS-LAYOUT-002 resueltos al 2026-06-18.**
+**WISH-ARCH-001, WISH-ARCH-002, BUGS-LAYOUT-002 y BUGS-LAF-002 resueltos al 2026-06-18.**
 
 Problemas visuales DIAG (8 entradas) viven en `DIAGRAM_REVIEW.md`.
 
 ### Priorización sugerida
-
-**Atacar primero**:
-- `BUGS-LAF-002` (dashboard layout) — afecta usabilidad real.
 
 **Backlog**:
 - `BUGS-LAYOUT-001` (debug labels), `BUGS-LAF-001` (distribución asimétrica), `WISH-LAF-001`, `WISH-LAYOUT-001`, `WISH-LAYOUT-002`, `WISH-LAYOUT-003`.

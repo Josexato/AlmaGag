@@ -161,6 +161,85 @@ class LAFOptimizer(LayoutOptimizer):
         self.container_grower = ContainerGrower(sizing_calculator=self.sizing, debug=verbose)
         self.visualizer = GrowthVisualizer(debug=verbose) if visualize_growth else None
 
+    def _apply_dashboard_reflow(self, structure_info, layout):
+        """
+        Detecta clusters de dashboard y los redistribuye en grid 2D
+        modificando topological_levels (fix BUGS-LAF-002).
+
+        Cluster de dashboard = N (LAF_DASHBOARD_MIN_CONTAINERS+) contenedores
+        root en el mismo nivel topológico, sin conexiones inter-contenedor.
+        Sin este reflow, LAF los pone en fila horizontal y el canvas se
+        vuelve extremadamente ancho (>20.000px en posters con 4+ zonas).
+
+        Algoritmo: para cada cluster detectado, redistribuye los contenedores
+        en una grilla ceil(sqrt(N)) columnas × ceil(N/cols) filas. Cada fila
+        obtiene su propio nivel topológico (lv, lv+1, lv+2, ...) y los
+        descendientes heredan el nivel del padre.
+        """
+        from collections import defaultdict
+        import math
+        from AlmaGag.config import LAF_DASHBOARD_MIN_CONTAINERS
+
+        # Recolectar contenedores root agrupados por nivel topológico
+        containers_by_level = defaultdict(list)
+        for elem_id, node in structure_info.element_tree.items():
+            if node.get('is_container') and node.get('parent') is None:
+                lv = structure_info.topological_levels.get(elem_id, 0)
+                containers_by_level[lv].append(elem_id)
+
+        def find_root_container(elem_id):
+            cur = elem_id
+            while cur:
+                n = structure_info.element_tree.get(cur)
+                if not n:
+                    return None
+                if n.get('is_container') and n.get('parent') is None:
+                    return cur
+                cur = n.get('parent')
+            return None
+
+        def collect_descendants(elem_id):
+            descendants = []
+            node = structure_info.element_tree.get(elem_id, {})
+            for child_id in node.get('children', []):
+                descendants.append(child_id)
+                descendants.extend(collect_descendants(child_id))
+            return descendants
+
+        for lv, containers in sorted(containers_by_level.items()):
+            if len(containers) < LAF_DASHBOARD_MIN_CONTAINERS:
+                continue
+
+            cluster = set(containers)
+            has_inter_conn = False
+            for conn in layout.connections:
+                fr = find_root_container(conn.get('from'))
+                to = find_root_container(conn.get('to'))
+                if fr in cluster and to in cluster and fr != to:
+                    has_inter_conn = True
+                    break
+
+            if has_inter_conn:
+                continue
+
+            containers.sort()  # orden determinista
+            N = len(containers)
+            cols = math.ceil(math.sqrt(N))
+            rows = math.ceil(N / cols)
+
+            for idx, container_id in enumerate(containers):
+                row = idx // cols
+                new_lv = lv + row
+                structure_info.topological_levels[container_id] = new_lv
+                for desc_id in collect_descendants(container_id):
+                    structure_info.topological_levels[desc_id] = new_lv
+
+            if self.debug:
+                logger.debug(
+                    f"[DASHBOARD] BUGS-LAF-002 reflow nivel {lv}: "
+                    f"{N} contenedores → grid {rows}x{cols}"
+                )
+
     def _dump_layout(self, layout, phase_name):
         """Helper para hacer dump del layout en cada fase (solo con --dump-iterations)."""
         if getattr(layout, '_dump_iterations', False):
@@ -519,11 +598,19 @@ class LAFOptimizer(LayoutOptimizer):
 
         for level_num in sorted(by_level.keys()):
             level_elements = by_level[level_num]
+            level_elements_set = set(level_elements)
             new_y = level_y_positions[level_num]
 
             for elem_id in level_elements:
                 elem = layout.elements_by_id.get(elem_id)
                 if not elem:
+                    continue
+
+                # BUGS-LAF-002: si el padre contenedor está en la misma capa,
+                # el hijo se moverá con el padre. Procesarlo independientemente
+                # acá lo dejaría fuera del contenedor (doble desplazamiento).
+                node = structure_info.element_tree.get(elem_id)
+                if node and node.get('parent') in level_elements_set:
                     continue
 
                 group = ndfn_groups.get(elem_id)
@@ -646,6 +733,7 @@ class LAFOptimizer(LayoutOptimizer):
 
         for level_num in sorted(by_level.keys()):
             level_elements = by_level[level_num]
+            level_elements_set = set(level_elements)
 
             max_height = 0
             for elem_id in level_elements:
@@ -658,6 +746,13 @@ class LAFOptimizer(LayoutOptimizer):
             for elem_id in level_elements:
                 elem = layout.elements_by_id.get(elem_id)
                 if not elem:
+                    continue
+
+                # BUGS-LAF-002: si el padre contenedor está en la misma capa,
+                # el hijo se moverá con el padre (mismo razonamiento que el
+                # loop principal de _redistribute_vertical_after_growth).
+                node = structure_info.element_tree.get(elem_id)
+                if node and node.get('parent') in level_elements_set:
                     continue
 
                 old_y = elem.get('y', 0)
@@ -898,6 +993,11 @@ class LAFOptimizer(LayoutOptimizer):
 
         self._populate_layout_analysis(layout, structure_info)
         self._dump_layout(layout, "LAF_PHASE_1_STRUCTURE")
+
+        # BUGS-LAF-002: reflow de dashboard clusters antes del análisis topológico.
+        # Promueve contenedores a niveles distintos cuando hay 3+ en el mismo
+        # nivel sin conexiones inter-contenedor (forma grid en vez de fila).
+        self._apply_dashboard_reflow(structure_info, layout)
 
         # FASE 2: Análisis topológico (ya calculado en Fase 1, solo visualizar)
         if self.visualizer:
