@@ -40,6 +40,19 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
         logger.error(f"Error al leer el JSON: {e}")
         return False
 
+    # WISH-LAYOUT-004 Fase 1: aplicar layout template si el SDJF lo declara.
+    # Los templates calculan coords automáticamente basándose en heurísticas
+    # semánticas (entry/algoritmos/shared/output) sin que el usuario tenga
+    # que poner cada x/y a mano. Solo asignan a elementos sin coords —
+    # respetan los manuales si los hay.
+    template_name = data.get('layout_template')
+    if template_name:
+        from AlmaGag.layout.templates import apply_template
+        if apply_template(template_name, data):
+            logger.info(f"Layout template '{template_name}' aplicado")
+        else:
+            logger.warning(f"Layout template '{template_name}' desconocido — ignorado")
+
     # Extraer iconos SVG embebidos (formato .gag extendido)
     embedded_icons = data.get('icons', None)
     if embedded_icons:

@@ -62,9 +62,36 @@ Vamos seccion por seccion.
 
 ---
 
+## 0. layout_template (opcional) — Auto-distribución por patrón
+
+**WISH-LAYOUT-004 Fase 1** (2026-06-19): activa un template que asigna coordenadas automaticamente segun una heuristica semantica. Util cuando no queres escribir `x`/`y` a mano para cada elemento.
+
+```json
+{
+  "layout_template": "architecture",
+  "elements": [...],
+  "connections": [...]
+}
+```
+
+Templates disponibles:
+
+| Nombre | Patron | Cuando usarlo |
+|---|---|---|
+| `"architecture"` | Layout en T: entry vertical arriba, containers en fila al medio (shared al centro), contract abajo centrado, terminales al final | Diagramas arquitectonicos con containers y un nodo "compartido" |
+
+Reglas comunes a todos los templates:
+- **No sobreescriben coords manuales**. Si un elemento ya tiene `x`/`y`, el template los respeta.
+- El template ajusta el `canvas` automaticamente para acomodar el contenido.
+- Es **opcional** — si no se declara, se usa el comportamiento actual (AUTO o LAF segun `--layout-algorithm`).
+
+Ver `tests/test_architecture_template.py` para casos cubiertos y `AlmaGag/layout/templates/architecture.py` para la heuristica concreta.
+
+---
+
 ## 1. canvas (opcional)
 
-Define el tamano del area de dibujo en pixeles. Si lo omites, AlmaGag usa 1400x900 y lo expande si hace falta.
+Define el tamano del area de dibujo en pixeles. Si lo omites, AlmaGag usa 1400x900 y lo expande si hace falta. Si declaras `layout_template`, el template lo calcula automaticamente.
 
 ```json
 "canvas": {

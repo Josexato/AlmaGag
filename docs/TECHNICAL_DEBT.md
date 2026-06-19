@@ -795,10 +795,40 @@ Estas dos quedan como **follow-up de WISH-LAYOUT-002**: requieren entender la in
 
 ---
 
-### WISH-LAYOUT-004: Auto-Detección Semántica de la Distribución Óptima (NORTE del proyecto)
-**Componente**: `AlmaGag/layout/` — transversal
+### WISH-LAYOUT-004: Auto-Detección Semántica de la Distribución Óptima (NORTE del proyecto) ⏳ EN PROGRESO (Fase 1 ✅)
+**Componente**: `AlmaGag/layout/templates/` (nuevo) + `AlmaGag/generator.py`
 **Severidad**: **Alta** (núcleo de la propuesta de valor de AlmaGag)
 **Reportado**: 2026-06-19 (inspección del diagrama de arquitectura)
+**Fase 1 resuelta**: 2026-06-19
+
+**Estado por fase**:
+
+**✅ Fase 1 — Template 'architecture'** (2026-06-19):
+- Nuevo módulo `AlmaGag/layout/templates/` con framework de templates.
+- Template `architecture`: layout en T (entry vertical → containers en fila con shared al centro → contract → terminals).
+- Heurística de categorización por rol topológico: entry (sin incoming), chain (intermedios), containers, abstracts (type=contract), terminals (sin outgoing).
+- Detección de "shared" por label (`shared`/`compart`/`agnost`).
+- Opt-in vía `"layout_template": "architecture"` en SDJF.
+- Respeta coords manuales (solo asigna a elementos sin `x`/`y`).
+- Calcula el `canvas` automáticamente.
+- Activado en `generator.py` antes de instanciar Layout.
+- Documentado en `docs/spec/FORMATO_ARCHIVOS.md` sección 0.
+- 8 tests nuevos (`tests/test_architecture_template.py`).
+- Ejemplo canonical: `docs/diagrams/gags/15-architecture-template.gag` — mismo grafo que `05-arquitectura-gag.gag` pero **sin coords manuales** + con el template.
+
+**⏳ Fase 2 — Catálogo de patrones** (pendiente):
+- Reconocer y soportar templates adicionales: `flow`, `dashboard`, `er`, `sequence`, `state`.
+- Cada template con su heurística y tests.
+
+**⏳ Fase 3 — Auto-detección sin opt-in** (pendiente):
+- Que el sistema infiera qué template aplicar sin necesidad de declarar `"layout_template"`.
+- Clasificador del grafo por sus características (niveles, fan-out, ciclos, presencia de containers).
+
+**⏳ Fase 4 — Semantic hints + constraint solver** (pendiente):
+- Tags por elemento (`"role": "entry"`, `"role": "shared"`, etc).
+- Extensión de `WISH-LAYOUT-002` con más constraints (`above`, `below`, `between`, `inside_group`).
+
+**Reportado originalmente**: 2026-06-19 (inspección del diagrama de arquitectura)
 
 **Descripción**:
 AlmaGag se vende como "generador automático de diagramas SVG desde JSON descriptivo". Pero en la práctica, para diagramas con estructura específica (arquitectura, flow, dashboard, ER, secuencia, etc.) el sistema **necesita coords manuales** para producir un layout legible. AUTO sin coords pone los elementos pero el resultado raramente es lo que un humano dibujaría; LAF distribuye por topología pero a costa de canvas excesivos.
