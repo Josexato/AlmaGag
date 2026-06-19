@@ -22,7 +22,7 @@
 
     { "id": "generator", "type": "factory", "label": "generator.py\nOPTIMIZERS = {'auto':…, 'laf':…}\n187 líneas", "color": "gold", "x": 850, "y": 60 },
 
-    { "id": "contract", "type": "contract", "label": "LayoutOptimizer\n(clase base abstracta)", "color": "purple", "x": 1900, "y": 60 },
+    { "id": "contract", "type": "contract", "label": "LayoutOptimizer\n(clase base abstracta)", "color": "purple", "x": 400, "y": 200 },
 
     {
       "id": "auto_box",
