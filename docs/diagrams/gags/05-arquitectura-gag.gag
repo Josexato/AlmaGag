@@ -13,24 +13,22 @@
     "toolbox": "<svg viewBox='0 0 80 50'><rect x='10' y='15' width='60' height='30' fill='currentColor' stroke='black' stroke-width='2' rx='2'/><rect x='28' y='6' width='24' height='10' fill='currentColor' stroke='black' stroke-width='1.5' rx='1'/><line x1='40' y1='15' x2='40' y2='45' stroke='black' stroke-width='1.5'/><circle cx='40' cy='15' r='2.5' fill='#fffbe6' stroke='black' stroke-width='1'/><rect x='15' y='22' width='8' height='6' fill='#fffbe6' stroke='black' stroke-width='0.8'/><rect x='57' y='22' width='8' height='6' fill='#fffbe6' stroke='black' stroke-width='0.8'/><circle cx='19' cy='37' r='2.5' fill='#fffbe6' stroke='black' stroke-width='0.8'/><circle cx='61' cy='37' r='2.5' fill='#fffbe6' stroke='black' stroke-width='0.8'/></svg>"
   },
 
-  "canvas": { "width": 1400, "height": 1250 },
+  "canvas": { "width": 1200, "height": 1050 },
 
   "elements": [
-    { "id": "input", "type": "document", "label": "archivo.sdjf\n(o .gag con iconos custom)", "color": "lightblue", "x": 80, "y": 60 },
+    { "id": "input", "type": "document", "label": "archivo.sdjf\n(o .gag con iconos custom)", "color": "lightblue", "x": 540, "y": 60 },
 
-    { "id": "main", "type": "server", "label": "main.py\nCLI + argparse", "color": "lightgreen", "x": 400, "y": 60 },
+    { "id": "main", "type": "server", "label": "main.py\nCLI + argparse", "color": "lightgreen", "x": 540, "y": 180 },
 
-    { "id": "generator", "type": "factory", "label": "generator.py\nOPTIMIZERS = {'auto':…, 'laf':…}\n187 líneas", "color": "gold", "x": 750, "y": 60 },
-
-    { "id": "contract", "type": "contract", "label": "LayoutOptimizer\n(clase base abstracta)", "color": "purple", "x": 500, "y": 200 },
+    { "id": "generator", "type": "factory", "label": "generator.py\nOPTIMIZERS = {'auto':…, 'laf':…}\n187 líneas", "color": "gold", "x": 540, "y": 310 },
 
     {
       "id": "auto_box",
       "type": "building",
       "label": "AUTO",
       "color": "lightblue",
-      "x": 60,
-      "y": 380,
+      "x": 40,
+      "y": 470,
       "contains": [
         { "id": "auto_opt", "scope": "full" },
         { "id": "auto_rend", "scope": "full" }
@@ -40,29 +38,12 @@
     { "id": "auto_rend", "type": "brush", "label": "AutoSVGRenderer\n(icono inline)", "color": "lightskyblue" },
 
     {
-      "id": "laf_box",
-      "type": "building",
-      "label": "LAF",
-      "color": "lightgreen",
-      "x": 850,
-      "y": 380,
-      "contains": [
-        { "id": "laf_opt", "scope": "full" },
-        { "id": "laf_pipe", "scope": "full" },
-        { "id": "laf_rend", "scope": "full" }
-      ]
-    },
-    { "id": "laf_opt", "type": "gear", "label": "LAFOptimizer\n(self-contained)", "color": "lightgreen" },
-    { "id": "laf_pipe", "type": "pipeline", "label": "Pipeline LAF\n11 fases + 1.5 dashboard reflow\n(Sugiyama)", "color": "lightgreen" },
-    { "id": "laf_rend", "type": "brush", "label": "LAFSVGRenderer\n(icono separado + NdFn)", "color": "lightgreen" },
-
-    {
       "id": "shared_box",
       "type": "firewall",
       "label": "Shared (algoritmo-agnóstico)",
       "color": "orange",
-      "x": 350,
-      "y": 800,
+      "x": 380,
+      "y": 470,
       "contains": [
         { "id": "layout_obj", "scope": "full" },
         { "id": "draw_svg", "scope": "full" },
@@ -75,7 +56,26 @@
     { "id": "router_mgr", "type": "router", "label": "ConnectionRouterManager\n(routing/router_manager.py)", "color": "wheat" },
     { "id": "geometry_utils", "type": "building", "label": "Geometry + Collision\n+ GraphAnalyzer\n+ LabelOptimizer", "color": "wheat" },
 
-    { "id": "output", "type": "document", "label": "archivo.svg", "color": "lightblue", "x": 650, "y": 1140 }
+    {
+      "id": "laf_box",
+      "type": "building",
+      "label": "LAF",
+      "color": "lightgreen",
+      "x": 900,
+      "y": 470,
+      "contains": [
+        { "id": "laf_opt", "scope": "full" },
+        { "id": "laf_pipe", "scope": "full" },
+        { "id": "laf_rend", "scope": "full" }
+      ]
+    },
+    { "id": "laf_opt", "type": "gear", "label": "LAFOptimizer\n(self-contained)", "color": "lightgreen" },
+    { "id": "laf_pipe", "type": "pipeline", "label": "Pipeline LAF\n11 fases + 1.5 dashboard reflow\n(Sugiyama)", "color": "lightgreen" },
+    { "id": "laf_rend", "type": "brush", "label": "LAFSVGRenderer\n(icono separado + NdFn)", "color": "lightgreen" },
+
+    { "id": "contract", "type": "contract", "label": "LayoutOptimizer\n(clase base abstracta)", "color": "purple", "x": 540, "y": 850 },
+
+    { "id": "output", "type": "document", "label": "archivo.svg", "color": "lightblue", "x": 540, "y": 980 }
   ],
 
   "connections": [
