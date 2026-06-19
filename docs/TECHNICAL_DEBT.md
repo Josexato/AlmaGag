@@ -332,6 +332,26 @@ Nuevo método `_stagger_overlapping_contained_labels()` llamado al final de `opt
 
 ---
 
+### BUGS-AUTO-007: Header Label del Container se Sale por la Derecha ✅ RESUELTO
+**Componente**: `AlmaGag/layout/auto/positioner.py::_calculate_container_bounds` + `AlmaGag/layout/container_calculator.py` + `AlmaGag/draw/primitives/container.py`
+**Severidad**: **Media** (header del container ilegible cuando es largo)
+**Reportado**: 2026-06-19 (inspección del usuario sobre `shared_box`)
+**Resuelto**: 2026-06-19
+
+**Causa raíz**:
+Las 3 funciones que calculan el `min_width` necesario para que el header quepa usaban `TEXT_CHAR_WIDTH = 8` (estimación para texto regular 14px). Pero el header de containers se renderiza **bold 16px**, que en realidad ocupa ~10px/char. La estimación subestimaba el ancho ~25%.
+
+En `05-arquitectura-gag` el label "Shared (algoritmo-agnóstico)" (28 chars) necesitaba `100 + 28×10 + 10 = 390px`. El cálculo daba `100 + 28×8 + 10 = 334px`. El label se salía 46px por el borde derecho del container.
+
+**Fix**: multiplicar `label_width` por 1.25 (8 × 1.25 = 10) en las 3 funciones.
+
+**Validación** (`05-arquitectura-gag`):
+- `shared_box` width: 334 → 390. Header cabe.
+- 3 canonicals afectados (05-arq, git, reference-cheatsheet) regenerados.
+- Smoke 46/46, tests 19 passed.
+
+---
+
 ### BUGS-LAF-002: Layout Pobre con Contenedores Hermanos sin Conexiones (caso "dashboard") ✅ RESUELTO
 **Componente**: `AlmaGag/layout/laf/optimizer.py` — Fase 1.5 (dashboard reflow) + Fase 9 (redistribución)
 **Severidad**: Media
@@ -826,7 +846,7 @@ Reemplazado el placeholder "v2.2 - (Futuro)" por 3 entradas nuevas que cubren ~1
 | **LAYOUT** | 3 (3 resueltos ✅) | 3 (3 resueltos ✅) | 6 |
 | **LAF** | 2 (ambos resueltos ✅) | 1 (resuelto ✅) | 3 |
 | **ARCH** | 0 | 3 (3 resueltos ✅) | 3 |
-| **AUTO** | 6 (6 resueltos ✅) | 0 | 6 |
+| **AUTO** | 7 (7 resueltos ✅) | 0 | 7 |
 | **DOCS** | 0 | 2 (2 resueltos ✅) | 2 |
 | **DIAG** | 8 (8 resueltos ✅) | 0 | 8 |
 | **Total** | **13** | **9** | **22** |

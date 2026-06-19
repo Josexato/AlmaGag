@@ -133,7 +133,12 @@ class ContainerCalculator:
             lines = label_text.split('\n')
             num_lines = len(lines)
             max_line_len = max(len(line) for line in lines) if lines else 0
-            label_width = max_line_len * 8  # 8px por carácter
+            # BUGS-AUTO-007: el label del header se renderiza bold 16px
+            # ('AUTO', 'Shared (algoritmo-agnóstico)', etc.). 8px/char era
+            # estimación para 14px regular y subestimaba el ancho real ~25%
+            # — labels largos como 'Shared (algoritmo-agnóstico)' se salían
+            # por el borde derecho del container.
+            label_width = max_line_len * 10  # ~10px/char para bold 16px
             label_height = num_lines * 18  # 18px por línea
 
             # El icono del contenedor tiene 50px de altura

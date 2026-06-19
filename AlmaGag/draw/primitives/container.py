@@ -94,6 +94,26 @@ def calculate_container_bounds(container, elements_by_id):
     width = max_x - min_x
     height = max_y - min_y
 
+    # BUGS-AUTO-007: garantizar ancho mínimo para que el label del header
+    # del container quepa dentro del rect. El label se renderiza con anchor
+    # 'start' desde container.x + 10 + ICON_WIDTH + 10 (deja espacio para
+    # el icono header), así que el ancho necesario es:
+    #   10 (margen izq) + ICON_WIDTH + 10 (gap) + label_width + 10 (margen der)
+    # Sin esto el header de containers como 'Shared (algoritmo-agnóstico)'
+    # se salía 40+px por el borde derecho. LAF ya tenía este chequeo en
+    # container_grower; AUTO usa esta función y no lo tenía.
+    if container.get('label'):
+        label_text = container['label']
+        lines = label_text.split('\n')
+        max_line_len = max((len(line) for line in lines), default=0)
+        # Bold 16px aprox 10px/char (más conservador que el 8 estándar)
+        label_width = max_line_len * 10
+        min_width_for_label = 10 + ICON_WIDTH + 10 + label_width + 10
+        if min_width_for_label > width:
+            extra = min_width_for_label - width
+            max_x += extra
+            width = min_width_for_label
+
     # Aplicar aspect_ratio si se especifica
     aspect_ratio = container.get('aspect_ratio')
     if aspect_ratio:

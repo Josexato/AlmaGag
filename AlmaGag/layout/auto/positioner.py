@@ -1138,7 +1138,11 @@ class AutoLayoutPositioner:
             label_text = container['label']
             lines = label_text.split('\n')
             max_line_len = max(len(line) for line in lines) if lines else 0
-            label_width = max_line_len * TEXT_CHAR_WIDTH  # 8px por carácter
+            # BUGS-AUTO-007: el header del container se renderiza bold 16px,
+            # no regular 14px. Con TEXT_CHAR_WIDTH=8 (estimación para regular)
+            # labels largos como 'Shared (algoritmo-agnóstico)' se salían ~46px
+            # por el borde derecho. Multiplicamos por 1.25 para compensar.
+            label_width = max_line_len * TEXT_CHAR_WIDTH * 1.25  # bold 16px aprox 10px/char
             label_height = len(lines) * TEXT_LINE_HEIGHT  # 18px por línea
 
             # El icono del contenedor tiene 50px de altura
