@@ -795,6 +795,56 @@ Estas dos quedan como **follow-up de WISH-LAYOUT-002**: requieren entender la in
 
 ---
 
+### WISH-LAYOUT-004: Auto-Detección Semántica de la Distribución Óptima (NORTE del proyecto)
+**Componente**: `AlmaGag/layout/` — transversal
+**Severidad**: **Alta** (núcleo de la propuesta de valor de AlmaGag)
+**Reportado**: 2026-06-19 (inspección del diagrama de arquitectura)
+
+**Descripción**:
+AlmaGag se vende como "generador automático de diagramas SVG desde JSON descriptivo". Pero en la práctica, para diagramas con estructura específica (arquitectura, flow, dashboard, ER, secuencia, etc.) el sistema **necesita coords manuales** para producir un layout legible. AUTO sin coords pone los elementos pero el resultado raramente es lo que un humano dibujaría; LAF distribuye por topología pero a costa de canvas excesivos.
+
+**Reproducción concreta** (`05-arquitectura-gag.gag` sin coords manuales):
+- AUTO: 1400×1872 — sin la lógica "shared al medio entre algoritmos"; queda alto y sin balance.
+- LAF: 3230×1908 — distribuye horizontal por topología, canvas excesivo.
+- AUTO + coords manuales (estado actual): 1200×1180, layout en T balanceado — **pero las 8 posiciones hardcodeadas son trabajo manual**.
+
+**Lo que se desea**:
+Que el algoritmo **infiera la intención del diagrama** y elija la distribución apropiada sin que el usuario tenga que escribir coords. Algunos patrones reconocibles:
+
+| Patrón | Pista de detección | Layout ideal |
+|---|---|---|
+| Arquitectura jerárquica | Pocos nodos raíz, varios niveles, containers como agrupadores | Top-down con shared al centro entre alternativas |
+| Flow / pipeline | Cadena lineal de pasos | Horizontal o vertical recto |
+| Dashboard / poster | Containers paralelos sin conexiones entre sí | Grid (ya parcialmente resuelto en LAF Fase 1.5) |
+| ER / clases | Nodos con relaciones múltiples | Force-directed o circular |
+| Secuencia | Conexiones con orden temporal | Swimlanes |
+| Estado | Self-loops y ciclos | Estados como nodos, transiciones como aristas |
+
+**Posibles enfoques** (a explorar en sub-tareas):
+
+1. **Detección de patrones por heurística**: clasificar el grafo por número de niveles topológicos, fan-out del nodo raíz, ratio cross-level vs same-level connections, presencia/ausencia de containers, ciclos, etc.
+2. **Templates pre-definidos**: bibliotecas de layouts (arch, flow, dashboard, sequence, etc.) que el usuario seleccione vía `"layout_template": "architecture"` en el SDJF.
+3. **Semantic hints en el SDJF**: tags por elemento (`"role": "entry"`, `"role": "shared"`, `"role": "output"`) que ayuden al algoritmo.
+4. **ML / LLM-assisted layout**: usar un modelo para inferir la mejor disposición a partir de la estructura del grafo y las etiquetas semánticas de los elementos.
+5. **Constraint solver**: extensión de `WISH-LAYOUT-002` con más constraints (`above`, `below`, `between`, `inside_group`) y un solver que satisfaga el máximo número.
+
+**Por qué es importante**:
+Es el **norte del proyecto**. AlmaGag deja de ser un "generador" y se convierte en un "asistente con coords manuales" si los usuarios tienen que escribir 8-30 posiciones para cada diagrama complejo. Resolver esto convierte AlmaGag en una herramienta competitiva con Mermaid/Graphviz/D3 que infieren bastante por sí solas.
+
+**Relación con tickets existentes**:
+- **Subsume** los follow-ups de `WISH-LAYOUT-002` (`constraints.near` / `constraints.avoid`) y `WISH-LAF-001` (heurística por tipo de diagrama).
+- **Habilita** que el diagrama de arquitectura del propio proyecto se genere sin las 8 coords manuales actuales.
+- **Refuerza** el benchmark contra Mermaid (`docs/diagrams/benchmark/`).
+
+**Estimación**: trabajo grande, no acotable en una iteración. Mínimo:
+- Fase 1 (1-2 días): heurística para reconocer "arquitectura jerárquica" + template top-down con shared al centro.
+- Fase 2 (1 semana): catalogar 5-6 patrones más comunes y sus templates.
+- Fase 3 (continua): semantic hints en SDJF + constraint solver extendido.
+
+**Prioridad**: **Alta a largo plazo**. No bloquea features inmediatas pero es la diferencia entre "herramienta de nicho" y "herramienta competitiva". Mantener visible como el norte del proyecto.
+
+---
+
 ### WISH-DOCS-001: Sincronizar `architecture.mmd` Benchmark con el Nuevo `.gag` ✅ RESUELTO
 **Componente**: `docs/diagrams/benchmark/architecture.mmd`
 **Severidad**: Baja
@@ -843,13 +893,13 @@ Reemplazado el placeholder "v2.2 - (Futuro)" por 3 entradas nuevas que cubren ~1
 
 | | BUGS | WISH | Total |
 |---|---:|---:|---:|
-| **LAYOUT** | 3 (3 resueltos ✅) | 3 (3 resueltos ✅) | 6 |
+| **LAYOUT** | 3 (3 resueltos ✅) | 4 (3 resueltos ✅) | 7 |
 | **LAF** | 2 (ambos resueltos ✅) | 1 (resuelto ✅) | 3 |
 | **ARCH** | 0 | 3 (3 resueltos ✅) | 3 |
 | **AUTO** | 7 (7 resueltos ✅) | 0 | 7 |
 | **DOCS** | 0 | 2 (2 resueltos ✅) | 2 |
 | **DIAG** | 8 (8 resueltos ✅) | 0 | 8 |
-| **Total** | **13** | **9** | **22** |
+| **Total** | **20** | **10** | **30** |
 
 Conteos DIAG viven en `DIAGRAM_REVIEW.md` — **los 8 BUGS-DIAG están RESUELTOS al 2026-06-15**.
 **Al 2026-06-18, 0 BUGS funcionales pendientes.** Resueltos en este ciclo:
@@ -859,15 +909,17 @@ Problemas visuales DIAG (8 entradas) viven en `DIAGRAM_REVIEW.md`.
 
 ### Priorización sugerida
 
-**Backlog activo (al 2026-06-18, todo follow-ups de tickets cerrados)**:
+**Backlog activo (al 2026-06-19)**:
 
 | Prioridad | Código | Resumen |
 |---|---|---|
-| Baja | `WISH-LAYOUT-002` follow-up | Implementar `constraints.near` y `constraints.avoid` (v1 cerró `align`). Requiere integración con barycenter de Fase 4. |
-| Baja | `WISH-LAF-001` follow-up | Edge straightening post-procesamiento + heurística por tipo de diagrama (v1 cerró pesos dinámicos). Requiere modificar `position_optimizer.py`. |
+| **Alta (Norte)** | `WISH-LAYOUT-004` | Auto-detección semántica de la distribución óptima. **Norte del proyecto**. Sin esto AlmaGag necesita coords manuales para diagramas complejos. Trabajo grande, fasable. |
+| Baja | `WISH-LAYOUT-002` follow-up | Implementar `constraints.near` y `constraints.avoid` (v1 cerró `align`). Requiere integración con barycenter de Fase 4. **Subsumido por WISH-LAYOUT-004** como sub-tarea. |
+| Baja | `WISH-LAF-001` follow-up | Edge straightening post-procesamiento + heurística por tipo de diagrama (v1 cerró pesos dinámicos). **Subsumido por WISH-LAYOUT-004**. |
 | Baja | `WISH-LAYOUT-003` v2 | Smart placement de callouts vía `CollisionDetector` (v1 usa fallback derecha→abajo). |
 
-**Todos los tickets formales originales están RESUELTOS**. Lo de arriba son extensiones acotadas y opcionales.
+**Tickets cerrados al 2026-06-19**: 20 BUGS resueltos + 9 WISH cerrados/parciales.
+**Pendiente como norte estratégico**: `WISH-LAYOUT-004` (auto-distribución semántica).
 
 ---
 
