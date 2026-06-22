@@ -46,6 +46,10 @@ class GraphFeatures:
     branching_factor: float  # avg out_degree de nodos con outgoing > 0
     pct_inter_container_connections: float  # 0-1
     label_keywords: Set[str] = field(default_factory=set)
+    # WISH-LAYOUT-004 Fase 4: roles semánticos declarados por el usuario
+    # via "role": "<value>" en cada elemento. Mapea elem_id → role string.
+    # Ej: {"entry_a": "entry", "shared_box": "shared", "main_db": "hub"}.
+    declared_roles: dict = field(default_factory=dict)
 
     @classmethod
     def extract(cls, elements, connections) -> 'GraphFeatures':
@@ -159,6 +163,18 @@ class GraphFeatures:
                 if token in lbl:
                     label_keywords.add(token)
 
+        # Roles declarados explícitamente por el usuario (Fase 4).
+        # Valores reconocidos: entry, output, shared, hub, spoke,
+        # actor, state, abstract, terminal.
+        declared_roles = {}
+        for e in elements:
+            role = e.get('role')
+            if role:
+                declared_roles[e['id']] = role
+                # Los roles declarados también suman a label_keywords para
+                # que los scorers heurísticos los aprovechen sin cambios.
+                label_keywords.add(role)
+
         return cls(
             n_elements=n_elements,
             n_root_elements=len(root_elements),
@@ -176,6 +192,7 @@ class GraphFeatures:
             branching_factor=branching_factor,
             pct_inter_container_connections=pct_inter_container_connections,
             label_keywords=label_keywords,
+            declared_roles=declared_roles,
         )
 
     @staticmethod

@@ -64,28 +64,89 @@ Vamos seccion por seccion.
 
 ## 0. layout_template (opcional) — Auto-distribución por patrón
 
-**WISH-LAYOUT-004 Fase 1** (2026-06-19): activa un template que asigna coordenadas automaticamente segun una heuristica semantica. Util cuando no queres escribir `x`/`y` a mano para cada elemento.
+**WISH-LAYOUT-004** (2026-06-19, 4 fases): activa un template que asigna coordenadas automaticamente segun la estructura del grafo + hints semanticos. Util cuando no queres escribir `x`/`y` a mano para cada elemento.
+
+Tres modos:
 
 ```json
-{
-  "layout_template": "architecture",
-  "elements": [...],
-  "connections": [...]
-}
+{ "layout_template": "auto", ... }            // auto-detecta el patrón
+{ "layout_template": "architecture", ... }    // override manual
+// sin "layout_template"                       // fallback a AUTO/LAF
 ```
 
 Templates disponibles:
 
 | Nombre | Patron | Cuando usarlo |
 |---|---|---|
-| `"architecture"` | Layout en T: entry vertical arriba, containers en fila al medio (shared al centro), contract abajo centrado, terminales al final | Diagramas arquitectonicos con containers y un nodo "compartido" |
+| `"architecture"` | T vertical con shared al centro | Diagramas arquitectonicos con containers y un nodo "compartido" |
+| `"flow"` | Cadena vertical centrada | Pipelines, secuencias de pasos |
+| `"hub_and_spoke"` | Hub central + spokes radiales (círculo) | SD-WAN, redes, federacion |
+| `"dashboard"` | Grid de containers paralelos | Posters, paneles independientes |
+| `"er"` | Radial-concéntrico | Entidades con relaciones (DBs/tablas) |
+| `"sequence"` | Swimlanes verticales + mensajes | Diagramas de secuencia UML |
+| `"state"` | Estados en círculo | Máquinas de estado con ciclos |
 
-Reglas comunes a todos los templates:
+Reglas comunes:
 - **No sobreescriben coords manuales**. Si un elemento ya tiene `x`/`y`, el template los respeta.
-- El template ajusta el `canvas` automaticamente para acomodar el contenido.
-- Es **opcional** — si no se declara, se usa el comportamiento actual (AUTO o LAF segun `--layout-algorithm`).
+- El template ajusta el `canvas` automaticamente.
+- Es **opcional** — sin declaración, comportamiento actual.
 
-Ver `tests/test_architecture_template.py` para casos cubiertos y `AlmaGag/layout/templates/architecture.py` para la heuristica concreta.
+### 0.1. Semantic hints — `role` por elemento (Fase 4)
+
+Cada elemento puede declarar su rol semantico para guiar al clasificador y al template:
+
+```json
+{
+  "id": "user_input", "label": "Input",
+  "role": "entry"
+}
+```
+
+Valores reconocidos:
+
+| `role` | Significado | Usado por |
+|---|---|---|
+| `entry` | Punto de entrada (raíz) | architecture |
+| `output`, `terminal` | Punto de salida (hoja) | architecture |
+| `shared` | Container compartido | architecture |
+| `hub` | Nodo central | hub_and_spoke |
+| `spoke` | Satelite | hub_and_spoke |
+| `abstract` | Clase base abstracta | architecture |
+| `state` | Estado de máquina | state |
+| `actor` | Actor de secuencia | sequence |
+
+Los `role` sobreescriben la heuristica por label/topologia. Si no los declaras, la heuristica decide.
+
+### 0.2. Templates anidados — `layout_template` por container (Fase 4)
+
+Un container puede declarar SU PROPIO template, que se aplica a sus hijos antes que el template padre:
+
+```json
+{
+  "layout_template": "architecture",
+  "elements": [
+    {
+      "id": "main_app",
+      "contains": ["s1", "s2", "s3", "s4"],
+      "layout_template": "flow"   // estos 4 hijos van en cadena vertical
+    },
+    {
+      "id": "shared_box",
+      "contains": ["db", "cache", "queue", "log"],
+      "layout_template": "hub_and_spoke",  // estos 4 van radial
+      "role": "shared"
+    }
+  ]
+}
+```
+
+Procesamiento:
+- **Bottom-up**: los containers más anidados se aplican primero.
+- El sub-template ve solo los hijos del container + conexiones internas.
+- El container queda dimensionado por el bbox de su sub-grafo (`_inner_width`/`_inner_height`).
+- El padre adapta su layout a las dimensiones resultantes (politica: el hijo siempre infla).
+
+Ver `tests/test_template_fase4.py` y `AlmaGag/layout/templates/` para detalles.
 
 ---
 

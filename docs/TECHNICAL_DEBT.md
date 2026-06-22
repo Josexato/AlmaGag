@@ -795,7 +795,7 @@ Estas dos quedan como **follow-up de WISH-LAYOUT-002**: requieren entender la in
 
 ---
 
-### WISH-LAYOUT-004: Auto-Detección Semántica de la Distribución Óptima (NORTE del proyecto) ⏳ EN PROGRESO (Fase 1 ✅)
+### WISH-LAYOUT-004: Auto-Detección Semántica de la Distribución Óptima (NORTE del proyecto) ✅ RESUELTO (4 fases entregadas)
 **Componente**: `AlmaGag/layout/templates/` (nuevo) + `AlmaGag/generator.py`
 **Severidad**: **Alta** (núcleo de la propuesta de valor de AlmaGag)
 **Reportado**: 2026-06-19 (inspección del diagrama de arquitectura)
@@ -854,15 +854,41 @@ Ajustes de calibración aplicados:
 
 11 tests nuevos en `tests/test_template_fase3.py`. Total: 54 (era 43).
 
-**⏳ Fase 4 — Templates anidados + semantic hints + constraint solver** (pendiente):
-- Templates por container (recursivos) — ver discusión previa con el usuario sobre composición.
-- Tags por elemento (`"role": "entry"`, `"role": "shared"`).
-- Extensión de `WISH-LAYOUT-002`.
+**✅ Fase 4 — Semantic hints + templates anidados** (2026-06-19):
 
-**⏳ Fase 4 — Templates anidados + semantic hints + constraint solver** (pendiente):
-- Templates por container (recursivos) — ver discusión previa con el usuario sobre composición.
-- Tags por elemento (`"role": "entry"`, `"role": "shared"`).
-- Extensión de `WISH-LAYOUT-002`.
+(a) Semantic hints (`role` por elemento):
+- Campo `"role"` opcional con valores: entry, output, shared, hub, spoke, abstract, state, actor, terminal.
+- `GraphFeatures.declared_roles` mapea elem_id → role.
+- Roles sobreescriben heurística por label/topología (architecture/hub_and_spoke/state).
+- Scorers dan bonus por roles consistentes con el patrón.
+
+(b) Templates anidados por container:
+- Campo `"layout_template"` opcional en cualquier container.
+- Nuevo módulo `templates/nested.py` con procesamiento bottom-up.
+- `apply_sub_templates` se llama SIEMPRE (independiente del template padre).
+- Containers guardan `_inner_width`/`_inner_height` desde su sub-grafo.
+- `offset_nested_children` ajusta hijos a coords globales después del padre.
+- Política: el hijo siempre infla; el padre se adapta.
+
+10 tests nuevos. Total 54 → 64. WISH-LAYOUT-004 cerrado integralmente.
+
+**✅ Fase 4 — Semantic hints + templates anidados** (2026-06-19):
+
+(a) Semantic hints (`role` por elemento):
+- Campo `"role"` opcional con valores: entry, output, shared, hub, spoke, abstract, state, actor, terminal.
+- `GraphFeatures.declared_roles` mapea elem_id → role.
+- Roles sobreescriben heurística por label/topología (architecture/hub_and_spoke/state).
+- Scorers dan bonus por roles consistentes con el patrón.
+
+(b) Templates anidados por container:
+- Campo `"layout_template"` opcional en cualquier container.
+- Nuevo módulo `templates/nested.py` con procesamiento bottom-up.
+- `apply_sub_templates` se llama SIEMPRE (independiente del template padre).
+- Containers guardan `_inner_width`/`_inner_height` desde su sub-grafo.
+- `offset_nested_children` ajusta hijos a coords globales después del padre.
+- Política: el hijo siempre infla; el padre se adapta.
+
+10 tests nuevos. Total 54 → 64. WISH-LAYOUT-004 cerrado integralmente.
 
 **Reportado originalmente**: 2026-06-19 (inspección del diagrama de arquitectura)
 
@@ -979,8 +1005,8 @@ Problemas visuales DIAG (8 entradas) viven en `DIAGRAM_REVIEW.md`.
 
 | Prioridad | Código | Resumen |
 |---|---|---|
-| **Alta (Norte)** | `WISH-LAYOUT-004` | Auto-detección semántica de la distribución óptima. **Norte del proyecto**. Sin esto AlmaGag necesita coords manuales para diagramas complejos. Trabajo grande, fasable. |
-| Baja | `WISH-LAYOUT-002` follow-up | Implementar `constraints.near` y `constraints.avoid` (v1 cerró `align`). Requiere integración con barycenter de Fase 4. **Subsumido por WISH-LAYOUT-004** como sub-tarea. |
+| Baja | `WISH-LAYOUT-002` follow-up | Implementar `constraints.near` y `constraints.avoid` (v1 cerró `align`). Sigue siendo válido aunque WISH-LAYOUT-004 ya entregó los semantic hints. |
+| Baja | `WISH-LAYOUT-004` follow-up | Refinamientos: más templates específicos, calibración con corpus etiquetado más grande, constraint solver `above/below/between`. No bloquea uso del sistema. |
 | Baja | `WISH-LAF-001` follow-up | Edge straightening post-procesamiento + heurística por tipo de diagrama (v1 cerró pesos dinámicos). **Subsumido por WISH-LAYOUT-004**. |
 | Baja | `WISH-LAYOUT-003` v2 | Smart placement de callouts vía `CollisionDetector` (v1 usa fallback derecha→abajo). |
 

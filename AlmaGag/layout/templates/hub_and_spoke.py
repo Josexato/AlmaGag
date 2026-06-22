@@ -63,6 +63,13 @@ class HubAndSpokeTemplate(BaseTemplate):
         if features.label_keywords & {'hub', 'central', 'branch', 'spoke', 'edge'}:
             score += 0.20
 
+        # Fase 4: bonus fuerte si el usuario declaró un `role: hub`
+        declared_role_values = set(features.declared_roles.values())
+        if 'hub' in declared_role_values:
+            score += 0.25
+        if 'spoke' in declared_role_values:
+            score += 0.10
+
         # Penalizar si tiene muchos containers (eso sugiere architecture)
         if features.n_containers >= 2:
             score -= 0.15
@@ -75,7 +82,9 @@ class HubAndSpokeTemplate(BaseTemplate):
 
 def _find_hub(elements, connections):
     """
-    Identifica el hub: nodo root con mayor (in + out) degree.
+    Identifica el hub: nodo root con mayor (in + out) degree, salvo que el
+    usuario haya declarado `"role": "hub"` en algún elemento (Fase 4: ese
+    override gana sobre la heurística).
     Resuelve endpoints contenidos a sus containers.
     """
     contained_ids = set()
@@ -88,6 +97,14 @@ def _find_hub(elements, connections):
                 container_membership[cid] = e['id']
 
     root_ids = {e['id'] for e in elements if e['id'] not in contained_ids}
+
+    # Fase 4: si el usuario declara `role: hub`, usar ese
+    for e in elements:
+        if e.get('role') == 'hub' and e['id'] in root_ids:
+            hub_id = e['id']
+            spokes = [eid for eid in root_ids if eid != hub_id]
+            return hub_id, spokes
+
     degree = defaultdict(int)
     for c in connections:
         fr = container_membership.get(c.get('from'), c.get('from'))

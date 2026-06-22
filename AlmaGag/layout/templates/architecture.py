@@ -14,6 +14,9 @@ from AlmaGag.layout.templates.features import GraphFeatures
 
 
 def _is_shared(container):
+    # Fase 4: role declarado tiene prioridad sobre heurística por label
+    if container.get('role') == 'shared':
+        return True
     lbl = (container.get('label') or '').lower()
     return any(k in lbl for k in ('shared', 'compart', 'agnost'))
 
@@ -53,6 +56,18 @@ def _categorize(elements, connections):
         eid = e['id']
         if eid in contained_ids:
             continue
+        # Fase 4: role declarado fuerza la categoría
+        role = e.get('role')
+        if role == 'entry':
+            cats['entry'].append(e)
+            continue
+        if role == 'output' or role == 'terminal':
+            cats['terminals'].append(e)
+            continue
+        if role == 'abstract':
+            cats['abstracts'].append(e)
+            continue
+        # Heurística por estructura
         if 'contains' in e:
             cats['containers'].append(e)
         elif e.get('type') == 'contract':
@@ -100,6 +115,12 @@ class ArchitectureTemplate(BaseTemplate):
             score += 0.10
         if any(k in features.label_keywords for k in ('shared', 'compart', 'agnost')):
             score += 0.20
+
+        # Fase 4: bonus por roles declarados típicos de arquitectura
+        declared_role_values = set(features.declared_roles.values())
+        arch_roles = declared_role_values & {'entry', 'output', 'shared', 'abstract'}
+        if arch_roles:
+            score += 0.15 * min(len(arch_roles), 3) / 3  # hasta +0.15
         if not features.has_cycles:
             score += 0.10
         if 3 <= features.topological_depth <= 7:

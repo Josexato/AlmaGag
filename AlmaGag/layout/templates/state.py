@@ -60,6 +60,10 @@ class StateTemplate(BaseTemplate):
         if features.label_keywords & {'state', 'transition'}:
             score += 0.20
 
+        # Fase 4: bonus por roles declarados como 'state'
+        if 'state' in set(features.declared_roles.values()):
+            score += 0.20
+
         # Penalizar si tiene containers (sugiere arch/dashboard)
         if features.n_containers >= 2:
             score -= 0.15

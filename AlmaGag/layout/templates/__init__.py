@@ -42,6 +42,10 @@ from AlmaGag.layout.templates.sequence import (
     apply_sequence_template,
 )
 from AlmaGag.layout.templates.state import StateTemplate, apply_state_template
+from AlmaGag.layout.templates.nested import (
+    apply_nested_templates,
+    offset_nested_children,
+)
 
 
 def get_default_classifier() -> TemplateClassifier:
@@ -57,9 +61,21 @@ def get_default_classifier() -> TemplateClassifier:
     ])
 
 
+def apply_sub_templates(data) -> list:
+    """
+    Aplica sub-templates declarados en containers (Fase 4 nested).
+    SIEMPRE se llama, independiente de si hay template padre.
+
+    Returns lista de (container_id, template_name) aplicados.
+    """
+    classifier = get_default_classifier()
+    return apply_nested_templates(data, classifier.by_name)
+
+
 def apply_template(template_name, data) -> bool:
     """
     Aplica el template indicado por nombre (override manual).
+    Antes de aplicar el padre, ejecuta los sub-templates anidados.
 
     Returns True si se aplicó alguno.
     """
@@ -69,23 +85,27 @@ def apply_template(template_name, data) -> bool:
     tpl = classifier.by_name(template_name)
     if tpl is None:
         return False
+    apply_sub_templates(data)
     tpl.apply(data)
+    offset_nested_children(data)
     return True
 
 
 def auto_apply_template(data, debug=False) -> tuple:
     """
     Detecta automáticamente el template y lo aplica si pasa el threshold.
+    Aplica SIEMPRE los sub-templates anidados, aunque el padre no aplique.
 
-    Returns (applied_template_name, all_scores) donde:
-    - applied_template_name es str o None
-    - all_scores es lista de (name, score) descendente
+    Returns (applied_template_name, all_scores).
     """
     classifier = get_default_classifier()
     tpl, all_scores = classifier.classify(data)
+    apply_sub_templates(data)  # SIEMPRE, antes del padre
     if tpl is not None:
         tpl.apply(data)
+        offset_nested_children(data)
         return tpl.name, all_scores
+    offset_nested_children(data)
     return None, all_scores
 
 
