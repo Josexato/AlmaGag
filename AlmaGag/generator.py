@@ -40,16 +40,25 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
         logger.error(f"Error al leer el JSON: {e}")
         return False
 
-    # WISH-LAYOUT-004 Fase 1: aplicar layout template si el SDJF lo declara.
-    # Los templates calculan coords automáticamente basándose en heurísticas
-    # semánticas (entry/algoritmos/shared/output) sin que el usuario tenga
-    # que poner cada x/y a mano. Solo asignan a elementos sin coords —
-    # respetan los manuales si los hay.
+    # WISH-LAYOUT-004 Fase 2: auto-detección de template por estructura del grafo.
+    # Prioridad:
+    #   1. Override manual: `"layout_template": "<name>"` en SDJF → aplicar ese.
+    #   2. Auto-detección: `"layout_template": "auto"` → clasificar grafo y aplicar.
+    #   3. Sin declaración → comportamiento agnóstico (AUTO/LAF normal).
+    # Los templates respetan coords manuales: solo asignan a elementos sin x/y.
     template_name = data.get('layout_template')
-    if template_name:
+    if template_name == 'auto':
+        from AlmaGag.layout.templates import auto_apply_template
+        applied, scores = auto_apply_template(data)
+        scores_str = ', '.join(f'{n}={s:.2f}' for n, s in scores)
+        if applied:
+            logger.info(f"Layout template auto-detectado: '{applied}' [scores: {scores_str}]")
+        else:
+            logger.info(f"Layout template auto-detect: ningún template superó el threshold [scores: {scores_str}] — usando algoritmo agnóstico")
+    elif template_name:
         from AlmaGag.layout.templates import apply_template
         if apply_template(template_name, data):
-            logger.info(f"Layout template '{template_name}' aplicado")
+            logger.info(f"Layout template '{template_name}' aplicado (override manual)")
         else:
             logger.warning(f"Layout template '{template_name}' desconocido — ignorado")
 

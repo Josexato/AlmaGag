@@ -806,27 +806,40 @@ Estas dos quedan como **follow-up de WISH-LAYOUT-002**: requieren entender la in
 **✅ Fase 1 — Template 'architecture'** (2026-06-19):
 - Nuevo módulo `AlmaGag/layout/templates/` con framework de templates.
 - Template `architecture`: layout en T (entry vertical → containers en fila con shared al centro → contract → terminals).
-- Heurística de categorización por rol topológico: entry (sin incoming), chain (intermedios), containers, abstracts (type=contract), terminals (sin outgoing).
-- Detección de "shared" por label (`shared`/`compart`/`agnost`).
+- Heurística de categorización por rol topológico.
 - Opt-in vía `"layout_template": "architecture"` en SDJF.
-- Respeta coords manuales (solo asigna a elementos sin `x`/`y`).
-- Calcula el `canvas` automáticamente.
-- Activado en `generator.py` antes de instanciar Layout.
-- Documentado en `docs/spec/FORMATO_ARCHIVOS.md` sección 0.
-- 8 tests nuevos (`tests/test_architecture_template.py`).
-- Ejemplo canonical: `docs/diagrams/gags/15-architecture-template.gag` — mismo grafo que `05-arquitectura-gag.gag` pero **sin coords manuales** + con el template.
+- Respeta coords manuales. Calcula canvas automáticamente.
+- 8 tests + ejemplo `15-architecture-template.gag`.
 
-**⏳ Fase 2 — Catálogo de patrones** (pendiente):
-- Reconocer y soportar templates adicionales: `flow`, `dashboard`, `er`, `sequence`, `state`.
-- Cada template con su heurística y tests.
+**✅ Fase 2 — Framework de auto-detección + 2 templates más** (2026-06-19):
 
-**⏳ Fase 3 — Auto-detección sin opt-in** (pendiente):
-- Que el sistema infiera qué template aplicar sin necesidad de declarar `"layout_template"`.
-- Clasificador del grafo por sus características (niveles, fan-out, ciclos, presencia de containers).
+Replanteo: en lugar de "catálogo opt-in" (que sería declarativo, no inferencial), Fase 2 ahora es **clasificador automático del grafo** + **scorers por template**.
 
-**⏳ Fase 4 — Semantic hints + constraint solver** (pendiente):
-- Tags por elemento (`"role": "entry"`, `"role": "shared"`, etc).
-- Extensión de `WISH-LAYOUT-002` con más constraints (`above`, `below`, `between`, `inside_group`).
+- **`GraphFeatures`** (`templates/features.py`): extrae 15+ métricas del grafo (n_root, degrees, max_degree_ratio, topological_depth, ciclos, branching_factor, pct_inter_container_connections, keywords semánticas).
+- **`BaseTemplate`** + **`TemplateClassifier`** (`templates/base.py`): interfaz + clasificador con threshold (0.6) y min_lead (0.05) configurables.
+- **3 templates** con sus respectivos `detect_score()`:
+  - `architecture`: containers ≥ 2, keyword shared, DAG, depth 3-7.
+  - `flow`: depth ≥ 4, branching ~1, sin containers, sin ciclos.
+  - `hub_and_spoke`: max_degree_ratio ≥ 2.5, depth ≤ 2, pocos containers. Layout circular (n<8) o columnas izq/der (n≥8 estilo SD-WAN).
+- **`generator.py`**:
+  - `"layout_template": "auto"` → clasificador (Fase 2).
+  - `"layout_template": "<name>"` → override manual.
+  - Sin declaración → comportamiento agnóstico (AUTO/LAF normal).
+- **16 tests** del clasificador (`tests/test_template_classifier.py`).
+
+Resultados del clasificador sobre los 23 canonicals:
+- Aciertos claros: `05-arq` / `15-template` → architecture (0.75); `svg-to-bwt-flow`, `03-conexiones` → flow (0.90); `system-architecture` → hub_and_spoke (0.85).
+- Casos ambiguos / catálogos visuales → None (fallback agnóstico) — comportamiento correcto.
+
+**⏳ Fase 3 — Refinamiento de scorers + más templates** (pendiente):
+- Templates adicionales: `dashboard`, `er`, `sequence`, `state`.
+- Mejor calibración de thresholds con corpus etiquetado.
+- Detección de **patrón compuesto**: cuando dos templates están empatados, posible señal de mix.
+
+**⏳ Fase 4 — Templates anidados + semantic hints + constraint solver** (pendiente):
+- Templates por container (recursivos) — ver discusión previa con el usuario sobre composición.
+- Tags por elemento (`"role": "entry"`, `"role": "shared"`).
+- Extensión de `WISH-LAYOUT-002`.
 
 **Reportado originalmente**: 2026-06-19 (inspección del diagrama de arquitectura)
 
