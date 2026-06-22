@@ -831,10 +831,33 @@ Resultados del clasificador sobre los 23 canonicals:
 - Aciertos claros: `05-arq` / `15-template` → architecture (0.75); `svg-to-bwt-flow`, `03-conexiones` → flow (0.90); `system-architecture` → hub_and_spoke (0.85).
 - Casos ambiguos / catálogos visuales → None (fallback agnóstico) — comportamiento correcto.
 
-**⏳ Fase 3 — Refinamiento de scorers + más templates** (pendiente):
-- Templates adicionales: `dashboard`, `er`, `sequence`, `state`.
-- Mejor calibración de thresholds con corpus etiquetado.
-- Detección de **patrón compuesto**: cuando dos templates están empatados, posible señal de mix.
+**✅ Fase 3 — Templates adicionales + calibración** (2026-06-19):
+
+4 templates nuevos con sus detectores + layouts:
+- `dashboard` (`templates/dashboard.py`): containers paralelos sin conexiones inter → grid `ceil(sqrt(N))` × `ceil(N/cols)`.
+- `er` (`templates/er.py`): Entity-Relationship → distribución radial-concéntrica (entidades más conectadas al centro).
+- `sequence` (`templates/sequence.py`): swimlanes verticales en columnas + mensajes ordenados temporalmente.
+- `state` (`templates/state.py`): estados en distribución circular (uniforme).
+
+Calibración con los 23 canonicals:
+- 3 architecture (05-arq, 07-containers, 15-template).
+- 6 flow (03-conexiones, 12-custom, 14-stresstest, layout-opt, routing-arch, svg-to-bwt-flow).
+- 3 hub_and_spoke (06-flujo, 13-stresstest, system-arch).
+- 1 dashboard (reference-cheatsheet).
+- 1 er (10-hybrid-layout).
+- 10 `(ninguno)` — catálogos visuales y casos ambiguos, fallback correcto a algoritmo agnóstico.
+
+Ajustes de calibración aplicados:
+- ER scorer: cortocircuito a 0 si `n_connections < 3` (sin relaciones no hay ER).
+- ER scorer: penalty fuerte (-0.45) si hay containers (no es ER puro entonces).
+- Keywords semánticos: agregados `entity`, `table`, `database` a `SEMANTIC_TOKENS`.
+
+11 tests nuevos en `tests/test_template_fase3.py`. Total: 54 (era 43).
+
+**⏳ Fase 4 — Templates anidados + semantic hints + constraint solver** (pendiente):
+- Templates por container (recursivos) — ver discusión previa con el usuario sobre composición.
+- Tags por elemento (`"role": "entry"`, `"role": "shared"`).
+- Extensión de `WISH-LAYOUT-002`.
 
 **⏳ Fase 4 — Templates anidados + semantic hints + constraint solver** (pendiente):
 - Templates por container (recursivos) — ver discusión previa con el usuario sobre composición.

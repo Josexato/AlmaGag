@@ -32,6 +32,16 @@ from AlmaGag.layout.templates.hub_and_spoke import (
     HubAndSpokeTemplate,
     apply_hub_and_spoke_template,
 )
+from AlmaGag.layout.templates.dashboard import (
+    DashboardTemplate,
+    apply_dashboard_template,
+)
+from AlmaGag.layout.templates.er import ERTemplate, apply_er_template
+from AlmaGag.layout.templates.sequence import (
+    SequenceTemplate,
+    apply_sequence_template,
+)
+from AlmaGag.layout.templates.state import StateTemplate, apply_state_template
 
 
 def get_default_classifier() -> TemplateClassifier:
@@ -40,6 +50,10 @@ def get_default_classifier() -> TemplateClassifier:
         ArchitectureTemplate(),
         FlowTemplate(),
         HubAndSpokeTemplate(),
+        DashboardTemplate(),
+        ERTemplate(),
+        SequenceTemplate(),
+        StateTemplate(),
     ])
 
 
@@ -82,10 +96,18 @@ __all__ = [
     'ArchitectureTemplate',
     'FlowTemplate',
     'HubAndSpokeTemplate',
+    'DashboardTemplate',
+    'ERTemplate',
+    'SequenceTemplate',
+    'StateTemplate',
     'apply_template',
     'auto_apply_template',
     'get_default_classifier',
     'apply_architecture_template',
     'apply_flow_template',
     'apply_hub_and_spoke_template',
+    'apply_dashboard_template',
+    'apply_er_template',
+    'apply_sequence_template',
+    'apply_state_template',
 ]

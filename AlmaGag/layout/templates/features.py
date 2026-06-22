@@ -151,6 +151,7 @@ class GraphFeatures:
             'step', 'phase', 'stage', 'flow', 'pipeline',
             'entry', 'input', 'output', 'sink', 'source',
             'state', 'transition',
+            'entity', 'table', 'database',
         }
         for e in elements:
             lbl = (e.get('label') or '').lower()
