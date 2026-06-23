@@ -30,17 +30,39 @@
       "type": "building",
       "label": "LAF Optimizer v1.8\n11 Fases",
       "contains": [
-        {"id": "phase1"},
-        {"id": "phase2"},
-        {"id": "phase3"},
-        {"id": "phase4"},
-        {"id": "phase5"},
-        {"id": "phase6"},
-        {"id": "phase7"},
-        {"id": "phase8"},
-        {"id": "phase9"},
-        {"id": "phase10"},
-        {"id": "phase11"}
+        {
+          "id": "phase1"
+        },
+        {
+          "id": "phase2"
+        },
+        {
+          "id": "phase3"
+        },
+        {
+          "id": "phase4"
+        },
+        {
+          "id": "phase5"
+        },
+        {
+          "id": "phase6"
+        },
+        {
+          "id": "phase7"
+        },
+        {
+          "id": "phase8"
+        },
+        {
+          "id": "phase9"
+        },
+        {
+          "id": "phase10"
+        },
+        {
+          "id": "phase11"
+        }
       ]
     },
     {
@@ -113,12 +135,24 @@
       "type": "building",
       "label": "Generator\nCreate SVG",
       "contains": [
-        {"id": "render0"},
-        {"id": "render1"},
-        {"id": "render2"},
-        {"id": "render3"},
-        {"id": "render4"},
-        {"id": "render5"}
+        {
+          "id": "render0"
+        },
+        {
+          "id": "render1"
+        },
+        {
+          "id": "render2"
+        },
+        {
+          "id": "render3"
+        },
+        {
+          "id": "render4"
+        },
+        {
+          "id": "render5"
+        }
       ]
     },
     {
@@ -292,5 +326,6 @@
   "canvas": {
     "width": 1400,
     "height": 1800
-  }
+  },
+  "layout_template": "auto"
 }

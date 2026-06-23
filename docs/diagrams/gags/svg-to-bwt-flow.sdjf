@@ -125,134 +125,196 @@
       "from": "input_svg",
       "to": "parser",
       "label": "lee SVG",
-      "routing": {"type": "straight"}
+      "routing": {
+        "type": "straight"
+      }
     },
     {
       "from": "parser",
       "to": "extract_elements",
       "label": "parsea XML",
-      "routing": {"type": "orthogonal"}
+      "routing": {
+        "type": "orthogonal"
+      }
     },
     {
       "from": "parser",
       "to": "extract_attrs",
       "label": "extrae",
-      "routing": {"type": "orthogonal"}
+      "routing": {
+        "type": "orthogonal"
+      }
     },
     {
       "from": "extract_elements",
       "to": "normalizer",
-      "routing": {"type": "bezier", "curvature": 0.3}
+      "routing": {
+        "type": "bezier",
+        "curvature": 0.3
+      }
     },
     {
       "from": "extract_attrs",
       "to": "normalizer",
-      "routing": {"type": "bezier", "curvature": 0.3}
+      "routing": {
+        "type": "bezier",
+        "curvature": 0.3
+      }
     },
     {
       "from": "normalizer",
       "to": "calc_bbox",
       "label": "procesa",
-      "routing": {"type": "orthogonal"}
+      "routing": {
+        "type": "orthogonal"
+      }
     },
     {
       "from": "normalizer",
       "to": "calc_scale",
-      "routing": {"type": "orthogonal"}
+      "routing": {
+        "type": "orthogonal"
+      }
     },
     {
       "from": "normalizer",
       "to": "normalize_coords",
-      "routing": {"type": "orthogonal"}
+      "routing": {
+        "type": "orthogonal"
+      }
     },
     {
       "from": "calc_bbox",
       "to": "simplifier",
-      "routing": {"type": "bezier", "curvature": 0.3}
+      "routing": {
+        "type": "bezier",
+        "curvature": 0.3
+      }
     },
     {
       "from": "calc_scale",
       "to": "simplifier",
-      "routing": {"type": "bezier", "curvature": 0.3}
+      "routing": {
+        "type": "bezier",
+        "curvature": 0.3
+      }
     },
     {
       "from": "normalize_coords",
       "to": "simplifier",
-      "routing": {"type": "bezier", "curvature": 0.3}
+      "routing": {
+        "type": "bezier",
+        "curvature": 0.3
+      }
     },
     {
       "from": "simplifier",
       "to": "combine_paths",
       "label": "optimiza",
-      "routing": {"type": "orthogonal"}
+      "routing": {
+        "type": "orthogonal"
+      }
     },
     {
       "from": "simplifier",
       "to": "remove_invisible",
-      "routing": {"type": "orthogonal"}
+      "routing": {
+        "type": "orthogonal"
+      }
     },
     {
       "from": "simplifier",
       "to": "optimize_paths",
-      "routing": {"type": "orthogonal"}
+      "routing": {
+        "type": "orthogonal"
+      }
     },
     {
       "from": "combine_paths",
       "to": "codegen",
-      "routing": {"type": "bezier", "curvature": 0.3}
+      "routing": {
+        "type": "bezier",
+        "curvature": 0.3
+      }
     },
     {
       "from": "remove_invisible",
       "to": "codegen",
-      "routing": {"type": "bezier", "curvature": 0.3}
+      "routing": {
+        "type": "bezier",
+        "curvature": 0.3
+      }
     },
     {
       "from": "optimize_paths",
       "to": "codegen",
-      "routing": {"type": "bezier", "curvature": 0.3}
+      "routing": {
+        "type": "bezier",
+        "curvature": 0.3
+      }
     },
     {
       "from": "codegen",
       "to": "create_function",
       "label": "genera",
-      "routing": {"type": "orthogonal"}
+      "routing": {
+        "type": "orthogonal"
+      }
     },
     {
       "from": "codegen",
       "to": "generate_paths",
-      "routing": {"type": "orthogonal"}
+      "routing": {
+        "type": "orthogonal"
+      }
     },
     {
       "from": "codegen",
       "to": "format_code",
-      "routing": {"type": "orthogonal"}
+      "routing": {
+        "type": "orthogonal"
+      }
     },
     {
       "from": "create_function",
       "to": "output_py",
-      "routing": {"type": "bezier", "curvature": 0.3}
+      "routing": {
+        "type": "bezier",
+        "curvature": 0.3
+      }
     },
     {
       "from": "generate_paths",
       "to": "output_py",
-      "routing": {"type": "bezier", "curvature": 0.3}
+      "routing": {
+        "type": "bezier",
+        "curvature": 0.3
+      }
     },
     {
       "from": "format_code",
       "to": "output_py",
-      "routing": {"type": "bezier", "curvature": 0.3}
+      "routing": {
+        "type": "bezier",
+        "curvature": 0.3
+      }
     },
     {
       "from": "output_py",
       "to": "register",
       "label": "registro\nopcional",
-      "routing": {"type": "straight"}
+      "routing": {
+        "type": "straight"
+      }
     },
     {
       "from": "register",
       "to": "ready",
       "label": "disponible",
-      "routing": {"type": "straight"}
+      "routing": {
+        "type": "straight"
+      }
     }
-  ]
+  ],
+  "layout_template": "auto"
 }
