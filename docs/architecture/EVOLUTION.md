@@ -453,6 +453,74 @@ El `05-arquitectura-gag.svg` se regeneró con el nuevo `.gag` que contiene 6 ico
 
 ---
 
+## v3.5 - Ciclo "Norte semántico + audit visual" (2026-06-19..23)
+
+**Fecha**: 2026-06-19 a 2026-06-23
+
+**Objetivo**: cerrar el **norte estratégico** del proyecto (WISH-LAYOUT-004 — auto-detección semántica) y construir el sistema de regresión visual basado en las 3 reglas del usuario. En paralelo, depurar la cascada de 7 bugs en AUTO con containers que aparecieron al inspeccionar visualmente los canonicals.
+
+### Resoluciones — features
+
+**WISH-LAYOUT-004 (4 fases entregadas) — Auto-detección semántica de la distribución óptima**
+- **Fase 1** (`ade4e41`): Framework + primer template `architecture` (T-shape).
+- **Fase 2** (`1c5a95f`): `TemplateClassifier` + `GraphFeatures.extract(...)` + templates `flow`, `hub_and_spoke`. Clave del diseño: **inferencia** desde la estructura del grafo, no opt-in declarativo. El usuario solo escribe `"layout_template": "auto"` y el clasificador elige.
+- **Fase 3** (`f587528`): Templates `dashboard`, `er`, `sequence`, `state` + calibración contra los 23 canonicals.
+- **Fase 4** (`201931e`): Semantic hints (`role: entry|hub|spoke|...`) + sub-templates anidados (containers con su propio `layout_template`).
+
+Métrica: 5 canonicals migrados a `layout_template: "auto"` con reducción promedio de canvas **−72%** (ver `e7d4714`).
+
+**Validador de calidad visual (3 reglas R1/R2/R3)** (`3fb47f7`)
+- Módulo `AlmaGag/validation/` con `validate_svg()` + `validate_gag()`.
+- R1: labels NO sobre iconos. R2: labels NO solapados. R3: NO conectores sin endpoint.
+- Audit aplicado al set canonical: 9 limpios, 15 con violations menores (165 total). Sirve como baseline para regresión visual continua.
+
+### Resoluciones — fixes funcionales
+
+**BUGS-AUTO-001..007** — cascada de 7 fixes en el pipeline AUTO con containers, descubiertos por inspección visual del usuario sobre `05-arquitectura-gag` y otros canonicals.
+
+| Código | Causa raíz | Fix |
+|---|---|---|
+| BUGS-AUTO-001 | `label_positions` calculadas antes de mover icons por containers → labels huérfanas. | Re-cálculo de `current.label_positions` tras `recalculate_positions_with_expanded_containers`. |
+| BUGS-AUTO-002 | Coords negativas (ej. backend-module a x=-93). | `_normalize_to_canvas` al final del optimize. |
+| BUGS-AUTO-003 | `label_intersects_elements` contaba containers como obstáculos → labels desplazadas a posiciones malas. | `if 'contains' in elem: continue` en el detector. |
+| BUGS-AUTO-004 | Containers solapados sin resolución. | `_resolve_container_overlaps` con cascada de empujones + `_shift_container_subtree`. |
+| BUGS-AUTO-005 | Labels off-canvas / fuera de container. | Chequeos de bounds + `_label_inside_container` con header offset 40px. |
+| BUGS-AUTO-006 | Labels bottom solapados horizontalmente en containers estrechos. | `_stagger_overlapping_contained_labels` escalonando en vertical + expandiendo container. |
+| BUGS-AUTO-007 | Header del container se sale por la derecha (bold ~10px/char, no 8px). | `label_width × 1.25` en 3 funciones. |
+
+### Resoluciones — refactores estructurales
+
+**WISH-ARCH-003 — Reorganización de `draw/` + split de `visualizer.py`**
+- `draw/` plano (16 archivos mezclados) → `draw/primitives/` (4 archivos: svg, connections, container, callout) + `draw/icons/` (11 archivos + dispatcher en `__init__.py`).
+- `laf/visualizer.py` monolítico (2876 líneas) → paquete `laf/visualizer/` con 11 archivos, uno por fase.
+
+**WISH-LAYOUT-003 — Auto-callout para labels grandes**
+- Nuevo `draw/primitives/callout.py`. Umbrales conservadores (≥6 líneas o ≥150 chars). Aún no se dispara en ningún canonical (filtros conservadores intencional).
+
+**WISH-LAYOUT-002 v1 — `constraints.align`**
+- SDJF acepta `constraints: { align: [[id1, id2, ...]] }` para grupos co-alineados.
+
+**WISH-LAF-001 v1 — Pesos dinámicos del barycenter**
+- LAF Fase 4: barycenter ponderado por degree (más cruces de conexiones reducidos).
+
+### Métricas globales del ciclo
+
+| Métrica | Antes (v3.4) | Después (v3.5) |
+|---|---:|---:|
+| Templates de layout | 0 | 7 (+ nested + roles) |
+| BUGS funcionales pendientes | 0 | 0 (7 nuevos abiertos+cerrados en el ciclo) |
+| WISH resueltos en ciclo | 6 (v3.4) | 6 (4 LAYOUT + 1 ARCH + 1 LAF) |
+| Tests | 19 | 70 (+51) |
+| Validador visual | — | 3 reglas + audit canonical |
+| Smoke render | 46/46 OK | 48/48 OK |
+| Determinismo | 1 hash único | 1 hash único |
+
+### Estado del norte estratégico
+
+`WISH-LAYOUT-004` queda **cerrado en sus 4 fases entregadas**. Próximos posibles incrementos (no priorizados): templates adicionales (matrix, tree-of-life, kanban), refinamiento de la calibración con telemetría real, integración del validador R1/R2/R3 como gate en CI.
+
+---
+
 ## Cómo usar este benchmark
 
 Para probar cambios en AutoLayout:
@@ -470,4 +538,4 @@ El diagrama `05-arquitectura-gag.gag` solo tiene coords manuales en los **contai
 
 ---
 
-**Última actualización**: 2026-06-18 (v3.4 — WISH-DOCS-002).
+**Última actualización**: 2026-06-23 (v3.5 — WISH-LAYOUT-004 norte cerrado + validador 3 reglas).
