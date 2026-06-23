@@ -410,15 +410,24 @@ def simplify_orthogonal_zigzag(path: List[Point], obstacles: List[Rect]) -> List
     """
     Reduce unnecessary bends in an orthogonal path by trying L-shortcuts.
 
-    For each 4-point window (a, b, c, d) in the path, if there is an L-path
-    a → corner → d (one bend instead of three) that does not cross any
-    obstacle, replace [a, b, c, d] with [a, corner, d].
+    Tries progressively larger windows (4, 5, ..., MAX points). For each
+    window [p_i, ..., p_j], if there is an L-path p_i → corner → p_j (one
+    bend) that does not cross any obstacle, replace the inner points with
+    just the corner.
 
-    Iterates until no more reductions are possible. Also removes any remaining
-    collinear points.
+    Larger windows allow skipping multi-hop zig-zags that smaller windows
+    can't reduce (e.g., when the immediate L-shortcut is blocked but a
+    further-out one is clear).
+
+    Iterates until no more reductions are possible. Also removes any
+    remaining collinear points at the end.
     """
     if len(path) < 4:
         return [Point(x, y) for x, y in simplify_path([(p.x, p.y) for p in path])]
+
+    # Window sizes to try in order. Smaller first (more aggressive on simple
+    # cases), then larger to catch chains. Max window size limits work.
+    MAX_WINDOW = 7
 
     result = [Point(p.x, p.y) for p in path]
     # Safety: each successful simplification reduces path length by ≥1,
@@ -426,24 +435,27 @@ def simplify_orthogonal_zigzag(path: List[Point], obstacles: List[Rect]) -> List
     max_outer_passes = len(path) + 2
     for _ in range(max_outer_passes):
         changed = False
-        i = 0
-        while i <= len(result) - 4:
-            a = result[i]
-            d = result[i + 3]
-            window_changed = False
-            for cx, cy in [(a.x, d.y), (d.x, a.y)]:
-                # Skip degenerate corners that don't actually shortcut
-                if (abs(cx - a.x) < 0.1 and abs(cy - a.y) < 0.1) or \
-                   (abs(cx - d.x) < 0.1 and abs(cy - d.y) < 0.1):
-                    continue
-                if (not _segment_blocked(a.x, a.y, cx, cy, obstacles) and
-                        not _segment_blocked(cx, cy, d.x, d.y, obstacles)):
-                    result = result[:i + 1] + [Point(cx, cy)] + result[i + 3:]
-                    changed = True
-                    window_changed = True
-                    break
-            if not window_changed:
-                i += 1
+        for window in range(4, MAX_WINDOW + 1):
+            i = 0
+            while i <= len(result) - window:
+                a = result[i]
+                d = result[i + window - 1]
+                window_changed = False
+                for cx, cy in [(a.x, d.y), (d.x, a.y)]:
+                    # Skip degenerate corners that don't actually shortcut
+                    if (abs(cx - a.x) < 0.1 and abs(cy - a.y) < 0.1) or \
+                       (abs(cx - d.x) < 0.1 and abs(cy - d.y) < 0.1):
+                        continue
+                    if (not _segment_blocked(a.x, a.y, cx, cy, obstacles) and
+                            not _segment_blocked(cx, cy, d.x, d.y, obstacles)):
+                        result = result[:i + 1] + [Point(cx, cy)] + result[i + window - 1:]
+                        changed = True
+                        window_changed = True
+                        break
+                if not window_changed:
+                    i += 1
+            if changed:
+                break  # Restart with smallest window after any reduction
         if not changed:
             break
 

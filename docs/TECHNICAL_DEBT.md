@@ -20,6 +20,7 @@ Cada entrada tiene un código con estructura uniforme `<CATEGORÍA>-<COMPONENTE>
 - **`LAYOUT`** — Issues transversales del módulo `AlmaGag/layout/` que afectan a ambos algoritmos.
 - **`LAF`** — Issues exclusivos del algoritmo LAF (`AlmaGag/layout/laf/`).
 - **`AUTO`** — Issues exclusivos del algoritmo AUTO (`AlmaGag/layout/auto/`).
+- **`ROUT`** — Issues del módulo de routing (`AlmaGag/routing/`): cálculo de paths, port assignment, visibility graph, simplificación.
 - **`ARCH`** — Issues arquitecturales del sistema (acoplamientos, contratos, extensibilidad).
 - **`DOCS`** — Documentación que quedó desincronizada del código o del estado actual del proyecto.
 - **`DIAG`** — Problemas visuales en los SVG renderizados. Viven en `docs/DIAGRAM_REVIEW.md`, no aquí.
@@ -379,6 +380,84 @@ En `05-arquitectura-gag` el label "Shared (algoritmo-agnóstico)" (28 chars) nec
 **Limitaciones conocidas (no bloquean cierre)**:
 - En el caso `git.sdjf`, el contenedor `legend` queda ~40px fuera del borde izquierdo del canvas (problema de centrado global cuando el grid tiene contenedores muy disparejos en ancho). Pendiente de evaluar como issue separado si molesta.
 - El segundo hijo de cada contenedor puede sobresalir ~35px del borde derecho — bug preexistente del `container_grower` (no introducido por este fix).
+
+---
+
+### BUGS-ROUT-001: Rutas Ortogonales con Bends Innecesarios al Cruzar a Container ✅ RESUELTO (v2)
+**Componente**: `AlmaGag/routing/orthogonal_router.py` + `AlmaGag/routing/visibility_graph.py`
+**Severidad**: Media (afecta legibilidad visual de cualquier diagrama con containers)
+**Reportado**: 2026-06-23 (feedback visual del usuario sobre `05-arquitectura-gag` post-actualización a v3.5)
+**Resuelto**: 2026-06-23 (v1: commit `32e82a6`, v2: ventanas 4..7 puntos)
+
+**Causa raíz** (doble):
+
+1. **Routing por intermediate point con segmentos independientes**: cuando una conexión cruza el límite de un container (from fuera, to dentro — o viceversa), `OrthogonalRouter.calculate_path` delega a `_calculate_orthogonal_waypoints_with_intermediate`, que computa **2 segmentos independientes** (from → entry_point del container, entry_point → to), cada uno con su propio naive midpoint H-V o V-H (2 bends c/u). Resultado: hasta 4 bends por conexión aunque la geometría permita 1 bend limpio.
+
+2. **Fallback al naive midpoint cuando A* falla**: `_route_with_visibility_graph` cae a `_calculate_orthogonal_waypoints` cuando A* no encuentra ruta. A* falla cuando alguno de los ports asignados por `port_assignment` cae dentro del bbox inflado (`OBSTACLE_MARGIN=25`) de algún container, lo cual ocurre con frecuencia cuando el target está pegado al borde de su container.
+
+**Caso de prueba reproducible** (antes del fix, commit `e2712e4`):
+
+Diagrama `05-arquitectura-gag.gag` con elementos `templates` (fuera de container, y=440) y `auto_opt` (dentro de `auto_box`, y=630).
+
+| Conexión | Bends antes | Bends ideal |
+|---|---:|---:|
+| `templates → auto_opt` | 3 | 1 |
+| `templates → laf_opt` | 3 | 1 |
+| `auto_opt → contract` | 4 | 1 |
+| `laf_opt → contract` | 4 | 1 |
+
+**Fix aplicado**:
+
+Nueva función `simplify_orthogonal_zigzag(path, obstacles)` en `visibility_graph.py`. Algoritmo:
+
+```
+para cada ventana de N puntos consecutivos [p_i, ..., p_{i+N-1}] en el path:
+    para cada esquina candidata corner ∈ {(p_i.x, p_{i+N-1}.y), (p_{i+N-1}.x, p_i.y)}:
+        si segmento (p_i → corner) y (corner → p_{i+N-1}) no cruzan obstáculos:
+            reemplazar el rango por [p_i, corner, p_{i+N-1}]
+            marcar changed
+            break
+N corre de 4 a 7 (configurable); empezar desde N=4 (más conservador) y subir
+si no se encontraron reducciones. Cuando hay reducción, reiniciar al N más
+pequeño para permitir cadenas de simplificación.
+iterar hasta no haber cambios (acotado por len(path))
+limpieza final de puntos colineales
+```
+
+Llamada desde `OrthogonalRouter.calculate_path` como post-process, **después** de cualquier estrategia de waypoint computation. Los containers padre de `from`/`to` se excluyen de los obstáculos (no podemos chequearlos como obstáculos porque tenemos que cruzarlos para llegar al destino).
+
+**v1 (commit `32e82a6`)**: ventanas de exactamente 4 puntos.
+**v2**: ventanas de 4 a 7 puntos progresivas, mejora `15-architecture-template` (20→18 bends) y casos similares con zig-zags más largos.
+
+**Validación**:
+
+| Métrica | Antes (`e2712e4`) | Después (`32e82a6`) |
+|---|---:|---:|
+| Bends en `05-arquitectura-gag` (12 conexiones) | 28 total | 16 total (−43%) |
+| Conexiones con solo 1 bend | 3/12 | 9/12 |
+| Conexiones con ≥3 bends | 8/12 | 1/12 |
+| Tests | 70/70 | 70/70 |
+| Smoke (canonicals representativos) | OK | OK |
+| Determinismo | 1 hash | 1 hash |
+
+**Audit global** sobre los 24 canonicals (regenerando con/sin el fix):
+
+| Diagrama | Bends pre | Bends post | Δ |
+|---|---:|---:|---:|
+| `05-arquitectura-gag` | 36 | 19 | **−47%** |
+| `15-architecture-template` | 37 | 18 | **−51%** |
+| `13-stresstest` | 45 | 36 | **−20%** |
+| `continentes-america` | 24 | 24 | 0% |
+| `svg-to-bwt-flow` | 8 | 8 | 0% |
+| `reference-cheatsheet` | 9 | 9 | 0% |
+| `git` | 6 | 6 | 0% |
+| **TOTAL** (130 conexiones afectadas) | **165** | **120** | **−27%** |
+
+Los otros canonicals no listados (16) no usan routing ortogonal sobre containers, así que no se benefician — pero tampoco se degradan.
+
+**Limitaciones conocidas (no bloquean cierre)**:
+- Las 3 conexiones residuales en `05-arquitectura-gag` con 2-4 bends son las que tienen que **cruzar completamente** el `shared_box` (los dos endpoints están en lados opuestos del container y el L-shortcut por encima/debajo del container requeriría puntos que no están en el path original). Resolver eso es re-routing, no simplification — issue distinto.
+- La simplificación es **orthogonal-only**. Otros routing types (bezier, arc, straight) no usan este post-process. Si en el futuro vuelven a producir paths con bends innecesarios, mover la simplificación a `router_base.ConnectionRouter`.
 
 ---
 
