@@ -21,6 +21,8 @@ Cada entrada tiene un código con estructura uniforme `<CATEGORÍA>-<COMPONENTE>
 - **`LAF`** — Issues exclusivos del algoritmo LAF (`AlmaGag/layout/laf/`).
 - **`AUTO`** — Issues exclusivos del algoritmo AUTO (`AlmaGag/layout/auto/`).
 - **`ROUT`** — Issues del módulo de routing (`AlmaGag/routing/`): cálculo de paths, port assignment, visibility graph, simplificación.
+- **`TPL`** — Issues del módulo de templates (`AlmaGag/layout/templates/`): detección semántica, scorers, aplicación de patrones, calibración del clasificador.
+- **`VAL`** — Issues del módulo de validación (`AlmaGag/validation/`): reglas de calidad visual (R1/R2/R3) y sus heurísticas.
 - **`ARCH`** — Issues arquitecturales del sistema (acoplamientos, contratos, extensibilidad).
 - **`DOCS`** — Documentación que quedó desincronizada del código o del estado actual del proyecto.
 - **`DIAG`** — Problemas visuales en los SVG renderizados. Viven en `docs/DIAGRAM_REVIEW.md`, no aquí.
@@ -458,6 +460,79 @@ Los otros canonicals no listados (16) no usan routing ortogonal sobre containers
 **Limitaciones conocidas (no bloquean cierre)**:
 - Las 3 conexiones residuales en `05-arquitectura-gag` con 2-4 bends son las que tienen que **cruzar completamente** el `shared_box` (los dos endpoints están en lados opuestos del container y el L-shortcut por encima/debajo del container requeriría puntos que no están en el path original). Resolver eso es re-routing, no simplification — issue distinto.
 - La simplificación es **orthogonal-only**. Otros routing types (bezier, arc, straight) no usan este post-process. Si en el futuro vuelven a producir paths con bends innecesarios, mover la simplificación a `router_base.ConnectionRouter`.
+
+---
+
+### BUGS-TPL-001: Architecture Scorer Calibrado Demasiado Conservador 🔴 ABIERTO
+**Componente**: `AlmaGag/layout/templates/architecture.py` — `ArchitectureTemplate.detect_score`
+**Severidad**: Media (arquitecturas claras no reciben el template adecuado y caen al fallback agnóstico)
+**Reportado**: 2026-06-23 (test neutro `cakephp-mvc.gag`)
+
+**Caso de prueba reproducible**:
+
+`docs/diagrams/gags/cakephp-mvc.gag` — arquitectura MVC clásica:
+- 3 containers (controllers, models, views) + 1 cross-cutting implícito.
+- Entry: `request`. Terminal: `response`. Cadena lineal en medio.
+- 19 elementos, 18 conexiones, profundidad topológica 8, sin ciclos.
+
+Es estructuralmente un caso de libro del template `architecture`. Sin embargo, los scores resultantes son:
+
+```
+architecture=0.55, er=0.45, sequence=0.40, state=0.40, flow=0.35,
+dashboard=0.30, hub_and_spoke=0.25
+```
+
+`architecture` queda por debajo del threshold (`0.6`). Cae al fallback agnóstico → canvas alargado 1400×2108 y 6 colisiones.
+
+**Causa raíz**:
+
+El scorer suma:
+- `+0.35` por `n_containers >= 2` ✓
+- `+0.10` por `n_containers >= 3` ✓
+- `+0.20` por keyword `shared`/`compart`/`agnost` ✗ (CakePHP no usa esos términos)
+- `+0.10` por DAG ✓
+- `+0.15` por depth 3..7 ✗ (depth=8 queda fuera del rango)
+- Sin roles declarados (`+0.15` no aplica)
+
+Total: `0.55`. Pierde por dos hilos:
+1. La ventana de profundidad `3..7` excluye depth=8, que es perfectamente válido en arquitecturas reales.
+2. El bonus por keyword es muy específico a la nomenclatura interna de AlmaGag (`shared (algoritmo-agnóstico)`).
+
+**Diagnóstico**:
+
+El scorer está sobre-ajustado al patrón visual de `05-arquitectura-gag` (que usa la palabra "shared" y tiene depth 5). Cualquier arquitectura sin esa nomenclatura específica o con cadena más larga pierde el template.
+
+**Propuesta de fix**:
+1. Ampliar la ventana de depth a `3..10` (o sigmoidal en vez de step).
+2. Añadir bonus por estructura: entry topológico único + terminal único + 2+ containers paralelos = `+0.15`.
+3. Bajar el peso del keyword `shared` de `+0.20` a `+0.10` (señal débil, no excluyente).
+4. Re-medir scores contra los 24 canonicals para asegurar que no rompe selecciones existentes.
+
+---
+
+### BUGS-VAL-001: R3 Reporta Falsos Positivos con Conectores Rectos Cortos 🔴 ABIERTO
+**Componente**: `AlmaGag/validation/visual_quality.py` — `check_connections_attached`
+**Severidad**: Baja (afecta solo a reportes del validador, no al render)
+**Reportado**: 2026-06-23 (test neutro `cakephp-mvc.gag`)
+
+**Caso de prueba reproducible**:
+
+`docs/diagrams/svgs/cakephp-mvc.svg` — el validador reporta `R3=14` (conectores supuestamente "sueltos"). Inspección visual: los 14 conectores están correctamente atados a sus iconos. Son conexiones rectas (straight routing), porque el `.gag` no declara `routing.type`.
+
+**Causa raíz** (hipótesis):
+
+`check_connections_attached` clasifica como dangling cualquier endpoint cuya distancia a icon_bbox > 20px. Pero:
+1. Algunos iconos custom (router, computer, laptop, database) son grupos SVG complejos con `<g transform="translate(x,y)">` en vez de `<rect>` simple. `_extract_icon_bboxes` puede estar derivando bboxes inexactos para estos tipos.
+2. La tolerancia de `20px` es razonable para iconos centrados, pero con port_assignment los endpoints caen en bordes del icono. Si el bbox extraído del SVG está desplazado, la distancia queda > 20px aunque visualmente esté atado.
+
+**Validación**:
+- En `cakephp-mvc.svg`: 10 iconos detectados por el validador vs 19 elementos en el `.gag` → el validador está perdiendo iconos custom y luego reporta sus conectores como dangling.
+- En los canonicals con iconos custom embebidos (`05-arquitectura-gag`), R3 también es alta (30) por el mismo motivo.
+
+**Propuesta de fix**:
+1. Mejorar `_extract_icon_bboxes` para reconocer iconos custom: parsear `<g id="X" transform="translate(tx,ty)">` y derivar el bbox de los hijos.
+2. Aumentar tolerancia R3 a `30-40px` (port_assignment puede colocar puntos a hasta 25px de offset del centro).
+3. Alternativa: usar `validate_gag()` (que tiene acceso al optimizer) como la fuente de verdad para R3; restringir `validate_svg()` a R1/R2 cuando hay iconos custom.
 
 ---
 
