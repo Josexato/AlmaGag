@@ -23,6 +23,7 @@ Cada entrada tiene un código con estructura uniforme `<CATEGORÍA>-<COMPONENTE>
 - **`ROUT`** — Issues del módulo de routing (`AlmaGag/routing/`): cálculo de paths, port assignment, visibility graph, simplificación.
 - **`TPL`** — Issues del módulo de templates (`AlmaGag/layout/templates/`): detección semántica, scorers, aplicación de patrones, calibración del clasificador.
 - **`VAL`** — Issues del módulo de validación (`AlmaGag/validation/`): reglas de calidad visual (R1/R2/R3) y sus heurísticas.
+- **`DRAW`** — Issues del módulo de dibujo (`AlmaGag/draw/`): nuevos tipos de iconos/shapes, primitivas SVG, gradientes, markers.
 - **`ARCH`** — Issues arquitecturales del sistema (acoplamientos, contratos, extensibilidad).
 - **`DOCS`** — Documentación que quedó desincronizada del código o del estado actual del proyecto.
 - **`DIAG`** — Problemas visuales en los SVG renderizados. Viven en `docs/DIAGRAM_REVIEW.md`, no aquí.
@@ -1130,6 +1131,95 @@ Reemplazado el placeholder "v2.2 - (Futuro)" por 3 entradas nuevas que cubren ~1
   - Diagrama de arquitectura: descripción del nuevo `.gag` con iconos custom.
 
 **Validación**: doc renderiza correctamente en GitHub markdown.
+
+---
+
+### WISH-LAYOUT-005: Container Especial "Contract Band" Envolvente 🔴 ABIERTO
+**Componente**: SDJF spec + `AlmaGag/draw/primitives/container.py` + `AlmaGag/layout/container_calculator.py`
+**Severidad**: Media (mejora expresividad de diagramas arquitectónicos)
+**Reportado**: 2026-06-23 (feedback visual del usuario sobre diagrama manual)
+
+**Motivación**:
+
+En diagramas arquitectónicos es común expresar "estos N elementos son intercambiables a través de este contrato" con una **banda horizontal** que envuelve un grupo `[endpoint_A, abstract, endpoint_B]`. Visualmente la banda comunica que es un eje único de simetría, no un container jerárquico clásico.
+
+AlmaGag hoy solo tiene containers tipo "caja con título": el background rectangular agrupa pero no transmite el sentido de banda/eje.
+
+**Caso de prueba**:
+Diagrama manual del usuario (2026-06-23): banda horizontal azul claro envuelve `[green-rect-izq, yellow-diamond, green-rect-der]` haciendo evidente la equivalencia funcional.
+
+**Propuesta**:
+- Nuevo tipo de container en SDJF: `"type": "band"` o `"shape": "band"` (compatible con `"contains": [...]`).
+- Render: rect muy ancho y bajo (alto = max height de hijos + padding), sin título arriba sino lateral. Color de fondo más sutil que un container normal.
+- Comportamiento de layout: hijos en fila horizontal con padding uniforme, no en grid.
+- Compatible con el `architecture` template (banda = capa del medio en la T).
+
+---
+
+### WISH-LAYOUT-006: Auto Label-Position por Geometría del Container 🔴 ABIERTO
+**Componente**: `AlmaGag/layout/label_optimizer.py` + `AlmaGag/layout/auto/optimizer.py`
+**Severidad**: Media (mejora legibilidad de diagramas con containers anchos/estrechos)
+**Reportado**: 2026-06-23 (feedback visual del usuario sobre diagrama manual)
+
+**Motivación**:
+
+El usuario en su diagrama manual posiciona los labels de iconos contenidos **hacia afuera del centro del container**: icono izquierdo → label a la izquierda; icono derecho → label a la derecha. Esa heurística:
+- Evita solape entre labels de hermanos adyacentes (problema BUGS-AUTO-006 que ya parchamos con stagger).
+- Aprovecha el espacio libre fuera del container.
+
+AlmaGag hoy elige label_position con un default global (`bottom`) o con `_find_best_label_position` que prueba 4 lados en orden fijo. No considera la geometría del container padre.
+
+**Propuesta**:
+- En `_find_best_label_position`, cuando el elemento tiene un container padre, sesgar la preferencia hacia el lado **lejano** del centro del container.
+- Para containers row (hijos alineados horizontalmente): preferir `left` para el primer hijo, `right` para el último, `bottom`/`top` para los del medio.
+- Para containers column: análogo con `top`/`bottom`.
+- Reduce dependencia del stagger horizontal (BUGS-AUTO-006).
+
+---
+
+### WISH-LAYOUT-007: Color Semántico por Tipo de Conexión 🔴 ABIERTO
+**Componente**: SDJF spec + `AlmaGag/draw/primitives/svg.py` + `AlmaGag/draw/primitives/connections.py`
+**Severidad**: Baja (mejora expresividad de diagramas con múltiples tipos de relación)
+**Reportado**: 2026-06-23 (feedback visual del usuario sobre diagrama manual)
+
+**Motivación**:
+
+En diagramas con múltiples tipos de relación (data flow, control flow, sync, callback, event), el color del conector codifica la semántica de un vistazo. El usuario lo hizo manualmente: 17 conexiones naranja (data flow) + 1 verde bidireccional (sync de estado).
+
+AlmaGag hoy:
+- `color_connections=True` → colorea cada conexión con un color único determinado por id (no semántico).
+- Si `color_connections=False`, todas en negro.
+- `connection.color` no existe en SDJF.
+
+**Propuesta**:
+1. **Campo nuevo en SDJF**: `connection.semantic_type` (string libre) o `connection.color` (hex/nombre).
+2. **Mapeo automático**: si `semantic_type` está presente, asignar color de paleta predefinida (`data_flow=orange`, `control_flow=blue`, `sync=green`, `event=purple`, `callback=teal`).
+3. **Override directo**: `connection.color` tiene precedencia sobre `semantic_type`.
+4. **Compatibilidad**: si nada de esto se declara, comportamiento actual (negro o `color_connections`).
+5. Bonus: leyenda automática si hay 2+ `semantic_type` distintos en el diagrama.
+
+---
+
+### WISH-DRAW-001: Shape `diamond` (abstract/decision) como Icono Nativo 🔴 ABIERTO
+**Componente**: `AlmaGag/draw/icons/` — nuevo módulo `diamond.py`
+**Severidad**: Baja (cosmético, mejora claridad visual)
+**Reportado**: 2026-06-23 (feedback visual del usuario sobre diagrama manual)
+
+**Motivación**:
+
+El usuario usa un diamante amarillo para el nodo abstracto/contrato en el centro de la banda. El diamante es convención UML/BPMN para "decision" o "interface", y comunica el rol abstracto al instante. AlmaGag hoy:
+- `type: "contract"` renderiza un rect dashed con texto `«abstract»` (estilo UML clase abstracta).
+- No hay shape `diamond` registrado.
+
+Ambos son válidos UML pero el diamante es más universal en diagramas arquitectónicos (no solo de clases). Vale tenerlo disponible.
+
+**Propuesta**:
+1. Crear `AlmaGag/draw/icons/diamond.py` con `draw_diamond(dwg, x, y, color, element_id)`:
+   - Polígono rombo (4 puntos) en gradiente.
+   - Tamaño base ICON_WIDTH × ICON_HEIGHT, ajustable con `wp`/`hp`.
+2. Registrar en el dispatcher (`AlmaGag/draw/icons/__init__.py`).
+3. Disponible como `"type": "diamond"` en cualquier SDJF.
+4. **Opcional**: añadir `"type": "decision"` como alias semántico.
 
 ---
 
