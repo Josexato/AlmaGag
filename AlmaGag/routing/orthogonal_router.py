@@ -14,7 +14,11 @@ import math
 from typing import List
 from AlmaGag.routing.router_base import ConnectionRouter, Path, Point
 from AlmaGag.config import CORNER_RADIUS_DEFAULT
-from AlmaGag.routing.visibility_graph import find_orthogonal_path
+from AlmaGag.routing.visibility_graph import (
+    find_orthogonal_path,
+    build_obstacles,
+    simplify_orthogonal_zigzag,
+)
 
 
 class OrthogonalRouter(ConnectionRouter):
@@ -112,6 +116,22 @@ class OrthogonalRouter(ConnectionRouter):
                 from_elem, to_elem,
                 layout, sizing_calculator, preference
             )
+
+        # Post-process: remove unnecessary bends (L-shortcuts) when the
+        # straight L-path doesn't intersect any obstacle. Keeps source and
+        # target endpoints stable; only collapses intermediate zig-zags.
+        # Parent containers of from/to are excluded — we must cross them.
+        from_id = from_elem.get('id', '')
+        to_id = to_elem.get('id', '')
+        obstacles = build_obstacles(layout, from_id, to_id, sizing_calculator)
+        parent_ids = set()
+        if from_container:
+            parent_ids.add(from_container.get('id', ''))
+        if to_container:
+            parent_ids.add(to_container.get('id', ''))
+        if parent_ids:
+            obstacles = [o for o in obstacles if o.elem_id not in parent_ids]
+        waypoints = simplify_orthogonal_zigzag(waypoints, obstacles)
 
         return Path(
             type='polyline',

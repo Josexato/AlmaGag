@@ -406,6 +406,51 @@ def simplify_path(path: List[Tuple[float, float]]) -> List[Tuple[float, float]]:
     return result
 
 
+def simplify_orthogonal_zigzag(path: List[Point], obstacles: List[Rect]) -> List[Point]:
+    """
+    Reduce unnecessary bends in an orthogonal path by trying L-shortcuts.
+
+    For each 4-point window (a, b, c, d) in the path, if there is an L-path
+    a → corner → d (one bend instead of three) that does not cross any
+    obstacle, replace [a, b, c, d] with [a, corner, d].
+
+    Iterates until no more reductions are possible. Also removes any remaining
+    collinear points.
+    """
+    if len(path) < 4:
+        return [Point(x, y) for x, y in simplify_path([(p.x, p.y) for p in path])]
+
+    result = [Point(p.x, p.y) for p in path]
+    # Safety: each successful simplification reduces path length by ≥1,
+    # so the total number of simplifications is bounded by len(path).
+    max_outer_passes = len(path) + 2
+    for _ in range(max_outer_passes):
+        changed = False
+        i = 0
+        while i <= len(result) - 4:
+            a = result[i]
+            d = result[i + 3]
+            window_changed = False
+            for cx, cy in [(a.x, d.y), (d.x, a.y)]:
+                # Skip degenerate corners that don't actually shortcut
+                if (abs(cx - a.x) < 0.1 and abs(cy - a.y) < 0.1) or \
+                   (abs(cx - d.x) < 0.1 and abs(cy - d.y) < 0.1):
+                    continue
+                if (not _segment_blocked(a.x, a.y, cx, cy, obstacles) and
+                        not _segment_blocked(cx, cy, d.x, d.y, obstacles)):
+                    result = result[:i + 1] + [Point(cx, cy)] + result[i + 3:]
+                    changed = True
+                    window_changed = True
+                    break
+            if not window_changed:
+                i += 1
+        if not changed:
+            break
+
+    # Final collinear cleanup
+    return [Point(x, y) for x, y in simplify_path([(p.x, p.y) for p in result])]
+
+
 def find_orthogonal_path(
     start: Point,
     end: Point,
