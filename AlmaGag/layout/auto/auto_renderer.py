@@ -162,10 +162,12 @@ class AutoSVGRenderer:
                     f"{container.get('width', 0):.1f}x{container.get('height', 0):.1f}"
                 )
             draw_target, ndfn_group = ndfn_wrap(dwg, container['id'], ndfn_labels)
-            # AUTO: icon inline en la esquina del container, no como elemento separado.
+            # AUTO: icon inline en la esquina del container (el label va a su
+            # derecha, ya con espacio reservado). Las bands lo ubican tras el
+            # título rotado.
             _draw_container(
                 draw_target, container, elements_by_id,
-                draw_label=False, layout_algorithm='auto', draw_icon=False,
+                draw_label=False, layout_algorithm='auto', draw_icon=True,
             )
             if ndfn_group is not None:
                 dwg.add(ndfn_group)

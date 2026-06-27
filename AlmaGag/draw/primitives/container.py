@@ -213,12 +213,20 @@ def draw_container(dwg, container, elements_by_id, draw_label=True, layout_algor
     )
     dwg.add(rect)
 
-    # Dibujar ícono en esquina superior izquierda (las bands no llevan icono)
-    if draw_icon and not band:
+    # Dibujar ícono del container.
+    # - Normal: esquina superior izquierda (el label se renderiza a su derecha).
+    # - Band: a la derecha del título rotado, alineado con la fila de hijos.
+    if draw_icon:
         icon_type = container.get('type', 'building')
-        icon_size = min(ICON_WIDTH, ICON_HEIGHT) * 0.6  # Ícono más pequeño
-        icon_x = x + CONTAINER_PADDING  # Padding left
-        icon_y = y + CONTAINER_PADDING  # Padding top
+        icon_size = min(ICON_WIDTH, ICON_HEIGHT) * 0.6  # Ícono más pequeño (fallback)
+        if band:
+            from AlmaGag.layout.container_calculator import band_label_margin
+            title_strip = band_label_margin(container) if container.get('label') else 0
+            icon_x = x + title_strip + CONTAINER_PADDING
+            icon_y = y + CONTAINER_PADDING  # alineado con el top de los hijos
+        else:
+            icon_x = x + CONTAINER_PADDING  # Padding left
+            icon_y = y + CONTAINER_PADDING  # Padding top
 
         # Intentar cargar módulo del ícono
         try:

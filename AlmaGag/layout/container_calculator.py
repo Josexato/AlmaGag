@@ -40,6 +40,19 @@ def band_label_margin(container: dict) -> float:
     return num_lines * 18 + 16
 
 
+# Columna lateral del icono en una band (cada container muestra su tipo).
+BAND_ICON_GAP = 10
+
+
+def band_left_region(container: dict) -> float:
+    """
+    Offset horizontal total del lado izquierdo de una band:
+    [título rotado][icono del container] antes de los hijos.
+    """
+    margin = band_label_margin(container) if container.get('label') else 0
+    return margin + ICON_WIDTH + BAND_ICON_GAP
+
+
 class ContainerCalculator:
     """
     Calcula dimensiones de contenedores basándose en elementos contenidos.
@@ -144,11 +157,12 @@ class ContainerCalculator:
         content_height = max_y - min_y
 
         # WISH-LAYOUT-005: band reserva margen LATERAL (izquierdo) para el
-        # título rotado, en vez de un header arriba. Hugs verticalmente.
+        # título rotado + icono del container, en vez de un header arriba.
+        # Hugs verticalmente.
         if is_band(container):
-            left_margin = band_label_margin(container) if container.get('label') else 0
-            x = min_x - padding - left_margin
-            width = content_width + (2 * padding) + left_margin
+            left_region = band_left_region(container)
+            x = min_x - padding - left_region
+            width = content_width + (2 * padding) + left_region
             y = min_y - padding
             height = content_height + (2 * padding)
             return (x, y, width, height)

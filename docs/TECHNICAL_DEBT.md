@@ -1170,6 +1170,10 @@ Un container con `"shape": "band"` (cualquier container con `contains` puede lle
 - Regresión: containers normales (`05-arquitectura-gag`, `07-containers`, `reference-cheatsheet`) byte-idénticos vs HEAD.
 - Tests 79/79 passed.
 
+**Follow-up (2026-06-23, mismo ticket)** — feedback visual del usuario:
+1. **Icono en cada container**: se detectó que el renderer AUTO pasaba `draw_icon=False` y por eso **ningún** container AUTO mostraba su icono de tipo (aunque el label ya venía offseteado `x + 10 + ICON_WIDTH + 10` dejando el hueco). Se activó `draw_icon=True`: containers normales dibujan el icono en la esquina superior izquierda; las bands lo dibujan tras el título rotado, alineado con la fila de hijos (`band_left_region = título + ICON_WIDTH + gap`). Regenerados todos los canonicals con containers.
+2. **Centrado**: el eje del band demo se alineó (Entry, hijo central y Output centrados en la misma X).
+
 **Pendiente (v2, no bloquea)**:
 - Soporte en el renderer LAF (hoy solo AUTO maneja el título lateral; LAF dibujaría el label como header normal).
 - Integración con el `architecture` template (auto-detectar la capa media como band).

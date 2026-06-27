@@ -16,7 +16,7 @@ from typing import List, Dict
 from AlmaGag.layout.layout import Layout
 from AlmaGag.layout.sizing import SizingCalculator
 from AlmaGag.layout.graph_analysis import GraphAnalyzer
-from AlmaGag.layout.container_calculator import is_band, band_label_margin
+from AlmaGag.layout.container_calculator import is_band, band_label_margin, band_left_region
 from AlmaGag.config import (
     ICON_WIDTH, ICON_HEIGHT,
     SPACING_SMALL, SPACING_XLARGE, SPACING_XXLARGE,
@@ -1043,7 +1043,7 @@ class AutoLayoutPositioner:
             full_elements = [e for e in elements
                              if self._get_scope(e, container) == 'full']
             spacing = GRID_SPACING_SMALL
-            left = band_label_margin(container) + padding if container.get('label') else padding
+            left = band_left_region(container) + padding
             for i, elem in enumerate(full_elements):
                 elem['_local_x'] = left + i * (ICON_WIDTH + spacing)
                 elem['_local_y'] = padding
@@ -1145,10 +1145,10 @@ class AutoLayoutPositioner:
             base_width = content_width + 2 * padding
 
         # WISH-LAYOUT-005: band reserva margen lateral para el título rotado
-        # (no header arriba) y hugs verticalmente.
+        # + icono (no header arriba) y hugs verticalmente.
         if container is not None and is_band(container):
-            left_margin = band_label_margin(container) if container.get('label') else 0
-            return (content_width + 2 * padding + left_margin,
+            left_region = band_left_region(container)
+            return (content_width + 2 * padding + left_region,
                     content_height + 2 * padding)
 
         # Calcular espacio del header del contenedor (icono + etiqueta)
