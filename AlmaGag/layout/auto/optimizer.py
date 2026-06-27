@@ -21,7 +21,7 @@ from AlmaGag.layout.auto.positioner import AutoLayoutPositioner
 from AlmaGag.layout.geometry import GeometryCalculator
 from AlmaGag.layout.collision import CollisionDetector
 from AlmaGag.layout.graph_analysis import GraphAnalyzer
-from AlmaGag.layout.container_calculator import ContainerCalculator
+from AlmaGag.layout.container_calculator import ContainerCalculator, is_band
 from AlmaGag.layout.auto.routing_policy import AutoRoutingPolicy
 from AlmaGag.config import (
     ICON_WIDTH, ICON_HEIGHT,
@@ -528,6 +528,52 @@ class AutoLayoutOptimizer(LayoutOptimizer):
 
         return improved
 
+    def _outward_label_preference(self, layout: Layout, element: dict, parent_container):
+        """
+        WISH-LAYOUT-006: sesga el label del hijo MÁS EXTERNO de cada fila
+        hacia el borde libre del container, para evitar solapes entre
+        hermanos sin invadir a los vecinos.
+
+        - Hijo más a la izquierda de su fila (y hay más de uno) → 'left'.
+        - Hijo más a la derecha de su fila → 'right'.
+        - Hijos internos o únicos → None (usar default 'bottom').
+
+        Solo se sesga el extremo porque ahí el label apunta a espacio libre
+        (entre el icono y el borde del container). Sesgar un icono interno
+        pondría su label sobre el vecino. Es además solo una PREFERENCIA:
+        `_find_best_label_position` la rechaza si no cabe y vuelve al default.
+        """
+        if parent_container is None:
+            return None
+        if 'x' not in parent_container or 'width' not in parent_container:
+            return None
+
+        # Recolectar todos los hijos posicionados del container.
+        eh = element.get('height', ICON_HEIGHT)
+        row_tol = eh * 0.6
+        children = []
+        for ref in parent_container.get('contains', []):
+            sib = layout.elements_by_id.get(extract_item_id(ref))
+            if sib is not None and 'x' in sib:
+                children.append(sib)
+        if len(children) < 2:
+            return None
+
+        # Gate: solo sesgar en containers de UNA SOLA fila (bands, grupos
+        # simples). En grids multi-fila sesgar el extremo pone el label sobre
+        # vecinos de otras filas y empeora R1 (medido en reference-cheatsheet).
+        ys = [c.get('y', 0) for c in children]
+        if max(ys) - min(ys) > row_tol:
+            return None
+
+        xs = [c.get('x', 0) for c in children]
+        ex = element.get('x', 0)
+        if ex <= min(xs):
+            return 'left'
+        if ex >= max(xs):
+            return 'right'
+        return None
+
     def _get_parent_container(self, layout: Layout, element: dict):
         """Devuelve el container que contiene a `element`, o None."""
         elem_id = element.get('id')
@@ -546,6 +592,10 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         """True si el label_bbox cae dentro del container, fuera de su header."""
         if 'x' not in container or 'y' not in container:
             return True  # sin coords, no restringir
+        # WISH-LAYOUT-006: las bands no tienen header arriba (el título va
+        # lateral rotado), así que no se reserva franja superior.
+        if is_band(container):
+            header_h = 0
         cx1 = container['x']
         cy1 = container['y']
         cx2 = cx1 + container.get('width', 80)
@@ -592,6 +642,18 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         if preferred in positions:
             positions.remove(preferred)
             positions.insert(0, preferred)
+
+        # WISH-LAYOUT-006: para un hijo en el extremo de una fila de container,
+        # cuando la posición preferida ('bottom') colisione, probar PRIMERO el
+        # lado hacia afuera del centro (el extremo izq → 'left', der → 'right').
+        # Solo reordena el fallback; no cambia la preferida, así que no degrada
+        # los casos donde 'bottom' ya funciona.
+        outward = self._outward_label_preference(layout, element, parent_container)
+        # Solo reordenar si outward NO es ya la preferida (si lo es, ya está
+        # en el índice 0 y moverla la degradaría).
+        if outward in positions and positions[0] != outward:
+            positions.remove(outward)
+            positions.insert(1, outward)
 
         # Recolectar bboxes de otros elementos (íconos y etiquetas existentes)
         # BUGS-AUTO-005: los containers son fondos semi-transparentes — los

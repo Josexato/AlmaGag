@@ -1195,10 +1195,11 @@ Un container con `"shape": "band"` (cualquier container con `contains` puede lle
 
 ---
 
-### WISH-LAYOUT-006: Auto Label-Position por Geometría del Container 🔴 ABIERTO
-**Componente**: `AlmaGag/layout/label_optimizer.py` + `AlmaGag/layout/auto/optimizer.py`
+### WISH-LAYOUT-006: Auto Label-Position por Geometría del Container ✅ RESUELTO (v1)
+**Componente**: `AlmaGag/layout/auto/optimizer.py`
 **Severidad**: Media (mejora legibilidad de diagramas con containers anchos/estrechos)
 **Reportado**: 2026-06-23 (feedback visual del usuario sobre diagrama manual)
+**Resuelto**: 2026-06-23
 
 **Motivación**:
 
@@ -1213,6 +1214,26 @@ AlmaGag hoy elige label_position con un default global (`bottom`) o con `_find_b
 - Para containers row (hijos alineados horizontalmente): preferir `left` para el primer hijo, `right` para el último, `bottom`/`top` para los del medio.
 - Para containers column: análogo con `top`/`bottom`.
 - Reduce dependencia del stagger horizontal (BUGS-AUTO-006).
+
+**Fix aplicado (v1)**:
+
+Nuevo helper `_outward_label_preference(layout, element, parent_container)`:
+- Devuelve `'left'` para el hijo **más a la izquierda** de su fila, `'right'` para el **más a la derecha**, `None` para los internos o únicos.
+- **Gate single-row**: solo sesga si todos los hijos del container están en una sola fila (`max(y)-min(y) <= 0.6·icon_h`). En grids multi-fila devuelve `None` — sesgar un extremo pondría su label sobre vecinos de otra fila (medido: empeoraba R1 en `reference-cheatsheet`).
+
+Integración como **reordenamiento del fallback** en `_find_best_label_position`: la posición preferida (`bottom` o la del usuario) se mantiene primera; el lado outward se inserta en 2º lugar, antes del resto. Así, cuando `bottom` colisiona, el extremo prueba su lado externo antes que los demás — sin forzar el cambio cuando `bottom` ya funciona (cero regresiones en los canonicals deterministas).
+
+Bug colateral corregido: `_label_inside_container` reservaba una franja superior de 40px (header) también en bands, que **no tienen header** (el título va lateral). Ahora `header_h=0` para bands, permitiendo labels en su parte alta.
+
+**Validación**:
+- `tests/test_outward_labels.py` — 5 tests (helper: leftmost→left, rightmost→right, middle→None, multi-fila→None, sin-container→None; + band sin franja superior).
+- Balance R1/R2 sobre canonicals deterministas (excluyendo `06-flujo-ejecucion`, que tiene no-determinismo **preexistente** en placement de labels): **sin cambios** (31/83 → 31/83). El efecto aparece solo cuando `bottom` colisiona, sin degradar lo que ya funcionaba.
+- Suite 89/89.
+
+**Pendiente (v2, no bloquea)**:
+- Forzar outward como preferida en bands requiere reservar margen lateral **simétrico** (hoy solo el lado izquierdo tiene espacio: título + icono; el label `right` del último hijo se sale y cae a `bottom`). Necesita que el bounds-calc de la band reserve sitio para los labels de los extremos.
+- Soporte para containers column (sesgo vertical `top`/`bottom`).
+- Investigar/abrir ticket para el no-determinismo de `06-flujo-ejecucion` (label placement varía entre corridas; remanente de BUGS-LAYOUT-003).
 
 ---
 
