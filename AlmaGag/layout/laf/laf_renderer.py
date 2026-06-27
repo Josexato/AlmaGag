@@ -80,7 +80,9 @@ class LAFSVGRenderer:
         normal_elements = [e for e in elements if 'contains' not in e]
 
         marker_result = setup_arrow_markers(dwg, connections, color_connections)
-        if color_connections and isinstance(marker_result, tuple):
+        # WISH-LAYOUT-007: per_conn_styles puede venir por color_connections
+        # (arcoíris) o por semantic_type/color declarado en el SDJF.
+        if isinstance(marker_result, tuple):
             markers, per_conn_styles = marker_result
         else:
             markers = marker_result

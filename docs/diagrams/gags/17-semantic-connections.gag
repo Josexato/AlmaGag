@@ -1,0 +1,19 @@
+{
+  "_comment": "Demo de WISH-LAYOUT-007: color por tipo semántico de conexión.",
+  "canvas": {"width": 760, "height": 460},
+  "elements": [
+    {"id": "client", "type": "computer", "label": "Cliente", "color": "lightblue", "x": 80, "y": 100},
+    {"id": "api", "type": "server", "label": "API", "color": "lightgreen", "x": 360, "y": 100},
+    {"id": "worker", "type": "server", "label": "Worker", "color": "lightgreen", "x": 360, "y": 300},
+    {"id": "db", "type": "database", "label": "Database", "color": "wheat", "x": 620, "y": 100},
+    {"id": "queue", "type": "cloud", "label": "Queue", "color": "gold", "x": 620, "y": 300}
+  ],
+  "connections": [
+    {"from": "client", "to": "api", "label": "HTTP", "direction": "forward", "semantic_type": "data_flow"},
+    {"from": "api", "to": "db", "direction": "bidirectional", "semantic_type": "sync"},
+    {"from": "api", "to": "queue", "label": "enqueue", "direction": "forward", "semantic_type": "event"},
+    {"from": "queue", "to": "worker", "label": "consume", "direction": "forward", "semantic_type": "event"},
+    {"from": "worker", "to": "db", "direction": "bidirectional", "semantic_type": "sync"},
+    {"from": "worker", "to": "api", "label": "callback", "direction": "forward", "semantic_type": "callback"}
+  ]
+}

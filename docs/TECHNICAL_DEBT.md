@@ -1237,10 +1237,11 @@ Bug colateral corregido: `_label_inside_container` reservaba una franja superior
 
 ---
 
-### WISH-LAYOUT-007: Color Semántico por Tipo de Conexión 🔴 ABIERTO
-**Componente**: SDJF spec + `AlmaGag/draw/primitives/svg.py` + `AlmaGag/draw/primitives/connections.py`
+### WISH-LAYOUT-007: Color Semántico por Tipo de Conexión ✅ RESUELTO (v1)
+**Componente**: SDJF spec + `AlmaGag/draw/primitives/svg.py` + renderers
 **Severidad**: Baja (mejora expresividad de diagramas con múltiples tipos de relación)
 **Reportado**: 2026-06-23 (feedback visual del usuario sobre diagrama manual)
+**Resuelto**: 2026-06-23
 
 **Motivación**:
 
@@ -1257,6 +1258,22 @@ AlmaGag hoy:
 3. **Override directo**: `connection.color` tiene precedencia sobre `semantic_type`.
 4. **Compatibilidad**: si nada de esto se declara, comportamiento actual (negro o `color_connections`).
 5. Bonus: leyenda automática si hay 2+ `semantic_type` distintos en el diagrama.
+
+**Fix aplicado (v1)**:
+
+- `AlmaGag/draw/primitives/svg.py`:
+  - `SEMANTIC_CONNECTION_COLORS`: paleta `data_flow`(naranja), `control_flow`(azul), `sync`(verde), `event`(púrpura), `callback`(teal), `dependency`(gris), `error`(rojo).
+  - `resolve_connection_color(conn)`: `conn['color']` (override) → `SEMANTIC_CONNECTION_COLORS[conn['semantic_type']]` → `None`.
+  - `setup_arrow_markers` refactorizado: si `color_connections` → arcoíris (como antes); si no, calcula color por `resolve_connection_color`; si **alguna** conexión declara color/tipo, devuelve per-connection styles (las sin tipo quedan negras); si ninguna → markers planos (comportamiento clásico intacto).
+- Renderers (`auto_renderer.py`, `laf_renderer.py`): manejan el tuple per-connection independientemente del flag `color_connections`.
+
+**Validación**:
+- `tests/test_semantic_connection_colors.py` — 7 tests (precedencia color>semantic, mapeo por tipo, None sin declarar, markers planos sin semantic, per-connection con semantic, arcoíris intacto).
+- Canonical `17-semantic-connections.gag` (data_flow/sync/event/callback) — 0 colisiones.
+- Regresión: canonicals sin `semantic_type` byte-idénticos (05-arquitectura, 07-containers). Suite 96/96.
+
+**Pendiente (v2, no bloquea)**:
+- Leyenda automática (swatch + etiqueta por `semantic_type` presente). Requiere reservar área sin solapar contenido (placement no trivial); se deja como incremento.
 
 ---
 

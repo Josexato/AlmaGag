@@ -63,6 +63,37 @@ def _generate_color_palette(n):
     return colors
 
 
+# WISH-LAYOUT-007: paleta de colores por tipo semántico de conexión.
+# El SDJF puede declarar `connection.semantic_type` y el color se asigna
+# automáticamente. `connection.color` (hex/nombre CSS) tiene precedencia.
+SEMANTIC_CONNECTION_COLORS = {
+    'data_flow':    '#e8820c',  # naranja — flujo de datos
+    'control_flow': '#1f6fd0',  # azul — flujo de control
+    'sync':         '#1aa64b',  # verde — sincronización / bidireccional
+    'event':        '#8e44ad',  # púrpura — eventos
+    'callback':     '#0e8a8a',  # teal — callbacks
+    'dependency':   '#888888',  # gris — dependencias
+    'error':        '#cc2222',  # rojo — caminos de error
+}
+
+
+def resolve_connection_color(conn):
+    """
+    Color de una conexión según WISH-LAYOUT-007.
+
+    Prioridad:
+    1. `conn['color']` (hex o nombre CSS) — override directo.
+    2. `conn['semantic_type']` mapeado por SEMANTIC_CONNECTION_COLORS.
+    3. None (el caller usa el default, típicamente negro).
+    """
+    if conn.get('color'):
+        return conn['color']
+    st = conn.get('semantic_type')
+    if st:
+        return SEMANTIC_CONNECTION_COLORS.get(st)
+    return None
+
+
 def _create_arrow_marker(dwg, marker_id, color, direction='end'):
     """Crea un marker de flecha triangular."""
     if direction == 'end':
@@ -100,15 +131,27 @@ def setup_arrow_markers(dwg, connections=None, color_connections=False):
         'bidirectional': (arrow_start.get_funciri(), arrow_end.get_funciri()),
     }
 
-    if not color_connections or not connections:
+    if not connections:
         return default_markers
 
-    n = len(connections)
-    palette = _generate_color_palette(n)
-    per_connection = []
+    # Determinar el color de cada conexión:
+    # - color_connections=True → paleta arcoíris (un color único por conexión).
+    # - si no, WISH-LAYOUT-007 → color por semantic_type/color declarado.
+    if color_connections:
+        colors = _generate_color_palette(len(connections))
+    else:
+        colors = [resolve_connection_color(c) for c in connections]
+        # Si ninguna conexión declara color semántico, comportamiento clásico.
+        if not any(colors):
+            return default_markers
 
+    per_connection = []
     for i, conn in enumerate(connections):
-        color = palette[i]
+        color = colors[i]
+        if not color:
+            # Conexión sin color semántico → markers/stroke negros por defecto.
+            per_connection.append({'markers': default_markers, 'color': 'black'})
+            continue
         suffix = f'-c{i}'
         ae = _create_arrow_marker(dwg, f'arrow-end{suffix}', color, 'end')
         ast = _create_arrow_marker(dwg, f'arrow-start{suffix}', color, 'start')

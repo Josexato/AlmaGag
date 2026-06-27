@@ -241,6 +241,32 @@ Es un array de objetos. Cada objeto es una linea que conecta dos elementos.
 | `label` | string | no | sin texto | Texto que aparece sobre la linea. |
 | `direction` | string | no | `"none"` | Tipo de flecha. Ver tabla abajo. |
 | `routing` | objeto | no | linea recta | Como se dibuja la linea. Ver seccion "Routing" mas abajo. |
+| `semantic_type` | string | no | — | Tipo semantico → color automatico. Ver tabla abajo. |
+| `color` | string | no | negro | Color directo (hex o nombre CSS). Tiene precedencia sobre `semantic_type`. |
+
+### Color por tipo semantico (`semantic_type`)
+
+Asigna color a la linea segun el tipo de relacion, sin tener que elegir el
+color a mano. `connection.color` lo sobreescribe si quieres un color exacto.
+
+| `semantic_type` | Color | Uso tipico |
+|-----------------|-------|-----------|
+| `data_flow` | naranja | Flujo de datos |
+| `control_flow` | azul | Flujo de control |
+| `sync` | verde | Sincronizacion / bidireccional |
+| `event` | purpura | Eventos / mensajes |
+| `callback` | teal | Callbacks |
+| `dependency` | gris | Dependencias |
+| `error` | rojo | Caminos de error |
+
+```json
+{ "from": "api", "to": "db", "direction": "bidirectional", "semantic_type": "sync" }
+{ "from": "b", "to": "c", "direction": "forward", "color": "#ff8800" }
+```
+
+Funciona sin el flag `--color-connections` (ese flag colorea cada conexion con
+un color unico arcoiris; `semantic_type` agrupa por significado). Ver canonical
+`docs/diagrams/gags/17-semantic-connections.gag`.
 
 ### Valores de `direction`
 
