@@ -406,6 +406,28 @@ Un contenedor es un elemento normal que tiene el campo `contains`. Dibuja un rec
 | `"full"` | El hijo esta completamente dentro del contenedor (default). |
 | `"border"` | El hijo se posiciona sobre el borde del contenedor. |
 
+### Campo `shape: "band"` — banda de contrato (WISH-LAYOUT-005)
+
+Un contenedor con `"shape": "band"` se dibuja como una **banda/eje horizontal**
+en vez de una caja con título arriba. Sirve para expresar que N elementos son
+equivalentes/intercambiables a través de un contrato comun.
+
+```json
+{
+  "id": "contract", "shape": "band", "label": "Contract",
+  "color": "lightblue",
+  "contains": ["impl_a", "iface", "impl_b"]
+}
+```
+
+Diferencias frente a un contenedor normal:
+- Los hijos se colocan en **una sola fila** horizontal (no en grid).
+- El título va **rotado en el borde izquierdo**, no como header arriba.
+- Fondo más sutil y esquinas de barra.
+
+Util como capa media de un diagrama en T: `[endpoint_A, abstract, endpoint_B]`.
+Ver canonical `docs/diagrams/gags/16-contract-band.gag`.
+
 ---
 
 ## 6. Formato .gag (iconos SVG embebidos)

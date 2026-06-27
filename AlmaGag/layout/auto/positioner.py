@@ -16,6 +16,7 @@ from typing import List, Dict
 from AlmaGag.layout.layout import Layout
 from AlmaGag.layout.sizing import SizingCalculator
 from AlmaGag.layout.graph_analysis import GraphAnalyzer
+from AlmaGag.layout.container_calculator import is_band, band_label_margin
 from AlmaGag.config import (
     ICON_WIDTH, ICON_HEIGHT,
     SPACING_SMALL, SPACING_XLARGE, SPACING_XXLARGE,
@@ -1035,6 +1036,19 @@ class AutoLayoutPositioner:
             if scope == 'full':
                 full_elements.append(elem)
 
+        # WISH-LAYOUT-005: una band coloca a TODOS sus hijos en una sola fila
+        # horizontal (es un eje de equivalencia), con offset lateral para el
+        # título rotado y sin header arriba.
+        if is_band(container):
+            full_elements = [e for e in elements
+                             if self._get_scope(e, container) == 'full']
+            spacing = GRID_SPACING_SMALL
+            left = band_label_margin(container) + padding if container.get('label') else padding
+            for i, elem in enumerate(full_elements):
+                elem['_local_x'] = left + i * (ICON_WIDTH + spacing)
+                elem['_local_y'] = padding
+            return
+
         # Layout para elementos "full" (distribución interna simple)
         if full_elements:
             # Grid simple basado en número de elementos
@@ -1129,6 +1143,13 @@ class AutoLayoutPositioner:
 
             # Agregar padding horizontal (izquierda + derecha)
             base_width = content_width + 2 * padding
+
+        # WISH-LAYOUT-005: band reserva margen lateral para el título rotado
+        # (no header arriba) y hugs verticalmente.
+        if container is not None and is_band(container):
+            left_margin = band_label_margin(container) if container.get('label') else 0
+            return (content_width + 2 * padding + left_margin,
+                    content_height + 2 * padding)
 
         # Calcular espacio del header del contenedor (icono + etiqueta)
         # El header comienza después del padding top

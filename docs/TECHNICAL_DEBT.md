@@ -1134,10 +1134,11 @@ Reemplazado el placeholder "v2.2 - (Futuro)" por 3 entradas nuevas que cubren ~1
 
 ---
 
-### WISH-LAYOUT-005: Container Especial "Contract Band" Envolvente 🔴 ABIERTO
-**Componente**: SDJF spec + `AlmaGag/draw/primitives/container.py` + `AlmaGag/layout/container_calculator.py`
+### WISH-LAYOUT-005: Container Especial "Contract Band" Envolvente ✅ RESUELTO (v1)
+**Componente**: SDJF spec + `AlmaGag/draw/primitives/container.py` + `AlmaGag/layout/container_calculator.py` + `AlmaGag/layout/auto/positioner.py` + `AlmaGag/layout/auto/auto_renderer.py`
 **Severidad**: Media (mejora expresividad de diagramas arquitectónicos)
 **Reportado**: 2026-06-23 (feedback visual del usuario sobre diagrama manual)
+**Resuelto**: 2026-06-23
 
 **Motivación**:
 
@@ -1153,6 +1154,25 @@ Diagrama manual del usuario (2026-06-23): banda horizontal azul claro envuelve `
 - Render: rect muy ancho y bajo (alto = max height de hijos + padding), sin título arriba sino lateral. Color de fondo más sutil que un container normal.
 - Comportamiento de layout: hijos en fila horizontal con padding uniforme, no en grid.
 - Compatible con el `architecture` template (banda = capa del medio en la T).
+
+**Fix aplicado (v1)**:
+
+Un container con `"shape": "band"` (cualquier container con `contains` puede llevarlo) se comporta distinto:
+
+1. **Layout de hijos** (`positioner._layout_contained_elements_locally`): todos los hijos en **una sola fila** horizontal (`cols = n`), con offset lateral izquierdo para el título y sin reserva de header arriba. Es el eje de equivalencia.
+2. **Bounds** (`container_calculator.calculate_container_bounds` + `positioner._calculate_container_bounds`, ambos band-aware vía helper `is_band` / `band_label_margin`): reservan margen lateral izquierdo (`band_label_margin = n_líneas*18 + 16`) en vez de header arriba; alto = hijos + 2·padding (hug vertical).
+3. **Render del rect** (`draw/primitives/container.py`): fondo más sutil (`CONTAINER_FILL_OPACITY * 0.6`), esquinas de barra (`radius = min(height/2, 24)`), sin icono superior.
+4. **Título** (`auto_renderer._render_container_labels`): rotado -90° sobre el borde izquierdo, centrado verticalmente.
+
+**Validación**:
+- Canonical `16-contract-band.gag` — banda envuelve `[server, diamond, server]` en fila, 0 colisiones.
+- `tests/test_band_container.py` — 5 tests (detección, margen por líneas, hijos en fila única, sin overflow horizontal, label rotado en SVG).
+- Regresión: containers normales (`05-arquitectura-gag`, `07-containers`, `reference-cheatsheet`) byte-idénticos vs HEAD.
+- Tests 79/79 passed.
+
+**Pendiente (v2, no bloquea)**:
+- Soporte en el renderer LAF (hoy solo AUTO maneja el título lateral; LAF dibujaría el label como header normal).
+- Integración con el `architecture` template (auto-detectar la capa media como band).
 
 ---
 

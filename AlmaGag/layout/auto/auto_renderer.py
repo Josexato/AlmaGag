@@ -268,11 +268,26 @@ class AutoSVGRenderer:
                 continue
             container_x = container['x']
             container_y = container['y']
+            lines = container['label'].split('\n')
+
+            # WISH-LAYOUT-005: band → título lateral rotado, centrado vertical.
+            if container.get('shape') == 'band':
+                cx = container_x + 18
+                cy = container_y + container['height'] / 2
+                for i, line in enumerate(lines):
+                    line_x = cx + (i * 18)
+                    dwg.add(dwg.text(
+                        line,
+                        insert=(line_x, cy),
+                        text_anchor="middle", font_size="16px",
+                        font_family="Arial, sans-serif", font_weight="bold",
+                        fill="black", filter='url(#text-glow)',
+                        transform=f"rotate(-90 {line_x} {cy})",
+                    ))
+                continue
 
             label_local_x = 10 + ICON_WIDTH + 10
             label_local_y = 16
-            lines = container['label'].split('\n')
-
             label_x = container_x + label_local_x
             label_y = container_y + label_local_y
             for i, line in enumerate(lines):

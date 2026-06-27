@@ -19,6 +19,27 @@ from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 from AlmaGag.utils import extract_item_id
 
 
+def is_band(container: dict) -> bool:
+    """
+    True si el container es una 'contract band' (WISH-LAYOUT-005).
+
+    Una band envuelve N elementos en fila como eje de equivalencia
+    (ej. [endpoint, abstract, endpoint]). Se distingue de un container
+    normal por reservar margen lateral para el título (rotado) en vez de
+    un header arriba, y por un fondo más sutil.
+    """
+    return container.get('shape') == 'band'
+
+
+def band_label_margin(container: dict) -> float:
+    """Ancho del margen lateral reservado para el título rotado de una band."""
+    label = container.get('label') or ''
+    num_lines = len(label.split('\n')) if label else 1
+    # El título va rotado -90°, así que su 'grosor' horizontal es la altura
+    # del bloque de texto: num_lines * 18px + margen.
+    return num_lines * 18 + 16
+
+
 class ContainerCalculator:
     """
     Calcula dimensiones de contenedores basándose en elementos contenidos.
@@ -121,6 +142,16 @@ class ContainerCalculator:
         # Calcular dimensiones del contenido (elementos contenidos)
         content_width = max_x - min_x
         content_height = max_y - min_y
+
+        # WISH-LAYOUT-005: band reserva margen LATERAL (izquierdo) para el
+        # título rotado, en vez de un header arriba. Hugs verticalmente.
+        if is_band(container):
+            left_margin = band_label_margin(container) if container.get('label') else 0
+            x = min_x - padding - left_margin
+            width = content_width + (2 * padding) + left_margin
+            y = min_y - padding
+            height = content_height + (2 * padding)
+            return (x, y, width, height)
 
         # Aplicar padding horizontal
         x = min_x - padding

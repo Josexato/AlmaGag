@@ -178,8 +178,17 @@ def draw_container(dwg, container, elements_by_id, draw_label=True, layout_algor
         height = bounds['height']
         logger.debug(f"[CALC_BOUNDS] {container['id']}: calculated=({x:.1f}, {y:.1f}) vs container=({container.get('x', 'N/A')}, {container.get('y', 'N/A')})")
 
-    # Calcular radio de bordes redondeados (5% del lado más corto)
-    radius = min(width, height) * 0.05
+    # WISH-LAYOUT-005: una band es un eje de equivalencia, no una caja
+    # jerárquica. Fondo más sutil, esquinas más redondeadas y sin icono
+    # superior (el título va lateral, lo dibuja el renderer).
+    band = container.get('shape') == 'band'
+
+    # Calcular radio de bordes redondeados (5% del lado más corto).
+    # Las bands llevan esquinas más marcadas (forma de barra/eje), con tope.
+    if band:
+        radius = min(height / 2, 24)
+    else:
+        radius = min(width, height) * 0.05
 
     # Obtener color
     color = container.get('color', 'lightgray')
@@ -197,15 +206,15 @@ def draw_container(dwg, container, elements_by_id, draw_label=True, layout_algor
         rx=radius,
         ry=radius,
         fill=gradient_id,  # create_gradient ya retorna url(#...)
-        fill_opacity=CONTAINER_FILL_OPACITY,
+        fill_opacity=CONTAINER_FILL_OPACITY * 0.6 if band else CONTAINER_FILL_OPACITY,
         stroke='black',
         stroke_width=2,
         stroke_opacity=CONTAINER_STROKE_OPACITY,
     )
     dwg.add(rect)
 
-    # Dibujar ícono en esquina superior izquierda
-    if draw_icon:
+    # Dibujar ícono en esquina superior izquierda (las bands no llevan icono)
+    if draw_icon and not band:
         icon_type = container.get('type', 'building')
         icon_size = min(ICON_WIDTH, ICON_HEIGHT) * 0.6  # Ícono más pequeño
         icon_x = x + CONTAINER_PADDING  # Padding left
