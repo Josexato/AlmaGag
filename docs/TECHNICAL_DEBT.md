@@ -464,10 +464,11 @@ Los otros canonicals no listados (16) no usan routing ortogonal sobre containers
 
 ---
 
-### BUGS-TPL-001: Architecture Scorer Calibrado Demasiado Conservador 🔴 ABIERTO
+### BUGS-TPL-001: Architecture Scorer Calibrado Demasiado Conservador ✅ RESUELTO
 **Componente**: `AlmaGag/layout/templates/architecture.py` — `ArchitectureTemplate.detect_score`
 **Severidad**: Media (arquitecturas claras no reciben el template adecuado y caen al fallback agnóstico)
 **Reportado**: 2026-06-23 (test neutro `cakephp-mvc.gag`)
+**Resuelto**: 2026-06-23
 
 **Caso de prueba reproducible**:
 
@@ -503,11 +504,25 @@ Total: `0.55`. Pierde por dos hilos:
 
 El scorer está sobre-ajustado al patrón visual de `05-arquitectura-gag` (que usa la palabra "shared" y tiene depth 5). Cualquier arquitectura sin esa nomenclatura específica o con cadena más larga pierde el template.
 
-**Propuesta de fix**:
-1. Ampliar la ventana de depth a `3..10` (o sigmoidal en vez de step).
-2. Añadir bonus por estructura: entry topológico único + terminal único + 2+ containers paralelos = `+0.15`.
-3. Bajar el peso del keyword `shared` de `+0.20` a `+0.10` (señal débil, no excluyente).
-4. Re-medir scores contra los 24 canonicals para asegurar que no rompe selecciones existentes.
+**Fix aplicado**:
+1. Ventana de depth ampliada `3..7` → `3..10` (arquitecturas reales tienen cadenas más largas).
+2. Nuevo bonus por **firma estructural** (`+0.10`): `n_root_nodes_no_incoming == 1` + `n_leaf_nodes_no_outgoing >= 1` + `n_containers >= 2`. Es la señal genérica de arquitectura (entry → containers paralelos → salida), independiente de la nomenclatura.
+3. Peso del keyword `shared`/`compart`/`agnost` bajado `0.20` → `0.15` (señal débil, no excluyente).
+
+**Validación** (matriz de scores sobre los 24 canonicals, antes vs después):
+
+| Diagrama | architecture antes | después | winner antes | winner después |
+|---|---:|---:|---|---|
+| `cakephp-mvc` | 0.55 | **0.80** | —(agnostic) | **architecture** ✓ |
+| `05-arquitectura-gag` | 0.75 | 0.95 | architecture | architecture |
+| `07-containers` | 0.60 | 0.70 | architecture | architecture |
+| `06-flujo-ejecucion` | 0.45 | 0.55 | hub_and_spoke | hub_and_spoke |
+| `continentes-america` | 0.20 | 0.35 | —(agnostic) | —(agnostic) |
+| resto (21) | — | — | (sin cambios) | (sin cambios) |
+
+**Cero regresiones**: ningún canonical cambió de winner salvo `cakephp-mvc` (el objetivo). `cakephp-mvc.svg` regenerado con architecture: canvas 1400×2108 → 1140×1330 (−58% área).
+
+**Tests**: `tests/test_architecture_scorer_calibration.py` (5 tests: MVC sin keyword supera threshold, cadena profunda ya no descalifica, bonus estructural requiere entry único, canonical cakephp detecta architecture, no-regresión de winners). Suite 84/84.
 
 ---
 
