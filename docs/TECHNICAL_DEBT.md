@@ -1200,10 +1200,11 @@ AlmaGag hoy:
 
 ---
 
-### WISH-DRAW-001: Shape `diamond` (abstract/decision) como Icono Nativo 🔴 ABIERTO
-**Componente**: `AlmaGag/draw/icons/` — nuevo módulo `diamond.py`
+### WISH-DRAW-001: Shape `diamond` (abstract/decision) como Icono Nativo ✅ RESUELTO
+**Componente**: `AlmaGag/draw/icons/` — nuevo módulo `diamond.py` + alias `decision.py`
 **Severidad**: Baja (cosmético, mejora claridad visual)
 **Reportado**: 2026-06-23 (feedback visual del usuario sobre diagrama manual)
+**Resuelto**: 2026-06-23
 
 **Motivación**:
 
@@ -1220,6 +1221,16 @@ Ambos son válidos UML pero el diamante es más universal en diagramas arquitect
 2. Registrar en el dispatcher (`AlmaGag/draw/icons/__init__.py`).
 3. Disponible como `"type": "diamond"` en cualquier SDJF.
 4. **Opcional**: añadir `"type": "decision"` como alias semántico.
+
+**Fix aplicado**:
+- `AlmaGag/draw/icons/diamond.py` — `draw_diamond(dwg, x, y, color, element_id)`: polígono rombo con sus 4 vértices en los puntos medios del bbox `ICON_WIDTH × ICON_HEIGHT`. El centro y los anclajes de conexión coinciden con los de cualquier icono rectangular (port_assignment funciona sin cambios). Gradiente + línea de realce diagonal sutil.
+- `AlmaGag/draw/icons/decision.py` — alias: `"type": "decision"` renderiza el mismo rombo (el dispatcher importa por nombre de módulo, así que necesita su propio archivo).
+- Compatible con `wp`/`hp` (vía bbox), gradientes y todos los routing types.
+
+**Validación**:
+- `tests/test_diamond_icon.py` — 4 tests (render del polígono, alias decision==diamond, dispatcher resuelve ambos tipos sin caer al fallback bwt).
+- Tests 74/74 passed.
+- Render de prueba: rombos correctos en `diamond` y `decision`, sin warnings de ícono por defecto.
 
 ---
 

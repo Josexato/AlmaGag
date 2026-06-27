@@ -468,6 +468,8 @@ Estos tipos vienen incluidos en AlmaGag. Solo pon el nombre en `"type"`:
 | `computer` | Monitor con base | Pantalla de escritorio |
 | `document` | Pagina con esquina doblada | Hoja de papel |
 | `user` | Silueta de persona | Cabeza + torso |
+| `diamond` | Rombo (abstract/interfaz) | Diamante UML |
+| `decision` | Rombo (alias de `diamond`) | Diamante BPMN |
 
 **Si pones un tipo que no existe** (ej: `"type": "xyz"`), AlmaGag dibuja una banana con cinta (BWT) como indicador de tipo no reconocido.
 
