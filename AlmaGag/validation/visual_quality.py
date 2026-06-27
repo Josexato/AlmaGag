@@ -106,21 +106,122 @@ def _estimate_text_bbox(elem):
     return (x1, y1, x2, y2)
 
 
+import re as _re
+
+# Dimensiones nominales de un icono (deben coincidir con AlmaGag.config).
+_ICON_W = 80
+_ICON_H = 50
+
+_TRANSLATE_RE = _re.compile(r'translate\(\s*([-\d.]+)[ ,]+([-\d.]+)\s*\)')
+_SCALE_RE = _re.compile(r'scale\(\s*([-\d.]+)')
+
+
+def _group_transform_bbox(g):
+    """
+    Bbox de un icono custom renderizado como <g transform="translate(x,y) scale(s)">
+    (factory, gear, contract, iconos SVG embebidos). Devuelve (x1,y1,x2,y2) o None.
+    """
+    tr = g.get('transform', '')
+    m = _TRANSLATE_RE.search(tr)
+    if not m:
+        return None
+    tx, ty = float(m.group(1)), float(m.group(2))
+    sm = _SCALE_RE.search(tr)
+    s = float(sm.group(1)) if sm else 1.0
+    return (tx, ty, tx + _ICON_W * s, ty + _ICON_H * s)
+
+
+def _group_children_bbox(g):
+    """
+    Bbox a partir de las formas hijas de un <g> sin transform: <rect>,
+    <polygon>, <circle>, <ellipse> (cubre diamond y built-ins con coords
+    absolutas). Devuelve (x1,y1,x2,y2) o None.
+    """
+    xs, ys = [], []
+    for rect in g.iter(f'{{{SVG_NS}}}rect'):
+        try:
+            x, y = float(rect.get('x', 0)), float(rect.get('y', 0))
+            w, h = float(rect.get('width', 0)), float(rect.get('height', 0))
+            xs += [x, x + w]; ys += [y, y + h]
+        except (TypeError, ValueError):
+            pass
+    for poly in g.iter(f'{{{SVG_NS}}}polygon'):
+        nums = []
+        for part in poly.get('points', '').replace(',', ' ').split():
+            try:
+                nums.append(float(part))
+            except ValueError:
+                pass
+        xs += nums[0::2]; ys += nums[1::2]
+    for circ in g.iter(f'{{{SVG_NS}}}circle'):
+        try:
+            cx, cy, r = float(circ.get('cx', 0)), float(circ.get('cy', 0)), float(circ.get('r', 0))
+            xs += [cx - r, cx + r]; ys += [cy - r, cy + r]
+        except (TypeError, ValueError):
+            pass
+    for el in g.iter(f'{{{SVG_NS}}}ellipse'):
+        try:
+            cx, cy = float(el.get('cx', 0)), float(el.get('cy', 0))
+            rx, ry = float(el.get('rx', 0)), float(el.get('ry', 0))
+            xs += [cx - rx, cx + rx]; ys += [cy - ry, cy + ry]
+        except (TypeError, ValueError):
+            pass
+    if not xs or not ys:
+        return None
+    return (min(xs), min(ys), max(xs), max(ys))
+
+
+def _is_icon_group_id(gid):
+    """¿El id de un <g> corresponde a un elemento-icono (no metadata)?"""
+    if not gid:
+        return False
+    if gid.startswith('ndfn-') or gid.startswith('conn-'):
+        return False
+    if gid.endswith('_icon'):  # icono de container, lo tratamos aparte
+        return False
+    return True
+
+
 def _collect_icon_bboxes(root):
     """
-    Recolecta bboxes de iconos. Un "icono" se identifica por <rect> con
-    fill gradient (o por <polygon>/<circle> dentro de un <g id="..._icon"></g>).
+    Recolecta bboxes de iconos del SVG.
 
-    Para mantenerlo simple, usamos los <rect> con fill="url(#gradient-...)".
-    Excluimos containers (los que tienen "gradient-X_container" o cuando el
-    rect es muy grande relativo al canvas, asumimos container).
+    BUGS-VAL-001: además de los <rect> con gradiente (iconos built-in como
+    server/database), reconoce iconos CUSTOM:
+    - <g transform="translate(x,y) scale(s)"> (factory, gear, contract,
+      iconos SVG embebidos).
+    - <g id="..."> con polygon/circle (diamond y similares en coords abs).
+
+    Sin esto, los conectores hacia iconos custom se reportaban como
+    "dangling" (R3 falso positivo) porque el icono no se detectaba.
+
+    Excluye containers (gradient "_container"/"_box" o rect muy grande).
     """
     bboxes = []
+    seen_groups = set()
+
+    # 1. Iconos custom: cada <g> de elemento → bbox por transform o por hijos.
+    for g in root.iter(f'{{{SVG_NS}}}g'):
+        gid = g.get('id', '')
+        if not _is_icon_group_id(gid):
+            continue
+        bb = _group_transform_bbox(g)
+        if bb is None:
+            bb = _group_children_bbox(g)
+        if bb is None:
+            continue
+        w, h = bb[2] - bb[0], bb[3] - bb[1]
+        # Saltar containers grandes
+        if w > 300 or h > 200:
+            continue
+        bboxes.append(bb)
+        seen_groups.add(gid)
+
+    # 2. Built-in por gradient rect SUELTO (no dentro de un <g> ya contado).
     for rect in root.iter(f'{{{SVG_NS}}}rect'):
         fill = rect.get('fill', '')
         if 'url' not in fill or 'gradient' not in fill:
             continue
-        # Saltar containers: gradient ID contiene "_container" o el rect es muy ancho/alto
         if '_container' in fill or '_box' in fill:
             continue
         try:
@@ -130,10 +231,15 @@ def _collect_icon_bboxes(root):
             h = float(rect.get('height', 0))
         except (TypeError, ValueError):
             continue
-        # Containers suelen ser grandes: heurística — si w > 300 o h > 200 lo saltamos
         if w > 300 or h > 200:
             continue
-        bboxes.append((x, y, x + w, y + h))
+        bb = (x, y, x + w, y + h)
+        # Evitar duplicar un rect que ya está cubierto por un grupo contado.
+        if any(_bbox_intersects(bb, e) and _bbox_overlap_area(bb, e) > 0.5 * w * h
+               for e in bboxes):
+            continue
+        bboxes.append(bb)
+
     return bboxes
 
 
@@ -162,15 +268,24 @@ def _collect_text_bboxes(root, only_visible_labels=True):
 
 def _is_connection_stroke(stroke: str) -> bool:
     """
-    Conexiones reales usan stroke 'black', 'gray' (líneas grises de
-    waypoints) o colores explícitos asignados por --color-connections.
-    Las líneas decorativas dentro de iconos tienen colores HEX específicos
-    cortos (#566c73, etc).
+    Conexiones reales usan stroke 'black', 'gray' (waypoints) o un color
+    semántico declarado (WISH-LAYOUT-007). Las líneas decorativas dentro de
+    iconos tienen otros colores HEX y, sobre todo, no llevan marker — el
+    chequeo de marker/longitud en _collect_connection_endpoints las filtra.
     """
     if not stroke or stroke == 'none':
         return False
     s = stroke.lower().strip()
-    return s in ('black', '#000', '#000000', 'gray', '#808080')
+    if s in ('black', '#000', '#000000', 'gray', '#808080'):
+        return True
+    # Colores de la paleta semántica (WISH-LAYOUT-007).
+    try:
+        from AlmaGag.draw.primitives.svg import SEMANTIC_CONNECTION_COLORS
+        if s in {c.lower() for c in SEMANTIC_CONNECTION_COLORS.values()}:
+            return True
+    except Exception:
+        pass
+    return False
 
 
 def _has_marker(elem) -> bool:
@@ -281,10 +396,15 @@ def check_labels_overlap(text_bboxes, min_overlap_area=50):
     return violations
 
 
-def check_connections_attached(endpoints, icon_bboxes, tolerance=20):
+def check_connections_attached(endpoints, icon_bboxes, tolerance=30):
     """
     R3: cada extremo de conector debe estar cerca de un icono
     (dentro de `tolerance` px del borde del icono).
+
+    BUGS-VAL-001: tolerancia 20 → 30. port_assignment coloca los puntos de
+    conexión en los bordes del icono distribuidos en sectores angulares, con
+    offsets de hasta ~25px del centro del lado; 20px generaba falsos
+    positivos en conexiones legítimamente atadas.
     """
     violations = []
     for ep in endpoints:

@@ -526,10 +526,11 @@ El scorer está sobre-ajustado al patrón visual de `05-arquitectura-gag` (que u
 
 ---
 
-### BUGS-VAL-001: R3 Reporta Falsos Positivos con Conectores Rectos Cortos 🔴 ABIERTO
-**Componente**: `AlmaGag/validation/visual_quality.py` — `check_connections_attached`
+### BUGS-VAL-001: R3 Reporta Falsos Positivos con Conectores Rectos Cortos ✅ RESUELTO
+**Componente**: `AlmaGag/validation/visual_quality.py` — `_collect_icon_bboxes`, `check_connections_attached`, `_is_connection_stroke`
 **Severidad**: Baja (afecta solo a reportes del validador, no al render)
 **Reportado**: 2026-06-23 (test neutro `cakephp-mvc.gag`)
+**Resuelto**: 2026-06-23
 
 **Caso de prueba reproducible**:
 
@@ -545,10 +546,28 @@ El scorer está sobre-ajustado al patrón visual de `05-arquitectura-gag` (que u
 - En `cakephp-mvc.svg`: 10 iconos detectados por el validador vs 19 elementos en el `.gag` → el validador está perdiendo iconos custom y luego reporta sus conectores como dangling.
 - En los canonicals con iconos custom embebidos (`05-arquitectura-gag`), R3 también es alta (30) por el mismo motivo.
 
-**Propuesta de fix**:
-1. Mejorar `_extract_icon_bboxes` para reconocer iconos custom: parsear `<g id="X" transform="translate(tx,ty)">` y derivar el bbox de los hijos.
-2. Aumentar tolerancia R3 a `30-40px` (port_assignment puede colocar puntos a hasta 25px de offset del centro).
-3. Alternativa: usar `validate_gag()` (que tiene acceso al optimizer) como la fuente de verdad para R3; restringir `validate_svg()` a R1/R2 cuando hay iconos custom.
+**Fix aplicado**:
+1. `_collect_icon_bboxes` reescrito para reconocer iconos custom:
+   - `_group_transform_bbox`: `<g transform="translate(tx,ty) scale(s)">` → bbox `ICON_W×ICON_H` escalado (factory, gear, contract, iconos SVG embebidos).
+   - `_group_children_bbox`: `<g>` con `polygon`/`circle`/`ellipse`/`rect` en coords absolutas → bbox por extensión de hijos (diamond y similares).
+   - Mantiene la detección de `<rect>` con gradiente suelto (built-ins) sin duplicar los ya cubiertos por un grupo.
+2. Tolerancia R3 `20 → 30px` (port_assignment distribuye los puntos en sectores; offsets de hasta ~25px del centro del lado).
+3. `_is_connection_stroke` ahora acepta los colores de la paleta semántica (WISH-LAYOUT-007), que de otro modo dejaban las conexiones coloreadas sin detectar (conns=0).
+
+**Validación** (validador HEAD vs nuevo sobre los mismos 26 SVGs canónicos):
+
+| Métrica | HEAD | Nuevo | Δ |
+|---|---:|---:|---:|
+| R3 total | 241 | 44 | **−82%** |
+| `05-arquitectura-gag` R3 | 30 | 1 | −97% |
+| `cakephp-mvc` R3 | 14 | 2 | −86% |
+| R1 total | 35 | 51 | +16 (más preciso) |
+
+El alza de R1 es **correcta**: al detectar ahora los iconos custom, el validador captura labels que sí caen sobre ellos (overlaps reales antes invisibles), no falsos positivos.
+
+**Tests**: `tests/test_visual_quality.py` +3 (detección de icono por transform y por polygon, conexión entre custom-icons no es dangling, conexión con color semántico se detecta). Suite 99/99.
+
+**Limitación conocida**: un `connection.color` arbitrario fuera de la paleta semántica (ej. `"color": "red"`) puede no detectarse como conexión por `_is_connection_stroke`. El distinguidor robusto sería "tiene marker" — se deja para v2.
 
 ---
 
