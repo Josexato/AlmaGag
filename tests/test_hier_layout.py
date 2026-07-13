@@ -85,6 +85,33 @@ def test_no_overlapping_positions():
         seen[key] = e['id']
 
 
+def test_trunk_and_cycle_separate_columns():
+    """§B5: el tronco (E·F·G·M) y el ciclo (I·J·K) caen en columnas
+    verticales distintas; dentro de cada uno, misma X."""
+    r = _optimize(_stress_data())
+    xof = {e['id']: round(e['x']) for e in r.elements}
+    # tronco: E,F,G,M comparten X
+    trunk = {xof['ElemtE'], xof['ElemtF'], xof['ElemtG'], xof['ElemtM']}
+    assert len(trunk) == 1, f"tronco no alineado: {trunk}"
+    # ciclo: I,J,K comparten X
+    cycle = {xof['ElemtI'], xof['ElemtJ'], xof['ElemtK']}
+    assert len(cycle) == 1, f"ciclo no alineado: {cycle}"
+    # tronco y ciclo en columnas distintas
+    assert trunk != cycle
+
+
+def test_side_feeders_at_margin():
+    """§A3: las tomas B/C quedan fuera del rango de las columnas principales."""
+    r = _optimize(_stress_data())
+    xof = {e['id']: e['x'] for e in r.elements}
+    main = [xof[i] for i in ('ElemtA', 'ElemtD', 'ElemtE', 'ElemtF', 'ElemtG',
+                             'ElemtM', 'ElemtH', 'ElemtI', 'ElemtJ', 'ElemtK')]
+    lo, hi = min(main), max(main)
+    for feeder in ('ElemtB', 'ElemtC'):
+        assert xof[feeder] < lo or xof[feeder] > hi, \
+            f"{feeder} no está al margen (x={xof[feeder]}, rango {lo}-{hi})"
+
+
 def test_compact_canvas():
     """hier compacta bastante más que el layout disperso previo."""
     r = _optimize(_stress_data())

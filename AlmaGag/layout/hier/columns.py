@@ -115,40 +115,92 @@ def compute_columns(levels: Levels, elements: List[dict],
             x[i] = order[i] * STEP
 
     MIN_SEP = 1.5 * STEP
+    LANE = 2.0 * STEP
 
-    def dominant_parent(n):
-        ps = parents.get(n, [])
-        if not ps:
-            return None
-        # B6: ancestro de menor nivel; empate → mismo "tipo" (tronco/ciclo)
-        # que el nodo, luego acíclico, luego orden estable.
-        n_cyclic = n in cyclic
-        return min(ps, key=lambda p: (
-            level[p],
-            0 if (p in cyclic) == n_cyclic else 1,
-            0 if p not in cyclic else 1,
-            order.get(p, 0),
-        ))
+    # --- B5: carriles cycle-aware ---
+    # (1) Cada componente de ciclo (SCC) recibe UN carril: sus miembros forman
+    #     una columna vertical (I·J·K). (2) Los nodos acíclicos se descomponen
+    #     por spine (DFS de primera visita, hijo de subárbol más profundo
+    #     continúa el carril). Así tronco y ciclo quedan en columnas propias.
+    def subtree_depth(n, seen):
+        if n in seen:
+            return 0
+        seen.add(n)
+        # sólo aristas hacia nodos acíclicos (el spine no entra al ciclo)
+        return 1 + max((subtree_depth(c, seen) for c in children.get(n, [])
+                        if c not in cyclic), default=0)
 
-    # --- B5/B6/B7: alineación iterativa a la columna del ancestro dominante
-    # + centrado de bifurcaciones, con separación mínima por fila. Produce
-    # columnas verticales por cadena (tronco / ciclo) sin colapsos.
-    for _ in range(passes):
-        for lv in levels_sorted:               # B6 (top-down)
-            for i in by_level[lv]:
-                dp = dominant_parent(i)
-                if dp is not None:
-                    x[i] = x[dp]
-        for lv in reversed(levels_sorted):      # B7 (bottom-up)
-            for i in by_level[lv]:
-                ch = [c for c in children.get(i, []) if c in x]
-                if len(ch) >= 2:
-                    x[i] = sum(x[c] for c in ch) / len(ch)
-        for lv in levels_sorted:                # separación por fila
+    lane_of: Dict[str, int] = {}
+    next_lane = [-1]
+
+    def new_lane():
+        next_lane[0] += 1
+        return next_lane[0]
+
+    # (1) componentes de ciclo → un carril cada uno.
+    cyc_seen: set = set()
+    for n in sorted(cyclic, key=lambda n: (level[n], order.get(n, 0))):
+        if n in cyc_seen:
+            continue
+        comp, stack = [], [n]
+        while stack:
+            m = stack.pop()
+            if m in cyc_seen:
+                continue
+            cyc_seen.add(m)
+            comp.append(m)
+            for c in children.get(m, []):
+                if c in cyclic and c not in cyc_seen:
+                    stack.append(c)
+            for p in parents.get(m, []):
+                if p in cyclic and p not in cyc_seen:
+                    stack.append(p)
+        ln = new_lane()
+        for m in comp:
+            lane_of[m] = ln
+
+    # (2) spine DFS sobre nodos acíclicos.
+    visited: set = set(lane_of)
+
+    def dfs(node, lane):
+        visited.add(node)
+        lane_of[node] = lane
+        kids = [c for c in children.get(node, [])
+                if c not in visited and c not in cyclic]
+        kids.sort(key=lambda c: (-subtree_depth(c, set()), order.get(c, 0)))
+        for idx, c in enumerate(kids):
+            if c in visited:
+                continue
+            dfs(c, lane if idx == 0 else new_lane())
+
+    roots = sorted([i for i in main_ids if not parents.get(i)],
+                   key=lambda n: (level[n], order.get(n, 0)))
+    for r in roots:
+        if r not in visited and r not in cyclic:
+            dfs(r, new_lane())
+    for n in sorted(main_ids, key=lambda n: (level[n], order.get(n, 0))):
+        if n not in lane_of:
+            dfs(n, new_lane()) if n not in cyclic else None
+
+    # Ordenar carriles izquierda→derecha por baricentro del orden de miembros.
+    n_lanes = next_lane[0] + 1
+    members = {ln: [n for n in main_ids if lane_of.get(n) == ln] for ln in range(n_lanes)}
+    def lane_bary(ln):
+        ms = members[ln]
+        return sum(order.get(m, 0) for m in ms) / len(ms) if ms else 0
+    used = [ln for ln in range(n_lanes) if members[ln]]
+    lane_x = {ln: rank * LANE for rank, ln in enumerate(sorted(used, key=lane_bary))}
+    for n in main_ids:
+        x[n] = lane_x[lane_of[n]]
+
+    def _resolve_rows():
+        for lv in levels_sorted:
             row = sorted(by_level[lv], key=lambda n: (x[n], order[n]))
             for k in range(1, len(row)):
                 if x[row[k]] - x[row[k - 1]] < MIN_SEP:
                     x[row[k]] = x[row[k - 1]] + MIN_SEP
+
+    _resolve_rows()
 
     # --- B8: tallo raíz — ancestros de hijo único sobre la bifurcación
     # heredan su X (tramo raíz→bifurcación vertical). ---
@@ -163,17 +215,23 @@ def compute_columns(levels: Levels, elements: List[dict],
             x[ps[0]] = x[top_bif]
             node = ps[0]
 
-    # --- Satélites: al costado del padre (columna contigua) ---
-    for sat, parent in satellites.items():
-        x[sat] = x.get(parent, 0) + 1.5 * STEP
+    # Extensión de las columnas principales (para colocar satélites/tomas
+    # SIN encimarlas con los nodos del tronco/ciclo).
+    main_xs = [x[n] for n in main_ids] or [0.0]
+    main_min, main_max = min(main_xs), max(main_xs)
+    center = sum(main_xs) / len(main_xs)
 
-    # --- Tomas: al margen exterior, del lado más lejano al centro ---
-    if x:
-        center = sum(x.values()) / len(x)
-    else:
-        center = 0
+    # --- §A2 satélites: al costado del padre, hacia afuera del centro ---
+    for sat, parent in satellites.items():
+        px = x.get(parent, 0)
+        x[sat] = px + 1.5 * STEP if px >= center else px - 1.5 * STEP
+
+    # --- §A3/§C11 tomas: al MARGEN exterior (más allá de las columnas
+    # principales), del lado del destino respecto al centro ---
+    left_margin = main_min - LANE
+    right_margin = main_max + LANE
     for feeder, target in side_feeders.items():
-        tx = x.get(target, 0)
-        x[feeder] = tx - 2.0 * STEP if tx <= center else tx + 2.0 * STEP
+        tx = x.get(target, center)
+        x[feeder] = left_margin if tx <= center else right_margin
 
     return x

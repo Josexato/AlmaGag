@@ -601,7 +601,8 @@ El usuario produjo una especificación completa de layout jerárquico (18 criter
 - **Fase 1 — §A+§B** (niveles min-parent, satélites, tomas medio-nivel, ghosts+barycenter, carriles, alineación, bifurcación, tallo). *§A entregada (commit `756a7a0`); §B en progreso.*
   - **§A hecho** (`AlmaGag/layout/hier/leveling.py`): `compute_levels()` puro — min-parent (A1) + satélites (A2, con requisito de padre que continúa el flujo) + tomas a medio-nivel (A3) + back-edges. Verificado contra 14-stresstest: `A=0 D=1 B=1.5 E/H/L=2 F/I=3 C=3.5 G/J=4 K/M=5`.
   - **§B v1 hecho** (`AlmaGag/layout/hier/columns.py`): barycenter (B4) + alineación iterativa al ancestro dominante con sesgo tronco/ciclo (B6) + centrado de bifurcación (B7) + separación mínima por fila + tallo raíz (B8) + satélites al costado / tomas al margen exterior. `14-stresstest` en `hier`: canvas **1380×980** (vs 1960×2150 en LAF), 2 columnas principales limpias, sin solapes.
-  - **§B pendiente (refinamiento)**: separación perfecta tronco (E·F·G·M) vs ciclo (H·I·J·K) en columnas propias vía trazado de cadenas B5 con "claiming" (probado, aún no converge limpio para este grafo). Los ghosts en aristas largas (B4) todavía no se insertan.
+  - **§B5 hecho** (`columns.py`): carriles cycle-aware — cada componente de ciclo (SCC) recibe un carril propio y los nodos acíclicos se descomponen por spine (DFS de primera visita, hijo de subárbol más profundo continúa el carril). 14-stresstest queda con tronco A·D·E·F·G·M en una columna, ciclo I·J·K en otra, H aparte, satélite L al lado, tomas B/C al margen exterior. Canvas 1480×980.
+  - **§B pendiente**: ghosts en aristas largas (B4) todavía no se insertan (afecta aristas que saltan >1 nivel).
 - **Fase 2 — §C+§D** (puertos por proyección, lado/perpendicular, ruteo de tomas, rectas en mismo-nivel/cruces).
 - **Fase 3 — §E+§F** (arcos de ciclo con winding/signo/comba, etiquetas al lado libre).
 
