@@ -55,6 +55,11 @@ def route_connections(layout, levels):
     port_reqs = defaultdict(list)  # (elem_id, side) → [(frac_x, conn_idx, is_source)]
 
     def flow_sides(f, t):
+        # §C11: la toma lateral SALE por el costado (hacia el destino) y ENTRA
+        # por arriba del destino → salida horizontal, bajada vertical.
+        if f['id'] in side_feeders:
+            side = 'right' if _center(t)[0] >= _center(f)[0] else 'left'
+            return (side, 'top')
         lf = level.get(f['id'], 0)
         lt = level.get(t['id'], 0)
         if abs(lt - lf) < 0.5:
@@ -181,7 +186,61 @@ def route_connections(layout, levels):
                 mid = (fy + ty) / 2 + channel_offset.get(ci, 0.0)
                 pts = [(fx, fy), (fx, mid), (tx, mid), (tx, ty)]
 
+        # QA-Q2: tramo recto perpendicular al borde en ambos extremos, para que
+        # la flecha llegue derecha (aun en aristas de cruce/mismo-nivel rectas).
+        pts = _perp_stubs(pts, f, t)
         c['computed_path'] = {'type': 'polyline', 'points': pts}
+        # Los puertos ya están EXACTAMENTE sobre el borde del icono (§C9/§C10);
+        # marcarlos para que el renderer NO aplique su offset de 40px (que
+        # dejaba los conectores flotando — QA-Q1/Q3 de Claude Design).
+        c['_from_port'] = pts[0]
+        c['_to_port'] = pts[-1]
+
+
+PERP_STUB = 14.0
+
+
+def _border_side(pt, e):
+    x, y = pt
+    d = {'T': abs(y - e['y']), 'B': abs(y - (e['y'] + ICON_HEIGHT)),
+         'L': abs(x - e['x']), 'R': abs(x - (e['x'] + ICON_WIDTH))}
+    return min(d, key=d.get)
+
+
+def _stub_point(pt, side):
+    x, y = pt
+    if side == 'T':
+        return (x, y - PERP_STUB)
+    if side == 'B':
+        return (x, y + PERP_STUB)
+    if side == 'L':
+        return (x - PERP_STUB, y)
+    return (x + PERP_STUB, y)
+
+
+def _is_perp(a, b, side):
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    if side in ('T', 'B'):
+        return abs(dx) <= 0.5   # segmento vertical
+    return abs(dy) <= 0.5       # segmento horizontal
+
+
+def _perp_stubs(pts, from_elem, to_elem):
+    """Garantiza que el primer y último segmento sean perpendiculares al borde
+    (QA-Q2). Inserta un tramo recto de PERP_STUB si el segmento extremo llega
+    en diagonal."""
+    pts = list(pts)
+    if len(pts) < 2:
+        return pts
+    # llegada
+    side_t = _border_side(pts[-1], to_elem)
+    if not _is_perp(pts[-2], pts[-1], side_t):
+        pts.insert(-1, _stub_point(pts[-1], side_t))
+    # salida
+    side_f = _border_side(pts[0], from_elem)
+    if not _is_perp(pts[0], pts[1], side_f):
+        pts.insert(1, _stub_point(pts[0], side_f))
+    return pts
 
 
 def _separate(vals, min_sep, lo, hi):

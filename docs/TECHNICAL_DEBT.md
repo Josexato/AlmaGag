@@ -615,6 +615,12 @@ El usuario produjo una especificación completa de layout jerárquico (18 criter
   - §F18 (`AlmaGag/layout/hier/labels.py`): etiqueta al borde menos concurrido (cuenta conectores por T/B/L/R, desempate abajo→arriba→exterior→interior); setea `label_position`.
   - **§B7 v2 (simetría)**: se completó el centrado de la bifurcación. El tallo (bifurcación superior + ancestros de hijo único) se separa a su propio carril y se centra entre las columnas hijas; además el nodo de entrada del ciclo (H) se fusiona a la columna del ciclo (H·I·J·K vertical, sin diagonal larga H→I). 14-stresstest queda simétrico: tallo A·D centrado, ciclo a un lado, tronco al otro.
 
+**QA de Claude Design (2026-07-13)** — evaluó el render y aprobó el layout («el layout ya está bien; el bug es uno solo»), detectando un único bug de trazado (etapas 10-11): los conectores quedaban recortados 40px (flujo) / 15px (arcos) antes del borde en vez de tocarlo. Corregido:
+- Q1/Q3: los puertos hier (ya sobre el borde) se marcan como `_from_port`/`_to_port` → el renderer NO aplica su offset. Arcos: extremos recortados al borde con `clip_to_border` (función única).
+- Q2: `_perp_stubs` garantiza un tramo final perpendicular ≥14px (aun en aristas de cruce/rectas) → flechas derechas.
+- Q4: la toma sale por el COSTADO hacia el destino (no por el fondo) → salida horizontal + bajada vertical al borde superior.
+- Q5: `tests/test_hier_geometry.py` — asserts geométricos (extremos en borde, llegada perpendicular) sobre el stresstest + 24 canónicos; evasión de obstáculos (d) validada en el stresstest.
+
 Registro: `--layout-algorithm=hier` en `main.py` + `generator.OPTIMIZERS`. Reusa `AutoSVGRenderer` para el dibujo. Tests en `tests/test_hier_layout.py` (8). LAF y sus 24 canonicals quedan intactos. Limitación Fase 1: `hier` posiciona sólo elementos root (grafos planos); el soporte de containers vendrá después.
 
 ---

@@ -28,6 +28,24 @@ def _center(e):
     return (e['x'] + ICON_WIDTH / 2, e['y'] + ICON_HEIGHT / 2)
 
 
+def clip_to_border(elem, tx, ty):
+    """
+    Punto sobre el borde del rectángulo del icono en la dirección (tx,ty)
+    desde su centro. Función única de recorte rect-borde (recomendación de
+    Claude Design): los extremos de todo conector caen EXACTAMENTE en el borde.
+    """
+    cx = elem['x'] + ICON_WIDTH / 2
+    cy = elem['y'] + ICON_HEIGHT / 2
+    dx, dy = tx - cx, ty - cy
+    if abs(dx) < 1e-9 and abs(dy) < 1e-9:
+        return (cx, cy)
+    hw, hh = ICON_WIDTH / 2, ICON_HEIGHT / 2
+    sx = hw / abs(dx) if abs(dx) > 1e-9 else float('inf')
+    sy = hh / abs(dy) if abs(dy) > 1e-9 else float('inf')
+    s = min(sx, sy)
+    return (cx + dx * s, cy + dy * s)
+
+
 def route_cycle_arcs(layout, levels):
     """Asigna computed_path tipo 'bezier' a las aristas de ciclo (in-place)."""
     by_id = {e['id']: e for e in layout.elements}
@@ -132,15 +150,25 @@ def route_cycle_arcs(layout, levels):
                 bulge = max(bulge, need)
             bulge = min(bulge, BULGE_CAP)
 
+            # Extremos EXACTAMENTE sobre el borde (no en el centro): se recorta
+            # el centro hacia el otro nodo. Corrige el hueco de 15px (QA-Q1).
+            start = clip_to_border(a, *cb)
+            end = clip_to_border(b, *ca)
+            sx, sy = start
+            dx, dy = end[0] - sx, end[1] - sy
+
             # Puntos de control del bezier (1/3 y 2/3, desplazados por la comba).
             off = bulge * 1.33
-            c1 = (ca[0] + ex / 3 + bdir[0] * off, ca[1] + ey / 3 + bdir[1] * off)
-            c2 = (ca[0] + 2 * ex / 3 + bdir[0] * off, ca[1] + 2 * ey / 3 + bdir[1] * off)
+            c1 = (sx + dx / 3 + bdir[0] * off, sy + dy / 3 + bdir[1] * off)
+            c2 = (sx + 2 * dx / 3 + bdir[0] * off, sy + 2 * dy / 3 + bdir[1] * off)
             c['computed_path'] = {
                 'type': 'bezier',
-                'points': [ca, cb],
+                'points': [start, end],
                 'control_points': [c1, c2],
             }
+            # marcar puertos → el renderer no aplica su offset de 15px
+            c['_from_port'] = start
+            c['_to_port'] = end
             handled.add((c['from'], c['to']))
 
     return handled
