@@ -132,10 +132,11 @@ def test_case_c_merge_with_leaf():
 
 def test_case_c_merge_different_depths():
     """
-    Case C variant: parents at different depths, terminal leaf moves above max parent level.
+    WISH-LAF-002 §A1 (min-parent): un nodo con padres a distinta profundidad
+    toma min(nivel(padre))+1, NO max.
     P3 -> V (P3 at level 1)
     P4 -> V (P4 at level 2)
-    V is terminal leaf -> Base[V] = max(1, 2) + 1 = 3
+    V (2 padres → no satélite) -> min(1, 2) + 1 = 2
     """
     layout = MockLayout(
         elements=[
@@ -158,11 +159,11 @@ def test_case_c_merge_different_depths():
     analyzer = StructureAnalyzer(debug=False)
     info = analyzer.analyze(layout)
 
-    # S1=0, S2=0, P3=1, X=1, P4=2; V terminal leaf => 3
-    assert info.topological_levels['V'] == 3, (
-        f"V (terminal leaf) should be level 3, got {info.topological_levels['V']}"
+    # S1=0, S2=0, P3=1, X=1, P4=2; V = min(1,2)+1 = 2 (min-parent)
+    assert info.topological_levels['V'] == 2, (
+        f"V should be level 2 (min-parent), got {info.topological_levels['V']}"
     )
-    print("[PASS] Case C variant: terminal leaf moves above max parent")
+    print("[PASS] §A1 min-parent: merge toma min de padres")
 
 
 def test_non_leaf_still_increments():
@@ -279,10 +280,11 @@ def test_mixed_leaf_and_non_leaf_children():
     print("[PASS] Mixed leaf and non-leaf children")
 
 
-def test_non_leaf_respects_max_parent_plus_one_after_late_parent_update():
+def test_min_parent_takes_shortest_path():
     """
-    Si un padre de un nodo no-hoja aumenta su nivel tardíamente, el nodo y su hijo
-    deben ajustarse para mantener la regla level >= max(parent)+1.
+    WISH-LAF-002 §A1 (min-parent): un nodo con un camino corto y uno largo
+    toma el CORTO (min de padres + 1), compactando el grafo.
+    S->A (corto), S->B->A (largo): A = min(nivel(S)=0, nivel(B)=1)+1 = 1.
     """
     layout = MockLayout(
         elements=[
@@ -294,21 +296,22 @@ def test_non_leaf_respects_max_parent_plus_one_after_late_parent_update():
         connections=[
             {'from': 'S', 'to': 'A'},  # camino corto a A
             {'from': 'S', 'to': 'B'},
-            {'from': 'B', 'to': 'A'},  # camino alterno que eleva A
-            {'from': 'A', 'to': 'X'},  # hijo de A debe propagarse
+            {'from': 'B', 'to': 'A'},  # camino alterno más largo
+            {'from': 'A', 'to': 'X'},  # hijo de A
         ],
     )
 
     analyzer = StructureAnalyzer(debug=False)
     info = analyzer.analyze(layout)
 
-    assert info.topological_levels['A'] == 2, (
-        f"A (non-leaf) should be level 2, got {info.topological_levels['A']}"
+    # min-parent: A = min(S=0, B=1)+1 = 1 (NO max-parent que daría 2)
+    assert info.topological_levels['A'] == 1, (
+        f"A should be level 1 (min-parent), got {info.topological_levels['A']}"
     )
-    assert info.topological_levels['X'] == 3, (
-        f"X should be level 3 after propagation from A, got {info.topological_levels['X']}"
+    assert info.topological_levels['X'] == 2, (
+        f"X should be level 2 (min-parent from A=1), got {info.topological_levels['X']}"
     )
-    print("[PASS] Non-leaf progression propagates after late parent update")
+    print("[PASS] §A1 min-parent: toma el camino corto")
 
 
 def main():
@@ -327,7 +330,7 @@ def main():
         test_source_node_is_leaf,
         test_fan_out_multiple_leaves,
         test_mixed_leaf_and_non_leaf_children,
-        test_non_leaf_respects_max_parent_plus_one_after_late_parent_update,
+        test_min_parent_takes_shortest_path,
     ]
 
     passed = 0

@@ -68,6 +68,10 @@ class StructureInfo:
     leaf_nodes: Set[str] = field(default_factory=set)
     terminal_leaf_nodes: Set[str] = field(default_factory=set)
     source_nodes: Set[str] = field(default_factory=set)
+    # WISH-LAF-002 §A2/§A3: clasificación satélite / toma lateral.
+    satellites: Dict[str, str] = field(default_factory=dict)     # hoja → padre
+    side_feeders: Dict[str, str] = field(default_factory=dict)   # fuente → destino
+    back_edges: Set[Tuple[str, str]] = field(default_factory=set)  # (from, to) de ciclos
     ancestor_nodes: Set[str] = field(default_factory=set)
     toi_nodes: Set[str] = field(default_factory=set)
     toi_virtual_containers: List[Dict] = field(default_factory=list)
@@ -1374,108 +1378,117 @@ class StructureAnalyzer:
 
     def _calculate_topological_levels(self, layout, info: StructureInfo) -> None:
         """
-        Calcula niveles topológicos usando BFS en el grafo de conexiones.
+        Calcula niveles jerárquicos según WISH-LAF-002 §A:
 
-        Reglas de post-procesamiento:
-        1) Hojas normales se alinean al nivel del padre dominante.
-        2) Hojas terminales suben un nivel sobre su padre dominante.
+        - A1 (min-parent): nivel(n) = min(nivel(p))+1 sobre padres válidos
+          (no back-edge, no satélite, no toma). Compacta y alinea hermanos,
+          a diferencia del longest-path que dispersaba las fuentes.
+        - A2 (satélites): hoja (0 salidas, 1 entrada, fuera de ciclo) cuyo
+          único padre se ramifica (≥2 salidas) → nivel = nivel(padre).
+        - A3 (tomas laterales): fuente (0 entradas, 1 salida) cuyo destino ya
+          tiene ≥2 padres (excl. back-edges) → nivel = nivel(destino) − 0.5.
 
-        Args:
-            layout: Layout con connections
-            info: StructureInfo a poblar
+        Orden: back-edges → clasificar satélites y tomas → min-parent sobre el
+        resto → asignar niveles de satélites/tomas.
         """
-        # Contraer SCCs para BFS en DAG (elimina ciclos)
-        (contracted_elements, contracted_graph,
-         member_to_rep, rep_to_members) = self._contract_sccs_for_levels(
-            info.primary_elements, info.connection_graph)
-
-        if member_to_rep:
-            logger.debug(f"[TOPO] SCCs contraídos: {len(rep_to_members)} grupo(s), "
-                        f"{len(member_to_rep)} nodos en ciclos")
-
-        # Inicializar niveles en grafo contraído
-        contracted_levels = {}
-        for elem_id in contracted_elements:
-            contracted_levels[elem_id] = 0
-
-        # Calcular niveles usando BFS sobre DAG contraído
-        visited = set()
-        queue = []
-
-        # Encontrar elementos sin dependencias entrantes (nivel 0)
-        has_incoming = set()
-        for from_id, to_list in contracted_graph.items():
-            for to_id in to_list:
-                has_incoming.add(to_id)
-
-        # Nivel 0: Sin dependencias entrantes
-        for elem_id in contracted_elements:
-            if elem_id not in has_incoming:
-                queue.append((elem_id, 0))
-                visited.add(elem_id)
-
-        # BFS
-        while queue:
-            current_id, level = queue.pop(0)
-            contracted_levels[current_id] = level
-
-            # Procesar vecinos
-            for neighbor_id in contracted_graph.get(current_id, []):
-                if neighbor_id not in visited:
-                    queue.append((neighbor_id, level + 1))
-                    visited.add(neighbor_id)
-                else:
-                    # Actualizar nivel si encontramos un camino más largo
-                    contracted_levels[neighbor_id] = max(
-                        contracted_levels[neighbor_id],
-                        level + 1
-                    )
-
-        # Expandir niveles: miembros de SCCs reciben el nivel del representante
-        for elem_id in info.primary_elements:
-            if elem_id in member_to_rep:
-                rep = member_to_rep[elem_id]
-                info.topological_levels[elem_id] = contracted_levels.get(rep, 0)
-            else:
-                info.topological_levels[elem_id] = contracted_levels.get(elem_id, 0)
-
-        # Build local reverse graph for parent lookup
+        # Grafo inverso para lookup de padres.
         local_incoming = {}
         for from_id, to_list in info.connection_graph.items():
             for to_id in to_list:
-                if to_id not in local_incoming:
-                    local_incoming[to_id] = []
+                local_incoming.setdefault(to_id, [])
                 if from_id not in local_incoming[to_id]:
                     local_incoming[to_id].append(from_id)
 
-        # Relocate minor source nodes (spouses/in-laws) to their partner's level.
-        # Among all source nodes (no incoming edges), only those with the largest
-        # descendant tree stay at level 0. Others are placed at the same level as
-        # the other parent of their shared child node.
-        self._relocate_minor_sources(info, local_incoming)
+        # --- Back-edges (prerequisito de todo: define qué es arco) ---
+        back_edges = self._detect_cycle_nodes(info, local_incoming)
+        info.back_edges = back_edges
 
-        # Correccion de consistencia para nodos no-hoja:
-        # todo nodo con hijos debe estar al menos un nivel sobre su padre dominante.
-        # Esto corrige casos donde BFS actualiza un padre tarde y no reprocesa hijos.
-        self._enforce_non_leaf_parent_progression(info, local_incoming)
+        outdeg = {e: len(info.connection_graph.get(e, [])) for e in info.primary_elements}
+        # in-degree y out-degree ACÍCLICOS (ignorando back-edges)
+        acyclic_out = {e: 0 for e in info.primary_elements}
+        acyclic_in = {e: [] for e in info.primary_elements}
+        for from_id, to_list in info.connection_graph.items():
+            for to_id in to_list:
+                if (from_id, to_id) in back_edges:
+                    continue
+                if from_id in acyclic_out:
+                    acyclic_out[from_id] += 1
+                if to_id in acyclic_in:
+                    acyclic_in[to_id].append(from_id)
 
-        # Apply leaf correction: leaves stay at their dominant parent's level
-        for elem_id in info.primary_elements:
-            outdeg = len(info.connection_graph.get(elem_id, []))
-            if outdeg == 0:
-                parents = local_incoming.get(elem_id, [])
-                if parents:
-                    max_base_parent = max(
-                        info.topological_levels[p] for p in parents
-                    )
-                    info.topological_levels[elem_id] = max_base_parent
+        # --- A2: satélites (clasificar ANTES de nivelar) ---
+        # Hoja (0 salidas, 1 entrada, fuera de ciclo) cuyo único padre se
+        # ramifica (≥2 salidas) Y además CONTINÚA el flujo (tiene al menos un
+        # hijo no-hoja). Esto último evita que un fan-out puro (padre cuyos
+        # hijos son TODOS hojas) colapse todo a satélites — ahí no hay eje del
+        # que distraer. En el stress-test H→L: H también va a F/I (no-hojas).
+        info.satellites = {}
+        for eid in info.primary_elements:
+            if outdeg.get(eid, 0) != 0:
+                continue
+            parents = local_incoming.get(eid, [])
+            if len(parents) != 1:
+                continue
+            if any((p, eid) in back_edges or (eid, p) in back_edges for p in parents):
+                continue
+            p = parents[0]
+            if acyclic_out.get(p, 0) < 2:
+                continue
+            # ¿El padre tiene algún hijo no-hoja (continúa el flujo)?
+            p_has_nonleaf_child = any(
+                outdeg.get(ch, 0) > 0
+                for ch in info.connection_graph.get(p, [])
+                if (p, ch) not in back_edges
+            )
+            if p_has_nonleaf_child:
+                info.satellites[eid] = p
 
-        # Corrección para hojas terminales: suben un nivel sobre su padre dominante
-        for elem_id in info.terminal_leaf_nodes:
-            parents = local_incoming.get(elem_id, [])
-            if parents:
-                max_parent_level = max(info.topological_levels[p] for p in parents)
-                info.topological_levels[elem_id] = max_parent_level + 1
+        # --- A3: tomas laterales ---
+        info.side_feeders = {}
+        for eid in info.primary_elements:
+            if len(local_incoming.get(eid, [])) != 0:
+                continue
+            outs = info.connection_graph.get(eid, [])
+            if len(outs) != 1:
+                continue
+            t = outs[0]
+            # destino con ≥2 padres acíclicos
+            if len(acyclic_in.get(t, [])) >= 2:
+                info.side_feeders[eid] = t
+
+        excluded = set(info.satellites) | set(info.side_feeders)
+
+        # --- A1: min-parent sobre el grafo sin back-edges (ya es DAG) ---
+        # El ciclo NO se contrae: al ignorar la back-edge, sus nodos reciben
+        # niveles secuenciales (el ciclo se rendea como arco en §E, no como
+        # un nivel fijo). Padres válidos = acíclicos y no excluidos.
+        def valid_parents(nid):
+            return [p for p in acyclic_in.get(nid, []) if p not in excluded]
+
+        # Relajación topológica iterativa: nivel(n)=min(nivel(padre válido))+1.
+        for e in info.primary_elements:
+            if e not in excluded:
+                info.topological_levels[e] = 0
+        for _ in range(len(info.primary_elements) + 1):
+            changed = False
+            for nid in info.primary_elements:
+                if nid in excluded:
+                    continue
+                parents = valid_parents(nid)
+                new_level = (min(info.topological_levels[p] for p in parents) + 1) if parents else 0
+                if new_level != info.topological_levels.get(nid):
+                    info.topological_levels[nid] = new_level
+                    changed = True
+            if not changed:
+                break
+
+        # --- Asignar niveles de satélites (= nivel del padre) ---
+        for sat, parent in info.satellites.items():
+            info.topological_levels[sat] = info.topological_levels.get(parent, 0)
+
+        # --- Asignar niveles de tomas (= nivel del destino − 0.5) ---
+        for feeder, target in info.side_feeders.items():
+            info.topological_levels[feeder] = info.topological_levels.get(target, 0) - 0.5
 
     def _detect_cycle_nodes(
         self,

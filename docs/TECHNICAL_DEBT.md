@@ -573,6 +573,37 @@ El alza de R1 es **correcta**: al detectar ahora los iconos custom, el validador
 
 ## 🌟 WISH
 
+### WISH-LAF-002: Layout Jerárquico según Criterios A1–F18 (spec Claude Design) 🔧 EN PROGRESO (Fase 1)
+**Componente**: `AlmaGag/layout/laf/` (§A–§B) + `AlmaGag/routing/` + `AlmaGag/draw/` (§C–§F)
+**Severidad**: Alta (norte de calidad de LAF; caso de regresión `14-stresstest.sdjf`)
+**Reportado**: 2026-06-24 (spec "Criterios AlmaGag" generada por el usuario con Claude Design)
+
+**Motivación**:
+
+El usuario produjo una especificación completa de layout jerárquico (18 criterios A1–F18, con orden de dependencias y render de referencia) para mejorar la presentación de LAF, usando `14-stresstest.sdjf` como caso de verificación. El render actual dispersa el grafo (canvas 1960×1860), destierra el satélite `L`, mete las tomas `B`/`C` en filas propias y usa 7 niveles donde el spec compacta a 6.
+
+**Gap analysis (estado al abrir el ticket)** — 1 hecho, 6 parciales, 11 ausentes:
+
+| Grupo | Criterios | Estado |
+|---|---|---|
+| A · Niveles | A1 min-parent · A2 satélites · A3 tomas | A1 **invertido** (usa longest-path/max-parent); A2/A3 parciales |
+| B · Columnas | B4 ghosts+barycenter · B5 carriles · B6 alineación · B7 bifurcación · B8 tallo | B7 parcial; B4/B5/B6/B8 ausentes |
+| C · Puertos | C9 proyección · C10 lado · C11 tomas | 12 sectores angulares (no proyección); C9/C11 ausentes |
+| D · Ruteo | D12 mismo-nivel · D13 cruces · D14 carriles | **D14 hecho**; D12/D13 ausentes |
+| E · Arcos | E15 winding · E16 signo · E17 comba | arco no se auto-aplica a ciclos; E16/E17 ausentes |
+| F · Etiquetas | F18 lado despejado | parcial |
+
+**Criterios de aceptación**: cada criterio A1–F18 verificado contra `14-stresstest.sdjf` (LAF), tal como describe la sección "verificación" de cada uno en el spec.
+
+**Plan por fases** (respeta el orden de dependencias del spec):
+- **Fase 1 — §A+§B** (niveles min-parent, satélites, tomas medio-nivel, ghosts+barycenter, carriles, alineación, bifurcación, tallo). *En progreso.*
+- **Fase 2 — §C+§D** (puertos por proyección, lado/perpendicular, ruteo de tomas, rectas en mismo-nivel/cruces).
+- **Fase 3 — §E+§F** (arcos de ciclo con winding/signo/comba, etiquetas al lado libre).
+
+Nota: LAF es opt-in (`--layout-algorithm laf`); los canonicals commiteados se rinden con AUTO, así que evolucionar LAF no cambia esos SVGs (sí requiere actualizar tests LAF: `test_topological_levels.py`, `test_terminal_leaf_nodes.py`).
+
+---
+
 ### WISH-ARCH-001: LAFOptimizer Cumpla el Contrato LayoutOptimizer ✅ RESUELTO
 **Componente**: `AlmaGag/layout/laf/optimizer.py` + `AlmaGag/generator.py`
 **Severidad**: Media-Alta
