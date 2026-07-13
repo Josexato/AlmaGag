@@ -108,9 +108,11 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     # 2. Instanciar optimizador (WISH-ARCH-001 resuelto: factoría unificada).
     # Ambos optimizers heredan de LayoutOptimizer y son self-contained.
     from AlmaGag.layout.laf.optimizer import LAFOptimizer
+    from AlmaGag.layout.hier.optimizer import HierLayoutOptimizer
     OPTIMIZERS = {
         'auto': AutoLayoutOptimizer,
         'laf':  LAFOptimizer,
+        'hier': HierLayoutOptimizer,
     }
     optimizer_cls = OPTIMIZERS[layout_algorithm]
     optimizer_kwargs = {'verbose': debug, 'visualdebug': visualdebug}

@@ -64,9 +64,9 @@ Ejemplos:
     parser.add_argument(
         "--layout-algorithm",
         type=str,
-        choices=['auto', 'laf'],
+        choices=['auto', 'laf', 'hier'],
         default='auto',
-        help="Algoritmo de layout: 'auto' (sistema actual) o 'laf' (Layout Abstracto Primero - minimiza cruces)"
+        help="Algoritmo de layout: 'auto' (sistema actual), 'laf' (Layout Abstracto Primero) o 'hier' (jerárquico A1-F18, spec Criterios AlmaGag)"
     )
     parser.add_argument(
         "--visualize-growth",

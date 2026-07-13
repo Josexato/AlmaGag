@@ -573,10 +573,12 @@ El alza de R1 es **correcta**: al detectar ahora los iconos custom, el validador
 
 ## 🌟 WISH
 
-### WISH-LAF-002: Layout Jerárquico según Criterios A1–F18 (spec Claude Design) 🔧 EN PROGRESO (Fase 1)
-**Componente**: `AlmaGag/layout/laf/` (§A–§B) + `AlmaGag/routing/` + `AlmaGag/draw/` (§C–§F)
-**Severidad**: Alta (norte de calidad de LAF; caso de regresión `14-stresstest.sdjf`)
+### WISH-LAF-002: Layout Jerárquico `hier` según Criterios A1–F18 (spec Claude Design) 🔧 EN PROGRESO (Fase 1)
+**Componente**: `AlmaGag/layout/hier/` (algoritmo nuevo) — leveling.py (§A), columns.py (§B), optimizer.py; + routing/draw (§C–§F)
+**Severidad**: Alta (norte de calidad de layout; caso de regresión `14-stresstest.sdjf`)
 **Reportado**: 2026-06-24 (spec "Criterios AlmaGag" generada por el usuario con Claude Design)
+
+**Decisión de enfoque (2026-06-24)**: se implementa como un **algoritmo nuevo `--layout-algorithm=hier`**, NO como retrofit de LAF. Razón: LAF abstrae los nodos en contenedores virtuales (SCC/TOI/loop) — en el stresstest 11/13 nodos colapsan en `_scc_vc_0` y el placement ocurre dentro de esa caja, un modelo incompatible con el "niveles + columnas plano" que asume el spec. Un algoritmo limpio: (a) coincide 1:1 con la referencia, (b) no arriesga los 24 canonicals que usan LAF en CI, (c) reusa la lógica §A. LAF queda intacto.
 
 **Motivación**:
 
@@ -597,12 +599,13 @@ El usuario produjo una especificación completa de layout jerárquico (18 criter
 
 **Plan por fases** (respeta el orden de dependencias del spec):
 - **Fase 1 — §A+§B** (niveles min-parent, satélites, tomas medio-nivel, ghosts+barycenter, carriles, alineación, bifurcación, tallo). *§A entregada (commit `756a7a0`); §B en progreso.*
-  - **§A hecho**: `_calculate_topological_levels` reescrito a min-parent + satélites + tomas. Verificado contra 14-stresstest.
-  - **§B — hallazgo de entanglement**: el placement NO consume `topological_levels` directamente sino `ndpr_topological_levels`, que en `_build_ndpr_abstract_graph` (paso 5) **re-propaga longest-path** (`level(tgt) >= level(src)+1`), sobrescribiendo §A y perdiendo los medio-niveles de las tomas. Además `_assign_layers` indexa capas por nivel entero (los 1.5/3.5 lo romperían). §B requiere: (a) que los niveles NdPr hereden §A (min-parent) en vez de re-propagar longest-path; (b) modelo de placement que ubique tomas a medio-nivel; (c) post-pass de carriles rectos (B5), alineación a ancestro dominante (B6), centrado de bifurcación (B7) y tallo raíz (B8) sobre las X abstractas.
+  - **§A hecho** (`AlmaGag/layout/hier/leveling.py`): `compute_levels()` puro — min-parent (A1) + satélites (A2, con requisito de padre que continúa el flujo) + tomas a medio-nivel (A3) + back-edges. Verificado contra 14-stresstest: `A=0 D=1 B=1.5 E/H/L=2 F/I=3 C=3.5 G/J=4 K/M=5`.
+  - **§B v1 hecho** (`AlmaGag/layout/hier/columns.py`): barycenter (B4) + alineación iterativa al ancestro dominante con sesgo tronco/ciclo (B6) + centrado de bifurcación (B7) + separación mínima por fila + tallo raíz (B8) + satélites al costado / tomas al margen exterior. `14-stresstest` en `hier`: canvas **1380×980** (vs 1960×2150 en LAF), 2 columnas principales limpias, sin solapes.
+  - **§B pendiente (refinamiento)**: separación perfecta tronco (E·F·G·M) vs ciclo (H·I·J·K) en columnas propias vía trazado de cadenas B5 con "claiming" (probado, aún no converge limpio para este grafo). Los ghosts en aristas largas (B4) todavía no se insertan.
 - **Fase 2 — §C+§D** (puertos por proyección, lado/perpendicular, ruteo de tomas, rectas en mismo-nivel/cruces).
 - **Fase 3 — §E+§F** (arcos de ciclo con winding/signo/comba, etiquetas al lado libre).
 
-Nota: LAF es opt-in (`--layout-algorithm laf`); los canonicals commiteados se rinden con AUTO, así que evolucionar LAF no cambia esos SVGs (sí requiere actualizar tests LAF: `test_topological_levels.py`, `test_terminal_leaf_nodes.py`).
+Registro: `--layout-algorithm=hier` en `main.py` + `generator.OPTIMIZERS`. Reusa `AutoSVGRenderer` para el dibujo. Tests en `tests/test_hier_layout.py` (8). LAF y sus 24 canonicals quedan intactos. Limitación Fase 1: `hier` posiciona sólo elementos root (grafos planos); el soporte de containers vendrá después.
 
 ---
 
