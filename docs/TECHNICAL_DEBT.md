@@ -573,7 +573,7 @@ El alza de R1 es **correcta**: al detectar ahora los iconos custom, el validador
 
 ## 🌟 WISH
 
-### WISH-LAF-002: Layout Jerárquico `hier` según Criterios A1–F18 (spec Claude Design) 🔧 EN PROGRESO (Fase 1 ✅, Fase 2 ✅, Fase 3 siguiente)
+### WISH-LAF-002: Layout Jerárquico `hier` según Criterios A1–F18 (spec Claude Design) ✅ RESUELTO (v1) (Fases 1-2-3 ✅ — A1–F18 sobre 14-stresstest)
 **Componente**: `AlmaGag/layout/hier/` (algoritmo nuevo) — leveling.py (§A), columns.py (§B), optimizer.py; + routing/draw (§C–§F)
 **Severidad**: Alta (norte de calidad de layout; caso de regresión `14-stresstest.sdjf`)
 **Reportado**: 2026-06-24 (spec "Criterios AlmaGag" generada por el usuario con Claude Design)
@@ -610,7 +610,9 @@ El usuario produjo una especificación completa de layout jerárquico (18 criter
   - C11 ruteo de tomas (salida lateral → horizontal → bajada vertical, 3 puntos).
   - D12 aristas de mismo nivel en recta; D13 cruces reales en recta (bifurcación/fusión conservan codo); D14 carriles de canal (offset por pista).
   - Consume los waypoints §B4. Las back-edges quedan sin path → arco §E (Fase 3). Conexiones a contenidos (sin posición) se saltan sin romper.
-- **Fase 3 — §E+§F** (arcos de ciclo con winding/signo/comba, etiquetas al lado libre).
+- **Fase 3 — §E+§F COMPLETA**:
+  - §E (`AlmaGag/layout/hier/arcs.py`): aristas de ciclo como bezier con winding coherente. E15: signo global sobre la normal de la dirección → ida interior, retorno exterior automáticamente. E16: signo elegido desde la back-edge para que su normal apunte lejos del centroide. E17: comba adaptativa (base 44px, crece para librar nodos con proyección interior a la cuerda y perp<72px del lado de la comba, tope 320px).
+  - §F18 (`AlmaGag/layout/hier/labels.py`): etiqueta al borde menos concurrido (cuenta conectores por T/B/L/R, desempate abajo→arriba→exterior→interior); setea `label_position`.
 
 Registro: `--layout-algorithm=hier` en `main.py` + `generator.OPTIMIZERS`. Reusa `AutoSVGRenderer` para el dibujo. Tests en `tests/test_hier_layout.py` (8). LAF y sus 24 canonicals quedan intactos. Limitación Fase 1: `hier` posiciona sólo elementos root (grafos planos); el soporte de containers vendrá después.
 

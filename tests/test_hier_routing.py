@@ -32,10 +32,11 @@ def test_every_forward_edge_has_computed_path():
         assert c.get('computed_path'), f"{c['from']}->{c['to']} sin computed_path"
 
 
-def test_back_edge_has_no_path():
-    """La back-edge se deja para el arco de ciclo (§E)."""
+def test_back_edge_rendered_as_arc():
+    """La back-edge se dibuja como arco de ciclo (§E, Fase 3): bezier."""
     r = _optimize(json.load(open(STRESS)))
-    assert _cp(r, 'ElemtK', 'ElemtI') is None
+    cp = _cp(r, 'ElemtK', 'ElemtI')
+    assert cp and cp['type'] == 'bezier'
 
 
 def test_same_level_edge_is_straight():

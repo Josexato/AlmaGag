@@ -19,6 +19,8 @@ from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 from AlmaGag.layout.hier.leveling import compute_levels
 from AlmaGag.layout.hier.columns import compute_columns
 from AlmaGag.layout.hier.routing import route_connections
+from AlmaGag.layout.hier.arcs import route_cycle_arcs
+from AlmaGag.layout.hier.labels import assign_label_sides
 
 logger = logging.getLogger('AlmaGag')
 
@@ -87,8 +89,13 @@ class HierLayoutOptimizer(LayoutOptimizer):
             L.canvas = {'width': max(width, 400), 'height': max(height, 300)}
 
         # §C/§D: puertos por proyección + ruteo (Fase 2). Setea computed_path
-        # en cada conexión (las back-edges quedan sin path → §E Fase 3).
+        # en cada conexión (las back-edges quedan sin path aquí).
         route_connections(L, lv)
+        # §E: arcos de ciclo (Fase 3) — pisan las aristas del ciclo (ida) y
+        # dibujan la back-edge de retorno con comba coherente.
+        route_cycle_arcs(L, lv)
+        # §F18: preferencia de lado de la etiqueta = borde menos concurrido.
+        assign_label_sides(L)
 
         # Atributos de análisis que el generator lee.
         L.levels = {eid: int(v) for eid, v in lv.level.items()}
