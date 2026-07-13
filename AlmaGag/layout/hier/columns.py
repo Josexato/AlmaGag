@@ -10,6 +10,7 @@ Trabaja en unidades de columna abstractas sobre el resultado de §A.
 - B8: tallo raíz — propaga la X de la bifurcación a los ancestros de hijo único.
 """
 
+from collections import defaultdict
 from typing import Dict, List, Tuple
 from AlmaGag.layout.hier.leveling import Levels
 
@@ -221,6 +222,44 @@ def compute_columns(levels: Levels, elements: List[dict],
         if n not in lane_of:
             dfs(n, new_lane()) if n not in cyclic else None
 
+    # Fusionar carriles acíclicos SINGLETON que alimentan un carril de ciclo:
+    # el nodo de entrada (p.ej. H→I) pasa a ENCABEZAR la columna del ciclo,
+    # evitando un carril suelto y el conector diagonal largo hacia el ciclo.
+    cycle_lanes = {lane_of[n] for n in cyclic if n in lane_of}
+    lane_members = defaultdict(list)
+    for n, ln in lane_of.items():
+        lane_members[ln].append(n)
+    for n in list(main_ids):
+        ln = lane_of.get(n)
+        if ln in cycle_lanes or len(lane_members.get(ln, [])) != 1:
+            continue
+        # ¿algún hijo en un carril de ciclo?
+        for c in children.get(n, []):
+            if lane_of.get(c) in cycle_lanes:
+                lane_of[n] = lane_of[c]
+                break
+
+    # Separar el TALLO (bifurcación superior + ancestros de hijo único) a su
+    # propio carril, para que no quede pegado a la columna de un hijo y B7
+    # pueda centrarlo entre las columnas que genera (simetría del fork).
+    def _child_lanes(i):
+        return {lane_of.get(c) for c in children.get(i, []) if c in lane_of}
+    bifs0 = [i for i in main_ids if len(_child_lanes(i)) >= 2]
+    if bifs0:
+        top = min(bifs0, key=lambda i: (level[i], order.get(i, 0)))
+        stem = [top]
+        node = top
+        for _ in range(len(main_ids)):
+            ps = parents.get(node, [])
+            if len(ps) != 1 or len(children.get(ps[0], [])) != 1:
+                break
+            stem.append(ps[0])
+            node = ps[0]
+        next_lane[0] += 1
+        stem_lane = next_lane[0]
+        for s in stem:
+            lane_of[s] = stem_lane
+
     # Ordenar carriles izquierda→derecha por baricentro del orden de miembros.
     n_lanes = next_lane[0] + 1
     members = {ln: [n for n in main_ids if lane_of.get(n) == ln] for ln in range(n_lanes)}
@@ -241,17 +280,28 @@ def compute_columns(levels: Levels, elements: List[dict],
 
     _resolve_rows()
 
+    # --- B7: centrado de bifurcación entre los carriles de sus hijos ---
+    # Un nodo cuyos hijos encabezan ≥2 carriles distintos se reubica en el
+    # promedio de esas columnas → forks simétricos. Se aplica de abajo hacia
+    # arriba para que el efecto suba por el tallo.
+    for lv in reversed(levels_sorted):
+        for i in by_level[lv]:
+            ch = [c for c in children.get(i, []) if c in x]
+            child_lanes = {lane_of.get(c) for c in ch}
+            if len(ch) >= 2 and len(child_lanes) >= 2 and lane_of.get(i) not in child_lanes:
+                x[i] = sum(x[c] for c in ch) / len(ch)
+
     # --- B8: tallo raíz — ancestros de hijo único sobre la bifurcación
-    # heredan su X (tramo raíz→bifurcación vertical). ---
-    biforcations = [i for i in main_ids if len(children.get(i, [])) >= 2]
-    if biforcations:
-        top_bif = min(biforcations, key=lambda i: (level[i], order.get(i, 0)))
-        node = top_bif
+    # heredan la X (centrada) de la bifurcación → tramo raíz→fork vertical. ---
+    biforcations = [i for i in main_ids
+                    if len({lane_of.get(c) for c in children.get(i, [])}) >= 2]
+    for bif in sorted(biforcations, key=lambda i: (level[i], order.get(i, 0))):
+        node = bif
         for _ in range(len(main_ids)):
             ps = parents.get(node, [])
             if len(ps) != 1 or len(children.get(ps[0], [])) != 1:
                 break
-            x[ps[0]] = x[top_bif]
+            x[ps[0]] = x[bif]
             node = ps[0]
 
     # Extensión de las columnas principales (para colocar satélites/tomas

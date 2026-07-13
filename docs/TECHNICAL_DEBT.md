@@ -613,6 +613,7 @@ El usuario produjo una especificación completa de layout jerárquico (18 criter
 - **Fase 3 — §E+§F COMPLETA**:
   - §E (`AlmaGag/layout/hier/arcs.py`): aristas de ciclo como bezier con winding coherente. E15: signo global sobre la normal de la dirección → ida interior, retorno exterior automáticamente. E16: signo elegido desde la back-edge para que su normal apunte lejos del centroide. E17: comba adaptativa (base 44px, crece para librar nodos con proyección interior a la cuerda y perp<72px del lado de la comba, tope 320px).
   - §F18 (`AlmaGag/layout/hier/labels.py`): etiqueta al borde menos concurrido (cuenta conectores por T/B/L/R, desempate abajo→arriba→exterior→interior); setea `label_position`.
+  - **§B7 v2 (simetría)**: se completó el centrado de la bifurcación. El tallo (bifurcación superior + ancestros de hijo único) se separa a su propio carril y se centra entre las columnas hijas; además el nodo de entrada del ciclo (H) se fusiona a la columna del ciclo (H·I·J·K vertical, sin diagonal larga H→I). 14-stresstest queda simétrico: tallo A·D centrado, ciclo a un lado, tronco al otro.
 
 Registro: `--layout-algorithm=hier` en `main.py` + `generator.OPTIMIZERS`. Reusa `AutoSVGRenderer` para el dibujo. Tests en `tests/test_hier_layout.py` (8). LAF y sus 24 canonicals quedan intactos. Limitación Fase 1: `hier` posiciona sólo elementos root (grafos planos); el soporte de containers vendrá después.
 

@@ -100,6 +100,20 @@ def test_trunk_and_cycle_separate_columns():
     assert trunk != cycle
 
 
+def test_bifurcation_centered_symmetric():
+    """§B7: la bifurcación superior (D) + su tallo (A) quedan centrados entre
+    las columnas que generan (ciclo y tronco) → fork simétrico."""
+    r = _optimize(_stress_data())
+    xof = {e['id']: e['x'] for e in r.elements}
+    cyc = xof['ElemtH']      # cabeza de la columna del ciclo
+    trunk = xof['ElemtE']    # cabeza de la columna del tronco
+    stem = xof['ElemtD']
+    # D equidistante de ambas columnas (± tolerancia)
+    assert abs((stem - cyc) - (trunk - stem)) < 1.0
+    # A comparte X con D (tallo vertical)
+    assert abs(xof['ElemtA'] - stem) < 1.0
+
+
 def test_side_feeders_at_margin():
     """§A3: las tomas B/C quedan fuera del rango de las columnas principales."""
     r = _optimize(_stress_data())
