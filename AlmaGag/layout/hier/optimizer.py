@@ -49,17 +49,33 @@ class HierLayoutOptimizer(LayoutOptimizer):
 
         # §A niveles + §B columnas.
         lv = compute_levels(elements, connections)
-        cols = compute_columns(lv, elements, connections)
+        cols, wp_abstract = compute_columns(lv, elements, connections)
 
         # Mapear (columna, nivel) → coords reales. Y por nivel (las tomas a
         # X.5 caen entre filas).
-        min_col = min(cols.values()) if cols else 0
+        all_cols = list(cols.values()) + [cx for chain in wp_abstract.values() for cx, _ in chain]
+        min_col = min(all_cols) if all_cols else 0
+
+        def to_x(col):
+            return MARGIN_X + (col - min_col) * COL_SPACING
+
         for e in elements:
             eid = e['id']
             if eid not in cols:
                 continue  # contenido (no root); se resuelve aparte si aplica
-            e['x'] = MARGIN_X + (cols[eid] - min_col) * COL_SPACING
+            e['x'] = to_x(cols[eid])
             e['y'] = MARGIN_Y + lv.level[eid] * LEVEL_SPACING
+
+        # §B4: waypoints de aristas largas → coords reales sobre la conexión.
+        icon_half = ICON_WIDTH / 2
+        for c in connections:
+            key = (c.get('from'), c.get('to'))
+            if key in wp_abstract and wp_abstract[key]:
+                c['waypoints'] = [
+                    {'x': to_x(cx) + icon_half,
+                     'y': MARGIN_Y + gl * LEVEL_SPACING + ICON_HEIGHT / 2}
+                    for cx, gl in wp_abstract[key]
+                ]
 
         # Canvas ajustado al contenido.
         xs = [e['x'] for e in elements if 'x' in e]

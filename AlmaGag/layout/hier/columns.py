@@ -20,17 +20,20 @@ def _int_level(v: float) -> int:
 
 
 def compute_columns(levels: Levels, elements: List[dict],
-                    connections: List[dict], passes: int = 20) -> Dict[str, float]:
+                    connections: List[dict], passes: int = 20):
     """
-    Devuelve {id: x_abstracta}. Y se deriva del nivel (en el optimizer).
+    Devuelve (x, waypoints):
+      x          {id: x_abstracta} de nodos reales (Y se deriva del nivel).
+      waypoints  {(from, to): [x_abstracta por nivel intermedio]} para las
+                 aristas largas partidas con nodos fantasma (§B4).
     """
-    level = levels.level
+    level = dict(levels.level)  # copia (se le agregan ghosts)
     satellites = levels.satellites
     side_feeders = levels.side_feeders
     back = levels.back_edges
 
-    main_ids = [i for i in level if i not in satellites and i not in side_feeders]
-    idset = set(level)
+    real_ids = [i for i in level if i not in satellites and i not in side_feeders]
+    main_ids = list(real_ids)
 
     # Grafo de flujo (sin back-edges, sin satélites/tomas como nodos de columna).
     children: Dict[str, List[str]] = {i: [] for i in main_ids}
@@ -40,6 +43,42 @@ def compute_columns(levels: Levels, elements: List[dict],
         if f in main_ids and t in main_ids and (f, t) not in back:
             children[f].append(t)
             parents[t].append(f)
+
+    # --- §B4: nodos fantasma en aristas largas (|Δnivel entero| > 1) ---
+    # La arista f→t se parte en f→g1→…→gk→t con un ghost por nivel intermedio.
+    # Los ghosts participan del barycenter/carriles (reducen cruces y dan a la
+    # arista un carril propio); sus X se devuelven como waypoints para el ruteo.
+    # Bajo min-parent (§A1) ninguna arista forward baja más de 1 nivel; las
+    # largas van de un nodo PROFUNDO a uno SUPERFICIAL (Δ negativo grande).
+    # Se parten en ambos sentidos: |Δnivel entero| > 1.
+    ghost_chain: Dict[tuple, List[str]] = {}
+    long_edges = []
+    for f in real_ids:
+        for t in list(children.get(f, [])):
+            lf, lt = int(level[f]), int(level[t])
+            if abs(lt - lf) > 1:
+                long_edges.append((f, t, lf, lt))
+    for (f, t, lf, lt) in long_edges:
+        children[f] = [c for c in children[f] if c != t]
+        parents[t] = [p for p in parents[t] if p != f]
+        step = 1 if lt > lf else -1
+        chain = []
+        prev = f
+        for L in range(lf + step, lt, step):
+            g = f"__g_{f}_{t}_{L}"
+            level[g] = L
+            children[g] = []
+            parents[g] = []
+            main_ids.append(g)
+            children[prev].append(g)
+            parents[g].append(prev)
+            chain.append(g)
+            prev = g
+        children[prev].append(t)
+        parents[t].append(prev)
+        ghost_chain[(f, t)] = chain
+
+    idset = set(level)
 
     # Nodos cíclicos: por cada back-edge (u→v), el ciclo es v→…→u en el grafo
     # de flujo. Se usa para preferir el TRONCO (padre acíclico) al elegir el
@@ -216,10 +255,10 @@ def compute_columns(levels: Levels, elements: List[dict],
             node = ps[0]
 
     # Extensión de las columnas principales (para colocar satélites/tomas
-    # SIN encimarlas con los nodos del tronco/ciclo).
-    main_xs = [x[n] for n in main_ids] or [0.0]
-    main_min, main_max = min(main_xs), max(main_xs)
-    center = sum(main_xs) / len(main_xs)
+    # SIN encimarlas con los nodos del tronco/ciclo). Considera nodos reales.
+    real_xs = [x[n] for n in real_ids if n in x] or [0.0]
+    main_min, main_max = min(real_xs), max(real_xs)
+    center = sum(real_xs) / len(real_xs)
 
     # --- §A2 satélites: al costado del padre, hacia afuera del centro ---
     for sat, parent in satellites.items():
@@ -234,4 +273,9 @@ def compute_columns(levels: Levels, elements: List[dict],
         tx = x.get(target, center)
         x[feeder] = left_margin if tx <= center else right_margin
 
-    return x
+    # Waypoints §B4: (x, nivel) de los ghosts por arista larga.
+    waypoints = {edge: [(x[g], level[g]) for g in chain if g in x]
+                 for edge, chain in ghost_chain.items()}
+    # X de todos los nodos reales (incluye satélites y tomas; excluye ghosts).
+    real_x = {n: x[n] for n in x if not str(n).startswith('__g_')}
+    return real_x, waypoints

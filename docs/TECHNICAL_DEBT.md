@@ -573,7 +573,7 @@ El alza de R1 es **correcta**: al detectar ahora los iconos custom, el validador
 
 ## 🌟 WISH
 
-### WISH-LAF-002: Layout Jerárquico `hier` según Criterios A1–F18 (spec Claude Design) 🔧 EN PROGRESO (Fase 1)
+### WISH-LAF-002: Layout Jerárquico `hier` según Criterios A1–F18 (spec Claude Design) 🔧 EN PROGRESO (Fase 1 ✅, Fase 2 siguiente)
 **Componente**: `AlmaGag/layout/hier/` (algoritmo nuevo) — leveling.py (§A), columns.py (§B), optimizer.py; + routing/draw (§C–§F)
 **Severidad**: Alta (norte de calidad de layout; caso de regresión `14-stresstest.sdjf`)
 **Reportado**: 2026-06-24 (spec "Criterios AlmaGag" generada por el usuario con Claude Design)
@@ -602,7 +602,8 @@ El usuario produjo una especificación completa de layout jerárquico (18 criter
   - **§A hecho** (`AlmaGag/layout/hier/leveling.py`): `compute_levels()` puro — min-parent (A1) + satélites (A2, con requisito de padre que continúa el flujo) + tomas a medio-nivel (A3) + back-edges. Verificado contra 14-stresstest: `A=0 D=1 B=1.5 E/H/L=2 F/I=3 C=3.5 G/J=4 K/M=5`.
   - **§B v1 hecho** (`AlmaGag/layout/hier/columns.py`): barycenter (B4) + alineación iterativa al ancestro dominante con sesgo tronco/ciclo (B6) + centrado de bifurcación (B7) + separación mínima por fila + tallo raíz (B8) + satélites al costado / tomas al margen exterior. `14-stresstest` en `hier`: canvas **1380×980** (vs 1960×2150 en LAF), 2 columnas principales limpias, sin solapes.
   - **§B5 hecho** (`columns.py`): carriles cycle-aware — cada componente de ciclo (SCC) recibe un carril propio y los nodos acíclicos se descomponen por spine (DFS de primera visita, hijo de subárbol más profundo continúa el carril). 14-stresstest queda con tronco A·D·E·F·G·M en una columna, ciclo I·J·K en otra, H aparte, satélite L al lado, tomas B/C al margen exterior. Canvas 1480×980.
-  - **§B pendiente**: ghosts en aristas largas (B4) todavía no se insertan (afecta aristas que saltan >1 nivel).
+  - **§B4 hecho** (`columns.py`): nodos fantasma en aristas largas. Hallazgo: bajo min-parent NINGUNA arista forward baja >1 nivel (min-parent garantiza Δ≤1); las largas van de un nodo profundo a uno superficial (Δ negativo), así que la detección es `|Δnivel|>1`. Cada arista larga se parte con un ghost por nivel intermedio; los ghosts entran al barycenter/carriles (reducen cruces) y sus X se exponen como `waypoints` en la conexión para el ruteo (§D).
+  - **Fase 1 §A+§B COMPLETA.** Falta la consumación de waypoints por el ruteo (§D, Fase 2).
 - **Fase 2 — §C+§D** (puertos por proyección, lado/perpendicular, ruteo de tomas, rectas en mismo-nivel/cruces).
 - **Fase 3 — §E+§F** (arcos de ciclo con winding/signo/comba, etiquetas al lado libre).
 

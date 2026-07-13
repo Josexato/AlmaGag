@@ -119,6 +119,30 @@ def test_compact_canvas():
     assert r.canvas['height'] <= 1200
 
 
+def test_b4_ghost_waypoints_on_long_edge():
+    """§B4: una arista que salta >1 nivel recibe waypoints en los niveles
+    intermedios (nodos fantasma). Bajo min-parent las largas van de un nodo
+    profundo a uno superficial (Δ negativo)."""
+    els = [{'id': n, 'type': 'server', 'label': n} for n in ('A', 'B', 'C', 'D', 'T')]
+    cons = [{'from': 'A', 'to': 'B'}, {'from': 'B', 'to': 'C'},
+            {'from': 'C', 'to': 'D'}, {'from': 'A', 'to': 'T'},
+            {'from': 'D', 'to': 'T'}]  # D(3)->T(1): Δ=-2, arista larga
+    L = Layout(elements=els, connections=cons, canvas={'width': 800, 'height': 600})
+    L._diagram_name = 'test'
+    r = HierLayoutOptimizer(verbose=False).optimize(L)
+    dt = next(c for c in r.connections if c['from'] == 'D' and c['to'] == 'T')
+    assert dt.get('waypoints'), "D->T (arista larga) debería tener waypoints §B4"
+    # un solo nivel intermedio (2) entre 3 y 1
+    assert len(dt['waypoints']) == 1
+
+
+def test_no_waypoints_on_adjacent_edges():
+    """Aristas Δ=1 NO reciben waypoints (no son largas)."""
+    r = _optimize(_stress_data())
+    for c in r.connections:
+        assert not c.get('waypoints'), f"{c['from']}->{c['to']} no debería tener waypoints"
+
+
 def test_hier_renders_svg():
     data = _stress_data()
     tmp = tempfile.NamedTemporaryFile(suffix='.svg', delete=False)
