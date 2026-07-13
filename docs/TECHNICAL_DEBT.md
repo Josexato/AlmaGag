@@ -596,7 +596,9 @@ El usuario produjo una especificación completa de layout jerárquico (18 criter
 **Criterios de aceptación**: cada criterio A1–F18 verificado contra `14-stresstest.sdjf` (LAF), tal como describe la sección "verificación" de cada uno en el spec.
 
 **Plan por fases** (respeta el orden de dependencias del spec):
-- **Fase 1 — §A+§B** (niveles min-parent, satélites, tomas medio-nivel, ghosts+barycenter, carriles, alineación, bifurcación, tallo). *En progreso.*
+- **Fase 1 — §A+§B** (niveles min-parent, satélites, tomas medio-nivel, ghosts+barycenter, carriles, alineación, bifurcación, tallo). *§A entregada (commit `756a7a0`); §B en progreso.*
+  - **§A hecho**: `_calculate_topological_levels` reescrito a min-parent + satélites + tomas. Verificado contra 14-stresstest.
+  - **§B — hallazgo de entanglement**: el placement NO consume `topological_levels` directamente sino `ndpr_topological_levels`, que en `_build_ndpr_abstract_graph` (paso 5) **re-propaga longest-path** (`level(tgt) >= level(src)+1`), sobrescribiendo §A y perdiendo los medio-niveles de las tomas. Además `_assign_layers` indexa capas por nivel entero (los 1.5/3.5 lo romperían). §B requiere: (a) que los niveles NdPr hereden §A (min-parent) en vez de re-propagar longest-path; (b) modelo de placement que ubique tomas a medio-nivel; (c) post-pass de carriles rectos (B5), alineación a ancestro dominante (B6), centrado de bifurcación (B7) y tallo raíz (B8) sobre las X abstractas.
 - **Fase 2 — §C+§D** (puertos por proyección, lado/perpendicular, ruteo de tomas, rectas en mismo-nivel/cruces).
 - **Fase 3 — §E+§F** (arcos de ciclo con winding/signo/comba, etiquetas al lado libre).
 
