@@ -18,6 +18,7 @@ from AlmaGag.layout.graph_analysis import GraphAnalyzer
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 from AlmaGag.layout.hier.leveling import compute_levels
 from AlmaGag.layout.hier.columns import compute_columns
+from AlmaGag.layout.hier.routing import route_connections
 
 logger = logging.getLogger('AlmaGag')
 
@@ -85,9 +86,9 @@ class HierLayoutOptimizer(LayoutOptimizer):
             height = max(ys) + ICON_HEIGHT + MARGIN_Y
             L.canvas = {'width': max(width, 400), 'height': max(height, 300)}
 
-        # Ruteo de conexiones (por ahora reusa la política AUTO; §C/§D lo
-        # refinan en la Fase 2).
-        self.routing.route(L)
+        # §C/§D: puertos por proyección + ruteo (Fase 2). Setea computed_path
+        # en cada conexión (las back-edges quedan sin path → §E Fase 3).
+        route_connections(L, lv)
 
         # Atributos de análisis que el generator lee.
         L.levels = {eid: int(v) for eid, v in lv.level.items()}

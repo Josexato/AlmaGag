@@ -573,7 +573,7 @@ El alza de R1 es **correcta**: al detectar ahora los iconos custom, el validador
 
 ## 🌟 WISH
 
-### WISH-LAF-002: Layout Jerárquico `hier` según Criterios A1–F18 (spec Claude Design) 🔧 EN PROGRESO (Fase 1 ✅, Fase 2 siguiente)
+### WISH-LAF-002: Layout Jerárquico `hier` según Criterios A1–F18 (spec Claude Design) 🔧 EN PROGRESO (Fase 1 ✅, Fase 2 ✅, Fase 3 siguiente)
 **Componente**: `AlmaGag/layout/hier/` (algoritmo nuevo) — leveling.py (§A), columns.py (§B), optimizer.py; + routing/draw (§C–§F)
 **Severidad**: Alta (norte de calidad de layout; caso de regresión `14-stresstest.sdjf`)
 **Reportado**: 2026-06-24 (spec "Criterios AlmaGag" generada por el usuario con Claude Design)
@@ -604,7 +604,12 @@ El usuario produjo una especificación completa de layout jerárquico (18 criter
   - **§B5 hecho** (`columns.py`): carriles cycle-aware — cada componente de ciclo (SCC) recibe un carril propio y los nodos acíclicos se descomponen por spine (DFS de primera visita, hijo de subárbol más profundo continúa el carril). 14-stresstest queda con tronco A·D·E·F·G·M en una columna, ciclo I·J·K en otra, H aparte, satélite L al lado, tomas B/C al margen exterior. Canvas 1480×980.
   - **§B4 hecho** (`columns.py`): nodos fantasma en aristas largas. Hallazgo: bajo min-parent NINGUNA arista forward baja >1 nivel (min-parent garantiza Δ≤1); las largas van de un nodo profundo a uno superficial (Δ negativo), así que la detección es `|Δnivel|>1`. Cada arista larga se parte con un ghost por nivel intermedio; los ghosts entran al barycenter/carriles (reducen cruces) y sus X se exponen como `waypoints` en la conexión para el ruteo (§D).
   - **Fase 1 §A+§B COMPLETA.** Falta la consumación de waypoints por el ruteo (§D, Fase 2).
-- **Fase 2 — §C+§D** (puertos por proyección, lado/perpendicular, ruteo de tomas, rectas en mismo-nivel/cruces).
+- **Fase 2 — §C+§D COMPLETA** (`AlmaGag/layout/hier/routing.py`): produce `connection['computed_path']`.
+  - C9 puertos por proyección del otro extremo sobre el borde (fracción 0.16–0.84), separados por borde.
+  - C10 lado del puerto según eje de flujo + llegada perpendicular.
+  - C11 ruteo de tomas (salida lateral → horizontal → bajada vertical, 3 puntos).
+  - D12 aristas de mismo nivel en recta; D13 cruces reales en recta (bifurcación/fusión conservan codo); D14 carriles de canal (offset por pista).
+  - Consume los waypoints §B4. Las back-edges quedan sin path → arco §E (Fase 3). Conexiones a contenidos (sin posición) se saltan sin romper.
 - **Fase 3 — §E+§F** (arcos de ciclo con winding/signo/comba, etiquetas al lado libre).
 
 Registro: `--layout-algorithm=hier` en `main.py` + `generator.OPTIMIZERS`. Reusa `AutoSVGRenderer` para el dibujo. Tests en `tests/test_hier_layout.py` (8). LAF y sus 24 canonicals quedan intactos. Limitación Fase 1: `hier` posiciona sólo elementos root (grafos planos); el soporte de containers vendrá después.
