@@ -126,6 +126,18 @@ def compute_levels(elements: List[dict], connections: List[dict]) -> Levels:
         if not changed:
             break
 
+    # G20 (excepción a A1): un SUMIDERO (0 salidas, ≥2 padres acíclicos) va
+    # DEBAJO de su último padre → nivel = max(nivel de padres)+1. Así los
+    # terminales de un flowchart (NO es primo, ES PRIMO) caen al fondo, cerca
+    # de todos sus orígenes, en vez de subir por min-parent y alargar aristas.
+    for i in ids:
+        if i in excluded or outdeg[i] != 0:
+            continue
+        # padres ya nivelados (excluye satélites/tomas, que se asignan luego)
+        ps = [p for p in acyclic_in.get(i, []) if p in level]
+        if len(ps) >= 2:
+            level[i] = max(level[p] for p in ps) + 1
+
     # satélites = nivel del padre; tomas = nivel del destino − 0.5
     for sat, parent in satellites.items():
         level[sat] = level.get(parent, 0)

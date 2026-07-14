@@ -135,19 +135,18 @@ def test_compact_canvas():
 
 def test_b4_ghost_waypoints_on_long_edge():
     """§B4: una arista que salta >1 nivel recibe waypoints en los niveles
-    intermedios (nodos fantasma). Bajo min-parent las largas van de un nodo
-    profundo a uno superficial (Δ negativo)."""
+    intermedios (nodos fantasma). Con G20 el sumidero T (2 padres) baja a
+    nivel max(padres)+1=4, así que la arista larga es A(0)→T(4) (Δ4)."""
     els = [{'id': n, 'type': 'server', 'label': n} for n in ('A', 'B', 'C', 'D', 'T')]
     cons = [{'from': 'A', 'to': 'B'}, {'from': 'B', 'to': 'C'},
             {'from': 'C', 'to': 'D'}, {'from': 'A', 'to': 'T'},
-            {'from': 'D', 'to': 'T'}]  # D(3)->T(1): Δ=-2, arista larga
+            {'from': 'D', 'to': 'T'}]
     L = Layout(elements=els, connections=cons, canvas={'width': 800, 'height': 600})
     L._diagram_name = 'test'
     r = HierLayoutOptimizer(verbose=False).optimize(L)
-    dt = next(c for c in r.connections if c['from'] == 'D' and c['to'] == 'T')
-    assert dt.get('waypoints'), "D->T (arista larga) debería tener waypoints §B4"
-    # un solo nivel intermedio (2) entre 3 y 1
-    assert len(dt['waypoints']) == 1
+    at = next(c for c in r.connections if c['from'] == 'A' and c['to'] == 'T')
+    assert at.get('waypoints'), "A->T (arista larga Δ4) debería tener waypoints §B4"
+    assert len(at['waypoints']) == 3  # niveles intermedios 1,2,3
 
 
 def test_no_waypoints_on_adjacent_edges():

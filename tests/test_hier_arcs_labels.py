@@ -54,8 +54,8 @@ def test_return_edge_bulges_opposite_to_ida():
 
 
 def test_return_arc_bulges_away_from_centroid():
-    """§E16: el arco de retorno comba hacia afuera del centroide (la columna
-    del ciclo está a la izquierda → comba a la izquierda)."""
+    """§E16: el arco de retorno comba hacia AFUERA del centroide (sea cual sea
+    el lado en que quede la columna del ciclo)."""
     r = _optimize()
     from AlmaGag.config import ICON_WIDTH
     cxs = [e['x'] + ICON_WIDTH / 2 for e in r.elements if 'x' in e]
@@ -64,9 +64,8 @@ def test_return_arc_bulges_away_from_centroid():
     (ax, _), (bx, _) = cp['points']
     chord_mid_x = (ax + bx) / 2
     c1x = cp['control_points'][0][0]
-    # el ciclo está a la izquierda del centroide; la comba debe alejarse (izq)
-    assert chord_mid_x < centroid
-    assert c1x < chord_mid_x  # comba hacia la izquierda (exterior)
+    # la comba se aleja del centroide: mismo signo que (columna − centroide)
+    assert (c1x - chord_mid_x) * (chord_mid_x - centroid) > 0
 
 
 # ---- §F18 etiquetas ----

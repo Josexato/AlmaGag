@@ -81,42 +81,6 @@ def compute_columns(levels: Levels, elements: List[dict],
 
     idset = set(level)
 
-    # Nodos cíclicos: por cada back-edge (u→v), el ciclo es v→…→u en el grafo
-    # de flujo. Se usa para preferir el TRONCO (padre acíclico) al elegir el
-    # padre dominante — así el tronco y el ciclo quedan en columnas separadas.
-    cyclic: set = set()
-    for (u, v) in back:
-        cyclic.add(u)
-        cyclic.add(v)
-        # reachability v→…→u
-        stack, seen = [v], set()
-        while stack:
-            n = stack.pop()
-            if n in seen:
-                continue
-            seen.add(n)
-            if n == u:
-                continue
-            for ch in children.get(n, []):
-                stack.append(ch)
-        # incluir nodos en algún camino v→u
-        for n in seen:
-            # n está en el ciclo si puede volver a u
-            st2, sn2 = [n], set()
-            reach_u = False
-            while st2:
-                m = st2.pop()
-                if m in sn2:
-                    continue
-                sn2.add(m)
-                if m == u:
-                    reach_u = True
-                    break
-                for ch in children.get(m, []):
-                    st2.append(ch)
-            if reach_u:
-                cyclic.add(n)
-
     # Filas por nivel entero.
     by_level: Dict[int, List[str]] = {}
     for i in main_ids:
@@ -157,18 +121,33 @@ def compute_columns(levels: Levels, elements: List[dict],
     MIN_SEP = 1.5 * STEP
     LANE = 2.0 * STEP
 
-    # --- B5: carriles cycle-aware ---
-    # (1) Cada componente de ciclo (SCC) recibe UN carril: sus miembros forman
-    #     una columna vertical (I·J·K). (2) Los nodos acíclicos se descomponen
-    #     por spine (DFS de primera visita, hijo de subárbol más profundo
-    #     continúa el carril). Así tronco y ciclo quedan en columnas propias.
-    def subtree_depth(n, seen):
-        if n in seen:
-            return 0
-        seen.add(n)
-        # sólo aristas hacia nodos acíclicos (el spine no entra al ciclo)
-        return 1 + max((subtree_depth(c, seen) for c in children.get(n, [])
-                        if c not in cyclic), default=0)
+    # --- B5: carriles por descomposición de cadenas (longest-path primero) ---
+    # Se extrae repetidamente la cadena forward más larga y se le da un carril.
+    # El back-edge no participa (grafo ya sin ciclos → DAG). Esto sirve para
+    # AMBOS casos: cuando el ciclo es el tronco queda inline (una columna, como
+    # en es-primo); cuando es una rama lateral con tronco paralelo, queda en su
+    # propia columna (como el ciclo I·J·K del stresstest).
+    def _is_ghost(n):
+        return str(n).startswith('__g_')
+
+    # Longitud de cadena contando sólo nodos REALES (los ghosts de aristas
+    # largas no inflan la cadena → no compiten con el tronco).
+    _lp: Dict[str, int] = {}
+
+    def longest(n):
+        if n not in _lp:
+            w = 0 if _is_ghost(n) else 1
+            _lp[n] = w + max((longest(c) for c in children.get(n, [])), default=0)
+        return _lp[n]
+
+    # Hijo PRIMARIO que continúa la cadena/columna: el "más propio" de esta
+    # rama = MENOS padres (un hijo con muchos padres es un cruce/fusión, no la
+    # continuación); en empate, la cadena real más larga; luego orden estable.
+    # Esto separa el tronco del ciclo en el stresstest (F→G sigue el tronco,
+    # F→I cruza al ciclo) y mantiene el ciclo inline cuando es el único camino
+    # (es-primo: init→cond→divides→inc).
+    def _primary_key(c):
+        return (-len(parents.get(c, [])), longest(c), -order.get(c, 0))
 
     lane_of: Dict[str, int] = {}
     next_lane = [-1]
@@ -177,37 +156,13 @@ def compute_columns(levels: Levels, elements: List[dict],
         next_lane[0] += 1
         return next_lane[0]
 
-    # (1) componentes de ciclo → un carril cada uno.
-    cyc_seen: set = set()
-    for n in sorted(cyclic, key=lambda n: (level[n], order.get(n, 0))):
-        if n in cyc_seen:
-            continue
-        comp, stack = [], [n]
-        while stack:
-            m = stack.pop()
-            if m in cyc_seen:
-                continue
-            cyc_seen.add(m)
-            comp.append(m)
-            for c in children.get(m, []):
-                if c in cyclic and c not in cyc_seen:
-                    stack.append(c)
-            for p in parents.get(m, []):
-                if p in cyclic and p not in cyc_seen:
-                    stack.append(p)
-        ln = new_lane()
-        for m in comp:
-            lane_of[m] = ln
-
-    # (2) spine DFS sobre nodos acíclicos.
-    visited: set = set(lane_of)
+    visited: set = set()
 
     def dfs(node, lane):
         visited.add(node)
         lane_of[node] = lane
-        kids = [c for c in children.get(node, [])
-                if c not in visited and c not in cyclic]
-        kids.sort(key=lambda c: (-subtree_depth(c, set()), order.get(c, 0)))
+        kids = [c for c in children.get(node, []) if c not in visited]
+        kids.sort(key=_primary_key, reverse=True)
         for idx, c in enumerate(kids):
             if c in visited:
                 continue
@@ -216,35 +171,64 @@ def compute_columns(levels: Levels, elements: List[dict],
     roots = sorted([i for i in main_ids if not parents.get(i)],
                    key=lambda n: (level[n], order.get(n, 0)))
     for r in roots:
-        if r not in visited and r not in cyclic:
+        if r not in visited:
             dfs(r, new_lane())
     for n in sorted(main_ids, key=lambda n: (level[n], order.get(n, 0))):
-        if n not in lane_of:
-            dfs(n, new_lane()) if n not in cyclic else None
+        if n not in visited:
+            dfs(n, new_lane())
 
-    # Fusionar carriles acíclicos SINGLETON que alimentan un carril de ciclo:
-    # el nodo de entrada (p.ej. H→I) pasa a ENCABEZAR la columna del ciclo,
-    # evitando un carril suelto y el conector diagonal largo hacia el ciclo.
-    cycle_lanes = {lane_of[n] for n in cyclic if n in lane_of}
-    lane_members = defaultdict(list)
-    for n, ln in lane_of.items():
-        lane_members[ln].append(n)
-    for n in list(main_ids):
-        ln = lane_of.get(n)
-        if ln in cycle_lanes or len(lane_members.get(ln, [])) != 1:
+    # Fusionar carriles SINGLETON (un solo nodo real) cuyo nodo alimenta otro
+    # carril → ese nodo pasa a ENCABEZAR esa columna. Evita orfanatos como H
+    # (H→I, con I ya reclamado por el carril del ciclo → H encabeza el ciclo).
+    _rls = defaultdict(int)
+    for _n, _ln in lane_of.items():
+        if not _is_ghost(_n):
+            _rls[_ln] += 1
+    def _heads_lane(c):
+        # c encabeza su carril si ningún padre suyo está en ese mismo carril.
+        cln = lane_of.get(c)
+        return all(lane_of.get(p) != cln for p in parents.get(c, []))
+
+    for n in sorted(main_ids, key=lambda n: level[n]):
+        if _is_ghost(n):
             continue
-        # ¿algún hijo en un carril de ciclo?
-        for c in children.get(n, []):
-            if lane_of.get(c) in cycle_lanes:
-                lane_of[n] = lane_of[c]
-                break
+        ln = lane_of.get(n)
+        if _rls.get(ln, 0) != 1:
+            continue
+        # preferir el hijo que ENCABEZA su carril (así n pasa a ser la nueva
+        # cabeza real de esa columna, p.ej. H→I encabeza el ciclo, no H→F que
+        # cae a mitad del tronco).
+        cand = [c for c in children.get(n, [])
+                if not _is_ghost(c) and lane_of.get(c) not in (None, ln)]
+        cand.sort(key=lambda c: (0 if _heads_lane(c) else 1, level[c]))
+        if cand:
+            c = cand[0]
+            cln = lane_of[c]
+            _rls[ln] -= 1
+            _rls[cln] += 1
+            lane_of[n] = cln
 
     # Separar el TALLO (bifurcación superior + ancestros de hijo único) a su
     # propio carril, para que no quede pegado a la columna de un hijo y B7
     # pueda centrarlo entre las columnas que genera (simetría del fork).
+    # G21: SOLO si las dos ramas son cadenas de ≥2 nodos (columnas reales). Si
+    # una rama es hoja/sumidero, el tallo sigue recto sobre la cadena dominante.
+    # Tamaño de carril contando sólo nodos REALES (los ghosts de aristas
+    # largas no forman una columna → no cuentan como rama de un fork).
+    lane_size = defaultdict(int)
+    for _n, _ln in lane_of.items():
+        if not _is_ghost(_n):
+            lane_size[_ln] += 1
+
     def _child_lanes(i):
-        return {lane_of.get(c) for c in children.get(i, []) if c in lane_of}
-    bifs0 = [i for i in main_ids if len(_child_lanes(i)) >= 2]
+        return {lane_of.get(c) for c in children.get(i, [])
+                if c in lane_of and not _is_ghost(c)}
+
+    def _is_real_fork(i):
+        cls = _child_lanes(i)
+        return len(cls) >= 2 and all(lane_size.get(ln, 0) >= 2 for ln in cls)
+
+    bifs0 = [i for i in main_ids if _is_real_fork(i)]
     if bifs0:
         top = min(bifs0, key=lambda i: (level[i], order.get(i, 0)))
         stem = [top]
@@ -288,13 +272,14 @@ def compute_columns(levels: Levels, elements: List[dict],
         for i in by_level[lv]:
             ch = [c for c in children.get(i, []) if c in x]
             child_lanes = {lane_of.get(c) for c in ch}
-            if len(ch) >= 2 and len(child_lanes) >= 2 and lane_of.get(i) not in child_lanes:
+            # G21: sólo centra si es un fork real (ambas ramas ≥2 nodos) y el
+            # nodo no continúa una de esas columnas.
+            if _is_real_fork(i) and lane_of.get(i) not in child_lanes:
                 x[i] = sum(x[c] for c in ch) / len(ch)
 
     # --- B8: tallo raíz — ancestros de hijo único sobre la bifurcación
     # heredan la X (centrada) de la bifurcación → tramo raíz→fork vertical. ---
-    biforcations = [i for i in main_ids
-                    if len({lane_of.get(c) for c in children.get(i, [])}) >= 2]
+    biforcations = [i for i in main_ids if _is_real_fork(i)]
     for bif in sorted(biforcations, key=lambda i: (level[i], order.get(i, 0))):
         node = bif
         for _ in range(len(main_ids)):
