@@ -298,6 +298,7 @@ Es un array de objetos. Cada objeto es una linea que conecta dos elementos.
 | `routing` | objeto | no | linea recta | Como se dibuja la linea. Ver seccion "Routing" mas abajo. |
 | `semantic_type` | string | no | — | Tipo semantico → color automatico. Ver tabla abajo. |
 | `color` | string | no | negro | Color directo (hex o nombre CSS). Tiene precedencia sobre `semantic_type`. |
+| `style` | string | no | `"solid"` | Estilo de trazo: `"solid"` (default), `"dashed"` (punteado largo) o `"dotted"` (punteado corto). Útil para enlaces de respaldo/secundarios en topologías de red. Alias: `line_style`. |
 
 ### Color por tipo semantico (`semantic_type`)
 

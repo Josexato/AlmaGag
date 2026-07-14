@@ -65,6 +65,18 @@ def _apply_direction_markers(attrs, direction, markers):
             attrs['marker_end'] = markers.get('arrow_end', '')
 
 
+def _dash_for(connection):
+    """Patrón de guiones según `connection['style']` ('dashed' | 'dotted').
+    Devuelve None para línea sólida (default). Útil para enlaces de respaldo /
+    secundarios en topologías de red."""
+    style = connection.get('style') or connection.get('line_style')
+    if style == 'dashed':
+        return '7,5'
+    if style == 'dotted':
+        return '2,4'
+    return None
+
+
 def draw_connection_line(dwg, elements_by_id, connection, markers, stroke_color='black'):
     """
     Dibuja solo la línea de conexión, sin etiqueta.
@@ -100,9 +112,11 @@ def draw_connection_line(dwg, elements_by_id, connection, markers, stroke_color=
         return None
 
     # v2.1: Check if connection has computed_path from routing system
+    dash = _dash_for(connection)
+
     computed_path = connection.get('computed_path')
     if computed_path:
-        return _draw_computed_path(dwg, from_elem, to_elem, connection, computed_path, markers, stroke_color)
+        return _draw_computed_path(dwg, from_elem, to_elem, connection, computed_path, markers, stroke_color, dash)
 
     # Legacy behavior: waypoints or straight line
     # Centro de cada elemento
@@ -141,6 +155,8 @@ def draw_connection_line(dwg, elements_by_id, connection, markers, stroke_color=
             'stroke': stroke_color,
             'stroke_width': 2
         }
+        if dash:
+            line_attrs['stroke_dasharray'] = dash
 
         _apply_direction_markers(line_attrs, direction, markers)
 
@@ -197,6 +213,8 @@ def draw_connection_line(dwg, elements_by_id, connection, markers, stroke_color=
             'stroke_width': 2,
             'fill': 'none'
         }
+        if dash:
+            polyline_attrs['stroke_dasharray'] = dash
 
         # Aplicar markers solo en los extremos
         _apply_direction_markers(polyline_attrs, direction, markers)
@@ -212,7 +230,7 @@ def draw_connection_line(dwg, elements_by_id, connection, markers, stroke_color=
         return (mid_x, mid_y)
 
 
-def _draw_computed_path(dwg, from_elem, to_elem, connection, computed_path, markers, stroke_color='black'):
+def _draw_computed_path(dwg, from_elem, to_elem, connection, computed_path, markers, stroke_color='black', dash=None):
     """
     Dibuja una conexión usando un path pre-computado por el routing system (v2.1).
 
@@ -250,20 +268,20 @@ def _draw_computed_path(dwg, from_elem, to_elem, connection, computed_path, mark
         adjusted_points = _apply_visual_offsets(points, from_elem, to_elem)
 
     if path_type == 'line':
-        return _draw_straight_line(dwg, adjusted_points, direction, markers, stroke_color)
+        return _draw_straight_line(dwg, adjusted_points, direction, markers, stroke_color, dash)
     elif path_type == 'polyline':
         corner_radius = computed_path.get('corner_radius', 0)
-        return _draw_polyline(dwg, adjusted_points, direction, markers, corner_radius, stroke_color)
+        return _draw_polyline(dwg, adjusted_points, direction, markers, corner_radius, stroke_color, dash)
     elif path_type == 'bezier':
         control_points = computed_path.get('control_points', [])
-        return _draw_bezier_curve(dwg, adjusted_points, control_points, direction, markers, stroke_color)
+        return _draw_bezier_curve(dwg, adjusted_points, control_points, direction, markers, stroke_color, dash)
     elif path_type == 'arc':
         arc_center = computed_path.get('arc_center', (0, 0))
         radius = computed_path.get('radius', 50)
-        return _draw_arc(dwg, adjusted_points, arc_center, radius, direction, markers, stroke_color)
+        return _draw_arc(dwg, adjusted_points, arc_center, radius, direction, markers, stroke_color, dash)
     else:
         # Unknown type, fallback to straight line
-        return _draw_straight_line(dwg, adjusted_points, direction, markers, stroke_color)
+        return _draw_straight_line(dwg, adjusted_points, direction, markers, stroke_color, dash)
 
 
 def _apply_visual_offsets(points, from_elem, to_elem):
@@ -317,7 +335,7 @@ def _apply_visual_offsets(points, from_elem, to_elem):
     return adjusted
 
 
-def _draw_straight_line(dwg, points, direction, markers, stroke_color='black'):
+def _draw_straight_line(dwg, points, direction, markers, stroke_color='black', dash=None):
     """Dibuja una línea recta entre dos puntos."""
     if len(points) < 2:
         return (0, 0)
@@ -331,6 +349,8 @@ def _draw_straight_line(dwg, points, direction, markers, stroke_color='black'):
         'stroke': stroke_color,
         'stroke_width': 2
     }
+    if dash:
+        line_attrs['stroke_dasharray'] = dash
 
     _apply_direction_markers(line_attrs, direction, markers)
 
@@ -340,13 +360,13 @@ def _draw_straight_line(dwg, points, direction, markers, stroke_color='black'):
     return (x1 + x2) / 2, (y1 + y2) / 2
 
 
-def _draw_polyline(dwg, points, direction, markers, corner_radius=0, stroke_color='black'):
+def _draw_polyline(dwg, points, direction, markers, corner_radius=0, stroke_color='black', dash=None):
     """Dibuja una polyline, opcionalmente con esquinas redondeadas via SVG path Q curves."""
     if len(points) < 2:
         return (0, 0)
 
     if corner_radius > 0 and len(points) > 2:
-        return _draw_rounded_polyline(dwg, points, direction, markers, corner_radius, stroke_color)
+        return _draw_rounded_polyline(dwg, points, direction, markers, corner_radius, stroke_color, dash)
 
     polyline_attrs = {
         'points': points,
@@ -354,6 +374,8 @@ def _draw_polyline(dwg, points, direction, markers, corner_radius=0, stroke_colo
         'stroke_width': 2,
         'fill': 'none'
     }
+    if dash:
+        polyline_attrs['stroke_dasharray'] = dash
 
     _apply_direction_markers(polyline_attrs, direction, markers)
 
@@ -365,7 +387,7 @@ def _draw_polyline(dwg, points, direction, markers, corner_radius=0, stroke_colo
     return total_x / len(points), total_y / len(points)
 
 
-def _draw_rounded_polyline(dwg, points, direction, markers, corner_radius, stroke_color='black'):
+def _draw_rounded_polyline(dwg, points, direction, markers, corner_radius, stroke_color='black', dash=None):
     """Dibuja polyline con esquinas redondeadas usando SVG path con curvas cuadraticas (Q)."""
     # Construir SVG path: M start L...Q...L... end
     x0, y0 = points[0]
@@ -412,6 +434,8 @@ def _draw_rounded_polyline(dwg, points, direction, markers, corner_radius, strok
         'stroke_width': 2,
         'fill': 'none'
     }
+    if dash:
+        path_attrs['stroke_dasharray'] = dash
 
     _apply_direction_markers(path_attrs, direction, markers)
 
@@ -423,7 +447,7 @@ def _draw_rounded_polyline(dwg, points, direction, markers, corner_radius, strok
     return total_x / len(points), total_y / len(points)
 
 
-def _draw_bezier_curve(dwg, points, control_points, direction, markers, stroke_color='black'):
+def _draw_bezier_curve(dwg, points, control_points, direction, markers, stroke_color='black', dash=None):
     """Dibuja una curva de Bézier cúbica."""
     if len(points) < 2:
         return (0, 0)
@@ -449,6 +473,8 @@ def _draw_bezier_curve(dwg, points, control_points, direction, markers, stroke_c
         'stroke_width': 2,
         'fill': 'none'
     }
+    if dash:
+        path_attrs['stroke_dasharray'] = dash
 
     _apply_direction_markers(path_attrs, direction, markers)
 
@@ -458,7 +484,7 @@ def _draw_bezier_curve(dwg, points, control_points, direction, markers, stroke_c
     return (x1 + x2) / 2, (y1 + y2) / 2
 
 
-def _draw_arc(dwg, points, arc_center, radius, direction, markers, stroke_color='black'):
+def _draw_arc(dwg, points, arc_center, radius, direction, markers, stroke_color='black', dash=None):
     """Dibuja un arco circular."""
     if len(points) < 2:
         return (0, 0)
@@ -483,6 +509,8 @@ def _draw_arc(dwg, points, arc_center, radius, direction, markers, stroke_color=
         'stroke_width': 2,
         'fill': 'none'
     }
+    if dash:
+        path_attrs['stroke_dasharray'] = dash
 
     _apply_direction_markers(path_attrs, direction, markers)
 
