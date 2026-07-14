@@ -621,7 +621,14 @@ El usuario produjo una especificación completa de layout jerárquico (18 criter
 - Q4: la toma sale por el COSTADO hacia el destino (no por el fondo) → salida horizontal + bajada vertical al borde superior.
 - Q5: `tests/test_hier_geometry.py` — asserts geométricos (extremos en borde, llegada perpendicular) sobre el stresstest + 24 canónicos; evasión de obstáculos (d) validada en el stresstest.
 
-Registro: `--layout-algorithm=hier` en `main.py` + `generator.OPTIMIZERS`. Reusa `AutoSVGRenderer` para el dibujo. Tests en `tests/test_hier_layout.py` (8). LAF y sus 24 canonicals quedan intactos. Limitación Fase 1: `hier` posiciona sólo elementos root (grafos planos); el soporte de containers vendrá después.
+**QA de Claude Design (2026-07-14) — evaluación es-primo (extensión G19–G23)**: se generó una POC de flowchart (`¿es n primo?`, con rombos de decisión y bucle `while`) y Claude Design la evaluó, extendiendo el spec con cinco criterios nuevos. Todos resueltos (**Fase G**):
+- **G19** (`AlmaGag/layout/hier/shapes.py`): el recorte de puertos respeta el POLÍGONO real de la forma, no su bbox. Rombos (`decision`/`diamond`) usan convención flowchart: entrada por el vértice superior; salidas por izquierdo/derecho/inferior (un puerto por vértice, sin fracciones). `routing.py` snapea los puertos de rombo al vértice según dirección dominante; `arcs.py` recorta contra el rombo (`clip_shape`). Los conectores dejan de "flotar" en las esquinas vacías del bbox.
+- **G20** (`leveling.py`): un sumidero (0 salidas, ≥2 padres acíclicos) baja a `max(nivel de padres)+1` en vez de subir por min-parent → los terminales del flowchart (NO es primo / ES PRIMO) caen al fondo, cerca de sus orígenes.
+- **G21** (`columns.py`): asignación de carriles reescrita a *spine + hijo primario «menos padres»* con fusión de carriles-singleton hacia el head-child; el carve del tallo y el centrado B7 se restringen a bifurcaciones **reales** (excluyen fantasmas). `es-primo` queda en columna única; `14-stresstest` conserva la mariposa simétrica.
+- **G22** (`optimizer.py`): contención del viewBox — se reúne toda la geometría (iconos, polylines, waypoints, control-points de bezier, anclas de rótulo), se traslada al espacio positivo si algo se salió por arriba/izquierda (tomas a medio nivel) y se expande el canvas. `bbox(paths) ⊆ viewBox` verificado sobre todos los canónicos.
+- **G23** (`labels.py`): el rótulo de conexión (sí/no/repetir) se ancla a ~14px del puerto de SALIDA sobre el primer segmento; el renderer lo prioriza sobre el optimizador de etiquetas.
+
+Registro: `--layout-algorithm=hier` en `main.py` + `generator.OPTIMIZERS`. Reusa `AutoSVGRenderer` para el dibujo. Tests en `tests/test_hier_layout.py`, `test_hier_routing.py`, `test_hier_arcs_labels.py`, `test_hier_geometry.py` (180 en total con la Fase G). LAF y sus 24 canonicals quedan intactos. Limitación Fase 1: `hier` posiciona sólo elementos root (grafos planos); el soporte de containers vendrá después.
 
 ---
 
