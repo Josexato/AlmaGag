@@ -16,6 +16,7 @@ que el renderer dibuja. No usa la política AUTO.
 from collections import defaultdict
 from typing import Dict, List, Tuple
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
+from AlmaGag.layout.hier.shapes import is_diamond, diamond_port
 
 PORT_MIN_FRAC = 0.16
 PORT_MAX_FRAC = 0.84
@@ -69,6 +70,9 @@ def route_connections(layout, levels):
             return ('bottom', 'top')       # hacia abajo
         return ('top', 'bottom')           # hacia arriba
 
+    # Puertos ya fijados por forma (§G19: rombos → vértice del polígono).
+    port_pos: Dict[Tuple[int, bool], Tuple[float, float]] = {}
+
     meta = []
     for ci, c in enumerate(conns):
         if (c['from'], c['to']) in back:
@@ -77,13 +81,22 @@ def route_connections(layout, levels):
         f, t = by_id[c['from']], by_id[c['to']]
         sf, st = flow_sides(f, t)
         fc, tc = _center(f), _center(t)
-        # proyección del otro extremo sobre el borde
-        port_reqs[(f['id'], sf)].append((tc[0] if sf in ('top', 'bottom') else tc[1], ci, True))
-        port_reqs[(t['id'], st)].append((fc[0] if st in ('top', 'bottom') else fc[1], ci, False))
+        # §G19: si el origen es rombo (decisión), el puerto es un vértice
+        # (salida por L/R/B según dirección); si no, proyección sobre el borde.
+        if is_diamond(f):
+            pt, sf = diamond_port(f, tc, is_source=True)
+            port_pos[(ci, True)] = pt
+        else:
+            port_reqs[(f['id'], sf)].append((tc[0] if sf in ('top', 'bottom') else tc[1], ci, True))
+        # §G19: si el destino es rombo, entra por el vértice superior.
+        if is_diamond(t):
+            pt, st = diamond_port(t, fc, is_source=False)
+            port_pos[(ci, False)] = pt
+        else:
+            port_reqs[(t['id'], st)].append((fc[0] if st in ('top', 'bottom') else fc[1], ci, False))
         meta.append((f, t, sf, st))
 
-    # Resolver posición concreta de cada puerto.
-    port_pos: Dict[Tuple[int, bool], Tuple[float, float]] = {}
+    # Resolver posición concreta de los puertos por proyección (no-rombo).
     for (eid, side), reqs in port_reqs.items():
         e = by_id[eid]
         reqs.sort(key=lambda r: r[0])

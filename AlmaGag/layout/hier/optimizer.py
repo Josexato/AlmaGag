@@ -20,7 +20,7 @@ from AlmaGag.layout.hier.leveling import compute_levels
 from AlmaGag.layout.hier.columns import compute_columns
 from AlmaGag.layout.hier.routing import route_connections
 from AlmaGag.layout.hier.arcs import route_cycle_arcs
-from AlmaGag.layout.hier.labels import assign_label_sides
+from AlmaGag.layout.hier.labels import assign_label_sides, assign_connection_label_anchors
 
 logger = logging.getLogger('AlmaGag')
 
@@ -96,6 +96,14 @@ class HierLayoutOptimizer(LayoutOptimizer):
         route_cycle_arcs(L, lv)
         # §F18: preferencia de lado de la etiqueta = borde menos concurrido.
         assign_label_sides(L)
+        # §G23: rótulo de conexión pegado al puerto de salida.
+        assign_connection_label_anchors(L)
+
+        # §G22: contención del viewBox — ningún path (polyline/waypoints/comba
+        # de bezier) debe salirse del canvas. Se expande el canvas para
+        # contener toda la geometría de conectores (los puntos de control del
+        # bezier acotan la curva por convexidad) + margen.
+        self._expand_canvas_to_paths(L)
 
         # Atributos de análisis que el generator lee.
         L.levels = {eid: int(v) for eid, v in lv.level.items()}
@@ -109,3 +117,62 @@ class HierLayoutOptimizer(LayoutOptimizer):
                          f"satélites={lv.satellites} tomas={lv.side_feeders}")
 
         return L
+
+    def _expand_canvas_to_paths(self, L):
+        """§G22: contención del viewBox. Reúne TODA la geometría (iconos +
+        puntos de conector, waypoints, puntos de control del bezier y anclas de
+        rótulo), traslada al espacio positivo si algún path se salió por
+        arriba/izquierda (p.ej. tomas laterales a medio nivel) y expande el
+        canvas para contener el extremo más lejano. bbox ⊆ [0,w]×[0,h]."""
+        pad = 20.0
+        pts = []
+        for e in L.elements:
+            if 'x' in e and 'y' in e:
+                pts.append((e['x'], e['y']))
+                pts.append((e['x'] + ICON_WIDTH, e['y'] + ICON_HEIGHT))
+        for c in L.connections:
+            cp = c.get('computed_path')
+            if cp:
+                pts.extend(cp.get('points', []))
+                pts.extend(cp.get('control_points', []))
+            for w in c.get('waypoints', []) or []:
+                pts.append((w['x'], w['y']))
+            if c.get('_label_anchor'):
+                pts.append(c['_label_anchor'])
+        if not pts:
+            return
+        min_x = min(p[0] for p in pts)
+        min_y = min(p[1] for p in pts)
+        # Trasladar si algo quedó por encima/izquierda del margen.
+        sx = pad - min_x if min_x < pad else 0.0
+        sy = pad - min_y if min_y < pad else 0.0
+        if sx or sy:
+            self._translate(L, sx, sy)
+            pts = [(px + sx, py + sy) for px, py in pts]
+        max_x = max(p[0] for p in pts)
+        max_y = max(p[1] for p in pts)
+        L.canvas = {
+            'width': max(L.canvas['width'], max_x + pad),
+            'height': max(L.canvas['height'], max_y + pad),
+        }
+
+    @staticmethod
+    def _translate(L, sx, sy):
+        """Desplaza iconos, waypoints, paths y anclas de rótulo por (sx,sy)."""
+        for e in L.elements:
+            if 'x' in e and 'y' in e:
+                e['x'] += sx
+                e['y'] += sy
+        for c in L.connections:
+            cp = c.get('computed_path')
+            if cp:
+                if 'points' in cp:
+                    cp['points'] = [(x + sx, y + sy) for x, y in cp['points']]
+                if 'control_points' in cp:
+                    cp['control_points'] = [(x + sx, y + sy) for x, y in cp['control_points']]
+            for w in c.get('waypoints', []) or []:
+                w['x'] += sx
+                w['y'] += sy
+            for k in ('_from_port', '_to_port', '_label_anchor'):
+                if c.get(k):
+                    c[k] = (c[k][0] + sx, c[k][1] + sy)

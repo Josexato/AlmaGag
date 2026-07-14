@@ -17,6 +17,7 @@ se dibujan como arcos con sentido de giro coherente:
 import math
 from typing import Dict, List, Tuple
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
+from AlmaGag.layout.hier.shapes import clip_shape
 
 BULGE_BASE = 44.0
 BULGE_CAP = 320.0
@@ -30,20 +31,11 @@ def _center(e):
 
 def clip_to_border(elem, tx, ty):
     """
-    Punto sobre el borde del rectángulo del icono en la dirección (tx,ty)
-    desde su centro. Función única de recorte rect-borde (recomendación de
-    Claude Design): los extremos de todo conector caen EXACTAMENTE en el borde.
+    Punto sobre el borde REAL del icono en la dirección (tx,ty) desde su centro
+    (§G19: rombo para decisiones, rectángulo para el resto). Los extremos de
+    todo cycle-arc caen EXACTAMENTE sobre el polígono de la forma.
     """
-    cx = elem['x'] + ICON_WIDTH / 2
-    cy = elem['y'] + ICON_HEIGHT / 2
-    dx, dy = tx - cx, ty - cy
-    if abs(dx) < 1e-9 and abs(dy) < 1e-9:
-        return (cx, cy)
-    hw, hh = ICON_WIDTH / 2, ICON_HEIGHT / 2
-    sx = hw / abs(dx) if abs(dx) > 1e-9 else float('inf')
-    sy = hh / abs(dy) if abs(dy) > 1e-9 else float('inf')
-    s = min(sx, sy)
-    return (cx + dx * s, cy + dy * s)
+    return clip_shape(elem, tx, ty)
 
 
 def route_cycle_arcs(layout, levels):

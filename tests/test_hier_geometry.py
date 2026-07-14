@@ -113,3 +113,20 @@ def test_all_canonicals_paths_touch_borders(path):
     r = _optimize(path)
     problems = _check(r, check_obstacles=False)
     assert not problems, f"{os.path.basename(path)}:\n  " + "\n  ".join(problems)
+
+
+@pytest.mark.parametrize('path', CANON, ids=[os.path.basename(p) for p in CANON])
+def test_all_canonicals_paths_within_viewbox(path):
+    """§G22: ningún punto de conector (polyline/waypoints/control-points del
+    bezier) se sale del viewBox. bbox(paths) ⊆ [0,w]×[0,h]."""
+    r = _optimize(path)
+    w, h = r.canvas['width'], r.canvas['height']
+    out = []
+    for c in r.connections:
+        cp = c.get('computed_path')
+        if not cp:
+            continue
+        for px, py in cp.get('points', []) + cp.get('control_points', []):
+            if px < -TOL or py < -TOL or px > w + TOL or py > h + TOL:
+                out.append(f"{c['from']}->{c['to']}: ({px:.0f},{py:.0f}) fuera de {w:.0f}x{h:.0f}")
+    assert not out, f"{os.path.basename(path)}:\n  " + "\n  ".join(out)

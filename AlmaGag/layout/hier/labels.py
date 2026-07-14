@@ -60,3 +60,33 @@ def assign_label_sides(layout):
         order = ['B', 'T', outer, inner]
         best = min(order, key=lambda s: (cnt[s], order.index(s)))
         e['label_position'] = side_to_pos[best]
+
+
+# §G23 — etiqueta de conexión anclada junto al puerto de salida.
+LABEL_ALONG = 16.0     # avance máximo sobre el primer segmento
+LABEL_OFFSET = 9.0     # separación perpendicular a la línea
+
+
+def assign_connection_label_anchors(layout):
+    """§G23: fija `connection['_label_anchor']` (x,y) a ~14px del puerto de
+    SALIDA, sobre el primer segmento del path, desplazado perpendicular para no
+    quedar encima de la línea. Así el rótulo (sí/no/repetir) queda pegado a la
+    decisión que lo origina, no en el punto medio de un path largo."""
+    for c in layout.connections:
+        if not c.get('label'):
+            continue
+        cp = c.get('computed_path')
+        pts = cp.get('points') if cp else None
+        if not pts or len(pts) < 2:
+            continue
+        (x0, y0), (x1, y1) = pts[0], pts[1]
+        dx, dy = x1 - x0, y1 - y0
+        seg = (dx * dx + dy * dy) ** 0.5
+        if seg < 1e-6:
+            continue
+        ux, uy = dx / seg, dy / seg
+        d = min(LABEL_ALONG, seg * 0.5)
+        ax, ay = x0 + ux * d, y0 + uy * d
+        # perpendicular unitaria (rota 90°); lado hacia afuera del centro-x.
+        px, py = -uy, ux
+        c['_label_anchor'] = (ax + px * LABEL_OFFSET, ay + py * LABEL_OFFSET)

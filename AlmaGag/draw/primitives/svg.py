@@ -245,6 +245,20 @@ def draw_connection_labels(dwg, connections, conn_centers, optimized_label_posit
         if not conn.get('label'):
             continue
         key = f"{conn['from']}->{conn['to']}"
+        # §G23 (hier): ancla pegada al puerto de salida — prioritaria sobre el
+        # optimizador (que buscaría el punto medio del path).
+        anchor = conn.get('_label_anchor')
+        if anchor:
+            dwg.add(dwg.text(
+                conn['label'],
+                insert=(anchor[0], anchor[1]),
+                text_anchor="middle",
+                font_size="12px",
+                font_family="Arial, sans-serif",
+                fill="gray",
+                filter='url(#text-glow)',
+            ))
+            continue
         optimized_pos = optimized_label_positions.get(key)
         if optimized_pos:
             # Posición optimizada por LabelPositionOptimizer: dibujar el texto
