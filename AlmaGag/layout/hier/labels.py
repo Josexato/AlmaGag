@@ -46,9 +46,11 @@ def wrap_label(text: str, max_width: float = LABEL_MAX_WIDTH) -> str:
 
 
 def apply_label_wrapping(layout, max_width: float = LABEL_MAX_WIDTH):
-    """Aplica §J31/§J32 a las etiquetas de todos los elementos posicionados."""
+    """Aplica §J31/§J32 a las etiquetas de todos los elementos. No depende de la
+    posición (envolver un string no necesita coords): así funciona tanto en el
+    flujo normal (llamado tras posicionar) como en áreas/carriles (antes)."""
     for e in layout.elements:
-        if e.get('label') and 'x' in e:
+        if e.get('label'):
             e['label'] = wrap_label(e['label'], max_width)
 
 

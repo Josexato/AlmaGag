@@ -23,7 +23,8 @@ from AlmaGag.layout.hier.areas import (
     LEVEL_SPACING, MARGIN_X, MARGIN_Y, LABEL_LINE_H, LABEL_GAP, _all_points)
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 
-LANE_WIDTH = 210.0                 # ancho de cada carril (icono + etiqueta)
+LANE_WIDTH = 210.0                 # ancho mínimo de un carril (icono + etiqueta)
+LANE_SLOT = 210.0                  # ancho reservado por nodo dentro de un carril
 LANE_HEAD = 30.0                   # banda superior para el rótulo del carril
 LANE_TOP = MARGIN_Y + LANE_HEAD
 
@@ -76,9 +77,6 @@ def layout_by_lanes(layout):
     maxlines = max([e['label'].count('\n') + 1 for e in elements if e.get('label')] + [1])
     pitch = max(LEVEL_SPACING, ICON_HEIGHT + LABEL_GAP + maxlines * LABEL_LINE_H)
 
-    def band_center(lid):
-        return MARGIN_X + lane_index[lid] * LANE_WIDTH + LANE_WIDTH / 2
-
     # Nodos por (carril, nivel) para repartir horizontalmente si coinciden.
     groups: Dict[tuple, List[str]] = {}
     for e in elements:
@@ -86,12 +84,28 @@ def layout_by_lanes(layout):
         key = (lid, round(level.get(e['id'], 0), 1))
         groups.setdefault(key, []).append(e['id'])
 
+    # Ancho de carril proporcional al máximo de nodos que comparten un nivel:
+    # cada nodo reserva un SLOT (icono + su etiqueta) para que dos etiquetas
+    # centradas no se solapen (bug de satélites en el mismo carril/nivel).
+    lane_maxn = {lid: 1 for lid, _, _ in defs}
+    for (lid, _lvl), ids in groups.items():
+        lane_maxn[lid] = max(lane_maxn[lid], len(ids))
+    lane_w = {lid: max(LANE_WIDTH, lane_maxn[lid] * LANE_SLOT) for lid, _, _ in defs}
+    lane_x0, _cur = {}, MARGIN_X
+    for lid, _, _ in defs:
+        lane_x0[lid] = _cur
+        _cur += lane_w[lid]
+    total_w = _cur + MARGIN_X
+
+    def band_center(lid):
+        return lane_x0[lid] + lane_w[lid] / 2
+
     by_id = {e['id']: e for e in elements}
     for (lid, lvl), ids in groups.items():
         ids.sort()
         n = len(ids)
         for i, nid in enumerate(ids):
-            cx = band_center(lid) + (i - (n - 1) / 2) * (ICON_WIDTH + 16)
+            cx = band_center(lid) + (i - (n - 1) / 2) * LANE_SLOT
             e = by_id[nid]
             e['x'] = cx - ICON_WIDTH / 2
             e['y'] = LANE_TOP + (level.get(nid, 0) - min_lvl) * pitch
@@ -112,11 +126,9 @@ def layout_by_lanes(layout):
     for lid, label, color in defs:
         if lid == '__nolane':
             continue
-        x = MARGIN_X + lane_index[lid] * LANE_WIDTH
         strips.append({'id': lid, 'label': label, 'color': color,
-                       'x': x, 'y': MARGIN_Y, 'w': LANE_WIDTH,
+                       'x': lane_x0[lid], 'y': MARGIN_Y, 'w': lane_w[lid],
                        'h': total_h - MARGIN_Y})
 
-    layout.canvas = {'width': MARGIN_X * 2 + len(defs) * LANE_WIDTH,
-                     'height': total_h}
+    layout.canvas = {'width': total_w, 'height': total_h}
     return strips
