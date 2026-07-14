@@ -56,6 +56,38 @@ def draw_lane_strips(dwg, lanes):
                 font_family='Arial, sans-serif', fill=color))
 
 
+def draw_matrix_grid(dwg, matrix):
+    """§I (matriz fase×rol): bandas de rol (filas, tinte de color) a lo ancho,
+    rótulos de rol a la izquierda, rótulos de fase arriba y separadores de
+    columna. El fondo se dibuja antes que los iconos."""
+    left, top, w, h = matrix['left'], matrix['top'], matrix['w'], matrix['h']
+    right = w - 8
+    # filas (rol): banda tintada + rótulo a la izquierda
+    for i, row in enumerate(matrix['rows']):
+        color = _svg_color(row.get('color'), DEFAULT_AREA_COLOR)
+        dwg.add(dwg.rect(
+            insert=(left, row['y']), size=(right - left, row['h']),
+            fill=color, fill_opacity=0.05 if i % 2 == 0 else 0.10,
+            stroke=color, stroke_width=0.8, stroke_opacity=0.35))
+        if row.get('label'):
+            dwg.add(dwg.text(
+                row['label'], insert=(left - 10, row['y'] + row['h'] / 2 + 4),
+                text_anchor='end', font_size='11px', font_weight='700',
+                font_family='Arial, sans-serif', fill=color))
+    # columnas (fase): separadores + rótulo arriba
+    for col in matrix['cols']:
+        dwg.add(dwg.line(
+            start=(col['x'], top), end=(col['x'], h - 8),
+            stroke='#c9c4b6', stroke_width=1.0, stroke_dasharray='4,4'))
+        if col.get('label'):
+            dwg.add(dwg.text(
+                col['label'], insert=(col['x'] + col['w'] / 2, top - 14),
+                text_anchor='middle', font_size='11.5px', font_weight='700',
+                font_family="'JetBrains Mono', monospace", fill='#2a6fdb'))
+    dwg.add(dwg.line(start=(right, top), end=(right, h - 8),
+                     stroke='#c9c4b6', stroke_width=1.0, stroke_dasharray='4,4'))
+
+
 def draw_role_markers(dwg, elements, roles):
     """Marca el rol de cada nodo: barra lateral izq. en cajas, punto en rombos."""
     for e in elements:

@@ -170,7 +170,7 @@ del SDJF) > `auto`. En `auto`, si el SDJF declara `areas` se usa la vista de
 | `flow` | columnas por flujo (una tira/mariposa) | A–H |
 | `areas` | una caja por fase, sub-layout A–H interno, a lo ancho | §I27 |
 | `lanes` | un carril vertical por rol, flujo en Y | §I28 |
-| `matrix` | fase × rol (aún no implementada → cae a `areas`) | §I |
+| `matrix` | grilla fase (columna) × rol (fila); flowchart transfuncional | §I |
 
 **`areas`** (top-level) — ámbitos por fase (§I27):
 ```json

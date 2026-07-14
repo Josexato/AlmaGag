@@ -69,12 +69,12 @@ class HierLayoutOptimizer(LayoutOptimizer):
             return self._optimize_areas(L)
         if view == 'lanes':
             return self._optimize_lanes(L)
+        if view == 'matrix' and L._areas:
+            # §I: matriz fase×rol (la vista más completa; el spec la ofrece
+            # "solo bajo petición" por lo cara de rutear).
+            return self._optimize_matrix(L)
         if view == 'matrix':
-            # §I: la matriz fase×rol es costosa de rutear; el spec la ofrece
-            # "solo bajo petición". Aún no implementada → cae a áreas si las hay.
-            logger.warning("[HIER] vista 'matrix' no implementada; usando 'areas'")
-            if L._areas:
-                return self._optimize_areas(L)
+            logger.warning("[HIER] vista 'matrix' requiere `areas`; usando flujo")
         # compat: si pidieron 'areas' sin declararlas, sigue el flujo normal.
         if L._areas and view == 'flow':
             pass  # ignora las áreas, layout de flujo plano
@@ -164,6 +164,23 @@ class HierLayoutOptimizer(LayoutOptimizer):
         L._collision_count = 0
         if self.verbose:
             logger.debug(f"[HIER-AREAS] {len(boxes)} áreas, "
+                         f"canvas {L.canvas['width']:.0f}x{L.canvas['height']:.0f}")
+        return L
+
+    def _optimize_matrix(self, L):
+        """§I: layout en matriz fase×rol. Delega a `matrix.layout_by_matrix` y
+        expone `L.matrix` (grilla) + `L.roles` para el renderer."""
+        from AlmaGag.layout.hier.matrix import layout_by_matrix
+        apply_label_wrapping(L)                      # §J31
+        grid = layout_by_matrix(L)
+        L.matrix = grid
+        L.roles = L._roles
+        L.levels = {e['id']: 0 for e in L.elements if 'x' in e}
+        L.groups = [[c['id'] for c in grid['cols']]]
+        L.priorities = {e['id']: 1 for e in L.elements}
+        L._collision_count = 0
+        if self.verbose:
+            logger.debug(f"[HIER-MATRIX] {len(grid['cols'])}×{len(grid['rows'])} "
                          f"canvas {L.canvas['width']:.0f}x{L.canvas['height']:.0f}")
         return L
 

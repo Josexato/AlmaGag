@@ -25,7 +25,7 @@ from AlmaGag.draw.primitives.svg import (
 )
 from AlmaGag.draw.primitives.phase_areas import (
     draw_area_boxes, draw_role_markers, draw_role_legend, draw_area_node_labels,
-    draw_lane_strips)
+    draw_lane_strips, draw_matrix_grid)
 from AlmaGag.layout.label_optimizer import LabelPositionOptimizer, Label
 from AlmaGag.utils import extract_item_id
 from AlmaGag.debug import add_debug_badge, draw_grid, draw_guide_lines, draw_debug_free_ranges, convert_svg_to_png
@@ -98,12 +98,15 @@ class AutoSVGRenderer:
         # sólo en los modos agrupados de hier.
         areas = getattr(layout, 'areas', None)
         lanes = getattr(layout, 'lanes', None)
+        matrix = getattr(layout, 'matrix', None)
         roles = getattr(layout, 'roles', None)
-        grouped = bool(areas or lanes)
+        grouped = bool(areas or lanes or matrix)
         if areas:
             draw_area_boxes(dwg, areas)
         if lanes:
             draw_lane_strips(dwg, lanes)
+        if matrix:
+            draw_matrix_grid(dwg, matrix)
 
         # === Orden de dibujo ===
         # 1. Containers (rect de fondo, icono va inline)
