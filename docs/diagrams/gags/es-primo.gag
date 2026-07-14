@@ -1,0 +1,25 @@
+{
+  "_comment": "POC: flowchart del algoritmo '¿es n primo?' — decisiones en rombo, bucle while con back-edge (arco de ciclo). Sin coords: las pone el algoritmo hier.",
+  "canvas": { "width": 1000, "height": 900 },
+  "elements": [
+    { "id": "start",     "type": "document", "label": "Entrada: n",        "color": "lightblue" },
+    { "id": "lt2",       "type": "decision", "label": "n < 2 ?",           "color": "gold" },
+    { "id": "init",      "type": "server",   "label": "i = 2",             "color": "lightgreen" },
+    { "id": "cond",      "type": "decision", "label": "i·i ≤ n ?",         "color": "gold" },
+    { "id": "divides",   "type": "decision", "label": "n mod i == 0 ?",    "color": "gold" },
+    { "id": "inc",       "type": "server",   "label": "i = i + 1",         "color": "lightgreen" },
+    { "id": "not_prime", "type": "document", "label": "NO es primo",       "color": "tomato" },
+    { "id": "prime",     "type": "document", "label": "ES PRIMO",          "color": "lightgreen" }
+  ],
+  "connections": [
+    { "from": "start",   "to": "lt2",       "direction": "forward" },
+    { "from": "lt2",     "to": "not_prime", "direction": "forward", "label": "sí" },
+    { "from": "lt2",     "to": "init",      "direction": "forward", "label": "no" },
+    { "from": "init",    "to": "cond",      "direction": "forward" },
+    { "from": "cond",    "to": "prime",     "direction": "forward", "label": "no" },
+    { "from": "cond",    "to": "divides",   "direction": "forward", "label": "sí" },
+    { "from": "divides", "to": "not_prime", "direction": "forward", "label": "sí" },
+    { "from": "divides", "to": "inc",       "direction": "forward", "label": "no" },
+    { "from": "inc",     "to": "cond",      "direction": "forward", "label": "repetir" }
+  ]
+}
