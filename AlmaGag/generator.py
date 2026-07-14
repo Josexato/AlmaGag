@@ -11,7 +11,7 @@ from AlmaGag.debug import dump_layout_table
 logger = logging.getLogger('AlmaGag')
 
 
-def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False, guide_lines=None, dump_iterations=False, output_file=None, layout_algorithm='auto', visualize_growth=False, color_connections=False, **centrality_kwargs):
+def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False, guide_lines=None, dump_iterations=False, output_file=None, layout_algorithm='auto', view='auto', visualize_growth=False, color_connections=False, **centrality_kwargs):
     # Configurar logging si debug está activo
     if debug:
         logging.basicConfig(
@@ -109,6 +109,14 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     # los consume el algoritmo hier). Retrocompatible: si faltan, camino normal.
     initial_layout._areas = data.get('areas')
     initial_layout._roles = data.get('roles')
+    initial_layout._lanes = data.get('lanes')
+    # Vista del layout hier (§I): prioridad `--view` (CLI) > `layout_view`
+    # (campo del SDJF) > 'auto'. 'auto' → areas si el SDJF las declara, si no
+    # el flujo normal. El código sólo decide cuando nadie especificó.
+    resolved_view = view if view and view != 'auto' else data.get('layout_view', 'auto')
+    if resolved_view == 'auto':
+        resolved_view = 'areas' if data.get('areas') else 'flow'
+    initial_layout._layout_view = resolved_view
 
     # 2. Instanciar optimizador (WISH-ARCH-001 resuelto: factoría unificada).
     # Ambos optimizers heredan de LayoutOptimizer y son self-contained.

@@ -39,6 +39,23 @@ def draw_area_boxes(dwg, areas):
             font_family='Arial, sans-serif', fill=color))
 
 
+def draw_lane_strips(dwg, lanes):
+    """§I28: franjas verticales de carril (fondo) con rótulo de rol arriba.
+    Alterna un tinte del color del carril para distinguir bandas."""
+    for ln in lanes:
+        color = _svg_color(ln.get('color'), DEFAULT_AREA_COLOR)
+        dwg.add(dwg.rect(
+            insert=(ln['x'], ln['y']), size=(ln['w'], ln['h']),
+            fill=color, fill_opacity=0.07,
+            stroke=color, stroke_width=1.0, stroke_opacity=0.5,
+            stroke_dasharray='4,4'))
+        if ln.get('label'):
+            dwg.add(dwg.text(
+                ln['label'], insert=(ln['x'] + ln['w'] / 2, ln['y'] + 18),
+                text_anchor='middle', font_size='12px', font_weight='700',
+                font_family='Arial, sans-serif', fill=color))
+
+
 def draw_role_markers(dwg, elements, roles):
     """Marca el rol de cada nodo: barra lateral izq. en cajas, punto en rombos."""
     for e in elements:

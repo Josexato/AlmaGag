@@ -54,14 +54,30 @@ class HierLayoutOptimizer(LayoutOptimizer):
             L._diagram_name = layout._diagram_name
         L._areas = getattr(layout, '_areas', None)
         L._roles = getattr(layout, '_roles', None)
+        L._lanes = getattr(layout, '_lanes', None)
+        # Vista resuelta por el generator (§I): 'flow' | 'areas' | 'lanes' |
+        # 'matrix'. Sin resolver (llamada directa a optimize), se infiere.
+        view = getattr(layout, '_layout_view', None)
+        if view is None:
+            view = 'areas' if L._areas else 'flow'
 
         elements = L.elements
         connections = L.connections
 
-        # §I27: si el SDJF declara `areas`, se usa el layout por ámbitos
-        # (sub-lienzo A–H por área + empaquetado a lo ancho + ruteo inter-área).
-        if L._areas:
+        # §I: despacho por vista.
+        if view == 'areas' and L._areas:
             return self._optimize_areas(L)
+        if view == 'lanes':
+            return self._optimize_lanes(L)
+        if view == 'matrix':
+            # §I: la matriz fase×rol es costosa de rutear; el spec la ofrece
+            # "solo bajo petición". Aún no implementada → cae a áreas si las hay.
+            logger.warning("[HIER] vista 'matrix' no implementada; usando 'areas'")
+            if L._areas:
+                return self._optimize_areas(L)
+        # compat: si pidieron 'areas' sin declararlas, sigue el flujo normal.
+        if L._areas and view == 'flow':
+            pass  # ignora las áreas, layout de flujo plano
 
         # §A niveles + §B columnas.
         lv = compute_levels(elements, connections)
@@ -148,6 +164,23 @@ class HierLayoutOptimizer(LayoutOptimizer):
         L._collision_count = 0
         if self.verbose:
             logger.debug(f"[HIER-AREAS] {len(boxes)} áreas, "
+                         f"canvas {L.canvas['width']:.0f}x{L.canvas['height']:.0f}")
+        return L
+
+    def _optimize_lanes(self, L):
+        """§I28: layout por carriles de rol. Delega a `lanes.layout_by_lanes` y
+        expone `L.lanes` (franjas) + `L.roles` para el renderer."""
+        from AlmaGag.layout.hier.lanes import layout_by_lanes
+        apply_label_wrapping(L)                      # §J31
+        strips = layout_by_lanes(L)
+        L.lanes = strips
+        L.roles = L._roles
+        L.levels = {e['id']: 0 for e in L.elements if 'x' in e}
+        L.groups = [[s['id'] for s in strips]]
+        L.priorities = {e['id']: 1 for e in L.elements}
+        L._collision_count = 0
+        if self.verbose:
+            logger.debug(f"[HIER-LANES] {len(strips)} carriles, "
                          f"canvas {L.canvas['width']:.0f}x{L.canvas['height']:.0f}")
         return L
 

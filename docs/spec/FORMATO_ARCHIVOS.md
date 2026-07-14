@@ -150,6 +150,61 @@ Ver `tests/test_template_fase4.py` y `AlmaGag/layout/templates/` para detalles.
 
 ---
 
+## 0.3. Vistas del algoritmo `hier` — `layout_view`, `areas`, `lanes`, `roles` (§I)
+
+Sólo las usa `--layout-algorithm=hier`. Separan **el dato** (qué fase / quién es
+responsable de cada nodo) de **la vista** (cómo se agrupa visualmente). Un SDJF
+sin estos campos se comporta igual que hoy.
+
+**Selección de vista (híbrida):** prioridad `--view` (CLI) > `layout_view` (campo
+del SDJF) > `auto`. En `auto`, si el SDJF declara `areas` se usa la vista de
+áreas; si no, el flujo plano.
+
+```
+--view {auto|flow|areas|lanes|matrix}     # override de ejecución
+"layout_view": "areas"                      # vista canónica del archivo
+```
+
+| Vista | Qué hace | Criterio |
+|-------|----------|----------|
+| `flow` | columnas por flujo (una tira/mariposa) | A–H |
+| `areas` | una caja por fase, sub-layout A–H interno, a lo ancho | §I27 |
+| `lanes` | un carril vertical por rol, flujo en Y | §I28 |
+| `matrix` | fase × rol (aún no implementada → cae a `areas`) | §I |
+
+**`areas`** (top-level) — ámbitos por fase (§I27):
+```json
+"areas": [
+  { "id": "F1", "label": "1 · Contratación", "color": "#2a6fdb",
+    "members": ["inicio", "obtiene", "crea_sga"] }
+]
+```
+Cada área corre A–H sobre sus miembros y se dibuja como caja punteada rotulada;
+las conexiones inter-área cruzan por el borde (§I29). Un nodo puede no pertenecer
+a ningún área.
+
+**`lanes`** (top-level, opcional) — carriles por responsable (§I28):
+```json
+"lanes": [ { "id": "com", "label": "Consultor Comercial", "members": ["obtiene"] } ]
+```
+Si NO declaras `lanes`, la vista `lanes` los deriva del campo `role` de cada nodo
+(un carril por rol distinto). Todo nodo cae en exactamente un carril.
+
+**`role` + `roles`** — responsable por nodo (§I30). Cada elemento puede llevar
+`"role": "com"`; el mapa top-level `roles` da etiqueta y color de la leyenda:
+```json
+"roles": { "com": { "label": "Consultor Comercial", "color": "#2a6fdb" } }
+```
+En vista `areas` el rol se muestra como franja de color + leyenda; en vista
+`lanes` es el propio carril. (Nota: este `role` de responsable es distinto del
+`role` semántico de templates §0.1 — aquél usa palabras clave como `entry`/`hub`;
+éste es una clave libre de agrupación.)
+
+Ver `AlmaGag/layout/hier/areas.py`, `lanes.py` y `tests/test_hier_areas.py`,
+`test_hier_lanes.py`.
+
+---
+
 ## 1. canvas (opcional)
 
 Define el tamano del area de dibujo en pixeles. Si lo omites, AlmaGag usa 1400x900 y lo expande si hace falta. Si declaras `layout_template`, el template lo calcula automaticamente.

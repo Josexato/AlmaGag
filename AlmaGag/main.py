@@ -69,6 +69,16 @@ Ejemplos:
         help="Algoritmo de layout: 'auto' (sistema actual), 'laf' (Layout Abstracto Primero) o 'hier' (jerárquico A1-F18, spec Criterios AlmaGag)"
     )
     parser.add_argument(
+        "--view",
+        type=str,
+        choices=['auto', 'flow', 'areas', 'lanes', 'matrix'],
+        default='auto',
+        help="Vista del layout hier (override del campo `layout_view` del SDJF): "
+             "'flow' (columnas por flujo), 'areas' (cajas por fase §I27), "
+             "'lanes' (carriles por rol §I28), 'matrix' (fase×rol). "
+             "'auto' respeta el SDJF (areas si las declara)."
+    )
+    parser.add_argument(
         "--visualize-growth",
         action="store_true",
         help="Genera SVGs de cada fase del proceso LAF (solo con --layout-algorithm=laf)"
@@ -129,6 +139,7 @@ Ejemplos:
         dump_iterations=args.dump_iterations,
         output_file=args.output,
         layout_algorithm=args.layout_algorithm,
+        view=args.view,
         visualize_growth=args.visualize_growth,
         color_connections=args.color_connections,
         **centrality_kwargs

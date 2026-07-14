@@ -24,7 +24,8 @@ from AlmaGag.draw.primitives.svg import (
     draw_connection_labels,
 )
 from AlmaGag.draw.primitives.phase_areas import (
-    draw_area_boxes, draw_role_markers, draw_role_legend, draw_area_node_labels)
+    draw_area_boxes, draw_role_markers, draw_role_legend, draw_area_node_labels,
+    draw_lane_strips)
 from AlmaGag.layout.label_optimizer import LabelPositionOptimizer, Label
 from AlmaGag.utils import extract_item_id
 from AlmaGag.debug import add_debug_badge, draw_grid, draw_guide_lines, draw_debug_free_ranges, convert_svg_to_png
@@ -93,11 +94,16 @@ class AutoSVGRenderer:
         # compatibilidad con primitivas (que aceptan dict vacío).
         ndfn_labels = self._build_ndfn_labels(layout, elements_by_id) if visualdebug else {}
 
-        # §I27: cajas de fase (áreas) al fondo, sólo en modo áreas de hier.
+        # §I27/§I28: cajas de fase (áreas) o franjas de carril (lanes) al fondo,
+        # sólo en los modos agrupados de hier.
         areas = getattr(layout, 'areas', None)
+        lanes = getattr(layout, 'lanes', None)
         roles = getattr(layout, 'roles', None)
+        grouped = bool(areas or lanes)
         if areas:
             draw_area_boxes(dwg, areas)
+        if lanes:
+            draw_lane_strips(dwg, lanes)
 
         # === Orden de dibujo ===
         # 1. Containers (rect de fondo, icono va inline)
@@ -117,9 +123,9 @@ class AutoSVGRenderer:
         label_optimizer = LabelPositionOptimizer(self.geometry, canvas_width, canvas_height, debug=debug)
         labels_to_optimize = self._collect_labels(elements, connections, containers, conn_centers, layout.label_positions)
         optimized_label_positions = label_optimizer.optimize_labels(labels_to_optimize, elements, connections)
-        # §I27: en modo áreas las etiquetas de nodo van centradas bajo el icono
-        # (placement propio); en modo normal usa el optimizador de etiquetas.
-        if areas:
+        # §I27/§I28: en modos agrupados las etiquetas de nodo van centradas bajo
+        # el icono (placement propio); en modo normal usa el optimizador.
+        if grouped:
             draw_area_node_labels(dwg, normal_elements)
         else:
             self._render_element_labels(dwg, elements, optimized_label_positions, layout.label_positions, canvas_width, canvas_height)
