@@ -115,6 +115,66 @@ def test_all_canonicals_paths_touch_borders(path):
     assert not problems, f"{os.path.basename(path)}:\n  " + "\n  ".join(problems)
 
 
+def test_esprimo_shared_sink_adjacent_to_parents():
+    """§H25: el sumidero compartido not_prime (padres lt2 y divides) se coloca
+    en la columna adyacente al tronco, no en el margen opuesto."""
+    r = _optimize('docs/diagrams/gags/es-primo.gag')
+    xof = {e['id']: e['x'] for e in r.elements}
+    trunk = xof['lt2']          # tronco
+    assert abs(xof['lt2'] - xof['divides']) < 1.0   # padres en el tronco
+    # a lo sumo una columna (COL_SPACING≈200) de separación del tronco
+    assert abs(xof['not_prime'] - trunk) <= 320, \
+        f"not_prime lejos del tronco: {xof['not_prime']} vs {trunk}"
+
+
+def test_esprimo_diamond_ports_on_vertices_no_microelbow():
+    """§H26/§G19: todo extremo sobre un rombo cae EXACTO en un vértice y el
+    primer/último tramo sale/entra radial (sin quiebre a <15px del puerto)."""
+    from AlmaGag.layout.hier.shapes import diamond_vertices, is_diamond
+    r = _optimize('docs/diagrams/gags/es-primo.gag')
+    by = {e['id']: e for e in r.elements}
+    for c in r.connections:
+        cp = c.get('computed_path')
+        if not cp or cp['type'] != 'polyline':
+            continue
+        pts = cp['points']
+        for eid, pt, seg_pt in ((c['from'], pts[0], pts[1]),
+                                (c['to'], pts[-1], pts[-2])):
+            e = by[eid]
+            if not is_diamond(e):
+                continue
+            vs = diamond_vertices(e).values()
+            assert any(abs(pt[0] - vx) < 1 and abs(pt[1] - vy) < 1 for vx, vy in vs), \
+                f"{c['from']}->{c['to']}: puerto {pt} no es vértice de {eid}"
+            # primer tramo ≥15px (sin micro-codo espurio pegado al vértice)
+            d = ((seg_pt[0] - pt[0]) ** 2 + (seg_pt[1] - pt[1]) ** 2) ** 0.5
+            assert d >= 15 - TOL, \
+                f"{c['from']}->{c['to']}: micro-codo a {d:.0f}px del vértice de {eid}"
+
+
+@pytest.mark.parametrize('path', CANON, ids=[os.path.basename(p) for p in CANON])
+def test_all_canonicals_no_diagonal_elbows(path):
+    """§H24: un ruteo con codos (polyline de ≥3 puntos) es estrictamente
+    ortogonal — cada segmento es horizontal o vertical. Las diagonales solo se
+    permiten en rectas de 2 puntos (cruces reales §D13 / mismo nivel §D12) y en
+    los arcos de ciclo (bezier, §E15)."""
+    r = _optimize(path)
+    bad = []
+    for c in r.connections:
+        cp = c.get('computed_path')
+        if not cp or cp['type'] != 'polyline':
+            continue
+        if c.get('_straight'):
+            continue  # §D12/§D13: recta directa/cruce real, diagonal permitida
+        pts = cp['points']
+        if len(pts) < 3:
+            continue  # recta de 2 puntos: diagonal permitida (D12/D13)
+        for (ax, ay), (bx, by) in zip(pts, pts[1:]):
+            if abs(ax - bx) > TOL and abs(ay - by) > TOL:
+                bad.append(f"{c['from']}->{c['to']}: diagonal ({ax:.0f},{ay:.0f})→({bx:.0f},{by:.0f})")
+    assert not bad, f"{os.path.basename(path)}:\n  " + "\n  ".join(bad)
+
+
 @pytest.mark.parametrize('path', CANON, ids=[os.path.basename(p) for p in CANON])
 def test_all_canonicals_paths_within_viewbox(path):
     """§G22: ningún punto de conector (polyline/waypoints/control-points del

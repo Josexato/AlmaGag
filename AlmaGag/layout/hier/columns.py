@@ -45,6 +45,10 @@ def compute_columns(levels: Levels, elements: List[dict],
             children[f].append(t)
             parents[t].append(f)
 
+    # Padres reales por nodo ANTES de la cirugía de ghosts (§B4 reemplaza al
+    # padre de una arista larga por su cadena fantasma). §H25 los necesita.
+    orig_parents = {i: list(parents.get(i, [])) for i in main_ids}
+
     # --- §B4: nodos fantasma en aristas largas (|Δnivel entero| > 1) ---
     # La arista f→t se parte en f→g1→…→gk→t con un ghost por nivel intermedio.
     # Los ghosts participan del barycenter/carriles (reducen cruces y dan a la
@@ -288,6 +292,25 @@ def compute_columns(levels: Levels, elements: List[dict],
                 break
             x[ps[0]] = x[bif]
             node = ps[0]
+
+    # --- §H25: sumidero compartido junto a sus padres ---
+    # Un sumidero (0 hijos) con ≥2 padres reales cae, por descomposición de
+    # carriles, en una columna del margen lejano (obliga carriles larguísimos
+    # que cruzan el diagrama). Se reubica en la columna ADYACENTE al baricentro
+    # de sus padres, del lado LIBRE (el menos poblado) → carriles cortos y
+    # paralelos que bajan pegados a la cadena dominante.
+    for i in main_ids:
+        if _is_ghost(i) or children.get(i):
+            continue
+        rp = [p for p in orig_parents.get(i, []) if p in x and not _is_ghost(p)]
+        if len(rp) < 2:
+            continue
+        bx = sum(x[p] for p in rp) / len(rp)
+        left = sum(1 for n in real_ids if n != i and x.get(n, bx) < bx - 0.01)
+        right = sum(1 for n in real_ids if n != i and x.get(n, bx) > bx + 0.01)
+        # una sola columna de separación (MIN_SEP: sin hueco para otro carril).
+        x[i] = bx - MIN_SEP if left <= right else bx + MIN_SEP
+    _resolve_rows()
 
     # Extensión de las columnas principales (para colocar satélites/tomas
     # SIN encimarlas con los nodos del tronco/ciclo). Considera nodos reales.

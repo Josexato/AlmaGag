@@ -16,7 +16,7 @@ que el renderer dibuja. No usa la política AUTO.
 from collections import defaultdict
 from typing import Dict, List, Tuple
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
-from AlmaGag.layout.hier.shapes import is_diamond, diamond_port
+from AlmaGag.layout.hier.shapes import is_diamond, diamond_port, diamond_vertices
 
 PORT_MIN_FRAC = 0.16
 PORT_MAX_FRAC = 0.84
@@ -70,6 +70,37 @@ def route_connections(layout, levels):
             return ('bottom', 'top')       # hacia abajo
         return ('top', 'bottom')           # hacia arriba
 
+    # §H26/§G19: lado de salida por rombo considerando TODAS sus aristas
+    # salientes (incl. las de ciclo, que §E redibuja pero cuya reserva de
+    # vértice importa): la que baja recto (menor |Δx|) toma el vértice INFERIOR
+    # (continuación del flujo); las demás salen por el lateral izq/der según su
+    # posición. Así el «sí» de una decisión no roba el vértice inferior al «no».
+    out_by_src = defaultdict(list)
+    for c in conns:
+        if (c['from'], c['to']) in back:
+            continue
+        if is_diamond(by_id[c['from']]):
+            out_by_src[c['from']].append(c['to'])
+    diamond_out_side: Dict[Tuple[str, str], str] = {}
+    for fid, tids in out_by_src.items():
+        fc = _center(by_id[fid])
+        downs = [tid for tid in tids if _center(by_id[tid])[1] >= fc[1]]
+        bottom = min(downs, key=lambda tid: abs(_center(by_id[tid])[0] - fc[0])) \
+            if downs else None
+        for tid in tids:
+            tc = _center(by_id[tid])
+            dx = tc[0] - fc[0]
+            if tid == bottom and abs(dx) < ICON_WIDTH:
+                diamond_out_side[(fid, tid)] = 'bottom'
+            elif dx < 0:
+                diamond_out_side[(fid, tid)] = 'left'
+            elif dx > 0:
+                diamond_out_side[(fid, tid)] = 'right'
+            else:
+                diamond_out_side[(fid, tid)] = 'bottom' if tc[1] >= fc[1] else 'top'
+
+    _vword = {'top': 'T', 'bottom': 'B', 'left': 'L', 'right': 'R'}
+
     # Puertos ya fijados por forma (§G19: rombos → vértice del polígono).
     port_pos: Dict[Tuple[int, bool], Tuple[float, float]] = {}
 
@@ -81,11 +112,11 @@ def route_connections(layout, levels):
         f, t = by_id[c['from']], by_id[c['to']]
         sf, st = flow_sides(f, t)
         fc, tc = _center(f), _center(t)
-        # §G19: si el origen es rombo (decisión), el puerto es un vértice
-        # (salida por L/R/B según dirección); si no, proyección sobre el borde.
+        # §G19/§H26: si el origen es rombo, el puerto es el vértice del lado
+        # asignado (salida radial); si no, proyección sobre el borde.
         if is_diamond(f):
-            pt, sf = diamond_port(f, tc, is_source=True)
-            port_pos[(ci, True)] = pt
+            sf = diamond_out_side.get((c['from'], c['to']), sf)
+            port_pos[(ci, True)] = diamond_vertices(f)[_vword[sf]]
         else:
             port_reqs[(f['id'], sf)].append((tc[0] if sf in ('top', 'bottom') else tc[1], ci, True))
         # §G19: si el destino es rombo, entra por el vértice superior.
@@ -166,10 +197,6 @@ def route_connections(layout, levels):
             continue
 
         lf, lt = level.get(f['id'], 0), level.get(t['id'], 0)
-        pts: List[Tuple[float, float]] = [p_from]
-
-        # B4: waypoints de arista larga (coords ya reales sobre la conexión)
-        wps = c.get('waypoints')
 
         if c['from'] in side_feeders:
             # C11: salir por costado, horizontal a la altura de la fuente,
@@ -178,29 +205,24 @@ def route_connections(layout, levels):
             tx, ty = p_to
             pts = [(fx, fy), (tx, fy), (tx, ty)]
         elif abs(lt - lf) < 0.5:
-            # D12: mismo nivel → recta directa.
+            # D12: mismo nivel → recta directa (puede quedar levemente diagonal
+            # si los puertos se separaron; §H24 la admite como recta).
             pts = [p_from, p_to]
+            c['_straight'] = True
         elif ci in straight_cross:
-            # D13: cruce real → recta (se cortan en un punto limpio).
+            # D13: cruce real → recta (se cortan en un punto limpio; única
+            # diagonal permitida junto a los arcos de ciclo, §H24).
             pts = [p_from, p_to]
-        elif wps:
-            # B4: pasar por los waypoints intermedios (ortogonal).
-            pts = [p_from]
-            for w in wps:
-                pts.append((w['x'], w['y']))
-            pts.append(p_to)
+            c['_straight'] = True
         else:
-            # Ortogonal vía canal intermedio (D14 offset).
-            fx, fy = p_from
-            tx, ty = p_to
-            if abs(fx - tx) < 1.0:
-                pts = [p_from, p_to]          # ya alineados → recta
-            else:
-                mid = (fy + ty) / 2 + channel_offset.get(ci, 0.0)
-                pts = [(fx, fy), (fx, mid), (tx, mid), (tx, ty)]
+            # §H24/§H26: ruteo ortogonal RADIAL — el primer/último tramo sale y
+            # entra perpendicular al borde por el lado del puerto (sf/st). Las
+            # aristas largas (§B4) también caen aquí: con el sumidero adyacente
+            # (§H25) basta un codo en L/S, sin diagonales entre waypoints.
+            pts = _ortho_route(p_from, sf, p_to, st, channel_offset.get(ci, 0.0))
 
-        # QA-Q2: tramo recto perpendicular al borde en ambos extremos, para que
-        # la flecha llegue derecha (aun en aristas de cruce/mismo-nivel rectas).
+        # QA-Q2: refuerzo — garantiza tramo perpendicular en los extremos (por
+        # si D12/D13 dejaron una recta diagonal hacia un borde).
         pts = _perp_stubs(pts, f, t)
         c['computed_path'] = {'type': 'polyline', 'points': pts}
         # Los puertos ya están EXACTAMENTE sobre el borde del icono (§C9/§C10);
@@ -208,6 +230,33 @@ def route_connections(layout, levels):
         # dejaba los conectores flotando — QA-Q1/Q3 de Claude Design).
         c['_from_port'] = pts[0]
         c['_to_port'] = pts[-1]
+
+
+def _ortho_route(p_from, side_f, p_to, side_t, channel=0.0):
+    """Ruta ortogonal respetando la dirección radial de cada puerto (§H24/§H26):
+    el primer tramo SALE perpendicular al borde por `side_f` y el último ENTRA
+    perpendicular por `side_t`. Sin diagonales (solo codos de 90°)."""
+    fx, fy = p_from
+    tx, ty = p_to
+    f_horiz = side_f in ('left', 'right')
+    t_horiz = side_t in ('left', 'right')
+    if not f_horiz and not t_horiz:
+        # ambos verticales (flujo abajo/arriba): recta si alineados, si no S.
+        if abs(fx - tx) < 1.0:
+            return [p_from, p_to]
+        mid = (fy + ty) / 2 + channel
+        return [p_from, (fx, mid), (tx, mid), p_to]
+    if f_horiz and not t_horiz:
+        # sale horizontal (vértice lateral), entra vertical (arriba/abajo) → L.
+        return [p_from, (tx, fy), p_to]
+    if not f_horiz and t_horiz:
+        # sale vertical, entra horizontal → L.
+        return [p_from, (fx, ty), p_to]
+    # ambos horizontales (mismo nivel, lado a lado): recta si alineados, si no Z.
+    if abs(fy - ty) < 1.0:
+        return [p_from, p_to]
+    mid = (fx + tx) / 2 + channel
+    return [p_from, (mid, fy), (mid, ty), p_to]
 
 
 PERP_STUB = 14.0
