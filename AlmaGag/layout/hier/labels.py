@@ -8,7 +8,48 @@ arriba → lado exterior (lejos del centro) → lado interior.
 Setea `element['label_position']` como preferencia para el renderer.
 """
 
-from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
+from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT, TEXT_CHAR_WIDTH
+
+
+# §J31/§J32 — etiqueta multilínea con ancho máximo.
+LABEL_MAX_WIDTH = 180.0        # px — ancho máximo de una etiqueta (§J31)
+LABEL_MAX_LINES = 3            # máximo 3 líneas; el resto se trunca con «…»
+
+
+def wrap_label(text: str, max_width: float = LABEL_MAX_WIDTH) -> str:
+    """§J31: parte `text` por palabras en ≤3 líneas que quepan en `max_width`
+    (a ~TEXT_CHAR_WIDTH px por carácter). Si no cabe en 3 líneas, trunca la
+    última con «…» (§J32). Devuelve el texto con '\\n' entre líneas (el renderer
+    ya apila las líneas). Respeta saltos de línea explícitos preexistentes."""
+    if not text:
+        return text
+    if '\n' in text:          # el autor ya definió las líneas → no tocar
+        return text
+    max_chars = max(6, int(max_width / TEXT_CHAR_WIDTH))
+    if len(text) <= max_chars:
+        return text
+    words, lines, cur = text.split(), [], ''
+    for w in words:
+        cand = (cur + ' ' + w).strip()
+        if len(cand) > max_chars and cur:
+            lines.append(cur)
+            cur = w
+        else:
+            cur = cand
+    if cur:
+        lines.append(cur)
+    if len(lines) > LABEL_MAX_LINES:
+        keep = lines[:LABEL_MAX_LINES]
+        keep[-1] = keep[-1][:max_chars - 1].rstrip() + '…'   # §J32
+        lines = keep
+    return '\n'.join(lines)
+
+
+def apply_label_wrapping(layout, max_width: float = LABEL_MAX_WIDTH):
+    """Aplica §J31/§J32 a las etiquetas de todos los elementos posicionados."""
+    for e in layout.elements:
+        if e.get('label') and 'x' in e:
+            e['label'] = wrap_label(e['label'], max_width)
 
 
 def _endpoint_side(elem, px, py):

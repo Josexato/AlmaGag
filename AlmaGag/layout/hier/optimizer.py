@@ -20,13 +20,18 @@ from AlmaGag.layout.hier.leveling import compute_levels
 from AlmaGag.layout.hier.columns import compute_columns
 from AlmaGag.layout.hier.routing import route_connections
 from AlmaGag.layout.hier.arcs import route_cycle_arcs
-from AlmaGag.layout.hier.labels import assign_label_sides, assign_connection_label_anchors
+from AlmaGag.layout.hier.labels import (assign_label_sides,
+                                        assign_connection_label_anchors,
+                                        apply_label_wrapping)
 
 logger = logging.getLogger('AlmaGag')
 
 # Espaciado en px entre columnas y entre niveles (abstracto → real).
-COL_SPACING = 200.0     # separación horizontal por unidad de columna
-LEVEL_SPACING = 170.0   # separación vertical por nivel
+# §J30: paso vertical compacto = icono + holgura fija (~42px) ≈ 92px
+# centro-a-centro, en vez de 170px (que dejaba ~120px de aire y estiraba el
+# diagrama a una tira). Se amplía sólo lo necesario para etiquetas multilínea.
+COL_SPACING = 200.0            # separación horizontal por unidad de columna
+LEVEL_SPACING = ICON_HEIGHT + 42.0   # 92px — §J30 (icono 50 + holgura 42)
 MARGIN_X = 100.0
 MARGIN_Y = 40.0
 
@@ -94,6 +99,9 @@ class HierLayoutOptimizer(LayoutOptimizer):
         # §E: arcos de ciclo (Fase 3) — pisan las aristas del ciclo (ida) y
         # dibujan la back-edge de retorno con comba coherente.
         route_cycle_arcs(L, lv)
+        # §J31/§J32: etiquetas multilínea (≤3 líneas, ancho máx) antes de medir
+        # lados/canvas.
+        apply_label_wrapping(L)
         # §F18: preferencia de lado de la etiqueta = borde menos concurrido.
         assign_label_sides(L)
         # §G23: rótulo de conexión pegado al puerto de salida.
