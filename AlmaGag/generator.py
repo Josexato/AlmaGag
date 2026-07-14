@@ -105,6 +105,11 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     diagram_name = os.path.splitext(os.path.basename(json_file))[0]
     initial_layout._diagram_name = diagram_name
 
+    # §I27/§I30: ámbitos por fase (areas) y leyenda de roles (opcionales; sólo
+    # los consume el algoritmo hier). Retrocompatible: si faltan, camino normal.
+    initial_layout._areas = data.get('areas')
+    initial_layout._roles = data.get('roles')
+
     # 2. Instanciar optimizador (WISH-ARCH-001 resuelto: factoría unificada).
     # Ambos optimizers heredan de LayoutOptimizer y son self-contained.
     from AlmaGag.layout.laf.optimizer import LAFOptimizer

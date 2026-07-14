@@ -23,6 +23,8 @@ from AlmaGag.draw.primitives.svg import (
     draw_connections,
     draw_connection_labels,
 )
+from AlmaGag.draw.primitives.phase_areas import (
+    draw_area_boxes, draw_role_markers, draw_role_legend, draw_area_node_labels)
 from AlmaGag.layout.label_optimizer import LabelPositionOptimizer, Label
 from AlmaGag.utils import extract_item_id
 from AlmaGag.debug import add_debug_badge, draw_grid, draw_guide_lines, draw_debug_free_ranges, convert_svg_to_png
@@ -91,12 +93,22 @@ class AutoSVGRenderer:
         # compatibilidad con primitivas (que aceptan dict vacío).
         ndfn_labels = self._build_ndfn_labels(layout, elements_by_id) if visualdebug else {}
 
+        # §I27: cajas de fase (áreas) al fondo, sólo en modo áreas de hier.
+        areas = getattr(layout, 'areas', None)
+        roles = getattr(layout, 'roles', None)
+        if areas:
+            draw_area_boxes(dwg, areas)
+
         # === Orden de dibujo ===
         # 1. Containers (rect de fondo, icono va inline)
         self._render_containers(dwg, containers, elements_by_id, ndfn_labels)
 
         # 2. Iconos de elementos normales
         self._render_icons(dwg, normal_elements, ndfn_labels, embedded_icons=embedded_icons)
+
+        # §I30: franja de color por rol sobre cada icono.
+        if areas:
+            draw_role_markers(dwg, normal_elements, roles)
 
         # 3. Conexiones
         conn_centers = draw_connections(dwg, connections, elements_by_id, markers, per_conn_styles, ndfn_labels)
@@ -105,9 +117,19 @@ class AutoSVGRenderer:
         label_optimizer = LabelPositionOptimizer(self.geometry, canvas_width, canvas_height, debug=debug)
         labels_to_optimize = self._collect_labels(elements, connections, containers, conn_centers, layout.label_positions)
         optimized_label_positions = label_optimizer.optimize_labels(labels_to_optimize, elements, connections)
-        self._render_element_labels(dwg, elements, optimized_label_positions, layout.label_positions, canvas_width, canvas_height)
+        # §I27: en modo áreas las etiquetas de nodo van centradas bajo el icono
+        # (placement propio); en modo normal usa el optimizador de etiquetas.
+        if areas:
+            draw_area_node_labels(dwg, normal_elements)
+        else:
+            self._render_element_labels(dwg, elements, optimized_label_positions, layout.label_positions, canvas_width, canvas_height)
         draw_connection_labels(dwg, connections, conn_centers, optimized_label_positions)
         self._render_container_labels(dwg, containers, elements_by_id)
+
+        # §I30: leyenda de responsables (sólo roles usados).
+        if areas and roles:
+            used = {e.get('role') for e in normal_elements if e.get('role')}
+            draw_role_legend(dwg, roles, used, canvas_width, canvas_height)
 
         # 5. Debug visual
         if visualdebug:

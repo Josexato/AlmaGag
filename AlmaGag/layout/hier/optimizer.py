@@ -23,6 +23,7 @@ from AlmaGag.layout.hier.arcs import route_cycle_arcs
 from AlmaGag.layout.hier.labels import (assign_label_sides,
                                         assign_connection_label_anchors,
                                         apply_label_wrapping)
+from AlmaGag.layout.hier.areas import layout_by_areas
 
 logger = logging.getLogger('AlmaGag')
 
@@ -51,9 +52,16 @@ class HierLayoutOptimizer(LayoutOptimizer):
         L = layout.copy()
         if hasattr(layout, '_diagram_name'):
             L._diagram_name = layout._diagram_name
+        L._areas = getattr(layout, '_areas', None)
+        L._roles = getattr(layout, '_roles', None)
 
         elements = L.elements
         connections = L.connections
+
+        # §I27: si el SDJF declara `areas`, se usa el layout por ámbitos
+        # (sub-lienzo A–H por área + empaquetado a lo ancho + ruteo inter-área).
+        if L._areas:
+            return self._optimize_areas(L)
 
         # §A niveles + §B columnas.
         lv = compute_levels(elements, connections)
@@ -124,6 +132,23 @@ class HierLayoutOptimizer(LayoutOptimizer):
             logger.debug(f"[HIER] niveles={sorted(set(L.levels.values()))} "
                          f"satélites={lv.satellites} tomas={lv.side_feeders}")
 
+        return L
+
+    def _optimize_areas(self, L):
+        """§I27/§I29: layout por ámbitos (fases). Delega el sub-layout A–H por
+        área a `areas.layout_by_areas` y expone `L.areas` para el renderer."""
+        apply_label_wrapping(L)                      # §J31 antes del sub-layout
+        boxes = layout_by_areas(L, L._areas)
+        L.areas = boxes
+        L.roles = L._roles
+        # Atributos que el generator/renderer leen.
+        L.levels = {e['id']: 0 for e in L.elements if 'x' in e}
+        L.groups = [[b['id'] for b in boxes]]
+        L.priorities = {e['id']: 1 for e in L.elements}
+        L._collision_count = 0
+        if self.verbose:
+            logger.debug(f"[HIER-AREAS] {len(boxes)} áreas, "
+                         f"canvas {L.canvas['width']:.0f}x{L.canvas['height']:.0f}")
         return L
 
     def _expand_canvas_to_paths(self, L):
