@@ -106,10 +106,21 @@ def _create_arrow_marker(dwg, marker_id, color, direction='end'):
     return marker
 
 
+# Radio del punto de origen (círculo). En userSpaceOnUse es px absolutos:
+# diámetro 2.4px = 20% más ancho que la línea (stroke-width 2).
+CIRCLE_MARKER_R = 1.2
+
+
 def _create_circle_marker(dwg, marker_id, color):
-    """Crea un marker de círculo para origen de conexiones unidireccionales."""
-    marker = dwg.marker(id=marker_id, insert=(5, 5), size=(10, 10), orient='auto')
-    marker.add(dwg.circle(center=(5, 5), r=4, fill=color))
+    """Crea un marker de círculo para origen de conexiones unidireccionales.
+
+    Tamaño absoluto (userSpaceOnUse) para que NO escale con el stroke-width:
+    un punto discreto, apenas más ancho que la línea.
+    """
+    r = CIRCLE_MARKER_R
+    marker = dwg.marker(id=marker_id, insert=(r, r), size=(2 * r, 2 * r), orient='auto')
+    marker['markerUnits'] = 'userSpaceOnUse'
+    marker.add(dwg.circle(center=(r, r), r=r, fill=color))
     dwg.defs.add(marker)
     return marker
 
