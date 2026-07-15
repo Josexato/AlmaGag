@@ -11,7 +11,34 @@ from AlmaGag.debug import dump_layout_table
 logger = logging.getLogger('AlmaGag')
 
 
-def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False, guide_lines=None, dump_iterations=False, output_file=None, layout_algorithm='auto', view='auto', visualize_growth=False, color_connections=False, **centrality_kwargs):
+def select_strategy(data, view='auto'):
+    """Un solo algoritmo: elige la mejor estrategia de layout a partir del JSON.
+
+    El usuario normalmente NO elige algoritmo — corre `almagag archivo.json` y
+    el motor decide. Sólo si un parámetro de comando fuerza algo (una vista o un
+    `--layout-algorithm` explícito) se respeta esa elección.
+
+    Política (conservadora, no regresiona los canónicos de arquitectura):
+    - una vista explícita (`--view`) → esa vista es de hier
+    - contenedores anidados (`contains`) → AUTO (hier aún no los soporta)
+    - metadata de fases (`areas`) → flujo por ámbitos (hier)
+    - nodos de decisión (rombos) → flowchart → hier
+    - en cualquier otro caso → AUTO (placement general)
+    """
+    elements = data.get('elements', [])
+    if view and view != 'auto':
+        return 'hier'                       # las vistas (areas/lanes/matrix) son de hier
+    if any('contains' in e for e in elements):
+        return 'auto'                       # hier no maneja contenedores anidados
+    if data.get('areas'):
+        return 'hier'
+    types = {e.get('type') for e in elements}
+    if types & {'decision', 'diamond'}:
+        return 'hier'
+    return 'auto'
+
+
+def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False, guide_lines=None, dump_iterations=False, output_file=None, layout_algorithm='select', view='auto', visualize_growth=False, color_connections=False, **centrality_kwargs):
     # Configurar logging si debug está activo
     if debug:
         logging.basicConfig(
@@ -119,8 +146,9 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
         resolved_view = 'areas' if data.get('areas') else 'flow'
     initial_layout._layout_view = resolved_view
 
-    # 2. Instanciar optimizador (WISH-ARCH-001 resuelto: factoría unificada).
-    # Ambos optimizers heredan de LayoutOptimizer y son self-contained.
+    # 2. Un solo algoritmo: si no se forzó uno por CLI (`select`, el default),
+    # el motor elige la estrategia a partir del JSON. auto/laf/hier explícitos
+    # quedan como override avanzado / debug.
     from AlmaGag.layout.laf.optimizer import LAFOptimizer
     from AlmaGag.layout.hier.optimizer import HierLayoutOptimizer
     OPTIMIZERS = {
@@ -128,6 +156,9 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
         'laf':  LAFOptimizer,
         'hier': HierLayoutOptimizer,
     }
+    if layout_algorithm == 'select':
+        layout_algorithm = select_strategy(data, view)
+        logger.info(f"     - Estrategia auto-seleccionada: {layout_algorithm}")
     optimizer_cls = OPTIMIZERS[layout_algorithm]
     optimizer_kwargs = {'verbose': debug, 'visualdebug': visualdebug}
     if layout_algorithm == 'laf':

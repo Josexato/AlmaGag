@@ -573,6 +573,29 @@ El alza de R1 es **correcta**: al detectar ahora los iconos custom, el validador
 
 ## 🌟 WISH
 
+### WISH-ARCH-002: Convergencia a un solo algoritmo (auto-selección) 🚧 EN CURSO
+**Componente**: `AlmaGag/generator.py` (`select_strategy`), `main.py`, `AlmaGag/layout/`
+**Contexto**: la intención original del autor NO es tener tres algoritmos (auto/laf/hier).
+AUTO fue el algoritmo original; LAF nació como **lente de debug por fases** de AUTO (mismo
+algoritmo, con visibilidad), no como uno aparte; `hier` recombinó y mejoró ideas de ambos. El
+objetivo es **un único motor** que interprete la mejor representación **a partir del JSON**, y
+que la representación sólo se fuerce por **parámetro de comando** (nunca por un campo del JSON).
+**Decisión (autor, 1a+2a)**: AUTO absorbe a hier (un motor); `areas`/`roles` quedan como
+*contenido* del JSON; se saca `layout_view` del JSON (la representación va por `--view`).
+**Hecho hasta ahora**:
+- `layout_view` eliminado del JSON — la representación se fuerza sólo por CLI (`--view`).
+- `--layout-algorithm` default = `select`: `almagag archivo.json` sin flags corre
+  `select_strategy(data, view)` que elige la estrategia desde el JSON. Política conservadora:
+  vista explícita→hier · contenedores→AUTO (hier no los soporta) · `areas`→hier · rombos
+  (decision)→hier · resto→AUTO. Verificado: sólo 3 canónicos enrutan a hier (es-primo,
+  activacion, red-areas); los 28 de arquitectura/topología siguen en AUTO **byte-idénticos**
+  (cero regresión). `auto/laf/hier` explícitos quedan como override avanzado/debug.
+**Pendiente**: fusión física del código (hier como estrategia interna de AUTO, no un paquete
+paralelo); reencuadrar LAF como `--debug-phases`; afinar el clasificador con más señales
+(hoy es intencionalmente conservador). Test: `tests/test_strategy_selection.py`.
+
+---
+
 ### WISH-LAF-002: Layout Jerárquico `hier` según Criterios A1–F18 (spec Claude Design) ✅ RESUELTO (v1) (Fases 1-2-3 ✅ — A1–F18 sobre 14-stresstest)
 **Componente**: `AlmaGag/layout/hier/` (algoritmo nuevo) — leveling.py (§A), columns.py (§B), optimizer.py; + routing/draw (§C–§F)
 **Severidad**: Alta (norte de calidad de layout; caso de regresión `14-stresstest.sdjf`)

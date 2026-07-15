@@ -64,9 +64,12 @@ Ejemplos:
     parser.add_argument(
         "--layout-algorithm",
         type=str,
-        choices=['auto', 'laf', 'hier'],
-        default='auto',
-        help="Algoritmo de layout: 'auto' (sistema actual), 'laf' (Layout Abstracto Primero) o 'hier' (jerárquico A1-F18, spec Criterios AlmaGag)"
+        choices=['select', 'auto', 'laf', 'hier'],
+        default='select',
+        help="Estrategia de layout. Default 'select': el motor elige a partir "
+             "del JSON (un solo algoritmo). Forzar una es avanzado/debug: "
+             "'auto' (placement general), 'laf' (lente de fases sobre auto), "
+             "'hier' (jerárquico por flujo A1-F18)."
     )
     parser.add_argument(
         "--view",
