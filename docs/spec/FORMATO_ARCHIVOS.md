@@ -156,13 +156,14 @@ Sólo las usa `--layout-algorithm=hier`. Separan **el dato** (qué fase / quién
 responsable de cada nodo) de **la vista** (cómo se agrupa visualmente). Un SDJF
 sin estos campos se comporta igual que hoy.
 
-**Selección de vista (híbrida):** prioridad `--view` (CLI) > `layout_view` (campo
-del SDJF) > `auto`. En `auto`, si el SDJF declara `areas` se usa la vista de
-áreas; si no, el flujo plano.
+**Principio:** el JSON describe *qué es* (contenido, incluida la metadata
+semántica `areas`/`roles`); el algoritmo decide *cómo se ve*. La representación
+**sólo se fuerza por parámetro de comando** (`--view`), **nunca por un campo del
+archivo** — no hay `layout_view` en el JSON.
 
 ```
---view {auto|flow|areas|lanes|matrix}     # override de ejecución
-"layout_view": "areas"                      # vista canónica del archivo
+--view {auto|flow|areas|lanes|matrix}     # override, sólo por CLI
+# (default: auto → el algoritmo elige a partir del JSON: areas si las declara)
 ```
 
 | Vista | Qué hace | Criterio |

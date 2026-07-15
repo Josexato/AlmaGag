@@ -1,6 +1,6 @@
 """
-Tests de §I28 (carriles por rol) y de la resolución de vista (--view /
-layout_view / auto) del algoritmo hier.
+Tests de §I28 (carriles por rol) y de la resolución de vista (--view / auto,
+la representación se fuerza sólo por CLI) del algoritmo hier.
 """
 
 import json

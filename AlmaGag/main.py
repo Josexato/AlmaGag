@@ -73,10 +73,11 @@ Ejemplos:
         type=str,
         choices=['auto', 'flow', 'areas', 'lanes', 'matrix'],
         default='auto',
-        help="Vista del layout hier (override del campo `layout_view` del SDJF): "
+        help="Fuerza la REPRESENTACIÓN (solo por CLI, nunca por el JSON): "
              "'flow' (columnas por flujo), 'areas' (cajas por fase §I27), "
              "'lanes' (carriles por rol §I28), 'matrix' (fase×rol). "
-             "'auto' respeta el SDJF (areas si las declara)."
+             "'auto' (default) la decide el algoritmo a partir del JSON "
+             "(areas si el archivo declara la metadata)."
     )
     parser.add_argument(
         "--visualize-growth",

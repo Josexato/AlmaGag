@@ -110,10 +110,11 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     initial_layout._areas = data.get('areas')
     initial_layout._roles = data.get('roles')
     initial_layout._lanes = data.get('lanes')
-    # Vista del layout hier (§I): prioridad `--view` (CLI) > `layout_view`
-    # (campo del SDJF) > 'auto'. 'auto' → areas si el SDJF las declara, si no
-    # el flujo normal. El código sólo decide cuando nadie especificó.
-    resolved_view = view if view and view != 'auto' else data.get('layout_view', 'auto')
+    # Vista del layout (§I): la REPRESENTACIÓN se decide sola a partir del JSON
+    # y sólo se fuerza por parámetro de COMANDO (`--view`), nunca por un campo
+    # del archivo. El JSON describe *qué es* (incluida la metadata semántica
+    # areas/roles); el algoritmo decide *cómo se ve*; el CLI puede pisarlo.
+    resolved_view = view if (view and view != 'auto') else 'auto'
     if resolved_view == 'auto':
         resolved_view = 'areas' if data.get('areas') else 'flow'
     initial_layout._layout_view = resolved_view
