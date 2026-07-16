@@ -433,6 +433,22 @@ class AutoLayoutOptimizer(LayoutOptimizer):
             logger.info(f"       Total iteraciones: {len(dumper.iterations) - 1}")
             logger.info(f"       Colisiones: {initial_collisions} -> {min_collisions}")
 
+        # Rescate ④: constraints declarativas del usuario (align/near/avoid).
+        # Se aplican como último paso — reflejan intención explícita del SDJF —,
+        # se re-rutea y se recalcula el canvas. Sin `constraints` es un no-op.
+        constraints = getattr(layout, '_constraints', None)
+        if constraints:
+            from AlmaGag.layout.constraints import apply_constraints
+            n = apply_constraints(best_layout, constraints, debug=self.verbose)
+            if n:
+                best_layout.invalidate_collision_cache()
+                self._normalize_to_canvas(best_layout)
+                self.routing.route(best_layout)
+                self._calculate_canvas_from_bounds(best_layout)
+                min_collisions = self.evaluate(best_layout)
+                self._capture('constraints', best_layout,
+                              f'{n} constraint(s) declarativa(s) · {min_collisions} colisiones')
+
         self._capture('final', best_layout,
                       f'normalizado + labels escalonados · {min_collisions} colisiones')
 

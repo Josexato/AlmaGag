@@ -28,6 +28,8 @@ def select_strategy(data, view='auto'):
     elements = data.get('elements', [])
     if view and view != 'auto':
         return 'hier'                       # las vistas (areas/lanes/matrix) son de hier
+    if data.get('constraints'):
+        return 'auto'                       # constraints declarativas: sólo AUTO
     if any('contains' in e for e in elements):
         return 'auto'                       # hier no maneja contenedores anidados
     if data.get('areas'):
@@ -137,6 +139,10 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     initial_layout._areas = data.get('areas')
     initial_layout._roles = data.get('roles')
     initial_layout._lanes = data.get('lanes')
+    # §④ constraints declarativas (align/near/avoid): sólo las consume AUTO.
+    # Si el JSON no las declara, queda [] y nada cambia (cero regresión).
+    from AlmaGag.layout.constraints import extract_constraints
+    initial_layout._constraints = extract_constraints(data)
     # Vista del layout (§I): la REPRESENTACIÓN se decide sola a partir del JSON
     # y sólo se fuerza por parámetro de COMANDO (`--view`), nunca por un campo
     # del archivo. El JSON describe *qué es* (incluida la metadata semántica

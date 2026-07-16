@@ -206,6 +206,39 @@ Ver `AlmaGag/layout/strategies/hier/areas.py`, `lanes.py` y `tests/test_hier_are
 
 ---
 
+## 0.4. Constraints declarativas — `constraints` (align / near / avoid)
+
+Array top-level opcional para expresar intención de layout: alinear, acercar o
+separar elementos. Las aplica el motor **AUTO** como paso final (declarar
+`constraints` enruta el diagrama a AUTO). Si no las declaras, no cambia nada.
+
+```json
+"constraints": [
+  { "align": ["web1", "web2", "web3"], "axis": "y" },
+  { "align": ["db", "cache"], "axis": "x" },
+  { "near":  ["api", "db"] },
+  { "avoid": ["frontend", "backend"] }
+]
+```
+
+| Constraint | Efecto | `axis` |
+|---|---|---|
+| `align` | Lleva los elementos a una coordenada común (la media del grupo) | `"x"` (misma columna, default) o `"y"` (misma fila) |
+| `near`  | Acerca los elementos hacia su centroide (reduce la caja que los contiene) | — |
+| `avoid` | Si dos elementos se solapan, los separa por el eje de menor penetración | — |
+
+- Cada constraint necesita **≥2 ids**; las entradas inválidas se descartan con un
+  warning (no rompen el render).
+- `align` es la más fuerte (posición exacta); `near`/`avoid` son ajustes suaves.
+  Combínalas: `align` para formar una columna, `avoid` para que dos cajas de esa
+  columna no se pisen.
+- Se aplican en orden `align → near → avoid`.
+
+Ver `AlmaGag/layout/constraints.py`, `docs/diagrams/gags/constraints-demo.sdjf` y
+`tests/test_constraints.py`.
+
+---
+
 ## 1. canvas (opcional)
 
 Define el tamano del area de dibujo en pixeles. Si lo omites, AlmaGag usa 1400x900 y lo expande si hace falta. Si declaras `layout_template`, el template lo calcula automaticamente.
