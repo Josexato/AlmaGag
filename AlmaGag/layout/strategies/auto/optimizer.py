@@ -165,6 +165,10 @@ class AutoLayoutOptimizer(LayoutOptimizer):
 
         # 0.6. Auto-routing de conexiones (necesario antes de calcular label positions)
         self.routing.route(current)
+        # Epifanía: primera foto completa (posiciones + contenedores dimensionados
+        # + ruteo inicial). Antes de este punto los contenedores no tienen tamaño.
+        self._capture('posicionamiento', current,
+                      'auto-layout jerárquico (barycenter) + contenedores + ruteo')
 
         # 1. Análisis de grafo (re-analizar después de auto-layout y contenedores)
         self.analyze(current)
@@ -207,6 +211,8 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         #        Los contenedores expandidos pueden causar colisiones → redistribuir elementos libres
         self.positioner.recalculate_positions_with_expanded_containers(current)
         self._log("Elementos primarios redistribuidos con contenedores expandidos")
+        self._capture('contenedores', current,
+                      'dimensiones + centrado con etiquetas + redistribución')
 
         # 2.5.6. CRÍTICO: Recalcular label_positions con las posiciones FINALES de los íconos.
         # Antes de este paso, los labels se calcularon en step 2 con coords originales,
@@ -246,6 +252,8 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         self._log(f"Colisiones iniciales: {initial_collisions}")
         self._log(f"Niveles: {len(set(current.levels.values()))}, "
                   f"Grupos: {len(current.groups)}")
+        self._capture('ruteo-inicial', current,
+                      f'canvas desde bounds + routing · {initial_collisions} colisiones')
 
         # Prioridades para debug
         if self.verbose:
@@ -378,6 +386,9 @@ class AutoLayoutOptimizer(LayoutOptimizer):
                 prev_collisions = min_collisions
                 best_layout = candidate
                 min_collisions = collisions
+                self._capture(f'iteracion-{iteration + 1}', candidate,
+                              f'{strategy_type} · {collisions} colisiones '
+                              f'(−{prev_collisions - collisions})')
                 if self.verbose:
                     self._log(f"  [OK] Mejora: {collisions} colisiones (reduccion: {prev_collisions - collisions})")
             else:
@@ -408,6 +419,9 @@ class AutoLayoutOptimizer(LayoutOptimizer):
             logger.info(f"[DUMP] Iteraciones guardadas en: {dump_path}")
             logger.info(f"       Total iteraciones: {len(dumper.iterations) - 1}")
             logger.info(f"       Colisiones: {initial_collisions} -> {min_collisions}")
+
+        self._capture('final', best_layout,
+                      f'normalizado + labels escalonados · {min_collisions} colisiones')
 
         return best_layout
 

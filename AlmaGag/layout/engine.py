@@ -76,9 +76,26 @@ class LayoutEngine:
         delega, y adopta su renderer. Devuelve el layout optimizado."""
         name = self._forced or getattr(layout, '_strategy', None) or 'auto'
         strategy = self._build(name)
+
+        # Epifanía agnóstica (paso 2): conecta un grabador de fases a la
+        # estrategia viva (auto/hier) para producir el flipbook del layout real.
+        # `legacy` trae su propia Epifanía "de lujo" (VC/centralidad, activada
+        # por su kwarg `visualize_growth`), así que no la duplicamos acá.
+        recorder = None
+        if self._visualize_growth and name != 'legacy':
+            from AlmaGag.layout.epifania import PhaseRecorder
+            recorder = PhaseRecorder(
+                diagram_name=getattr(layout, '_diagram_name', 'diagram'),
+                strategy_label=name, enabled=True)
+            strategy.recorder = recorder
+
         result = strategy.optimize(layout, **kwargs)
         self.renderer = strategy.renderer     # el generator hace engine.renderer.render(...)
         self.chosen = name
+
+        if recorder is not None:
+            recorder.render_all(strategy.renderer)
+
         if self.verbose:
             logger.debug(f"[ENGINE] estrategia '{name}' → "
                          f"{type(strategy).__name__}")

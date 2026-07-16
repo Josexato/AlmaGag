@@ -19,7 +19,8 @@ Ejemplos:
   almagag archivo.sdjf --debug --visualdebug --exportpng           # Todo habilitado
   almagag archivo.sdjf --debug --guide-lines 186 236               # Con líneas guía
   almagag archivo.sdjf --layout-algorithm=legacy --debug           # Motor histórico (ex-LAF)
-  almagag archivo.sdjf --layout-algorithm=legacy --epifania          # + Epifanía: un SVG por fase del análisis
+  almagag archivo.sdjf --epifania                                 # Epifanía: flipbook del layout naciendo por fase
+  almagag archivo.sdjf --layout-algorithm=legacy --epifania          # Epifanía de lujo (VC/centralidad, sólo legacy)
   almagag archivo.sdjf --layout-algorithm=hier                     # Forzar la estrategia de flujo
   python -m AlmaGag.main docs/diagrams/gags/05-arquitectura-gag.gag --debug --visualdebug
         """
@@ -86,9 +87,10 @@ Ejemplos:
         "--epifania", "--debug-phases", "--visualize-growth",
         dest="visualize_growth",
         action="store_true",
-        help="Epifanía — analizador del proceso de conceptualización: un SVG por "
-             "cada fase del análisis (en debug/epifania/), para ver cómo NACE la "
-             "abstracción del layout, paso a paso. Sólo con --layout-algorithm=legacy."
+        help="Epifanía — ver cómo NACE la abstracción del layout, paso a paso: un "
+             "SVG por fase en debug/epifania/<diagrama>/ (+ index.html). Con "
+             "auto/hier es un flipbook del layout real por etapa; con "
+             "--layout-algorithm=legacy usa el analizador de lujo (VC/centralidad)."
     )
     parser.add_argument(
         "--color-connections",

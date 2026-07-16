@@ -617,9 +617,20 @@ que la representación sólo se fuerce por **parámetro de comando** (nunca por 
   conservados como alias retrocompat): NO posiciona, emite un SVG por fase del análisis (estructura
   → topología → centralidad → abstracción VC → placement → ruteo) para *ver cómo NACE la
   abstracción*. CLI `--epifania` (alias `--debug-phases`, `--visualize-growth`), salida en
-  `debug/epifania/<diagrama>/`, títulos "Epifanía · Fase N". Sólo con `--layout-algorithm=legacy`.
-  *Nombre elegido por José (sobre "Janus").* **Paso 2 futuro**: generalizar Epifanía a un grabador
-  de fases agnóstico del motor para que también observe a AUTO/hier, no sólo a `legacy`.
+  `debug/epifania/<diagrama>/`, títulos "Epifanía · Fase N". *Nombre elegido por José (sobre
+  "Janus").*
+- **(ii-b) Epifanía agnóstica del motor (paso 2) ✅**: `--epifania` ya no es exclusiva de `legacy`.
+  `layout/epifania.py::PhaseRecorder` es un grabador **agnóstico**: hace `deepcopy` del layout en
+  cada frontera de fase y re-renderiza cada foto con el *renderer real* de la estrategia → un
+  "flipbook" del layout real naciendo etapa a etapa (la última foto es byte-idéntica al SVG final,
+  verificado). Las estrategias emiten fases con `self._capture(label, layout, note)` (helper no-op
+  de `LayoutOptimizer`, costo cero si no hay grabador); el `LayoutEngine` conecta el grabador sólo
+  con `--epifania` y sólo a estrategias vivas (auto/hier) — `legacy` conserva su Epifanía "de lujo"
+  (VC/centralidad) porque dibuja internos que sólo ese motor tiene. Fases instrumentadas: AUTO
+  (posicionamiento → contenedores → ruteo-inicial → iteración-N por mejora → final); hier
+  (niveles-columnas → ruteo → arcos → etiquetas → final; + final-areas/lanes/matrix). Salida:
+  `debug/epifania/<diagrama>/NN_<fase>.svg` + `index.html` (hoja de contacto). Las capturas son
+  sólo-lectura: **no alteran salida ni determinismo**; camino normal (sin `--epifania`) byte-idéntico.
 
 **Pendiente**: afinar el clasificador con más señales (hoy es intencionalmente conservador);
 opcional: portar las piezas de rescate ①/② desde `legacy` a `hier`. Test:

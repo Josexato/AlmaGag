@@ -116,13 +116,17 @@ class HierLayoutOptimizer(LayoutOptimizer):
             width = max(xs) + ICON_WIDTH + MARGIN_X
             height = max(ys) + ICON_HEIGHT + MARGIN_Y
             L.canvas = {'width': max(width, 400), 'height': max(height, 300)}
+        self._capture('niveles-columnas', L,
+                      '§A niveles + §B columnas → coords reales')
 
         # §C/§D: puertos por proyección + ruteo (Fase 2). Setea computed_path
         # en cada conexión (las back-edges quedan sin path aquí).
         route_connections(L, lv)
+        self._capture('ruteo', L, '§C/§D puertos por proyección + ruteo')
         # §E: arcos de ciclo (Fase 3) — pisan las aristas del ciclo (ida) y
         # dibujan la back-edge de retorno con comba coherente.
         route_cycle_arcs(L, lv)
+        self._capture('arcos', L, '§E arcos de ciclo (back-edges)')
         # §J31/§J32: etiquetas multilínea (≤3 líneas, ancho máx) antes de medir
         # lados/canvas.
         apply_label_wrapping(L)
@@ -130,6 +134,7 @@ class HierLayoutOptimizer(LayoutOptimizer):
         assign_label_sides(L)
         # §G23: rótulo de conexión pegado al puerto de salida.
         assign_connection_label_anchors(L)
+        self._capture('etiquetas', L, '§F/§G lados de etiqueta + anclas de rótulo')
 
         # §G22: contención del viewBox — ningún path (polyline/waypoints/comba
         # de bezier) debe salirse del canvas. Se expande el canvas para
@@ -148,6 +153,7 @@ class HierLayoutOptimizer(LayoutOptimizer):
             logger.debug(f"[HIER] niveles={sorted(set(L.levels.values()))} "
                          f"satélites={lv.satellites} tomas={lv.side_feeders}")
 
+        self._capture('final', L, '§G22 canvas contenido')
         return L
 
     def _optimize_areas(self, L):
@@ -165,6 +171,7 @@ class HierLayoutOptimizer(LayoutOptimizer):
         if self.verbose:
             logger.debug(f"[HIER-AREAS] {len(boxes)} áreas, "
                          f"canvas {L.canvas['width']:.0f}x{L.canvas['height']:.0f}")
+        self._capture('final-areas', L, f'§I27/§I29 layout por {len(boxes)} ámbitos')
         return L
 
     def _optimize_matrix(self, L):
@@ -182,6 +189,8 @@ class HierLayoutOptimizer(LayoutOptimizer):
         if self.verbose:
             logger.debug(f"[HIER-MATRIX] {len(grid['cols'])}×{len(grid['rows'])} "
                          f"canvas {L.canvas['width']:.0f}x{L.canvas['height']:.0f}")
+        self._capture('final-matrix', L,
+                      f"§I matriz {len(grid['cols'])}×{len(grid['rows'])} fase×rol")
         return L
 
     def _optimize_lanes(self, L):
@@ -199,6 +208,7 @@ class HierLayoutOptimizer(LayoutOptimizer):
         if self.verbose:
             logger.debug(f"[HIER-LANES] {len(strips)} carriles, "
                          f"canvas {L.canvas['width']:.0f}x{L.canvas['height']:.0f}")
+        self._capture('final-lanes', L, f'§I28 layout por {len(strips)} carriles de rol')
         return L
 
     def _expand_canvas_to_paths(self, L):
