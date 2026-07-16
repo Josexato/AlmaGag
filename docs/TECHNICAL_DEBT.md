@@ -39,6 +39,16 @@ El código de runtime usa identificadores como `LAF_PHASE_6_NDPR_EXPANDED` para 
 
 ---
 
+## Diseños abiertos (documentos aparte)
+
+- **WISH-ARCH-004 — "El Mapa"** (🟡 diseño en revisión): separar limpiamente
+  **contenedor / carril / ámbito** como capas componibles (hoy `areas`/`lanes`
+  son vistas excluyentes y el `areas` §I27 es en realidad un contenedor mal
+  nombrado). Introduce el **ámbito de forma arbitraria** (terreno). Ver
+  `docs/architecture/WISH-ARCH-004-el-mapa.md`. Pendiente: decisiones de §9.
+
+---
+
 ## 🐛 BUGS
 
 ### BUGS-LAYOUT-001: Etiquetas de Debug Solapadas en Modo VisualDebug ✅ RESUELTO
