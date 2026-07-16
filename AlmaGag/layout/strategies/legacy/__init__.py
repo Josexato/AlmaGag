@@ -23,11 +23,11 @@ from AlmaGag.layout.strategies.legacy.abstract_placer import AbstractPlacer
 from AlmaGag.layout.strategies.legacy.position_optimizer import PositionOptimizer
 from AlmaGag.layout.strategies.legacy.inflator import ElementInflator
 from AlmaGag.layout.strategies.legacy.container_grower import ContainerGrower
-from AlmaGag.layout.strategies.legacy.visualizer import GrowthVisualizer
+from AlmaGag.layout.strategies.legacy.epifania import Epifania, GrowthVisualizer
 
 __version__ = '1.6.0'
 __all__ = [
     'StructureAnalyzer', 'StructureInfo', 'AbstractPlacer',
     'PositionOptimizer', 'ElementInflator', 'ContainerGrower',
-    'GrowthVisualizer'
+    'Epifania', 'GrowthVisualizer'
 ]

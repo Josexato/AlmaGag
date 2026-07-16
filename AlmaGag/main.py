@@ -19,7 +19,7 @@ Ejemplos:
   almagag archivo.sdjf --debug --visualdebug --exportpng           # Todo habilitado
   almagag archivo.sdjf --debug --guide-lines 186 236               # Con líneas guía
   almagag archivo.sdjf --layout-algorithm=legacy --debug           # Motor histórico (ex-LAF)
-  almagag archivo.sdjf --layout-algorithm=legacy --visualize-growth # + analizador de conceptualización (fases)
+  almagag archivo.sdjf --layout-algorithm=legacy --epifania          # + Epifanía: un SVG por fase del análisis
   almagag archivo.sdjf --layout-algorithm=hier                     # Forzar la estrategia de flujo
   python -m AlmaGag.main docs/diagrams/gags/05-arquitectura-gag.gag --debug --visualdebug
         """
@@ -83,12 +83,12 @@ Ejemplos:
              "(areas si el archivo declara la metadata)."
     )
     parser.add_argument(
-        "--debug-phases", "--visualize-growth",
+        "--epifania", "--debug-phases", "--visualize-growth",
         dest="visualize_growth",
         action="store_true",
-        help="Analizador del proceso de conceptualización: un SVG por cada fase "
-             "del análisis (en debug/conceptualizacion/), para ver cómo se genera "
-             "la abstracción paso a paso. Sólo con --layout-algorithm=legacy."
+        help="Epifanía — analizador del proceso de conceptualización: un SVG por "
+             "cada fase del análisis (en debug/epifania/), para ver cómo NACE la "
+             "abstracción del layout, paso a paso. Sólo con --layout-algorithm=legacy."
     )
     parser.add_argument(
         "--color-connections",

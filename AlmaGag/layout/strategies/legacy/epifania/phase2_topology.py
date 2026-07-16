@@ -1,4 +1,4 @@
-"""LAF Visualizer — auto-extraído de visualizer.py (WISH-ARCH-003 sub-tarea B)."""
+"""Epifanía (visualizador de fases) — auto-extraído de visualizer.py (WISH-ARCH-003 sub-tarea B)."""
 
 import os
 import math
@@ -51,7 +51,7 @@ def generate(viz, output_path):
 
     # Título
     dwg.add(dwg.text(
-        'LAF Phase 2: Topological Analysis',
+        'Epifanía · Fase 2: Topological Analysis',
         insert=(20, 30),
         font_size='20px',
         font_weight='bold',

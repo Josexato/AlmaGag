@@ -1,4 +1,4 @@
-"""LAF Visualizer — auto-extraído de visualizer.py (WISH-ARCH-003 sub-tarea B)."""
+"""Epifanía (visualizador de fases) — auto-extraído de visualizer.py (WISH-ARCH-003 sub-tarea B)."""
 
 import os
 import math
@@ -80,7 +80,7 @@ def generate(viz, output_path):
     dwg.add(dwg.rect(insert=(0, 0), size=(canvas_width, canvas_height), fill='#f8f9fa'))
 
     dwg.add(dwg.text(
-        'LAF Phase 3: Centrality Ordering',
+        'Epifanía · Fase 3: Centrality Ordering',
         insert=(20, 30),
         font_size='20px',
         font_weight='bold',

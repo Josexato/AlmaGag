@@ -1,12 +1,15 @@
 """
-ConceptualizationAnalyzer — analizador del proceso de conceptualización.
+Epifanía — analizador del proceso de conceptualización.
 
 La otra mitad de lo que fue LAF (la primera es el *motor histórico*, ahora la
 estrategia `legacy`): esta parte NO posiciona, **analiza y visualiza cómo se
 genera la abstracción** — emite un SVG por cada fase del análisis (estructura →
 topología → centralidad → abstracción VC → placement → inflación → ruteo), para
-ver paso a paso cómo el motor construye su modelo. Es la herramienta de
-introspección; se activa con `--debug-phases`.
+ver paso a paso cómo NACE el modelo del motor. Es la herramienta de
+introspección; se activa con `--epifania` (alias `--debug-phases`).
+
+`Epifania` es la clase; se conservan los alias `ConceptualizationAnalyzer` y
+`GrowthVisualizer` por compatibilidad con código previo.
 
 Author: José + ALMA + Claude (Claude-SolFase5)
 Version: v1.1
@@ -26,7 +29,7 @@ from AlmaGag.layout.strategies.legacy.structure_analyzer import StructureInfo
 logger = logging.getLogger('AlmaGag')
 
 
-class ConceptualizationAnalyzer:
+class Epifania:
     """
     Analizador del proceso de conceptualización: un SVG por fase del análisis.
 
@@ -44,7 +47,7 @@ class ConceptualizationAnalyzer:
     11. phase11_final.svg: Layout final completo
     """
 
-    def __init__(self, output_dir: str = "debug/conceptualizacion", debug: bool = False):
+    def __init__(self, output_dir: str = "debug/epifania", debug: bool = False):
         """
         Inicializa el visualizador.
 
@@ -826,45 +829,46 @@ class ConceptualizationAnalyzer:
         return labels
 
     def _generate_phase1_svg(self, output_path: str) -> None:
-        from AlmaGag.layout.strategies.legacy.visualizer import phase1
+        from AlmaGag.layout.strategies.legacy.epifania import phase1
         phase1.generate(self, output_path)
 
     def _generate_phase2_topology_svg(self, output_path: str) -> None:
-        from AlmaGag.layout.strategies.legacy.visualizer import phase2_topology
+        from AlmaGag.layout.strategies.legacy.epifania import phase2_topology
         phase2_topology.generate(self, output_path)
 
     def _generate_phase3_centrality_svg(self, output_path: str) -> None:
-        from AlmaGag.layout.strategies.legacy.visualizer import phase3_centrality
+        from AlmaGag.layout.strategies.legacy.epifania import phase3_centrality
         phase3_centrality.generate(self, output_path)
 
     def _generate_phase4_abstract_svg(self, output_path: str) -> None:
-        from AlmaGag.layout.strategies.legacy.visualizer import phase4_abstract
+        from AlmaGag.layout.strategies.legacy.epifania import phase4_abstract
         phase4_abstract.generate(self, output_path)
 
     def _generate_phase5_optimized_svg(self, output_path: str) -> None:
-        from AlmaGag.layout.strategies.legacy.visualizer import phase5_optimized
+        from AlmaGag.layout.strategies.legacy.epifania import phase5_optimized
         phase5_optimized.generate(self, output_path)
 
     def _generate_phase7_iterative_svg(self, output_path: str) -> None:
-        from AlmaGag.layout.strategies.legacy.visualizer import phase7_iterative
+        from AlmaGag.layout.strategies.legacy.epifania import phase7_iterative
         phase7_iterative.generate(self, output_path)
 
     def _generate_phase8_inflated_svg(self, output_path: str) -> None:
-        from AlmaGag.layout.strategies.legacy.visualizer import phase8_inflated
+        from AlmaGag.layout.strategies.legacy.epifania import phase8_inflated
         phase8_inflated.generate(self, output_path)
 
     def _generate_phase9_redistributed_svg(self, output_path: str) -> None:
-        from AlmaGag.layout.strategies.legacy.visualizer import phase9_redistributed
+        from AlmaGag.layout.strategies.legacy.epifania import phase9_redistributed
         phase9_redistributed.generate(self, output_path)
 
     def _generate_phase10_routed_svg(self, output_path: str) -> None:
-        from AlmaGag.layout.strategies.legacy.visualizer import phase10_routed
+        from AlmaGag.layout.strategies.legacy.epifania import phase10_routed
         phase10_routed.generate(self, output_path)
 
     def _generate_phase11_final_svg(self, output_path: str) -> None:
-        from AlmaGag.layout.strategies.legacy.visualizer import phase11_final
+        from AlmaGag.layout.strategies.legacy.epifania import phase11_final
         phase11_final.generate(self, output_path)
 
 
 # Alias retrocompatible (nombre histórico).
-GrowthVisualizer = ConceptualizationAnalyzer
+ConceptualizationAnalyzer = Epifania   # alias
+GrowthVisualizer = Epifania          # alias histórico

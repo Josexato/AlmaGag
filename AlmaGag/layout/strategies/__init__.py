@@ -12,7 +12,8 @@ intercambiables — todas viven acá — pero hay UNA **principal**:
 - `legacy` — **motor histórico** (ex-LAF): enfoque "abstracto primero" con la
              abstracción VC/SCC/TOI. CONGELADO — sólo se usa por override de
              debug (`--layout-algorithm=legacy`), nunca se auto-elige. Conserva
-             el *analizador del proceso de conceptualización* (visor por fases).
+             a *Epifanía*, el analizador del proceso de conceptualización (un
+             SVG por fase; ver `legacy/epifania/`).
 
 Se puede cambiar de estrategia, pero el motor por defecto es AUTO.
 """

@@ -7,11 +7,13 @@ JSON. Internamente eso se resuelve delegando en una ESTRATEGIA de placement:
 
 - `auto`  — placement general (Sugiyama + resolución de colisiones + contenedores).
             Es el motor base / caso por defecto.
-- `hier`  — estrategia de FLUJO (pipeline plano por niveles/columnas, criterios
-            A–J, y las vistas areas/lanes/matrix). Ya NO es un algoritmo peer:
-            es la estrategia que el motor usa para flujos dirigidos.
-- `laf`   — CONGELADA. Se conserva sólo como override de debug / lente de fases
-            (`--layout-algorithm=laf`), no se elige nunca automáticamente.
+- `hier`   — estrategia de FLUJO (pipeline plano por niveles/columnas, criterios
+             A–J, y las vistas areas/lanes/matrix). Ya NO es un algoritmo peer:
+             es la estrategia que el motor usa para flujos dirigidos.
+- `legacy` — motor histórico (ex-LAF), CONGELADO. Se conserva sólo como override
+             de debug y como sede de *Epifanía*, el analizador por fases
+             (`--layout-algorithm=legacy --epifania`); no se elige nunca
+             automáticamente.
 
 La estrategia se decide en `generator.select_strategy(...)` a partir del JSON y
 llega en `layout._strategy`; un override explícito por CLI la fuerza. Este

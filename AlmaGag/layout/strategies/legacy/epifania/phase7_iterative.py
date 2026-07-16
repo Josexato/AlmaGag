@@ -1,4 +1,4 @@
-"""LAF Visualizer — auto-extraído de visualizer.py (WISH-ARCH-003 sub-tarea B)."""
+"""Epifanía (visualizador de fases) — auto-extraído de visualizer.py (WISH-ARCH-003 sub-tarea B)."""
 
 import os
 import math
@@ -54,7 +54,7 @@ def generate(viz, output_path):
 
     # Título
     dwg.add(dwg.text(
-        'LAF Phase 7: Iterative Expansion',
+        'Epifanía · Fase 7: Iterative Expansion',
         insert=(20, 30), font_size='20px', font_weight='bold', fill='#212529'
     ))
     dwg.add(dwg.text(
