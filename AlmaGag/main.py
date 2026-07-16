@@ -18,9 +18,9 @@ Ejemplos:
   almagag archivo.gag                                              # Formato .gag (con iconos SVG embebidos)
   almagag archivo.sdjf --debug --visualdebug --exportpng           # Todo habilitado
   almagag archivo.sdjf --debug --guide-lines 186 236               # Con líneas guía
-  almagag archivo.sdjf --layout-algorithm=laf --debug              # Usar LAF (minimiza cruces)
-  almagag archivo.sdjf --layout-algorithm=laf --visualize-growth   # LAF + visualización de fases
-  almagag archivo.sdjf --layout-algorithm=laf --color-connections  # LAF + conexiones coloreadas
+  almagag archivo.sdjf --layout-algorithm=legacy --debug           # Motor histórico (ex-LAF)
+  almagag archivo.sdjf --layout-algorithm=legacy --visualize-growth # + analizador de conceptualización (fases)
+  almagag archivo.sdjf --layout-algorithm=hier                     # Forzar la estrategia de flujo
   python -m AlmaGag.main docs/diagrams/gags/05-arquitectura-gag.gag --debug --visualdebug
         """
     )
@@ -64,12 +64,12 @@ Ejemplos:
     parser.add_argument(
         "--layout-algorithm",
         type=str,
-        choices=['select', 'auto', 'laf', 'hier'],
+        choices=['select', 'auto', 'hier', 'legacy'],
         default='select',
         help="Estrategia de layout. Default 'select': el motor elige a partir "
-             "del JSON (un solo algoritmo). Forzar una es avanzado/debug: "
-             "'auto' (placement general), 'laf' (lente de fases sobre auto), "
-             "'hier' (jerárquico por flujo A1-F18)."
+             "del JSON (un solo algoritmo, con AUTO como principal). Forzar una "
+             "es avanzado/debug: 'auto' (principal, placement general), 'hier' "
+             "(flujo dirigido A–J), 'legacy' (motor histórico ex-LAF, congelado)."
     )
     parser.add_argument(
         "--view",
@@ -85,7 +85,9 @@ Ejemplos:
     parser.add_argument(
         "--visualize-growth",
         action="store_true",
-        help="Genera SVGs de cada fase del proceso LAF (solo con --layout-algorithm=laf)"
+        help="Analizador de conceptualización: genera un SVG por cada fase del "
+             "análisis, para ver cómo se genera la abstracción (solo con "
+             "--layout-algorithm=legacy)"
     )
     parser.add_argument(
         "--color-connections",

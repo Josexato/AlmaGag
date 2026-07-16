@@ -170,7 +170,7 @@ class LAFSVGRenderer:
             # LAF: explícitamente NO dibujar icono inline (se dibuja después como elemento separado).
             _draw_container(
                 draw_target, container, elements_by_id,
-                draw_label=False, layout_algorithm='laf', draw_icon=False,
+                draw_label=False, layout_algorithm='legacy', draw_icon=False,
             )
             if ndfn_group is not None:
                 dwg.add(ndfn_group)

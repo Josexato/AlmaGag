@@ -19,20 +19,20 @@ Version: v1.8 (Sprint 13 - Fase 4 iterativa + renumeración fases 7→11)
 """
 
 from typing import List
-from AlmaGag.layout.laf.structure_analyzer import StructureAnalyzer
-from AlmaGag.layout.laf.abstract_placer import AbstractPlacer
-from AlmaGag.layout.laf.position_optimizer import PositionOptimizer
-from AlmaGag.layout.laf.inflator import ElementInflator
-from AlmaGag.layout.laf.container_grower import ContainerGrower
-from AlmaGag.layout.laf.visualizer import GrowthVisualizer
-from AlmaGag.layout.laf.routing_policy import LAFRoutingPolicy
+from AlmaGag.layout.strategies.legacy.structure_analyzer import StructureAnalyzer
+from AlmaGag.layout.strategies.legacy.abstract_placer import AbstractPlacer
+from AlmaGag.layout.strategies.legacy.position_optimizer import PositionOptimizer
+from AlmaGag.layout.strategies.legacy.inflator import ElementInflator
+from AlmaGag.layout.strategies.legacy.container_grower import ContainerGrower
+from AlmaGag.layout.strategies.legacy.visualizer import GrowthVisualizer
+from AlmaGag.layout.strategies.legacy.routing_policy import LAFRoutingPolicy
 from AlmaGag.layout.optimizer_base import LayoutOptimizer
 from AlmaGag.layout.sizing import SizingCalculator
 from AlmaGag.layout.geometry import GeometryCalculator
 from AlmaGag.layout.collision import CollisionDetector
 from AlmaGag.layout.container_calculator import ContainerCalculator
 from AlmaGag.layout.graph_analysis import GraphAnalyzer
-from AlmaGag.layout.auto.positioner import AutoLayoutPositioner
+from AlmaGag.layout.strategies.auto.positioner import AutoLayoutPositioner
 from AlmaGag.layout.label_optimizer import LabelPositionOptimizer
 from AlmaGag.routing.router_manager import ConnectionRouterManager
 from AlmaGag.config import LAF_SPACING_BASE, WIDTH as DEFAULT_CANVAS_WIDTH, HEIGHT as DEFAULT_CANVAS_HEIGHT
@@ -130,7 +130,7 @@ class LAFOptimizer(LayoutOptimizer):
             self.routing = LAFRoutingPolicy(self.sizing)
 
         # Cada algoritmo expone su propio renderer (separación total — WISH-ARCH-002).
-        from AlmaGag.layout.laf.laf_renderer import LAFSVGRenderer
+        from AlmaGag.layout.strategies.legacy.laf_renderer import LAFSVGRenderer
         self.renderer = LAFSVGRenderer(self.geometry)
 
         # === Label optimizer (necesita canvas dims; usa default si no fue inyectado) ===
@@ -1242,7 +1242,7 @@ class LAFOptimizer(LayoutOptimizer):
         Returns:
             Dict[str, Tuple[float, float]]: posiciones expandidas de todos los elementos
         """
-        from AlmaGag.layout.laf.structure_analyzer import StructureInfo
+        from AlmaGag.layout.strategies.legacy.structure_analyzer import StructureInfo
 
         expandable = structure_info.get_expandable_ndpr()
         total_iterations = len(expandable) + 1  # iter 0 (NdDp01) + una por expandable

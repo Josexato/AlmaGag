@@ -1,9 +1,18 @@
 """
 Estrategias de placement del motor de AlmaGag (WISH-ARCH-002).
 
-El `LayoutEngine` (layout/engine.py) es la puerta única; cada estrategia resuelve
-el *cómo* del layout para una clase de diagrama. `AUTO` (layout/auto/) es la
-estrategia base/general; `hier` (aquí) es la estrategia de FLUJO dirigido
-(pipeline por niveles/columnas, criterios A–J, vistas areas/lanes/matrix). Ya no
-son algoritmos peer: son estrategias que el motor elige a partir del JSON.
+El `LayoutEngine` (layout/engine.py) es la puerta única: elige la estrategia a
+partir del JSON (o de un override por CLI) y delega en ella. Las estrategias son
+intercambiables — todas viven acá — pero hay UNA **principal**:
+
+- `auto`   — **estrategia principal**: placement general (Sugiyama + resolución de
+             colisiones + contenedores). Es el default y el caso más amplio.
+- `hier`   — estrategia de FLUJO dirigido (niveles/columnas, criterios A–J, y las
+             vistas areas/lanes/matrix).
+- `legacy` — **motor histórico** (ex-LAF): enfoque "abstracto primero" con la
+             abstracción VC/SCC/TOI. CONGELADO — sólo se usa por override de
+             debug (`--layout-algorithm=legacy`), nunca se auto-elige. Conserva
+             el *analizador del proceso de conceptualización* (visor por fases).
+
+Se puede cambiar de estrategia, pero el motor por defecto es AUTO.
 """

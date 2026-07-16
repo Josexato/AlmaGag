@@ -12,8 +12,8 @@ import logging
 from AlmaGag.layout.optimizer_base import LayoutOptimizer
 from AlmaGag.layout.sizing import SizingCalculator
 from AlmaGag.layout.geometry import GeometryCalculator
-from AlmaGag.layout.auto.auto_renderer import AutoSVGRenderer
-from AlmaGag.layout.auto.routing_policy import AutoRoutingPolicy
+from AlmaGag.layout.strategies.auto.auto_renderer import AutoSVGRenderer
+from AlmaGag.layout.strategies.auto.routing_policy import AutoRoutingPolicy
 from AlmaGag.layout.graph_analysis import GraphAnalyzer
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 from AlmaGag.layout.strategies.hier.leveling import compute_levels

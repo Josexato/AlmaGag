@@ -17,12 +17,12 @@ from AlmaGag.layout.optimizer_base import LayoutOptimizer
 logger = logging.getLogger('AlmaGag')
 from AlmaGag.layout.layout import Layout
 from AlmaGag.layout.sizing import SizingCalculator
-from AlmaGag.layout.auto.positioner import AutoLayoutPositioner
+from AlmaGag.layout.strategies.auto.positioner import AutoLayoutPositioner
 from AlmaGag.layout.geometry import GeometryCalculator
 from AlmaGag.layout.collision import CollisionDetector
 from AlmaGag.layout.graph_analysis import GraphAnalyzer
 from AlmaGag.layout.container_calculator import ContainerCalculator, is_band
-from AlmaGag.layout.auto.routing_policy import AutoRoutingPolicy
+from AlmaGag.layout.strategies.auto.routing_policy import AutoRoutingPolicy
 from AlmaGag.config import (
     ICON_WIDTH, ICON_HEIGHT,
     CANVAS_MARGIN_XLARGE, CANVAS_MARGIN_LARGE, CANVAS_MARGIN_SMALL,
@@ -67,7 +67,7 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         self.container_calculator = ContainerCalculator(self.sizing, self.geometry)
         self.routing = AutoRoutingPolicy(self.sizing)
         # Cada algoritmo expone su propio renderer (separación total — WISH-ARCH-002).
-        from AlmaGag.layout.auto.auto_renderer import AutoSVGRenderer
+        from AlmaGag.layout.strategies.auto.auto_renderer import AutoSVGRenderer
         self.renderer = AutoSVGRenderer(self.geometry)
 
     def analyze(self, layout: Layout) -> None:

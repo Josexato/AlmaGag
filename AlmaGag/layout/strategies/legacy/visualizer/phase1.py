@@ -8,7 +8,7 @@ from typing import Dict, List, Tuple
 from copy import deepcopy
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 from AlmaGag.utils import extract_item_id
-from AlmaGag.layout.laf.structure_analyzer import StructureInfo
+from AlmaGag.layout.strategies.legacy.structure_analyzer import StructureInfo
 
 logger = logging.getLogger('AlmaGag')
 

@@ -8,7 +8,7 @@ preferida, así que no degrada los casos donde 'bottom' ya funciona.
 """
 
 from AlmaGag.layout import Layout
-from AlmaGag.layout.auto.optimizer import AutoLayoutOptimizer
+from AlmaGag.layout.strategies.auto.optimizer import AutoLayoutOptimizer
 
 
 def _layout_with_band():

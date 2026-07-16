@@ -604,11 +604,12 @@ que la representación sólo se fuerce por **parámetro de comando** (nunca por 
   del input), no el set (`templates/flow.py:_topological_order`, `templates/hub_and_spoke.py:_find_hub`).
   Verificado: los 31 canónicos rinden byte-idénticos con cualquier hash seed. Regresión:
   `tests/test_determinism.py` (subprocesos con seeds distintos).
-- **(i) prolijo — hier ya no es paquete paralelo**: `AlmaGag/layout/hier/` → **`AlmaGag/layout/strategies/hier/`**
-  (39 imports actualizados en 18 archivos, 0 residuos; hier byte-idéntico tras el move). El engine
-  usa un **registro declarativo** `_STRATEGIES` con el rol de cada una (`base`/`flow`/`frozen`) en
-  vez de un if/elif. `auto/` (base) y `laf/` (congelada) quedan por ahora en su sitio; la costura
-  ya expresa "un motor + estrategias".
+- **(i) prolijo — las 3 estrategias juntas bajo un motor**: `layout/hier/`, `layout/auto/` y
+  `layout/laf/` → **`layout/strategies/{hier,auto,legacy}/`**. Ya no hay algoritmos peer al lado del
+  motor: `layout/` sólo tiene `engine.py` + `strategies/`. Se puede cambiar de estrategia, pero
+  **AUTO es la principal** (`_STRATEGIES` marca `kind`: base/flow/frozen + `DEFAULT_STRATEGY='auto'`).
+  `laf` **renombrado a `legacy`** (motor histórico): CLI `--layout-algorithm=legacy` (ya no `laf`),
+  congelado, nunca auto-elegido. Byte-idéntico tras los moves; 251 tests en verde.
 **Pendiente**: fusión física del código (hier como estrategia interna de AUTO, no un paquete
 paralelo); reencuadrar LAF como `--debug-phases`; afinar el clasificador con más señales
 (hoy es intencionalmente conservador). Test: `tests/test_strategy_selection.py`.

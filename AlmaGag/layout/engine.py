@@ -26,15 +26,15 @@ import logging
 logger = logging.getLogger('AlmaGag')
 
 
-# Registro declarativo de estrategias del motor. `kind` documenta su rol:
-#   base   — placement general (el motor por defecto)
-#   flow   — flujo dirigido (niveles/columnas, criterios A–J, vistas)
-#   frozen — congelada: sólo override de debug, nunca auto-elegida
-# `extra=True` marca las que reciben kwargs adicionales (centralidad + fases).
+# Registro declarativo de estrategias. Se pueden cambiar de estrategia (todas
+# viven en `layout/strategies/`), pero hay UNA PRINCIPAL: `auto`. `kind` marca el
+# rol: base=principal · flow=flujo dirigido · frozen=congelada (sólo override).
+# `extra=True` = recibe kwargs adicionales (centralidad + visualización de fases).
+DEFAULT_STRATEGY = 'auto'
 _STRATEGIES = {
-    'auto': {'cls': 'AlmaGag.layout.auto.optimizer.AutoLayoutOptimizer',            'kind': 'base'},
-    'hier': {'cls': 'AlmaGag.layout.strategies.hier.optimizer.HierLayoutOptimizer', 'kind': 'flow'},
-    'laf':  {'cls': 'AlmaGag.layout.laf.optimizer.LAFOptimizer',                    'kind': 'frozen', 'extra': True},
+    'auto':   {'cls': 'AlmaGag.layout.strategies.auto.optimizer.AutoLayoutOptimizer',   'kind': 'base',   'label': 'principal · placement general'},
+    'hier':   {'cls': 'AlmaGag.layout.strategies.hier.optimizer.HierLayoutOptimizer',   'kind': 'flow',   'label': 'flujo dirigido (A–J, vistas)'},
+    'legacy': {'cls': 'AlmaGag.layout.strategies.legacy.optimizer.LAFOptimizer',        'kind': 'frozen', 'label': 'motor histórico (ex-LAF, congelado)', 'extra': True},
 }
 
 

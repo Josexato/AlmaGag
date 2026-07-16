@@ -481,8 +481,8 @@ def validate_gag(gag_path: str, layout_algorithm='auto') -> QualityReport:
     import os
     from AlmaGag.generator import generate_diagram
     from AlmaGag.layout import Layout
-    from AlmaGag.layout.auto.optimizer import AutoLayoutOptimizer
-    from AlmaGag.layout.laf.optimizer import LAFOptimizer
+    from AlmaGag.layout.strategies.auto.optimizer import AutoLayoutOptimizer
+    from AlmaGag.layout.strategies.legacy.optimizer import LAFOptimizer
 
     with open(gag_path) as f:
         data = json.load(f)

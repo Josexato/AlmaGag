@@ -18,12 +18,12 @@ Version: v1.6 (Sprint 11 - renumeración 10 fases)
 Date: 2026-02-27
 """
 
-from AlmaGag.layout.laf.structure_analyzer import StructureAnalyzer, StructureInfo
-from AlmaGag.layout.laf.abstract_placer import AbstractPlacer
-from AlmaGag.layout.laf.position_optimizer import PositionOptimizer
-from AlmaGag.layout.laf.inflator import ElementInflator
-from AlmaGag.layout.laf.container_grower import ContainerGrower
-from AlmaGag.layout.laf.visualizer import GrowthVisualizer
+from AlmaGag.layout.strategies.legacy.structure_analyzer import StructureAnalyzer, StructureInfo
+from AlmaGag.layout.strategies.legacy.abstract_placer import AbstractPlacer
+from AlmaGag.layout.strategies.legacy.position_optimizer import PositionOptimizer
+from AlmaGag.layout.strategies.legacy.inflator import ElementInflator
+from AlmaGag.layout.strategies.legacy.container_grower import ContainerGrower
+from AlmaGag.layout.strategies.legacy.visualizer import GrowthVisualizer
 
 __version__ = '1.6.0'
 __all__ = [

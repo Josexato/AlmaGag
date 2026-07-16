@@ -7,7 +7,7 @@ import tempfile
 import os
 
 from AlmaGag.layout import Layout
-from AlmaGag.layout.auto.optimizer import AutoLayoutOptimizer
+from AlmaGag.layout.strategies.auto.optimizer import AutoLayoutOptimizer
 from AlmaGag.layout.container_calculator import is_band, band_label_margin
 
 

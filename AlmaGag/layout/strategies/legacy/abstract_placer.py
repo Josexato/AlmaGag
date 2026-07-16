@@ -13,7 +13,7 @@ Date: 2026-01-17
 
 import logging
 from typing import Dict, List, Tuple, Set
-from AlmaGag.layout.laf.structure_analyzer import StructureInfo
+from AlmaGag.layout.strategies.legacy.structure_analyzer import StructureInfo
 
 logger = logging.getLogger('AlmaGag')
 

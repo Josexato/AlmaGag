@@ -17,7 +17,7 @@ from typing import Dict, List, Tuple
 from copy import deepcopy
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 from AlmaGag.utils import extract_item_id
-from AlmaGag.layout.laf.structure_analyzer import StructureInfo
+from AlmaGag.layout.strategies.legacy.structure_analyzer import StructureInfo
 
 logger = logging.getLogger('AlmaGag')
 
@@ -822,41 +822,41 @@ class GrowthVisualizer:
         return labels
 
     def _generate_phase1_svg(self, output_path: str) -> None:
-        from AlmaGag.layout.laf.visualizer import phase1
+        from AlmaGag.layout.strategies.legacy.visualizer import phase1
         phase1.generate(self, output_path)
 
     def _generate_phase2_topology_svg(self, output_path: str) -> None:
-        from AlmaGag.layout.laf.visualizer import phase2_topology
+        from AlmaGag.layout.strategies.legacy.visualizer import phase2_topology
         phase2_topology.generate(self, output_path)
 
     def _generate_phase3_centrality_svg(self, output_path: str) -> None:
-        from AlmaGag.layout.laf.visualizer import phase3_centrality
+        from AlmaGag.layout.strategies.legacy.visualizer import phase3_centrality
         phase3_centrality.generate(self, output_path)
 
     def _generate_phase4_abstract_svg(self, output_path: str) -> None:
-        from AlmaGag.layout.laf.visualizer import phase4_abstract
+        from AlmaGag.layout.strategies.legacy.visualizer import phase4_abstract
         phase4_abstract.generate(self, output_path)
 
     def _generate_phase5_optimized_svg(self, output_path: str) -> None:
-        from AlmaGag.layout.laf.visualizer import phase5_optimized
+        from AlmaGag.layout.strategies.legacy.visualizer import phase5_optimized
         phase5_optimized.generate(self, output_path)
 
     def _generate_phase7_iterative_svg(self, output_path: str) -> None:
-        from AlmaGag.layout.laf.visualizer import phase7_iterative
+        from AlmaGag.layout.strategies.legacy.visualizer import phase7_iterative
         phase7_iterative.generate(self, output_path)
 
     def _generate_phase8_inflated_svg(self, output_path: str) -> None:
-        from AlmaGag.layout.laf.visualizer import phase8_inflated
+        from AlmaGag.layout.strategies.legacy.visualizer import phase8_inflated
         phase8_inflated.generate(self, output_path)
 
     def _generate_phase9_redistributed_svg(self, output_path: str) -> None:
-        from AlmaGag.layout.laf.visualizer import phase9_redistributed
+        from AlmaGag.layout.strategies.legacy.visualizer import phase9_redistributed
         phase9_redistributed.generate(self, output_path)
 
     def _generate_phase10_routed_svg(self, output_path: str) -> None:
-        from AlmaGag.layout.laf.visualizer import phase10_routed
+        from AlmaGag.layout.strategies.legacy.visualizer import phase10_routed
         phase10_routed.generate(self, output_path)
 
     def _generate_phase11_final_svg(self, output_path: str) -> None:
-        from AlmaGag.layout.laf.visualizer import phase11_final
+        from AlmaGag.layout.strategies.legacy.visualizer import phase11_final
         phase11_final.generate(self, output_path)

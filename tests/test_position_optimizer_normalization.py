@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from AlmaGag.layout.laf.position_optimizer import PositionOptimizer
+from AlmaGag.layout.strategies.legacy.position_optimizer import PositionOptimizer
 
 
 def test_normalization_preserves_global_x_alignment():

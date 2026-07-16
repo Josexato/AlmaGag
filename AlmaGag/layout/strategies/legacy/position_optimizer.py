@@ -23,7 +23,7 @@ Date: 2026-02-15
 """
 
 from typing import Dict, List, Tuple, Set
-from AlmaGag.layout.laf.structure_analyzer import StructureInfo
+from AlmaGag.layout.strategies.legacy.structure_analyzer import StructureInfo
 import math
 import logging
 
