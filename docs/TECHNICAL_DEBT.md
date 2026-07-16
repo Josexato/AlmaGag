@@ -588,8 +588,15 @@ que la representación sólo se fuerce por **parámetro de comando** (nunca por 
   `select_strategy(data, view)` que elige la estrategia desde el JSON. Política conservadora:
   vista explícita→hier · contenedores→AUTO (hier no los soporta) · `areas`→hier · rombos
   (decision)→hier · resto→AUTO. Verificado: sólo 3 canónicos enrutan a hier (es-primo,
-  activacion, red-areas); los 28 de arquitectura/topología siguen en AUTO **byte-idénticos**
-  (cero regresión). `auto/laf/hier` explícitos quedan como override avanzado/debug.
+  activacion, red-areas); los 28 de arquitectura/topología siguen en AUTO. `auto/laf/hier`
+  explícitos quedan como override avanzado/debug.
+- **(i) Fusión estructural — `AlmaGag/layout/engine.py` (`LayoutEngine`)**: el generator ve UN
+  solo optimizer (el engine). El engine elige la estrategia (override CLI > `layout._strategy` >
+  'auto') y DELEGA en el optimizer correspondiente, adoptando su `renderer`. hier/laf dejan de ser
+  algoritmos peer expuestos al generator → son estrategias internas. Cero regresión por
+  construcción (delega en el mismo código): las 3 rutas a hier (deterministas) quedan
+  byte-idénticas; las rutas a AUTO varían sólo por el **no-determinismo pre-existente de AUTO**
+  (dos corridas del mismo input difieren — candidato a WISH aparte: reproducibilidad de AUTO).
 **Pendiente**: fusión física del código (hier como estrategia interna de AUTO, no un paquete
 paralelo); reencuadrar LAF como `--debug-phases`; afinar el clasificador con más señales
 (hoy es intencionalmente conservador). Test: `tests/test_strategy_selection.py`.

@@ -146,26 +146,21 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
         resolved_view = 'areas' if data.get('areas') else 'flow'
     initial_layout._layout_view = resolved_view
 
-    # 2. Un solo algoritmo: si no se forzó uno por CLI (`select`, el default),
-    # el motor elige la estrategia a partir del JSON. auto/laf/hier explícitos
-    # quedan como override avanzado / debug.
-    from AlmaGag.layout.laf.optimizer import LAFOptimizer
-    from AlmaGag.layout.hier.optimizer import HierLayoutOptimizer
-    OPTIMIZERS = {
-        'auto': AutoLayoutOptimizer,
-        'laf':  LAFOptimizer,
-        'hier': HierLayoutOptimizer,
-    }
+    # 2. Motor ÚNICO (WISH-ARCH-002): el generator ve UN solo optimizer, el
+    # `LayoutEngine`. Si no se forzó una estrategia por CLI (`select`, el
+    # default), el motor la elige a partir del JSON (`select_strategy`) y viaja
+    # en `layout._strategy`. `auto/laf/hier` explícitos la fuerzan (avanzado/
+    # debug); hier ya no es un algoritmo peer sino la estrategia de flujo.
+    from AlmaGag.layout.engine import LayoutEngine
     if layout_algorithm == 'select':
-        layout_algorithm = select_strategy(data, view)
-        logger.info(f"     - Estrategia auto-seleccionada: {layout_algorithm}")
-    optimizer_cls = OPTIMIZERS[layout_algorithm]
-    optimizer_kwargs = {'verbose': debug, 'visualdebug': visualdebug}
-    if layout_algorithm == 'laf':
-        optimizer_kwargs['visualize_growth'] = visualize_growth
-        optimizer_kwargs.update(centrality_kwargs)
-    optimizer = optimizer_cls(**optimizer_kwargs)
-    logger.debug(f"{optimizer_cls.__name__} instanciado ({optimizer_kwargs})")
+        strategy = select_strategy(data, view)
+        logger.info(f"     - Estrategia auto-seleccionada: {strategy}")
+        initial_layout._strategy = strategy
+        forced = None
+    else:
+        forced = layout_algorithm                 # override explícito por CLI
+    optimizer = LayoutEngine(verbose=debug, visualdebug=visualdebug, strategy=forced,
+                             visualize_growth=visualize_growth, **centrality_kwargs)
 
     # 3. Optimizar (retorna NUEVO layout)
     #    NOTA: optimize() ahora maneja auto-layout para coordenadas faltantes (SDJF v2.0)
