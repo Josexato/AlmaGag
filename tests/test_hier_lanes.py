@@ -6,7 +6,7 @@ la representación se fuerza sólo por CLI) del algoritmo hier.
 import json
 
 from AlmaGag.layout import Layout
-from AlmaGag.layout.hier.optimizer import HierLayoutOptimizer
+from AlmaGag.layout.strategies.hier.optimizer import HierLayoutOptimizer
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 
 ADC = 'docs/diagrams/gags/activacion-datacenter.sdjf'

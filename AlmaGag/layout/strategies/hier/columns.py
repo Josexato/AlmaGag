@@ -12,7 +12,7 @@ Trabaja en unidades de columna abstractas sobre el resultado de §A.
 
 from collections import defaultdict
 from typing import Dict, List, Tuple
-from AlmaGag.layout.hier.leveling import Levels
+from AlmaGag.layout.strategies.hier.leveling import Levels
 
 
 def _int_level(v: float) -> int:

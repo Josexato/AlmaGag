@@ -20,9 +20,27 @@ expone su `renderer` para que el generator dibuje. La salida es idéntica a la d
 correr esa estrategia directamente (fusión estructural, cero regresión).
 """
 
+import importlib
 import logging
 
 logger = logging.getLogger('AlmaGag')
+
+
+# Registro declarativo de estrategias del motor. `kind` documenta su rol:
+#   base   — placement general (el motor por defecto)
+#   flow   — flujo dirigido (niveles/columnas, criterios A–J, vistas)
+#   frozen — congelada: sólo override de debug, nunca auto-elegida
+# `extra=True` marca las que reciben kwargs adicionales (centralidad + fases).
+_STRATEGIES = {
+    'auto': {'cls': 'AlmaGag.layout.auto.optimizer.AutoLayoutOptimizer',            'kind': 'base'},
+    'hier': {'cls': 'AlmaGag.layout.strategies.hier.optimizer.HierLayoutOptimizer', 'kind': 'flow'},
+    'laf':  {'cls': 'AlmaGag.layout.laf.optimizer.LAFOptimizer',                    'kind': 'frozen', 'extra': True},
+}
+
+
+def _load(dotted):
+    module, _, name = dotted.rpartition('.')
+    return getattr(importlib.import_module(module), name)
 
 
 class LayoutEngine:
@@ -40,19 +58,16 @@ class LayoutEngine:
         self.chosen = None
 
     def _build(self, name):
-        """Instancia la estrategia con SUS kwargs correctos (Auto no acepta extra)."""
-        if name == 'auto':
-            from AlmaGag.layout.auto.optimizer import AutoLayoutOptimizer
-            return AutoLayoutOptimizer(verbose=self.verbose, visualdebug=self.visualdebug)
-        if name == 'hier':
-            from AlmaGag.layout.hier.optimizer import HierLayoutOptimizer
-            return HierLayoutOptimizer(verbose=self.verbose, visualdebug=self.visualdebug)
-        if name == 'laf':
-            from AlmaGag.layout.laf.optimizer import LAFOptimizer
-            return LAFOptimizer(verbose=self.verbose, visualdebug=self.visualdebug,
-                                visualize_growth=self._visualize_growth,
-                                **self._centrality_kwargs)
-        raise ValueError(f"estrategia de layout desconocida: {name!r}")
+        """Instancia la estrategia del registro con SUS kwargs correctos."""
+        spec = _STRATEGIES.get(name)
+        if spec is None:
+            raise ValueError(f"estrategia de layout desconocida: {name!r} "
+                             f"(válidas: {sorted(_STRATEGIES)})")
+        kwargs = {'verbose': self.verbose, 'visualdebug': self.visualdebug}
+        if spec.get('extra'):     # sólo la estrategia congelada (laf) los acepta
+            kwargs['visualize_growth'] = self._visualize_growth
+            kwargs.update(self._centrality_kwargs)
+        return _load(spec['cls'])(**kwargs)
 
     def optimize(self, layout, **kwargs):
         """Elige la estrategia (override CLI > `layout._strategy` > 'auto'),

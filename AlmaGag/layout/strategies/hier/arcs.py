@@ -17,7 +17,7 @@ se dibujan como arcos con sentido de giro coherente:
 import math
 from typing import Dict, List, Tuple
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
-from AlmaGag.layout.hier.shapes import clip_shape
+from AlmaGag.layout.strategies.hier.shapes import clip_shape
 
 BULGE_BASE = 44.0
 BULGE_CAP = 320.0

@@ -201,7 +201,7 @@ En vista `areas` el rol se muestra como franja de color + leyenda; en vista
 `role` semántico de templates §0.1 — aquél usa palabras clave como `entry`/`hub`;
 éste es una clave libre de agrupación.)
 
-Ver `AlmaGag/layout/hier/areas.py`, `lanes.py` y `tests/test_hier_areas.py`,
+Ver `AlmaGag/layout/strategies/hier/areas.py`, `lanes.py` y `tests/test_hier_areas.py`,
 `test_hier_lanes.py`.
 
 ---

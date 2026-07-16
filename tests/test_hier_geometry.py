@@ -17,7 +17,7 @@ import os
 import pytest
 
 from AlmaGag.layout import Layout
-from AlmaGag.layout.hier.optimizer import HierLayoutOptimizer
+from AlmaGag.layout.strategies.hier.optimizer import HierLayoutOptimizer
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 
 TOL = 1.0
@@ -130,7 +130,7 @@ def test_esprimo_shared_sink_adjacent_to_parents():
 def test_esprimo_diamond_ports_on_vertices_no_microelbow():
     """§H26/§G19: todo extremo sobre un rombo cae EXACTO en un vértice y el
     primer/último tramo sale/entra radial (sin quiebre a <15px del puerto)."""
-    from AlmaGag.layout.hier.shapes import diamond_vertices, is_diamond
+    from AlmaGag.layout.strategies.hier.shapes import diamond_vertices, is_diamond
     r = _optimize('docs/diagrams/gags/es-primo.gag')
     by = {e['id']: e for e in r.elements}
     for c in r.connections:

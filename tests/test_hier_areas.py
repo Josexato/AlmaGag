@@ -6,7 +6,7 @@ Tests de §I27 (áreas por fase), §I29 (conexiones inter-área cruzan el borde)
 import json
 
 from AlmaGag.layout import Layout
-from AlmaGag.layout.hier.optimizer import HierLayoutOptimizer
+from AlmaGag.layout.strategies.hier.optimizer import HierLayoutOptimizer
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 
 ADC = 'docs/diagrams/gags/activacion-datacenter.sdjf'

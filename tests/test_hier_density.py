@@ -9,8 +9,8 @@ Tests de §J (densidad y etiquetas) del algoritmo hier.
 import json
 
 from AlmaGag.layout import Layout
-from AlmaGag.layout.hier.optimizer import HierLayoutOptimizer, LEVEL_SPACING
-from AlmaGag.layout.hier.labels import wrap_label, LABEL_MAX_LINES, LABEL_MAX_WIDTH
+from AlmaGag.layout.strategies.hier.optimizer import HierLayoutOptimizer, LEVEL_SPACING
+from AlmaGag.layout.strategies.hier.labels import wrap_label, LABEL_MAX_LINES, LABEL_MAX_WIDTH
 from AlmaGag.config import ICON_HEIGHT, ICON_WIDTH, TEXT_CHAR_WIDTH
 
 STRESS = 'docs/diagrams/gags/14-stresstest.sdjf'

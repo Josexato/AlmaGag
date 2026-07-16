@@ -12,6 +12,6 @@ Pipeline (por fases):
 - §E/§F arcs/labels — arcos de ciclo + etiquetas (Fase 3)
 """
 
-from AlmaGag.layout.hier.optimizer import HierLayoutOptimizer
+from AlmaGag.layout.strategies.hier.optimizer import HierLayoutOptimizer
 
 __all__ = ['HierLayoutOptimizer']

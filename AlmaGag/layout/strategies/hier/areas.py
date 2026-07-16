@@ -15,11 +15,11 @@ Retrocompatible: sin `areas`, el optimizer usa su pipeline normal.
 
 from typing import Dict, List
 from AlmaGag.layout.layout import Layout
-from AlmaGag.layout.hier.leveling import compute_levels
-from AlmaGag.layout.hier.columns import compute_columns
-from AlmaGag.layout.hier.routing import route_connections
-from AlmaGag.layout.hier.arcs import route_cycle_arcs
-from AlmaGag.layout.hier.labels import assign_label_sides, assign_connection_label_anchors
+from AlmaGag.layout.strategies.hier.leveling import compute_levels
+from AlmaGag.layout.strategies.hier.columns import compute_columns
+from AlmaGag.layout.strategies.hier.routing import route_connections
+from AlmaGag.layout.strategies.hier.arcs import route_cycle_arcs
+from AlmaGag.layout.strategies.hier.labels import assign_label_sides, assign_connection_label_anchors
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 
 COL_SPACING = 200.0

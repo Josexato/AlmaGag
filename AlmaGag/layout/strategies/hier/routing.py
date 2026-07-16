@@ -16,7 +16,7 @@ que el renderer dibuja. No usa la política AUTO.
 from collections import defaultdict
 from typing import Dict, List, Tuple
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
-from AlmaGag.layout.hier.shapes import is_diamond, diamond_port, diamond_vertices
+from AlmaGag.layout.strategies.hier.shapes import is_diamond, diamond_port, diamond_vertices
 
 PORT_MIN_FRAC = 0.16
 PORT_MAX_FRAC = 0.84

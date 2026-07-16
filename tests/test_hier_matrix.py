@@ -5,7 +5,7 @@ Tests de la vista `matrix` (fase × rol) del algoritmo hier.
 import json
 
 from AlmaGag.layout import Layout
-from AlmaGag.layout.hier.optimizer import HierLayoutOptimizer
+from AlmaGag.layout.strategies.hier.optimizer import HierLayoutOptimizer
 from AlmaGag.config import ICON_WIDTH
 
 ADC = 'docs/diagrams/gags/activacion-datacenter.sdjf'

@@ -15,11 +15,11 @@ en el orden del mapa `roles`). Se activa con la vista 'lanes'.
 
 from typing import Dict, List
 from AlmaGag.layout.layout import Layout
-from AlmaGag.layout.hier.leveling import compute_levels
-from AlmaGag.layout.hier.routing import route_connections
-from AlmaGag.layout.hier.arcs import route_cycle_arcs
-from AlmaGag.layout.hier.labels import assign_connection_label_anchors
-from AlmaGag.layout.hier.areas import (
+from AlmaGag.layout.strategies.hier.leveling import compute_levels
+from AlmaGag.layout.strategies.hier.routing import route_connections
+from AlmaGag.layout.strategies.hier.arcs import route_cycle_arcs
+from AlmaGag.layout.strategies.hier.labels import assign_connection_label_anchors
+from AlmaGag.layout.strategies.hier.areas import (
     LEVEL_SPACING, MARGIN_X, MARGIN_Y, LABEL_LINE_H, LABEL_GAP, _all_points)
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 

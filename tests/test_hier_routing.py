@@ -5,7 +5,7 @@ Tests del ruteo §C+§D del algoritmo hier (WISH-LAF-002 Fase 2).
 import json
 
 from AlmaGag.layout import Layout
-from AlmaGag.layout.hier.optimizer import HierLayoutOptimizer
+from AlmaGag.layout.strategies.hier.optimizer import HierLayoutOptimizer
 
 STRESS = 'docs/diagrams/gags/14-stresstest.sdjf'
 

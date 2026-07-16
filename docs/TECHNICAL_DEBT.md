@@ -597,6 +597,11 @@ que la representación sólo se fuerce por **parámetro de comando** (nunca por 
   construcción (delega en el mismo código): las 3 rutas a hier (deterministas) quedan
   byte-idénticas; las rutas a AUTO varían sólo por el **no-determinismo pre-existente de AUTO**
   (dos corridas del mismo input difieren — candidato a WISH aparte: reproducibilidad de AUTO).
+- **(i) prolijo — hier ya no es paquete paralelo**: `AlmaGag/layout/hier/` → **`AlmaGag/layout/strategies/hier/`**
+  (39 imports actualizados en 18 archivos, 0 residuos; hier byte-idéntico tras el move). El engine
+  usa un **registro declarativo** `_STRATEGIES` con el rol de cada una (`base`/`flow`/`frozen`) en
+  vez de un if/elif. `auto/` (base) y `laf/` (congelada) quedan por ahora en su sitio; la costura
+  ya expresa "un motor + estrategias".
 **Pendiente**: fusión física del código (hier como estrategia interna de AUTO, no un paquete
 paralelo); reencuadrar LAF como `--debug-phases`; afinar el clasificador con más señales
 (hoy es intencionalmente conservador). Test: `tests/test_strategy_selection.py`.
@@ -613,8 +618,8 @@ la dirección — le sirven al motor gane quien gane):
 
 | # | Idea a rescatar | Fuente en LAF | Destino |
 |---|---|---|---|
-| ① | **Optimizador por bisección de layer-offset** — desplazamiento de toda una capa como variable continua; minimiza la distancia ponderada de conectores buscando la raíz de la derivada (convexa, ~48 iter, forward/backward, conv. <0.001). El aporte más original/limpio de LAF. | `AlmaGag/layout/laf/position_optimizer.py:416-520` | refinar el posicionamiento de `hier/columns.py` (X por columna) |
-| ② | **Contracción de SCC para levelizar** — contrae cada ciclo/componente fuerte a un representante para correr longest-path sobre un DAG. Más sólido que la detección de back-edges ad-hoc de hier hoy. | `AlmaGag/layout/laf/structure_analyzer.py:1015,1326` | `hier/leveling.py` (§A) |
+| ① | **Optimizador por bisección de layer-offset** — desplazamiento de toda una capa como variable continua; minimiza la distancia ponderada de conectores buscando la raíz de la derivada (convexa, ~48 iter, forward/backward, conv. <0.001). El aporte más original/limpio de LAF. | `AlmaGag/layout/laf/position_optimizer.py:416-520` | refinar el posicionamiento de `strategies/hier/columns.py` (X por columna) |
+| ② | **Contracción de SCC para levelizar** — contrae cada ciclo/componente fuerte a un representante para correr longest-path sobre un DAG. Más sólido que la detección de back-edges ad-hoc de hier hoy. | `AlmaGag/layout/laf/structure_analyzer.py:1015,1326` | `strategies/hier/leveling.py` (§A) |
 | ③ | **`count_crossings` O(n²)** — cuenta cruces reales (intersección de segmentos). Métrica barata; ni AUTO ni hier la tienen. Usar como criterio de calidad y test de regresión. | `AlmaGag/layout/laf/abstract_placer.py:1358` | `tests/` (métrica de regresión) + opcional en el motor |
 | ④ | **Constraints declarativas** (`constraints.align/near/avoid`) — idea de producto valiosa y transversal (la impl LAF es un stub: solo `align`). | `AlmaGag/layout/laf/optimizer.py:245-321` | nuevo WISH de producto (schema SDJF + motor) |
 

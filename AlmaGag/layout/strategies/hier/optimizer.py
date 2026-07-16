@@ -16,14 +16,14 @@ from AlmaGag.layout.auto.auto_renderer import AutoSVGRenderer
 from AlmaGag.layout.auto.routing_policy import AutoRoutingPolicy
 from AlmaGag.layout.graph_analysis import GraphAnalyzer
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
-from AlmaGag.layout.hier.leveling import compute_levels
-from AlmaGag.layout.hier.columns import compute_columns
-from AlmaGag.layout.hier.routing import route_connections
-from AlmaGag.layout.hier.arcs import route_cycle_arcs
-from AlmaGag.layout.hier.labels import (assign_label_sides,
+from AlmaGag.layout.strategies.hier.leveling import compute_levels
+from AlmaGag.layout.strategies.hier.columns import compute_columns
+from AlmaGag.layout.strategies.hier.routing import route_connections
+from AlmaGag.layout.strategies.hier.arcs import route_cycle_arcs
+from AlmaGag.layout.strategies.hier.labels import (assign_label_sides,
                                         assign_connection_label_anchors,
                                         apply_label_wrapping)
-from AlmaGag.layout.hier.areas import layout_by_areas
+from AlmaGag.layout.strategies.hier.areas import layout_by_areas
 
 logger = logging.getLogger('AlmaGag')
 
@@ -170,7 +170,7 @@ class HierLayoutOptimizer(LayoutOptimizer):
     def _optimize_matrix(self, L):
         """§I: layout en matriz fase×rol. Delega a `matrix.layout_by_matrix` y
         expone `L.matrix` (grilla) + `L.roles` para el renderer."""
-        from AlmaGag.layout.hier.matrix import layout_by_matrix
+        from AlmaGag.layout.strategies.hier.matrix import layout_by_matrix
         apply_label_wrapping(L)                      # §J31
         grid = layout_by_matrix(L)
         L.matrix = grid
@@ -187,7 +187,7 @@ class HierLayoutOptimizer(LayoutOptimizer):
     def _optimize_lanes(self, L):
         """§I28: layout por carriles de rol. Delega a `lanes.layout_by_lanes` y
         expone `L.lanes` (franjas) + `L.roles` para el renderer."""
-        from AlmaGag.layout.hier.lanes import layout_by_lanes
+        from AlmaGag.layout.strategies.hier.lanes import layout_by_lanes
         apply_label_wrapping(L)                      # §J31
         strips = layout_by_lanes(L)
         L.lanes = strips
