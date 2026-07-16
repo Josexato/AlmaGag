@@ -95,7 +95,10 @@ def _topological_order(elements, connections):
             in_count[to] += 1
 
     levels = []
-    current = [eid for eid in root_ids if in_count[eid] == 0]
+    # Orden DETERMINISTA: iterar la lista de roots (orden del input), no el set
+    # `root_ids` — iterar un set de strings depende de PYTHONHASHSEED y hacía que
+    # el layout cambiara entre corridas (columnas distintas por proceso).
+    current = [e['id'] for e in root_elements if in_count[e['id']] == 0]
     seen = set()
     while current:
         levels.append(current)
@@ -109,7 +112,8 @@ def _topological_order(elements, connections):
         current = next_level
 
     # Si quedaron nodos sin colocar (ciclos), añadirlos en último nivel
-    remaining = [eid for eid in root_ids if eid not in seen]
+    # (orden del input, no del set — determinismo)
+    remaining = [e['id'] for e in root_elements if e['id'] not in seen]
     if remaining:
         levels.append(remaining)
 

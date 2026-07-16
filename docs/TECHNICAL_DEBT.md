@@ -595,8 +595,15 @@ que la representación sólo se fuerce por **parámetro de comando** (nunca por 
   'auto') y DELEGA en el optimizer correspondiente, adoptando su `renderer`. hier/laf dejan de ser
   algoritmos peer expuestos al generator → son estrategias internas. Cero regresión por
   construcción (delega en el mismo código): las 3 rutas a hier (deterministas) quedan
-  byte-idénticas; las rutas a AUTO varían sólo por el **no-determinismo pre-existente de AUTO**
-  (dos corridas del mismo input difieren — candidato a WISH aparte: reproducibilidad de AUTO).
+  byte-idénticas; las rutas a AUTO varían sólo por un **no-determinismo** que se investigó y
+  **RESOLVIÓ** (ver abajo).
+- **Determinismo (RESUELTO)**: el "capricho de AUTO" NO estaba en AUTO sino en los **templates**
+  `flow` y `hub_and_spoke`: iteraban un `set` de ids de string (`for eid in root_ids`) para
+  ordenar niveles/spokes, y el orden de iteración de un set de strings depende de
+  `PYTHONHASHSEED` → el layout cambiaba entre procesos. Fix: iterar la lista de elementos (orden
+  del input), no el set (`templates/flow.py:_topological_order`, `templates/hub_and_spoke.py:_find_hub`).
+  Verificado: los 31 canónicos rinden byte-idénticos con cualquier hash seed. Regresión:
+  `tests/test_determinism.py` (subprocesos con seeds distintos).
 - **(i) prolijo — hier ya no es paquete paralelo**: `AlmaGag/layout/hier/` → **`AlmaGag/layout/strategies/hier/`**
   (39 imports actualizados en 18 archivos, 0 residuos; hier byte-idéntico tras el move). El engine
   usa un **registro declarativo** `_STRATEGIES` con el rol de cada una (`base`/`flow`/`frozen`) en

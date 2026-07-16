@@ -102,7 +102,7 @@ def _find_hub(elements, connections):
     for e in elements:
         if e.get('role') == 'hub' and e['id'] in root_ids:
             hub_id = e['id']
-            spokes = [eid for eid in root_ids if eid != hub_id]
+            spokes = [e['id'] for e in elements if e['id'] in root_ids and e['id'] != hub_id]
             return hub_id, spokes
 
     degree = defaultdict(int)
@@ -118,7 +118,7 @@ def _find_hub(elements, connections):
         return None, []
 
     hub_id = max(degree, key=degree.get)
-    spokes = [eid for eid in root_ids if eid != hub_id]
+    spokes = [e['id'] for e in elements if e['id'] in root_ids and e['id'] != hub_id]
     return hub_id, spokes
 
 
