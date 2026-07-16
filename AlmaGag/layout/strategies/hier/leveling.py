@@ -16,6 +16,9 @@ la maquinaria de contenedores virtuales de LAF.
 from dataclasses import dataclass, field
 from typing import Dict, List, Set, Tuple
 
+from AlmaGag.layout.strategies.hier.scc import (
+    strongly_connected_components, feedback_back_edges)
+
 
 @dataclass
 class Levels:
@@ -24,29 +27,7 @@ class Levels:
     satellites: Dict[str, str] = field(default_factory=dict)     # hoja → padre
     side_feeders: Dict[str, str] = field(default_factory=dict)   # fuente → destino
     back_edges: Set[Tuple[str, str]] = field(default_factory=set)
-
-
-def _detect_back_edges(ids: List[str], out_graph: Dict[str, List[str]]) -> Set[Tuple[str, str]]:
-    """DFS con coloreo para marcar back-edges (aristas de ciclo)."""
-    WHITE, GRAY, BLACK = 0, 1, 2
-    color = {i: WHITE for i in ids}
-    back: Set[Tuple[str, str]] = set()
-
-    def dfs(node):
-        color[node] = GRAY
-        for nb in out_graph.get(node, []):
-            if nb not in color:
-                continue
-            if color[nb] == GRAY:
-                back.add((node, nb))
-            elif color[nb] == WHITE:
-                dfs(nb)
-        color[node] = BLACK
-
-    for i in ids:
-        if color[i] == WHITE:
-            dfs(i)
-    return back
+    sccs: List[Set[str]] = field(default_factory=list)           # componentes de 2+ (ciclos)
 
 
 def compute_levels(elements: List[dict], connections: List[dict]) -> Levels:
@@ -66,7 +47,12 @@ def compute_levels(elements: List[dict], connections: List[dict]) -> Levels:
             out_graph[f].append(t)
             incoming[t].append(f)
 
-    back_edges = _detect_back_edges(ids, out_graph)
+    # §A back-edges vía SCC (rescate ②): componentes canónicos → feedback set
+    # que depende sólo del ciclo, no del recorrido global. En un DAG da ∅; en un
+    # ciclo simple, la arista que lo cierra (idéntico al DFS previo).
+    sccs = strongly_connected_components(ids, out_graph)
+    cyclic_sccs = [c for c in sccs if len(c) >= 2]
+    back_edges = feedback_back_edges(ids, out_graph, incoming, sccs)
 
     outdeg = {i: len(out_graph[i]) for i in ids}
     acyclic_out = {i: 0 for i in ids}
@@ -145,4 +131,5 @@ def compute_levels(elements: List[dict], connections: List[dict]) -> Levels:
         level[feeder] = level.get(target, 0) - 0.5
 
     return Levels(level=level, satellites=satellites,
-                  side_feeders=side_feeders, back_edges=back_edges)
+                  side_feeders=side_feeders, back_edges=back_edges,
+                  sccs=cyclic_sccs)
