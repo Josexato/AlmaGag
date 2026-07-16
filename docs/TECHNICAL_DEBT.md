@@ -594,6 +594,39 @@ que la representación sólo se fuerce por **parámetro de comando** (nunca por 
 paralelo); reencuadrar LAF como `--debug-phases`; afinar el clasificador con más señales
 (hoy es intencionalmente conservador). Test: `tests/test_strategy_selection.py`.
 
+**Dirección de trabajo adoptada**: **AUTO = motor / puerta de entrada** (es el maduro, ya maneja
+contenedores y es la puerta de `select_strategy`); **hier = estrategia de flujo** (sus módulos
+limpios se conservan y se invocan como estrategia, no como algoritmo peer); **LAF = congelar**
+(no borrar aún) y **rescatar 4 piezas** hacia el motor único. Diagnóstico de tamaños: espina
+compartida ~2.750 LOC · AUTO placement ~2.500 · hier ~1.960 · LAF engine-VC ~7.800 (el que más
+divergió) · LAF `GrowthVisualizer` ~2.450 (rescatable).
+
+**Notas de rescate desde LAF** (portar a la maquinaria hier/AUTO cuando toque; independientes de
+la dirección — le sirven al motor gane quien gane):
+
+| # | Idea a rescatar | Fuente en LAF | Destino |
+|---|---|---|---|
+| ① | **Optimizador por bisección de layer-offset** — desplazamiento de toda una capa como variable continua; minimiza la distancia ponderada de conectores buscando la raíz de la derivada (convexa, ~48 iter, forward/backward, conv. <0.001). El aporte más original/limpio de LAF. | `AlmaGag/layout/laf/position_optimizer.py:416-520` | refinar el posicionamiento de `hier/columns.py` (X por columna) |
+| ② | **Contracción de SCC para levelizar** — contrae cada ciclo/componente fuerte a un representante para correr longest-path sobre un DAG. Más sólido que la detección de back-edges ad-hoc de hier hoy. | `AlmaGag/layout/laf/structure_analyzer.py:1015,1326` | `hier/leveling.py` (§A) |
+| ③ | **`count_crossings` O(n²)** — cuenta cruces reales (intersección de segmentos). Métrica barata; ni AUTO ni hier la tienen. Usar como criterio de calidad y test de regresión. | `AlmaGag/layout/laf/abstract_placer.py:1358` | `tests/` (métrica de regresión) + opcional en el motor |
+| ④ | **Constraints declarativas** (`constraints.align/near/avoid`) — idea de producto valiosa y transversal (la impl LAF es un stub: solo `align`). | `AlmaGag/layout/laf/optimizer.py:245-321` | nuevo WISH de producto (schema SDJF + motor) |
+
+*Bonus menores*: `W_precedence` (peso por skip-connections según distancia de nivel,
+`structure_analyzer.py:148-172`); pesos de barycenter dinámicos vert:horiz (`abstract_placer.py:50-89`);
+patrón "estimar → medir contenido real → re-expandir" para labels de contenedor
+(`container_grower.py:20-33`); snapshots por fase (`GrowthVisualizer`) como práctica de debug al
+desarrollar hier.
+
+**Descartado a conciencia** (cubierto por auto/hier o demasiado atado al andamiaje de LAF):
+abstracción **VC/TOI** ("tío" — atada al dominio genealógico, y la doc `CONCEPTS.md` la define
+distinto que el código → concepto no consolidado; comprimir 11/13 nodos del stresstest en un VC
+fue lo que rompió LAF y motivó hier); nomenclatura **NdDp/NdPr/NdFn** (inconsistente); spacing con
+constantes mágicas; redistribución half-widths; **dashboard-reflow** (fix reactivo — insight
+reutilizable: "componentes desconectados van en grid 2D, no en fila"); iconos-de-contenedor
+separados (rendering, no layout). Señales de inmadurez de LAF que refuerzan congelarlo:
+hiperparámetros "experimentales" sin defaults, docstrings contradictorios, fases que son fixes
+reactivos más que diseño.
+
 ---
 
 ### WISH-LAF-002: Layout Jerárquico `hier` según Criterios A1–F18 (spec Claude Design) ✅ RESUELTO (v1) (Fases 1-2-3 ✅ — A1–F18 sobre 14-stresstest)
