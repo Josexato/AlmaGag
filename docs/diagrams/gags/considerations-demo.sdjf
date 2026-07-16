@@ -19,9 +19,10 @@
     { "from": "api",  "to": "db",    "direction": "forward" },
     { "from": "api",  "to": "cache", "direction": "forward" }
   ],
-  "constraints": [
+  "considerations": [
     { "align": ["web1", "web2", "web3"], "axis": "y" },
     { "align": ["db", "cache"], "axis": "y" },
-    { "avoid": ["db", "cache"] }
+    { "avoid": ["db", "cache"] },
+    { "align": ["web1", "web2", "web3"], "axis": "x" }
   ]
 }

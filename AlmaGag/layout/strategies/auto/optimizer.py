@@ -433,21 +433,26 @@ class AutoLayoutOptimizer(LayoutOptimizer):
             logger.info(f"       Total iteraciones: {len(dumper.iterations) - 1}")
             logger.info(f"       Colisiones: {initial_collisions} -> {min_collisions}")
 
-        # Rescate ④: constraints declarativas del usuario (align/near/avoid).
-        # Se aplican como último paso — reflejan intención explícita del SDJF —,
-        # se re-rutea y se recalcula el canvas. Sin `constraints` es un no-op.
-        constraints = getattr(layout, '_constraints', None)
-        if constraints:
-            from AlmaGag.layout.constraints import apply_constraints
-            n = apply_constraints(best_layout, constraints, debug=self.verbose)
-            if n:
-                best_layout.invalidate_collision_cache()
-                self._normalize_to_canvas(best_layout)
-                self.routing.route(best_layout)
-                self._calculate_canvas_from_bounds(best_layout)
-                min_collisions = self.evaluate(best_layout)
-                self._capture('constraints', best_layout,
-                              f'{n} constraint(s) declarativa(s) · {min_collisions} colisiones')
+        # Rescate ④: consideraciones BLANDAS del usuario (align/near/avoid). Son
+        # intención, no ley: cada una se aplica sólo si no aumenta las colisiones
+        # (guarda); la que no se puede cumplir cede y se informa en el log (sin
+        # el porqué). Sin `considerations` es un no-op.
+        considerations = getattr(layout, '_considerations', None)
+        if considerations:
+            from AlmaGag.layout.considerations import apply_considerations, label
+            best_layout, unmet = apply_considerations(
+                best_layout, considerations, self.evaluate, self.routing.route)
+            for cons in unmet:
+                logger.info(f"[CONSIDERACIONES] no se pudo cumplir: {label(cons)}")
+            best_layout.invalidate_collision_cache()
+            self._normalize_to_canvas(best_layout)
+            self.routing.route(best_layout)
+            self._calculate_canvas_from_bounds(best_layout)
+            min_collisions = self.evaluate(best_layout)
+            met = len(considerations) - len(unmet)
+            self._capture('consideraciones', best_layout,
+                          f'{met}/{len(considerations)} consideraciones · '
+                          f'{min_collisions} colisiones')
 
         self._capture('final', best_layout,
                       f'normalizado + labels escalonados · {min_collisions} colisiones')

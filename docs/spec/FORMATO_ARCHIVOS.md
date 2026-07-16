@@ -206,14 +206,18 @@ Ver `AlmaGag/layout/strategies/hier/areas.py`, `lanes.py` y `tests/test_hier_are
 
 ---
 
-## 0.4. Constraints declarativas — `constraints` (align / near / avoid)
+## 0.4. Consideraciones — `considerations` (align / near / avoid)
 
-Array top-level opcional para expresar intención de layout: alinear, acercar o
-separar elementos. Las aplica el motor **AUTO** como paso final (declarar
-`constraints` enruta el diagrama a AUTO). Si no las declaras, no cambia nada.
+Array top-level opcional para expresar **intención** de layout: alinear, acercar
+o separar elementos. Son **blandas** (por eso "consideraciones", no
+"restricciones"): cada una se aplica **sólo si no rompe la diagramación**. Si
+cumplirla aumentaría las colisiones, **cede** y se informa en el log
+(`[CONSIDERACIONES] no se pudo cumplir: ...`) sin explicar el porqué. Así una
+consideración nunca degrada el diagrama. Las aplica el motor **AUTO** (declararlas
+enruta el diagrama a AUTO). Si no las declaras, no cambia nada.
 
 ```json
-"constraints": [
+"considerations": [
   { "align": ["web1", "web2", "web3"], "axis": "y" },
   { "align": ["db", "cache"], "axis": "x" },
   { "near":  ["api", "db"] },
@@ -221,21 +225,21 @@ separar elementos. Las aplica el motor **AUTO** como paso final (declarar
 ]
 ```
 
-| Constraint | Efecto | `axis` |
+| Consideración | Efecto | `axis` |
 |---|---|---|
 | `align` | Lleva los elementos a una coordenada común (la media del grupo) | `"x"` (misma columna, default) o `"y"` (misma fila) |
 | `near`  | Acerca los elementos hacia su centroide (reduce la caja que los contiene) | — |
 | `avoid` | Si dos elementos se solapan, los separa por el eje de menor penetración | — |
 
-- Cada constraint necesita **≥2 ids**; las entradas inválidas se descartan con un
-  warning (no rompen el render).
-- `align` es la más fuerte (posición exacta); `near`/`avoid` son ajustes suaves.
-  Combínalas: `align` para formar una columna, `avoid` para que dos cajas de esa
-  columna no se pisen.
-- Se aplican en orden `align → near → avoid`.
+- Cada consideración necesita **≥2 ids**; las entradas inválidas se descartan con
+  un warning (no rompen el render).
+- Son best-effort y **guardadas**: se prueban una por una y sólo se conservan si
+  no suben las colisiones. Combínalas: `align` para formar una columna, `avoid`
+  para que dos cajas no se pisen.
+- Alias retrocompatible: también se acepta la clave `constraints`.
 
-Ver `AlmaGag/layout/constraints.py`, `docs/diagrams/gags/constraints-demo.sdjf` y
-`tests/test_constraints.py`.
+Ver `AlmaGag/layout/considerations.py`,
+`docs/diagrams/gags/considerations-demo.sdjf` y `tests/test_considerations.py`.
 
 ---
 

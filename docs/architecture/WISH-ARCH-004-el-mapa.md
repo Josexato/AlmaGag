@@ -90,10 +90,20 @@ lo dice, cae donde mejor acomode (auto-placement actual).
 { "id": "bomba-1", "lane": "operaciones", "area": "openpit" }
 ```
 
-Es pariente semántico de las `constraints` (WISH rescate ④, `align`/`near`/
+Es pariente semántico de las **`considerations`** (rescate ④, `align`/`near`/
 `avoid`), pero con intención de agrupación por región/banda, no de geometría
 relativa. Probablemente se resuelva con la misma maquinaria de "paso final que
 ajusta posiciones respetando intención del usuario".
+
+### Principio: todo es blando (best-effort)
+
+Decisión de diseño (José, 2026-07-16): la ubicación declarada — como las
+`considerations` — es **blanda**, no una ley. Se intenta y **sólo se aplica si no
+destruye la diagramación**; si no se puede (p.ej. un contenedor no entra en el
+ámbito pedido sin romper el resto), **cede** y se informa en el log que no se
+pudo cumplir, sin explicar el porqué. Ya implementado para `considerations` (guarda
+por colisiones + log `no se pudo cumplir: ...`); el mapa hereda el mismo
+principio: `lane`/`area` son *preferencias de ubicación*, no obligaciones.
 
 ## 5. Vocabulario / schema propuesto
 
@@ -171,8 +181,8 @@ Cada fase: visible en Epifanía y con tests, como el rescate de LAF.
    ámbitos/carriles/contenedores los resuelva UN motor (AUTO, el principal), no
    `hier` como vista. ¿Confirmamos esa dirección?
 3. **Alcance del ámbito v1**: ¿sólo `rect`/`circle` primero, y `path` después?
-4. **Membership vs constraints**: ¿unificamos `lane`/`area` con la maquinaria de
-   `constraints`, o son campos aparte?
+4. **Membership vs considerations**: ¿unificamos `lane`/`area` con la maquinaria
+   de `considerations` (misma guarda blanda), o son campos aparte?
 
 ---
 

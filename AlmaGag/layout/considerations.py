@@ -1,34 +1,35 @@
 """
-Constraints declarativas de layout — rescate ④ desde LAF.
+Consideraciones de layout — align / near / avoid (rescate ④ desde LAF, revisado).
 
-LAF sólo llegó a `align` (top/bottom/center como nivel topológico); `near` y
-`avoid` quedaron documentados como "v2" sin implementar. Acá se completan como
-constraints **geométricas y relacionales** que el usuario declara en el SDJF y
-el motor (AUTO) aplica sobre las posiciones ya calculadas.
+Son **blandas** (de ahí el nombre): expresan intención del usuario, no una ley.
+Cada una se aplica **sólo si no destruye la diagramación** — si al aplicarla
+aumentan las colisiones, se revierte y se informa en los logs que no se pudo
+cumplir (sin explicar el porqué). Así una consideración nunca degrada el diagrama.
 
-Schema (array top-level `constraints`):
+Esto las diferencia de una *restricción dura* (que se impone aunque rompa el
+resto). El motor (AUTO) las corre detrás de una guarda, igual que la
+compactación ① .
 
-    "constraints": [
+Schema (array top-level `considerations`; alias legacy `constraints`):
+
+    "considerations": [
       {"align": ["a", "b", "c"], "axis": "x"},   # misma columna (X común)
       {"align": ["d", "e"], "axis": "y"},         # misma fila (Y común)
       {"near":  ["app", "db"]},                    # acercar (reduce dispersión)
       {"avoid": ["front", "back"]}                 # no solapar (separa el par)
     ]
 
-- `align`: lleva los elementos a una X (axis 'x', por defecto) o Y (axis 'y')
-  común = la media del grupo. Es la más fuerte y la que LAF intentó.
-- `near`: acerca a los miembros hacia su centroide (reduce la caja que los
-  contiene) sin encimarlos — la resolución de colisiones de AUTO evita solapes.
-- `avoid`: si dos elementos se solapan, los separa por el eje de menor
-  penetración + un margen.
+- `align`: lleva los elementos a una X (axis 'x', default) o Y ('y') común.
+- `near`: acerca a los miembros hacia su centroide sin encimarlos.
+- `avoid`: si dos elementos se solapan, los separa por el eje de menor penetración.
 
-Funciones puras sobre el layout; agnósticas del renderer. Si el JSON no declara
-`constraints`, `extract_constraints` devuelve [] y no se toca nada (cero
-regresión sobre los diagramas existentes).
+`extract_considerations` normaliza el schema; `apply_one` aplica UNA consideración
+(geometría pura); `apply_considerations` es el driver GUARDADO que decide cuáles
+se conservan. Sin `considerations`, todo es no-op (cero regresión).
 """
 
 import logging
-from typing import Dict, List, Tuple
+from typing import Callable, List, Tuple
 
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 
@@ -39,10 +40,13 @@ NEAR_ALPHA = 0.5      # fracción del acercamiento hacia el centroide
 AVOID_MARGIN = 16.0   # holgura al separar (px)
 
 
-def extract_constraints(data: dict) -> List[dict]:
-    """Normaliza el array `constraints` del SDJF. Tolerante: descarta entradas
-    inválidas con un warning. Devuelve [{'kind','ids','axis'}]."""
-    raw = data.get('constraints')
+def extract_considerations(data: dict) -> List[dict]:
+    """Normaliza el array `considerations` (o su alias legacy `constraints`) del
+    SDJF. Tolerante: descarta entradas inválidas con un warning. Devuelve
+    [{'kind','ids','axis'}]."""
+    raw = data.get('considerations')
+    if raw is None:
+        raw = data.get('constraints')      # alias retrocompatible
     if not raw or not isinstance(raw, list):
         return []
     out: List[dict] = []
@@ -51,12 +55,12 @@ def extract_constraints(data: dict) -> List[dict]:
             continue
         kind = next((k for k in _KINDS if k in entry), None)
         if kind is None:
-            logger.warning(f"[CONSTRAINTS] entrada sin tipo válido {list(entry)}; "
+            logger.warning(f"[CONSIDERACIONES] entrada sin tipo válido {list(entry)}; "
                            f"esperado uno de {_KINDS}. Ignorada.")
             continue
         ids = entry.get(kind)
         if not isinstance(ids, list) or len(ids) < 2:
-            logger.warning(f"[CONSTRAINTS] '{kind}' requiere ≥2 ids; ignorada.")
+            logger.warning(f"[CONSIDERACIONES] '{kind}' requiere ≥2 ids; ignorada.")
             continue
         axis = entry.get('axis', 'x')
         if axis not in ('x', 'y'):
@@ -65,36 +69,58 @@ def extract_constraints(data: dict) -> List[dict]:
     return out
 
 
+def label(cons: dict) -> str:
+    """Etiqueta corta de una consideración para logs: `align [a, b, c]`."""
+    return f"{cons['kind']} {cons['ids']}"
+
+
 def _center(e) -> Tuple[float, float]:
     return (e['x'] + e.get('width', ICON_WIDTH) / 2.0,
             e['y'] + e.get('height', ICON_HEIGHT) / 2.0)
 
 
-def apply_constraints(layout, constraints: List[dict], debug: bool = False) -> int:
-    """Aplica las constraints in-place sobre `layout.elements`. Devuelve cuántas
-    se aplicaron. El orden es align → near → avoid (las duras primero)."""
+def apply_one(layout, cons: dict) -> None:
+    """Aplica UNA consideración in-place sobre `layout.elements` (geometría pura,
+    sin guarda). El caller decide si conserva el resultado."""
     by_id = layout.elements_by_id
-    applied = 0
+    els = [by_id[i] for i in cons['ids'] if i in by_id and 'x' in by_id[i]]
+    if len(els) < 2:
+        return
+    if cons['kind'] == 'align':
+        _apply_align(els, cons['axis'])
+    elif cons['kind'] == 'near':
+        _apply_near(els)
+    elif cons['kind'] == 'avoid':
+        _apply_avoid(els)
 
-    def positioned(ids):
-        return [by_id[i] for i in ids if i in by_id and 'x' in by_id[i]]
 
-    order = {'align': 0, 'near': 1, 'avoid': 2}
-    for c in sorted(constraints, key=lambda c: order[c['kind']]):
-        els = positioned(c['ids'])
-        if len(els) < 2:
-            continue
-        if c['kind'] == 'align':
-            _apply_align(els, c['axis'])
-        elif c['kind'] == 'near':
-            _apply_near(els)
-        elif c['kind'] == 'avoid':
-            _apply_avoid(els)
-        applied += 1
-        if debug:
-            logger.debug(f"[CONSTRAINTS] {c['kind']} {c['ids']} "
-                         f"(axis={c['axis']}) aplicada")
-    return applied
+def apply_considerations(
+    layout,
+    considerations: List[dict],
+    evaluate: Callable[[object], int],
+    reroute: Callable[[object], None],
+) -> Tuple[object, List[dict]]:
+    """Driver GUARDADO: aplica cada consideración sólo si no aumenta las
+    colisiones. Devuelve (layout_resultante, no_aplicadas).
+
+    Para cada consideración prueba sobre una copia (aplicar → re-rutear →
+    evaluar); la conserva si las colisiones no suben respecto a la mejor hasta
+    ahora, si no la descarta. `evaluate(layout)` devuelve el nº de colisiones y
+    lo cachea; `reroute(layout)` recalcula los paths."""
+    current = layout
+    base = evaluate(current)
+    unmet: List[dict] = []
+    for cons in considerations:
+        trial = current.copy()
+        apply_one(trial, cons)
+        trial.invalidate_collision_cache()
+        reroute(trial)
+        score = evaluate(trial)
+        if score <= base:
+            current, base = trial, score
+        else:
+            unmet.append(cons)
+    return current, unmet
 
 
 def _apply_align(els, axis) -> None:
@@ -129,7 +155,6 @@ def _apply_avoid(els) -> None:
             bw, bh = b.get('width', ICON_WIDTH), b.get('height', ICON_HEIGHT)
             ax, ay = a['x'], a['y']
             bx, by = b['x'], b['y']
-            # solape en cada eje
             ox = min(ax + aw, bx + bw) - max(ax, bx)
             oy = min(ay + ah, by + bh) - max(ay, by)
             if ox <= 0 or oy <= 0:
