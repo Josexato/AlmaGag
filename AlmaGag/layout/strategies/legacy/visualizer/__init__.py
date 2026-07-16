@@ -1,8 +1,12 @@
 """
-GrowthVisualizer - Fase de Visualización de LAF
+ConceptualizationAnalyzer — analizador del proceso de conceptualización.
 
-Genera snapshots SVG de cada fase del proceso LAF para debugging
-y documentación.
+La otra mitad de lo que fue LAF (la primera es el *motor histórico*, ahora la
+estrategia `legacy`): esta parte NO posiciona, **analiza y visualiza cómo se
+genera la abstracción** — emite un SVG por cada fase del análisis (estructura →
+topología → centralidad → abstracción VC → placement → inflación → ruteo), para
+ver paso a paso cómo el motor construye su modelo. Es la herramienta de
+introspección; se activa con `--debug-phases`.
 
 Author: José + ALMA + Claude (Claude-SolFase5)
 Version: v1.1
@@ -22,9 +26,9 @@ from AlmaGag.layout.strategies.legacy.structure_analyzer import StructureInfo
 logger = logging.getLogger('AlmaGag')
 
 
-class GrowthVisualizer:
+class ConceptualizationAnalyzer:
     """
-    Genera visualizaciones SVG del proceso de crecimiento LAF.
+    Analizador del proceso de conceptualización: un SVG por fase del análisis.
 
     Crea 11 archivos SVG mostrando cada fase:
     1. phase1_structure.svg: Árbol de elementos con métricas
@@ -40,7 +44,7 @@ class GrowthVisualizer:
     11. phase11_final.svg: Layout final completo
     """
 
-    def __init__(self, output_dir: str = "debug/growth", debug: bool = False):
+    def __init__(self, output_dir: str = "debug/conceptualizacion", debug: bool = False):
         """
         Inicializa el visualizador.
 
@@ -860,3 +864,7 @@ class GrowthVisualizer:
     def _generate_phase11_final_svg(self, output_path: str) -> None:
         from AlmaGag.layout.strategies.legacy.visualizer import phase11_final
         phase11_final.generate(self, output_path)
+
+
+# Alias retrocompatible (nombre histórico).
+GrowthVisualizer = ConceptualizationAnalyzer

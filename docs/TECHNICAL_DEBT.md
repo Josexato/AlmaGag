@@ -610,9 +610,17 @@ que la representación sólo se fuerce por **parámetro de comando** (nunca por 
   **AUTO es la principal** (`_STRATEGIES` marca `kind`: base/flow/frozen + `DEFAULT_STRATEGY='auto'`).
   `laf` **renombrado a `legacy`** (motor histórico): CLI `--layout-algorithm=legacy` (ya no `laf`),
   congelado, nunca auto-elegido. Byte-idéntico tras los moves; 251 tests en verde.
-**Pendiente**: fusión física del código (hier como estrategia interna de AUTO, no un paquete
-paralelo); reencuadrar LAF como `--debug-phases`; afinar el clasificador con más señales
-(hoy es intencionalmente conservador). Test: `tests/test_strategy_selection.py`.
+- **(ii) LAF diferenciado en dos**: LAF se separó en (a) el **motor histórico** = estrategia
+  `legacy` (el placement abstracto-primero con VC/SCC/TOI, congelado), y (b) el **analizador del
+  proceso de conceptualización** = `ConceptualizationAnalyzer` (ex-`GrowthVisualizer`, alias
+  retrocompat): NO posiciona, emite un SVG por fase del análisis (estructura → topología →
+  centralidad → abstracción VC → placement → ruteo) para *ver cómo se genera la abstracción*. CLI
+  `--debug-phases` (alias `--visualize-growth`), salida en `debug/conceptualizacion/`. Sólo con
+  `--layout-algorithm=legacy`.
+
+**Pendiente**: afinar el clasificador con más señales (hoy es intencionalmente conservador);
+opcional: portar las piezas de rescate ①/② desde `legacy` a `hier`. Test:
+`tests/test_strategy_selection.py`, `tests/test_determinism.py`.
 
 **Dirección de trabajo adoptada**: **AUTO = motor / puerta de entrada** (es el maduro, ya maneja
 contenedores y es la puerta de `select_strategy`); **hier = estrategia de flujo** (sus módulos

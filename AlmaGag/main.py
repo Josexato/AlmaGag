@@ -83,11 +83,12 @@ Ejemplos:
              "(areas si el archivo declara la metadata)."
     )
     parser.add_argument(
-        "--visualize-growth",
+        "--debug-phases", "--visualize-growth",
+        dest="visualize_growth",
         action="store_true",
-        help="Analizador de conceptualización: genera un SVG por cada fase del "
-             "análisis, para ver cómo se genera la abstracción (solo con "
-             "--layout-algorithm=legacy)"
+        help="Analizador del proceso de conceptualización: un SVG por cada fase "
+             "del análisis (en debug/conceptualizacion/), para ver cómo se genera "
+             "la abstracción paso a paso. Sólo con --layout-algorithm=legacy."
     )
     parser.add_argument(
         "--color-connections",

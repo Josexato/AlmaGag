@@ -24,7 +24,7 @@ from AlmaGag.layout.strategies.legacy.abstract_placer import AbstractPlacer
 from AlmaGag.layout.strategies.legacy.position_optimizer import PositionOptimizer
 from AlmaGag.layout.strategies.legacy.inflator import ElementInflator
 from AlmaGag.layout.strategies.legacy.container_grower import ContainerGrower
-from AlmaGag.layout.strategies.legacy.visualizer import GrowthVisualizer
+from AlmaGag.layout.strategies.legacy.visualizer import ConceptualizationAnalyzer
 from AlmaGag.layout.strategies.legacy.routing_policy import LAFRoutingPolicy
 from AlmaGag.layout.optimizer_base import LayoutOptimizer
 from AlmaGag.layout.sizing import SizingCalculator
@@ -161,7 +161,7 @@ class LAFOptimizer(LayoutOptimizer):
         self.container_grower = ContainerGrower(
             sizing_calculator=self.sizing, debug=verbose, visualdebug=visualdebug,
         )
-        self.visualizer = GrowthVisualizer(debug=verbose) if visualize_growth else None
+        self.visualizer = ConceptualizationAnalyzer(debug=verbose) if visualize_growth else None
 
     def _apply_dashboard_reflow(self, structure_info, layout):
         """
