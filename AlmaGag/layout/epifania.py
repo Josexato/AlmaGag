@@ -27,6 +27,8 @@ import re
 import logging
 from copy import deepcopy
 
+from AlmaGag.layout.metrics import count_crossings
+
 logger = logging.getLogger('AlmaGag')
 
 
@@ -81,9 +83,16 @@ class PhaseRecorder:
             path = os.path.join(out_dir, fname)
             try:
                 renderer.render(snap, path)
-                pages.append((i, label, note, fname))
             except Exception as e:
                 logger.warning(f"[EPIFANIA] fase {i} '{label}' no renderizó: {e}")
+                continue
+            # Métrica de calidad por fase (rescate ③): cruces entre conexiones.
+            # Se ve bajar a lo largo del flipbook. Agnóstica del motor.
+            try:
+                crossings = count_crossings(snap)
+            except Exception:
+                crossings = None
+            pages.append((i, label, note, fname, crossings))
 
         self._write_index(out_dir, pages)
         logger.info(f"[EPIFANIA] {len(pages)} fase(s) de '{self.strategy_label}' "
@@ -94,21 +103,37 @@ class PhaseRecorder:
         """Hoja de contacto: una página que muestra el flipbook en orden."""
         title = f"Epifanía · {self.diagram_name} · motor «{self.strategy_label}»"
         cards = []
-        for i, label, note, fname in pages:
+        prev_cross = None
+        for i, label, note, fname, crossings in pages:
             note_html = f'<p class="note">{_esc(note)}</p>' if note else ''
             cards.append(
                 f'<figure><figcaption><span class="n">{i:02d}</span> '
-                f'{_esc(label)}</figcaption>'
+                f'{_esc(label)}{_cross_badge(crossings, prev_cross)}</figcaption>'
                 f'<a href="{fname}" target="_blank"><img src="{fname}" '
                 f'alt="{_esc(label)}"></a>{note_html}</figure>'
             )
+            if crossings is not None:
+                prev_cross = crossings
         html = _INDEX_TMPL.format(
             title=_esc(title),
-            subtitle=f"{len(pages)} fases — así nace el layout, paso a paso",
+            subtitle=f"{len(pages)} fases — así nace el layout, paso a paso "
+                     f"(el chip muestra cruces entre conexiones por fase)",
             cards='\n'.join(cards),
         )
         with open(os.path.join(out_dir, 'index.html'), 'w', encoding='utf-8') as f:
             f.write(html)
+
+
+def _cross_badge(crossings, prev) -> str:
+    """Chip HTML con los cruces de la fase y el delta contra la fase anterior."""
+    if crossings is None:
+        return ''
+    delta = ''
+    if prev is not None and crossings != prev:
+        d = crossings - prev
+        cls = 'up' if d > 0 else 'down'
+        delta = f' <span class="d {cls}">{d:+d}</span>'
+    return f' <span class="x" title="cruces entre conexiones">✕ {crossings}{delta}</span>'
 
 
 def _esc(text: str) -> str:
@@ -129,6 +154,10 @@ _INDEX_TMPL = """<!doctype html>
   figure {{ margin: 0; border: 1px solid GrayText; border-radius: 8px; overflow: hidden; background: Canvas; }}
   figcaption {{ padding: .5rem .7rem; font-size: .85rem; font-weight: 600; border-bottom: 1px solid GrayText; }}
   figcaption .n {{ display: inline-block; min-width: 1.6em; color: GrayText; font-variant-numeric: tabular-nums; }}
+  figcaption .x {{ float: right; font-weight: 500; font-size: .8rem; color: GrayText; font-variant-numeric: tabular-nums; }}
+  figcaption .x .d {{ font-size: .75rem; }}
+  figcaption .x .d.down {{ color: #1a7f37; }}
+  figcaption .x .d.up {{ color: #cf222e; }}
   img {{ display: block; width: 100%; height: auto; background: #fff; }}
   .note {{ margin: 0; padding: .4rem .7rem; font-size: .78rem; color: GrayText; }}
 </style></head>
