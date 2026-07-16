@@ -29,6 +29,8 @@ from AlmaGag.config import (
     MOVEMENT_THRESHOLD, MOVEMENT_MAX_DISTANCE, MOVEMENT_DEFAULT_DY
 )
 from AlmaGag.utils import extract_item_id
+from AlmaGag.layout.offset_optimizer import optimize_group_offsets
+from AlmaGag.layout.metrics import count_crossings
 
 
 class AutoLayoutOptimizer(LayoutOptimizer):
@@ -255,6 +257,17 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         self._capture('ruteo-inicial', current,
                       f'canvas desde bounds + routing · {initial_collisions} colisiones')
 
+        # Rescate ①: compactación horizontal por bisección de offset. Desplaza
+        # cada nivel (fila) por el offset que minimiza la longitud de conectores.
+        # GUARDADA: sólo se adopta si baja los cruces y no sube las colisiones.
+        compacted = self._compact_horizontal(current)
+        if compacted is not current:
+            current = compacted
+            initial_collisions = self.evaluate(current)
+            self._capture('compactacion', current,
+                          f'offset por nivel (rescate ①) · '
+                          f'{count_crossings(current)} cruces · {initial_collisions} colisiones')
+
         # Prioridades para debug
         if self.verbose:
             priority_counts = {'high': 0, 'normal': 0, 'low': 0}
@@ -424,6 +437,74 @@ class AutoLayoutOptimizer(LayoutOptimizer):
                       f'normalizado + labels escalonados · {min_collisions} colisiones')
 
         return best_layout
+
+    def _compact_horizontal(self, layout: Layout) -> Layout:
+        """Rescate ①: compacta el layout en X desplazando cada nivel (fila) por
+        el offset que minimiza la longitud ponderada de conectores (bisección
+        convexa). Devuelve un layout NUEVO si mejora, o el MISMO objeto si no.
+
+        Guarda de seguridad — sólo adopta la compactación si:
+          - baja el número de cruces (métrica objetivo), y
+          - no aumenta las colisiones (métrica primaria de AUTO).
+
+        Bloques que se desplazan juntos: cada CONTENEDOR (con todo su contenido)
+        como bloque rígido — así una traslación horizontal no rompe sus
+        coordenadas locales — y los nodos LIBRES agrupados por fila visual."""
+        positioned = [e for e in layout.elements if 'x' in e and 'y' in e]
+        if len(positioned) < 3:
+            return layout
+
+        pos = {e['id']: (e['x'] + e.get('width', ICON_WIDTH) / 2.0,
+                         e['y'] + e.get('height', ICON_HEIGHT) / 2.0)
+               for e in positioned}
+
+        # Membresía en contenedores.
+        containers = [e for e in layout.elements if 'contains' in e]
+        contained_of: dict = {}
+        for cont in containers:
+            for ref in cont.get('contains', []):
+                contained_of[extract_item_id(ref)] = cont['id']
+
+        # Grupos: contenedor+contenido = bloque rígido; libres por fila visual.
+        row_h = ICON_HEIGHT
+        groups: dict = {}
+        for cont in containers:
+            members = [cont['id']] + [extract_item_id(r) for r in cont.get('contains', [])]
+            groups[('cont', cont['id'])] = [m for m in members if m in pos]
+        for eid, (cx, cy) in pos.items():
+            if eid in contained_of or any(eid == c['id'] for c in containers):
+                continue
+            groups.setdefault(('row', round(cy / row_h)), []).append(eid)
+        if len(groups) < 2:
+            return layout
+
+        node_group = {n: k for k, members in groups.items() for n in members}
+
+        adj: dict = {}
+        for c in layout.connections:
+            a, b = c.get('from'), c.get('to')
+            if a in pos and b in pos:
+                adj.setdefault(a, []).append((b, 1.0))
+                adj.setdefault(b, []).append((a, 1.0))
+
+        offsets = optimize_group_offsets(groups, pos, adj, axis='x')
+        if all(abs(v) < 1.0 for v in offsets.values()):
+            return layout
+
+        candidate = layout.copy()
+        for e in candidate.elements:
+            if 'x' in e and e['id'] in node_group:
+                e['x'] += offsets.get(node_group[e['id']], 0.0)
+        candidate.invalidate_collision_cache()
+        self._normalize_to_canvas(candidate)
+        self.routing.route(candidate)
+
+        # Guarda: adoptar sólo si mejora cruces sin empeorar colisiones.
+        if (count_crossings(candidate) < count_crossings(layout) and
+                self.evaluate(candidate) <= self.evaluate(layout)):
+            self._log("Compactación horizontal (①) adoptada")
+            return candidate
+        return layout
 
     def _calculate_initial_positions(self, layout: Layout) -> None:
         """
