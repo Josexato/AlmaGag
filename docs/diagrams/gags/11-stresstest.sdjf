@@ -4,7 +4,7 @@
     { "id": "jose_heraclides", "label": "José Heráclides", "type": "server", "color": "gold" },
     { "id": "daria", "label": "Daría", "type": "server", "color": "gold" },
 
-    { "id": "silvia", "label": "Silvia", "type": "serveer", "color": "lightblue" },
+    { "id": "silvia", "label": "Silvia", "type": "server", "color": "lightblue" },
     { "id": "lica", "label": "Lica", "type": "server", "color": "lightblue" },
     { "id": "patricia", "label": "Patricia", "type": "server", "color": "lightblue" },
     { "id": "santiago", "label": "Santiago", "type": "server", "color": "lightblue" },
