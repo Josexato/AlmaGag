@@ -23,6 +23,7 @@ def select_strategy(data, view='auto'):
     - contenedores anidados (`contains`) → AUTO (hier aún no los soporta)
     - metadata de fases (`areas`) → flujo por ámbitos (hier)
     - nodos de decisión (rombos) → flowchart → hier
+    - flujo CON CICLO, sin coords manuales → hier (niveles + arcos de ciclo)
     - en cualquier otro caso → AUTO (placement general)
     """
     elements = data.get('elements', [])
@@ -37,7 +38,30 @@ def select_strategy(data, view='auto'):
     types = {e.get('type') for e in elements}
     if types & {'decision', 'diamond'}:
         return 'hier'
+    # Un flujo dirigido CON CICLO y sin coordenadas manuales es el dominio de
+    # hier (niveles + arcos de ciclo E15–E17); auto lo aplana a una fila y rutea
+    # en diagonal perforando iconos. Estrecho a ciclos: los DAGs sin ciclo se
+    # dejan en auto (hier los renderiza peor — ver K37). Medido: 14-stresstest
+    # 5→1 cruces, layout-optimization-flow 7→3, sin solapes nuevos.
+    if not any(('x' in e or 'y' in e) for e in elements) and \
+            _has_cycle(elements, data.get('connections', [])):
+        return 'hier'
     return 'auto'
+
+
+def _has_cycle(elements, connections) -> bool:
+    """True si el grafo dirigido tiene un ciclo (SCC de 2+ o self-loop)."""
+    ids = [e['id'] for e in elements]
+    idset = set(ids)
+    out = {i: [] for i in ids}
+    for c in connections:
+        f, t = c.get('from'), c.get('to')
+        if f == t and f in idset:
+            return True                     # self-loop
+        if f in out and t in idset:
+            out[f].append(t)
+    from AlmaGag.layout.strategies.hier.scc import strongly_connected_components
+    return any(len(s) >= 2 for s in strongly_connected_components(ids, out))
 
 
 def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False, guide_lines=None, dump_iterations=False, output_file=None, layout_algorithm='select', view='auto', visualize_growth=False, color_connections=False, **centrality_kwargs):
@@ -69,14 +93,25 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
         logger.error(f"Error al leer el JSON: {e}")
         return False
 
+    # Decidir la estrategia sobre el JSON CRUDO (antes de que el template inyecte
+    # coords). Si el motor elegido es hier, hier hace su propio placement por
+    # niveles/columnas y el `layout_template` (que asigna coords pensadas para
+    # AUTO) sólo lo estorbaría — se saltea. Este pre-cálculo también es el que se
+    # usa después para el LayoutEngine (no se recalcula sobre data ya modificada).
+    resolved_strategy = select_strategy(data, view) if layout_algorithm == 'select' else layout_algorithm
+
     # WISH-LAYOUT-004 Fase 2: auto-detección de template por estructura del grafo.
     # Prioridad:
     #   1. Override manual: `"layout_template": "<name>"` en SDJF → aplicar ese.
     #   2. Auto-detección: `"layout_template": "auto"` → clasificar grafo y aplicar.
     #   3. Sin declaración → comportamiento agnóstico (AUTO/LAF normal).
     # Los templates respetan coords manuales: solo asignan a elementos sin x/y.
+    # Sólo se aplican cuando el motor es AUTO (hier ignora coords inyectadas).
     template_name = data.get('layout_template')
-    if template_name == 'auto':
+    if resolved_strategy == 'hier':
+        if template_name:
+            logger.info(f"Layout template '{template_name}' omitido: motor hier hace su propio placement")
+    elif template_name == 'auto':
         from AlmaGag.layout.templates import auto_apply_template
         applied, scores = auto_apply_template(data)
         scores_str = ', '.join(f'{n}={s:.2f}' for n, s in scores)
@@ -160,9 +195,10 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     # debug); hier ya no es un algoritmo peer sino la estrategia de flujo.
     from AlmaGag.layout.engine import LayoutEngine
     if layout_algorithm == 'select':
-        strategy = select_strategy(data, view)
-        logger.info(f"     - Estrategia auto-seleccionada: {strategy}")
-        initial_layout._strategy = strategy
+        # Reusar la estrategia decidida sobre el JSON crudo (antes del template),
+        # no recalcular sobre `data` ya modificada por el template.
+        logger.info(f"     - Estrategia auto-seleccionada: {resolved_strategy}")
+        initial_layout._strategy = resolved_strategy
         forced = None
     else:
         forced = layout_algorithm                 # override explícito por CLI
@@ -208,7 +244,12 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
 
     # 5. Obtener canvas final (puede haber sido expandido)
     final_canvas = optimized_layout.canvas
-    if final_canvas['width'] > canvas_width or final_canvas['height'] > canvas_height:
+    if optimizer.chosen == 'hier':
+        # hier ajusta su propio canvas al contenido (§G22/§J33): respetarlo tal
+        # cual, sin inflarlo al canvas declarado (evita láminas medio vacías).
+        canvas_width = final_canvas['width']
+        canvas_height = final_canvas['height']
+    elif final_canvas['width'] > canvas_width or final_canvas['height'] > canvas_height:
         canvas_width = final_canvas['width']
         canvas_height = final_canvas['height']
         logger.info(f"     - Canvas expandido a {canvas_width}x{canvas_height}")

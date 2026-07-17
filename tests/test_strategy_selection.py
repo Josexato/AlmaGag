@@ -35,6 +35,35 @@ def test_areas_go_hier():
     assert select_strategy(data) == 'hier'
 
 
+def test_cycle_without_coords_goes_hier():
+    """Un flujo con ciclo y sin coords manuales → hier (arcos de ciclo)."""
+    data = {'elements': [{'id': 'a'}, {'id': 'b'}, {'id': 'c'}],
+            'connections': [{'from': 'a', 'to': 'b'}, {'from': 'b', 'to': 'c'},
+                            {'from': 'c', 'to': 'a'}]}   # ciclo a→b→c→a
+    assert select_strategy(data) == 'hier'
+
+
+def test_self_loop_goes_hier():
+    data = {'elements': [{'id': 'a'}, {'id': 'b'}],
+            'connections': [{'from': 'a', 'to': 'a'}, {'from': 'a', 'to': 'b'}]}
+    assert select_strategy(data) == 'hier'
+
+
+def test_acyclic_dag_stays_auto():
+    """Un DAG SIN ciclo se queda en AUTO (hier lo renderiza peor — K37)."""
+    data = {'elements': [{'id': 'a'}, {'id': 'b'}, {'id': 'c'}],
+            'connections': [{'from': 'a', 'to': 'b'}, {'from': 'a', 'to': 'c'},
+                            {'from': 'b', 'to': 'c'}]}   # DAG, sin ciclo
+    assert select_strategy(data) == 'auto'
+
+
+def test_cycle_with_manual_coords_stays_auto():
+    """Con coords manuales se respeta la disposición del usuario → AUTO."""
+    data = {'elements': [{'id': 'a', 'x': 0, 'y': 0}, {'id': 'b', 'x': 100, 'y': 0}],
+            'connections': [{'from': 'a', 'to': 'b'}, {'from': 'b', 'to': 'a'}]}
+    assert select_strategy(data) == 'auto'
+
+
 def test_explicit_view_forces_hier():
     """Una vista pedida por CLI es de hier, aunque el grafo sea plano."""
     data = {'elements': [{'id': 'a', 'type': 'server'}]}

@@ -7,6 +7,21 @@ esperamos) y el SVG producido (coordenadas en el archivo, para evaluar geometrí
 - **Fecha:** 2026-07-17 · **Repo:** Josexato/AlmaGag · **Rama:** `claude/review-phase-0-plan-JJOwz`
 - Los `raw.githubusercontent.com/...` de abajo devuelven el contenido crudo (SVG XML / JSON), consumible directo.
 
+## Respuesta a la sección L (iteración 3)
+
+Claude Design tenía razón en **L39**: los SVG de esta carpeta no estaban
+commiteados (un `*.svg` en `.gitignore` los tragaba; sólo subió el README). **Ya
+están commiteados** y las URLs raw responden 200.
+
+Y el hallazgo de fondo (L40/L41/L42 — "regresiones" en 14-stresstest): se estaban
+midiendo sobre el **canónico auto**, porque `14-stresstest.sdjf` traía
+`layout_template: auto` que inyectaba coords y el motor caía en AUTO. **Corregido
+de raíz**: un flujo con ciclo y sin coords manuales ahora se enruta a **hier** por
+defecto (y se saltea el template). El canónico `docs/diagrams/svgs/14-stresstest.svg`
+es ahora el render hier (6 niveles, arcos de ciclo E15–E17, ruteo ortogonal, tomas
+cortas) — **CI-regenerable desde la fuente**, sin artefactos aparte. Regla estrecha
+a ciclos: los DAG sin ciclo siguen en AUTO (no se regresiona 12/13-custom-icons).
+
 ## Estado del veredicto (sección K)
 
 | # | Ítem | Estado | Nota |

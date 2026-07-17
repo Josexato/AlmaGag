@@ -35,6 +35,7 @@ debug/outputs/*.svg
 # Excepción: Permitir SVGs y PNGs de documentación versionados
 !docs/diagrams/svgs/*.svg
 !docs/diagrams/benchmark/*.svg
+!docs/reviews/**/*.svg
 !docs/diagrams/benchmark/*.png
 
 # Debug temporal files and logs
