@@ -255,7 +255,7 @@ def draw_connection_labels(dwg, connections, conn_centers, optimized_label_posit
                 text_anchor="middle",
                 font_size="12px",
                 font_family="Arial, sans-serif",
-                fill="gray",
+                fill="#14181d",
                 filter='url(#text-glow)',
             ))
             continue
@@ -269,7 +269,7 @@ def draw_connection_labels(dwg, connections, conn_centers, optimized_label_posit
                 text_anchor=optimized_pos.anchor,
                 font_size="12px",
                 font_family="Arial, sans-serif",
-                fill="gray",
+                fill="#14181d",
                 filter='url(#text-glow)',
             ))
         else:
