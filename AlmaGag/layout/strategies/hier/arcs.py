@@ -161,6 +161,12 @@ def route_cycle_arcs(layout, levels):
             # marcar puertos → el renderer no aplica su offset de 15px
             c['_from_port'] = start
             c['_to_port'] = end
+            # §E/§L40: la arista de RETORNO (la back-edge u→v) se dibuja
+            # punteada — el arco exterior que cierra el lazo, distinto de las
+            # aristas de ida (sólidas). Sólo marca; el renderer decide el dash
+            # y respeta cualquier `style` explícito del usuario.
+            if (c['from'], c['to']) == (u, v):
+                c['_cycle_return'] = True
             handled.add((c['from'], c['to']))
 
     return handled

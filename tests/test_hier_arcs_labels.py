@@ -37,6 +37,20 @@ def test_cycle_edges_are_beziers():
         assert cp.get('control_points')
 
 
+def test_return_edge_marked_for_dashing():
+    """§L40: sólo la arista de RETORNO (back-edge K→I) se marca `_cycle_return`
+    (→ arco punteado). Las de ida (I→J, J→K) quedan sólidas."""
+    r = _optimize()
+    def marked(f, t):
+        for c in r.connections:
+            if c['from'] == f and c['to'] == t:
+                return bool(c.get('_cycle_return'))
+        return None
+    assert marked('ElemtK', 'ElemtI') is True
+    assert marked('ElemtI', 'ElemtJ') is False
+    assert marked('ElemtJ', 'ElemtK') is False
+
+
 def test_return_edge_bulges_opposite_to_ida():
     """§E15: ida (I→J, baja) y retorno (K→I, sube) comban a lados opuestos
     en X (lazo coherente)."""
