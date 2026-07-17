@@ -162,8 +162,11 @@ necesita.
 
 ## 8. Plan por fases (poco a poco, cero regresión por fase)
 
-1. **Reetiquetado + doc** — reconocer §I27 "áreas" = contenedor/carril-por-fase;
-   liberar la palabra "ámbito". Sin cambiar renders. *(bajo riesgo)*
+1. **Reetiquetado + doc** ✅ — reconocido: §I27 "áreas" = contenedor/carril-por-fase
+   (caja que crece hacia su contenido), y la palabra "ámbito" queda RESERVADA para
+   el terreno de forma arbitraria. Bandera plantada en `hier/areas.py` y en esta
+   doc; **sin cambiar renders ni el schema** (la migración de la clave `areas`
+   espera la decisión §9.1). *(hecho, bajo riesgo)*
 2. **Carriles H/V** — generalizar `lanes` a `axis`. *(bajo riesgo)*
 3. **Capas componibles** — permitir carriles + contenedores en el mismo diagrama
    (no excluyentes). Empezar por el motor que ya tiene contenedores (AUTO).

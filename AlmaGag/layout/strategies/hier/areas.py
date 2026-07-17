@@ -1,9 +1,17 @@
 """
-§I27 + §I29 — Ámbitos por fase (areas) para el algoritmo hier.
+§I27 + §I29 — "Áreas" por fase para el algoritmo hier.
 
-Cada área es un sub-lienzo recursivo: los criterios A–H (niveles, columnas,
-puertos, ruteo, arcos, etiquetas) corren DENTRO del área sobre sus miembros; la
-caja se dimensiona al contenido + padding y se rotula. Las áreas se ordenan por
+⚠️ NOTA CONCEPTUAL (WISH-ARCH-004, fase 1): lo que aquí se llama "área/ámbito"
+es en realidad un **contenedor con semántica de fase** (una caja 2D que corre el
+layout adentro y CRECE hacia su contenido), NO el *ámbito* del modelo "El Mapa"
+(terreno de forma arbitraria y fija). La palabra "ámbito" queda RESERVADA para
+ese terreno futuro; esto es un contenedor/carril-por-fase. Reetiquetado sólo
+conceptual por ahora: la clave del schema (`areas`) no cambia hasta decidir la
+migración (§9 del WISH). Ver `docs/architecture/WISH-ARCH-004-el-mapa.md`.
+
+Cada "área" es un sub-lienzo recursivo: los criterios A–H (niveles, columnas,
+puertos, ruteo, arcos, etiquetas) corren DENTRO sobre sus miembros; la caja se
+dimensiona al contenido + padding y se rotula. Las áreas se ordenan por
 el flujo (orden declarado) y se empaquetan de izquierda a derecha como
 super-nodos (§J33: usar el ancho). Las conexiones inter-área cruzan por el borde
 de las cajas (§I29).
