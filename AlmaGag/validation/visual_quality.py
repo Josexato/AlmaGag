@@ -485,17 +485,26 @@ def validate_gag(gag_path: str, layout_algorithm='auto') -> QualityReport:
     import json
     import tempfile
     import os
-    from AlmaGag.generator import generate_diagram
+    from AlmaGag.generator import generate_diagram, select_strategy
     from AlmaGag.layout import Layout
-    from AlmaGag.layout.strategies.auto.optimizer import AutoLayoutOptimizer
-    from AlmaGag.layout.strategies.legacy.optimizer import LAFOptimizer
+    from AlmaGag.layout.engine import LayoutEngine
 
     with open(gag_path) as f:
         data = json.load(f)
 
-    # Aplicar template si está declarado (igual que generator)
+    # Decidir la estrategia sobre el JSON CRUDO, igual que el generator: si el
+    # motor resuelto es `hier`, hace su propio placement y el template (coords
+    # pensadas para AUTO) sólo estorbaría — se saltea. Extraer las bboxes con
+    # otro motor que el del render produce falsos R3 (endpoints "colgantes"
+    # porque los iconos están donde el motor equivocado los puso, no donde el
+    # SVG los dibujó). Por eso aquí se usa el MISMO LayoutEngine que el render.
+    resolved_strategy = (
+        select_strategy(data, 'auto') if layout_algorithm == 'select'
+        else layout_algorithm
+    )
+
     template_name = data.get('layout_template')
-    if template_name:
+    if resolved_strategy != 'hier' and template_name:
         from AlmaGag.layout.templates import (
             apply_template, auto_apply_template
         )
@@ -509,8 +518,19 @@ def validate_gag(gag_path: str, layout_algorithm='auto') -> QualityReport:
         connections=data.get('connections', []),
         canvas=data.get('canvas', {}),
     )
-    Optim = AutoLayoutOptimizer if layout_algorithm == 'auto' else LAFOptimizer
-    eng = Optim(verbose=False)
+    # Metadata semántica que el motor hier consume (retrocompatible: si falta,
+    # camino normal). Debe viajar en el layout igual que en el generator.
+    layout._areas = data.get('areas')
+    layout._roles = data.get('roles')
+    layout._lanes = data.get('lanes')
+    from AlmaGag.layout.considerations import extract_considerations
+    layout._considerations = extract_considerations(data)
+    if layout_algorithm == 'select':
+        layout._strategy = resolved_strategy
+        forced = None
+    else:
+        forced = layout_algorithm
+    eng = LayoutEngine(verbose=False, strategy=forced)
     result = eng.optimize(layout)
 
     # Bboxes reales de iconos (no-containers) y de contenedores por separado:
