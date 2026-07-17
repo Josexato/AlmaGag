@@ -27,7 +27,7 @@ a ciclos: los DAG sin ciclo siguen en AUTO (no se regresiona 12/13-custom-icons)
 | # | Ítem | Estado | Nota |
 |---|------|--------|------|
 | K34 | Recorte al borde (clip_to_border compartido) | ✅ hecho | conectores borde a borde en los 3 motores |
-| K35 | Labels dentro de contenedores | ⏳ pendiente | los íconos internos están muy juntos y sus labels se pisan; pase dedicado |
+| K35 | Labels dentro de contenedores | ✅ hecho | la celda del grid interno se dimensiona al label (no al ícono); el contenedor crece. 05-arquitectura 11→1, 15-arch 4→0, ningún diagrama regresiona |
 | K36 | Labels de arista legibles | ✅ hecho | color pleno (antes gris) + halo, sobre su línea |
 | K37 | DAG → hier | ❌ descartado | hier deja el árbol como tira ilegible 3880×314; auto es mejor |
 | K38 | Tomas cerca del destino | ✅ hecho | a un carril del destino: 403→304px, sin solapes |
