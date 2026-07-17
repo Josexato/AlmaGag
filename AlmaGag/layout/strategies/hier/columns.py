@@ -323,13 +323,19 @@ def compute_columns(levels: Levels, elements: List[dict],
         px = x.get(parent, 0)
         x[sat] = px + 1.5 * STEP if px >= center else px - 1.5 * STEP
 
-    # --- §A3/§C11 tomas: al MARGEN exterior (más allá de las columnas
-    # principales), del lado del destino respecto al centro ---
-    left_margin = main_min - LANE
-    right_margin = main_max + LANE
+    # --- §A3/§C11 tomas (K38): a UN carril del destino, del lado libre
+    # (exterior respecto al centro), NO en el margen del canvas. La toma vive a
+    # medio nivel sobre su destino (§A3), así que un solo paso lateral basta:
+    # el conector queda corto (≈1 columna) en vez de cruzar todo el diagrama.
+    # Varias tomas al MISMO destino se escalonan hacia afuera para no encimarse. ---
+    feeders_by_target: Dict[str, List[str]] = defaultdict(list)
     for feeder, target in side_feeders.items():
+        feeders_by_target[target].append(feeder)
+    for target, feeders in feeders_by_target.items():
         tx = x.get(target, center)
-        x[feeder] = left_margin if tx <= center else right_margin
+        outward = -1 if tx <= center else 1
+        for rank, feeder in enumerate(sorted(feeders)):
+            x[feeder] = tx + outward * MIN_SEP * (rank + 1)
 
     # Waypoints §B4: (x, nivel) de los ghosts por arista larga.
     waypoints = {edge: [(x[g], level[g]) for g in chain if g in x]
