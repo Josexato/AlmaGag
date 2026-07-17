@@ -396,22 +396,28 @@ def check_labels_overlap(text_bboxes, min_overlap_area=50):
     return violations
 
 
-def check_connections_attached(endpoints, icon_bboxes, tolerance=30):
+def check_connections_attached(endpoints, icon_bboxes, container_bboxes=None, tolerance=30):
     """
-    R3: cada extremo de conector debe estar cerca de un icono
-    (dentro de `tolerance` px del borde del icono).
+    R3: cada extremo de conector debe estar cerca de un icono O de un
+    contenedor (dentro de `tolerance` px del borde).
 
     BUGS-VAL-001: tolerancia 20 → 30. port_assignment coloca los puntos de
     conexión en los bordes del icono distribuidos en sectores angulares, con
     offsets de hasta ~25px del centro del lado; 20px generaba falsos
     positivos en conexiones legítimamente atadas.
+
+    BUGS-VAL-002: las conexiones entre CONTENEDORES terminan en el borde de la
+    caja (un endpoint válido), lejos de cualquier icono contenido → se contaban
+    como colgantes falsamente. Ahora un endpoint sobre/dentro de un contenedor
+    también cuenta como atado.
     """
+    targets = list(icon_bboxes) + list(container_bboxes or [])
     violations = []
     for ep in endpoints:
         x1, y1, x2, y2 = ep
         for p_name, (px, py) in (('start', (x1, y1)), ('end', (x2, y2))):
             attached = False
-            for ibb in icon_bboxes:
+            for ibb in targets:
                 bx1, by1, bx2, by2 = ibb
                 if (bx1 - tolerance <= px <= bx2 + tolerance
                         and by1 - tolerance <= py <= by2 + tolerance):
@@ -432,7 +438,7 @@ def check_connections_attached(endpoints, icon_bboxes, tolerance=30):
 # ============================================================================
 
 def validate_svg(svg_path: str,
-                 icon_bboxes=None,
+                 icon_bboxes=None, container_bboxes=None,
                  check_r1=True, check_r2=True, check_r3=True) -> QualityReport:
     """
     Valida un SVG contra las 3 reglas.
@@ -465,7 +471,7 @@ def validate_svg(svg_path: str,
     if check_r2:
         report.violations.extend(check_labels_overlap(texts))
     if check_r3:
-        report.violations.extend(check_connections_attached(endpoints, icon_bboxes))
+        report.violations.extend(check_connections_attached(endpoints, icon_bboxes, container_bboxes))
 
     return report
 
@@ -507,21 +513,26 @@ def validate_gag(gag_path: str, layout_algorithm='auto') -> QualityReport:
     eng = Optim(verbose=False)
     result = eng.optimize(layout)
 
-    # Bboxes reales de iconos (no-containers)
+    # Bboxes reales de iconos (no-containers) y de contenedores por separado:
+    # R1 (label sobre icono) sólo mira iconos; R3 (colgantes) acepta también
+    # bordes de contenedor como endpoint válido (conexiones entre contenedores).
     icon_bboxes = []
+    container_bboxes = []
     for e in result.elements:
-        if 'contains' in e:
-            continue
         if 'x' not in e or 'y' not in e:
             continue
         w = e.get('width', 80)
         h = e.get('height', 50)
-        icon_bboxes.append((e['x'], e['y'], e['x'] + w, e['y'] + h))
+        bbox = (e['x'], e['y'], e['x'] + w, e['y'] + h)
+        if 'contains' in e:
+            container_bboxes.append(bbox)
+        else:
+            icon_bboxes.append(bbox)
 
     # Renderizar a SVG temporal y validar
     with tempfile.NamedTemporaryFile(suffix='.svg', delete=False) as f:
         tmp_svg = f.name
     generate_diagram(gag_path, output_file=tmp_svg, layout_algorithm=layout_algorithm)
-    report = validate_svg(tmp_svg, icon_bboxes=icon_bboxes)
+    report = validate_svg(tmp_svg, icon_bboxes=icon_bboxes, container_bboxes=container_bboxes)
     os.unlink(tmp_svg)
     return report

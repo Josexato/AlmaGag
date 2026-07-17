@@ -1060,14 +1060,50 @@ class AutoLayoutPositioner:
             else:
                 cols = int(n ** 0.5) + 1
 
-            spacing = GRID_SPACING_SMALL  # spacing horizontal entre cols
+            spacing = GRID_SPACING_SMALL  # gap horizontal entre celdas
+
+            # K35: la celda se dimensiona al LABEL más ancho de cada columna (no
+            # sólo al ícono) para que las etiquetas multilínea no invadan la
+            # columna vecina (colisiones dentro de «Shared»). SÓLO en grids
+            # angostos (≤2 columnas): en grids anchos, ensanchar cada columna
+            # explotaría el contenedor y descuadraría el layout externo. Ancho
+            # POR COLUMNA (no máximo global). El contenedor crece para alojarlo.
+            widen = cols <= 2
+            col_w = {}
+            for i, elem in enumerate(full_elements):
+                c = i % cols
+                w = self._est_contained_label_width(elem) if widen else float(ICON_WIDTH)
+                col_w[c] = max(col_w.get(c, float(ICON_WIDTH)), w)
+            col_left = {}
+            xacc = padding
+            for c in range(cols):
+                col_left[c] = xacc
+                xacc += col_w.get(c, float(ICON_WIDTH)) + spacing
+            label_h = max((self._est_contained_label_height(e) for e in full_elements),
+                          default=0.0) if widen else 0.0
+            row_pitch = ICON_HEIGHT + max(CONTAINER_GRID_ROW_SPACING, label_h + spacing)
 
             for i, elem in enumerate(full_elements):
                 row = i // cols
                 col = i % cols
-                elem['_local_x'] = padding + col * (ICON_WIDTH + spacing)
-                # Row spacing acomoda label (hasta 2 líneas) entre íconos
-                elem['_local_y'] = start_y + row * (ICON_HEIGHT + CONTAINER_GRID_ROW_SPACING)
+                elem['_local_x'] = col_left[col] + (col_w[col] - ICON_WIDTH) / 2.0
+                elem['_local_y'] = start_y + row * row_pitch
+
+    @staticmethod
+    def _est_contained_label_width(elem: dict) -> float:
+        """Ancho estimado del label de un elemento contenido (~7px/char a 14px;
+        nunca menor al ícono)."""
+        lbl = elem.get('label', '')
+        if not lbl:
+            return float(ICON_WIDTH)
+        maxchars = max((len(line) for line in lbl.split('\n')), default=0)
+        return max(float(ICON_WIDTH), maxchars * 7.0)
+
+    @staticmethod
+    def _est_contained_label_height(elem: dict) -> float:
+        """Alto estimado del label multilínea (px)."""
+        lbl = elem.get('label', '')
+        return len(lbl.split('\n')) * TEXT_LINE_HEIGHT if lbl else 0.0
 
     def _get_scope(self, elem: dict, container: dict) -> str:
         """
