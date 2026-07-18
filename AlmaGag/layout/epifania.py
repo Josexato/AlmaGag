@@ -27,9 +27,73 @@ import re
 import logging
 from copy import deepcopy
 
-from AlmaGag.layout.metrics import count_crossings
+from AlmaGag.layout.metrics import count_crossings, quality_counters
 
 logger = logging.getLogger('AlmaGag')
+
+
+def _collision_points(snap):
+    """§H9: puntos (x,y) donde el detector marca colisiones en esta fase, para
+    dibujarlos como círculos rojos sobre el thumbnail (chip ✕N verificable de un
+    vistazo). Tolerante a fallos: devuelve [] si algo no está disponible."""
+    try:
+        from AlmaGag.layout.collision import CollisionDetector
+        from AlmaGag.layout.geometry import GeometryCalculator
+        sizing = getattr(snap, 'sizing', None)
+        geo = GeometryCalculator(sizing) if sizing else GeometryCalculator()
+        _, pairs = CollisionDetector(geo).detect_all_collisions(snap)
+    except Exception:
+        return []
+
+    by_id = getattr(snap, 'elements_by_id', {}) or {}
+    labels = getattr(snap, 'label_positions', {}) or {}
+
+    def _pt(token):
+        # token puede ser id de elemento, "a->b" (conexión) o id con label
+        if isinstance(token, str) and '->' in token:
+            a, b = token.split('->', 1)
+            pa, pb = _pt(a), _pt(b)
+            if pa and pb:
+                return ((pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2)
+            return pa or pb
+        e = by_id.get(token)
+        if e and 'x' in e and 'y' in e:
+            w = e.get('width', 80)
+            h = e.get('height', 50)
+            return (e['x'] + w / 2, e['y'] + h / 2)
+        if token in labels:
+            p = labels[token]
+            return (p[0], p[1])
+        return None
+
+    points = []
+    for pair in pairs:
+        if len(pair) < 2:
+            continue
+        p = _pt(pair[0]) or _pt(pair[1])
+        if p:
+            points.append(p)
+    return points
+
+
+def _overlay_collision_markers(svg_path, points):
+    """Inyecta círculos rojos semitransparentes en los puntos de colisión antes
+    de </svg>. No-op si no hay puntos o el archivo no se puede leer."""
+    if not points:
+        return
+    try:
+        with open(svg_path, 'r', encoding='utf-8') as f:
+            svg = f.read()
+        marks = ''.join(
+            f'<circle cx="{x:.1f}" cy="{y:.1f}" r="9" fill="#e5484d" '
+            f'fill-opacity="0.35" stroke="#c00" stroke-width="1.5"/>'
+            for (x, y) in points
+        )
+        svg = svg.replace('</svg>', f'<g class="epifania-colisiones">{marks}</g></svg>', 1)
+        with open(svg_path, 'w', encoding='utf-8') as f:
+            f.write(svg)
+    except OSError:
+        return
 
 
 def _slug(text: str) -> str:
@@ -86,13 +150,19 @@ class PhaseRecorder:
             except Exception as e:
                 logger.warning(f"[EPIFANIA] fase {i} '{label}' no renderizó: {e}")
                 continue
-            # Métrica de calidad por fase (rescate ③): cruces entre conexiones.
-            # Se ve bajar a lo largo del flipbook. Agnóstica del motor.
+            # Métricas de calidad por fase: los 3 contadores §H6 (se ven bajar a
+            # lo largo del flipbook) + marcado de colisiones sobre el thumbnail
+            # (§H9: el chip deja de ser un número a ciegas — se ve DÓNDE están).
             try:
-                crossings = count_crossings(snap)
+                q = quality_counters(snap)
             except Exception:
-                crossings = None
-            pages.append((i, label, note, fname, crossings))
+                q = None
+            try:
+                _overlay_collision_markers(path, _collision_points(snap))
+            except Exception:
+                pass
+            crossings = q['edge_x_edge'] if q else None
+            pages.append((i, label, note, fname, crossings, q))
 
         self._write_index(out_dir, pages)
         logger.info(f"[EPIFANIA] {len(pages)} fase(s) de '{self.strategy_label}' "
@@ -104,13 +174,14 @@ class PhaseRecorder:
         title = f"Epifanía · {self.diagram_name} · motor «{self.strategy_label}»"
         cards = []
         prev_cross = None
-        for i, label, note, fname, crossings in pages:
+        for i, label, note, fname, crossings, q in pages:
             note_html = f'<p class="note">{_esc(note)}</p>' if note else ''
+            counters_html = _counters_badge(q)
             cards.append(
                 f'<figure><figcaption><span class="n">{i:02d}</span> '
                 f'{_esc(label)}{_cross_badge(crossings, prev_cross)}</figcaption>'
                 f'<a href="{fname}" target="_blank"><img src="{fname}" '
-                f'alt="{_esc(label)}"></a>{note_html}</figure>'
+                f'alt="{_esc(label)}"></a>{counters_html}{note_html}</figure>'
             )
             if crossings is not None:
                 prev_cross = crossings
@@ -122,6 +193,16 @@ class PhaseRecorder:
         )
         with open(os.path.join(out_dir, 'index.html'), 'w', encoding='utf-8') as f:
             f.write(html)
+
+
+def _counters_badge(q) -> str:
+    """§H6/§H9: fila con los tres contadores separados bajo el thumbnail."""
+    if not q:
+        return ''
+    return (f'<p class="counters">'
+            f'<span title="cruces arista×arista">✕ {q["edge_x_edge"]}</span>'
+            f'<span title="aristas sobre nodo/contenedor ajeno">▦ {q["edge_x_node"]}</span>'
+            f'<span title="solapes de etiqueta">🅰 {q["label_overlap"]}</span></p>')
 
 
 def _cross_badge(crossings, prev) -> str:
@@ -160,6 +241,8 @@ _INDEX_TMPL = """<!doctype html>
   figcaption .x .d.up {{ color: #cf222e; }}
   img {{ display: block; width: 100%; height: auto; background: #fff; }}
   .note {{ margin: 0; padding: .4rem .7rem; font-size: .78rem; color: GrayText; }}
+  .counters {{ margin: 0; padding: .35rem .7rem; font-size: .78rem; display: flex; gap: .9rem; border-top: 1px solid GrayText; font-variant-numeric: tabular-nums; }}
+  .counters span {{ color: GrayText; }}
 </style></head>
 <body>
   <h1>{title}</h1>
