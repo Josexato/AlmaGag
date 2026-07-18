@@ -231,13 +231,18 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     normal_priority = sum(1 for priority in optimized_layout.priorities.values() if priority == 1)
     low_priority = sum(1 for priority in optimized_layout.priorities.values() if priority == 2)
 
-    # Mostrar resultados
-    remaining = optimized_layout._collision_count if optimized_layout._collision_count is not None else 0
-
-    if remaining > 0:
-        logger.warning(f"AutoLayout v2.1: {remaining} colisiones detectadas")
+    # Mostrar resultados: §H6 tres contadores separados (no un único
+    # 'colisiones' ambiguo) y con el nombre del motor real (no "AutoLayout"
+    # cuando corrió hier/legacy).
+    from AlmaGag.layout.metrics import quality_counters
+    q = quality_counters(optimized_layout)
+    engine = getattr(optimizer, 'chosen', None) or resolved_strategy or 'auto'
+    line = (f"[{engine}] cruces(arista×arista)={q['edge_x_edge']} "
+            f"arista×nodo={q['edge_x_node']} labels={q['label_overlap']}")
+    if q['edge_x_edge'] + q['edge_x_node'] + q['label_overlap'] > 0:
+        logger.warning(line)
     else:
-        logger.info(f"AutoLayout v2.1: 0 colisiones detectadas")
+        logger.info(line)
 
     logger.info(f"     - {num_levels} niveles, {num_groups} grupo(s)")
     logger.info(f"     - Prioridades: {high_priority} high, {normal_priority} normal, {low_priority} low")
