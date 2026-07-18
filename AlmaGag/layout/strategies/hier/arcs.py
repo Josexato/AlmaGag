@@ -169,4 +169,66 @@ def route_cycle_arcs(layout, levels):
                 c['_cycle_return'] = True
             handled.add((c['from'], c['to']))
 
+    # H4: separar puertos de arco de ciclo que coinciden en un mismo nodo
+    # (p.ej. la ida I→J y el retorno K→I aterrizaban en el mismo punto → las
+    # puntas de flecha se apilaban). Se reparten a lo largo del borde del icono.
+    _separate_cycle_ports(layout, by_id, handled)
     return handled
+
+
+PORT_MIN_SEP = 14.0
+
+
+def _separate_cycle_ports(layout, by_id, handled):
+    """Reparte los puertos de arcos de ciclo que caen (casi) en el mismo punto
+    del borde de un nodo, empujándolos a lo largo del eje del borde."""
+    # nodo -> lista de (conn, clave_puerto, punto)
+    at_node = {}
+    for c in layout.connections:
+        if (c.get('from'), c.get('to')) not in handled:
+            continue
+        for key, nid in (('_from_port', c.get('from')), ('_to_port', c.get('to'))):
+            p = c.get(key)
+            if p is None:
+                continue
+            at_node.setdefault(nid, []).append((c, key, p))
+
+    for nid, entries in at_node.items():
+        if len(entries) < 2:
+            continue
+        elem = by_id.get(nid)
+        if not elem or 'x' not in elem:
+            continue
+        left, top = elem['x'], elem['y']
+        right = left + elem.get('width', ICON_WIDTH)
+        bottom = top + elem.get('height', ICON_HEIGHT)
+        # agrupar por punto (redondeado) y separar los coincidentes
+        seen = []
+        for (c, key, p) in entries:
+            px, py = p
+            collides = any(abs(px - qx) < PORT_MIN_SEP and abs(py - qy) < PORT_MIN_SEP
+                           for (qx, qy) in seen)
+            if collides:
+                # empujar a lo largo del borde en el que cae el puerto: si está
+                # en un borde vertical (izq/der) se mueve en Y; si no, en X.
+                # Se mantiene DENTRO del borde (clamp) para no despegar la flecha.
+                on_vertical = abs(px - left) < 1.0 or abs(px - right) < 1.0
+                if on_vertical:
+                    py = py + PORT_MIN_SEP
+                    if py > bottom - 4:
+                        py = py - 2 * PORT_MIN_SEP
+                    py = min(max(py, top + 4), bottom - 4)
+                else:
+                    px = px + PORT_MIN_SEP
+                    if px > right - 4:
+                        px = px - 2 * PORT_MIN_SEP
+                    px = min(max(px, left + 4), right - 4)
+                c[key] = (px, py)
+                # re-ajustar el extremo del path para que la flecha caiga en el
+                # nuevo puerto (points[0]=from, points[-1]=to).
+                cp = c.get('computed_path')
+                if isinstance(cp, dict) and cp.get('points'):
+                    pts = list(cp['points'])
+                    pts[0 if key == '_from_port' else -1] = (px, py)
+                    cp['points'] = pts
+            seen.append((px, py))

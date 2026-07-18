@@ -100,3 +100,26 @@ def test_labels_no_overlap_in_render(tmp_path):
     rep = validate_svg(out)
     assert len(rep.by_rule('R1_label_over_icon')) == 0
     assert len(rep.by_rule('R2_labels_overlap')) == 0
+
+
+def test_cycle_ports_separated_at_shared_node():
+    """H4: la ida y el retorno del ciclo no comparten el mismo punto de anclaje
+    en un nodo (antes I→J y K→I aterrizaban ambos en el mismo puerto de I → las
+    puntas de flecha se apilaban). Deben quedar separadas ≥12px."""
+    r = _optimize()
+    ports_at_I = []
+    for c in r.connections:
+        cp = c.get('computed_path')
+        if not (isinstance(cp, dict) and cp.get('type') == 'bezier'):
+            continue
+        if c['to'] == 'ElemtI':
+            ports_at_I.append(c['_to_port'])
+        if c['from'] == 'ElemtI':
+            ports_at_I.append(c['_from_port'])
+    # al menos dos arcos de ciclo tocan I
+    assert len(ports_at_I) >= 2
+    for i in range(len(ports_at_I)):
+        for j in range(i + 1, len(ports_at_I)):
+            (ax, ay), (bx, by) = ports_at_I[i], ports_at_I[j]
+            assert abs(ax - bx) >= 12 or abs(ay - by) >= 12, \
+                f"puertos de ciclo apilados en I: {ports_at_I[i]} vs {ports_at_I[j]}"
