@@ -93,6 +93,14 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
         logger.error(f"Error al leer el JSON: {e}")
         return False
 
+    # §H7: expandir `unions` (matrimonio) a nodo de barra + aristas padre→union
+    # ANTES de decidir estrategia/template, para que el motor las trate como
+    # nodos/aristas normales. No-op si el JSON no declara `unions`.
+    from AlmaGag.layout.unions import expand_unions
+    n_unions = expand_unions(data)
+    if n_unions:
+        logger.info(f"§H7: {n_unions} union(es) expandida(s) a nodo de barra")
+
     # Decidir la estrategia sobre el JSON CRUDO (antes de que el template inyecte
     # coords). Si el motor elegido es hier, hier hace su propio placement por
     # niveles/columnas y el `layout_template` (que asigna coords pensadas para

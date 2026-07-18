@@ -534,6 +534,11 @@ def validate_gag(gag_path: str, layout_algorithm='auto') -> QualityReport:
     with open(gag_path) as f:
         data = json.load(f)
 
+    # §H7: expandir uniones igual que el generator (para que las bboxes y el
+    # render coincidan). No-op si no hay `unions`.
+    from AlmaGag.layout.unions import expand_unions
+    expand_unions(data)
+
     # Decidir la estrategia sobre el JSON CRUDO, igual que el generator: si el
     # motor resuelto es `hier`, hace su propio placement y el template (coords
     # pensadas para AUTO) sólo estorbaría — se saltea. Extraer las bboxes con
