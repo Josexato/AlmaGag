@@ -29,6 +29,23 @@ falsos "colgantes" (R3) en 14-stresstest, contradiciendo que K34 **sí** adjunta
 borde. Corregido: el audit usa el mismo `LayoutEngine`/estrategia que el render.
 Ahora 14-stresstest select/auto = **0 violaciones**.
 
+## Respuesta al review de calidad (H1–H10, Fable)
+
+| # | Hallazgo | Estado | Nota |
+|---|----------|--------|------|
+| H1 | `pip install -e .` roto | ✅ | pyproject declara los subpaquetes reales (strategies/*, validation, templates…); instala sin PYTHONPATH |
+| H2 | Ruteo atraviesa contenedores | ✅ | contenedores ajenos = obstáculo blando (cruce penalizado); 05-arq 2→0 aristas cruzando cajas |
+| H3 | Optimizador se estanca | ✅ | colisiones route-aware (mide el computed_path, no la recta) + re-ruteo post-layout guardado, fase `reruteo` en epifanía |
+| H4 | Anclas compartidas (flechas apiladas) | ✅ | puertos de arco de ciclo separados ≥14px en el nodo compartido |
+| H5 | Labels sin halo | ✅ | halo `paint-order` blanco universal (nodos, conexiones, contenedores, callouts) |
+| H6 | Métricas ambiguas | ✅ | 3 contadores separados (arista×arista / arista×nodo / labels); log nombra el motor real |
+| H7 | Genealógico: falta `union` | ✅ | tipo `union` (matrimonio): un tronco por hijo; 11-stresstest 0 cruces |
+| H8 | SD-WAN contraste/nubes | ✅ (a,b) · ⚠️ (c) | respaldo #e6a8a3→#b5645e (4.2:1) + aviso de contraste en audit; escalado de nubes en glyph pendiente |
+| H9 | Epifanía no accionable | ✅ (1,3) | colisiones marcadas en el thumbnail + serie de 3 contadores por fase; delta de rutas pendiente |
+| H10 | Reproducibilidad | ✅ | `docs/diagrams/run-review.sh` regenera el paquete con flags exactos + estampa commit |
+
+Menores: `Elemto` documentado como fixture a propósito; logger por motor real (H6); `label_overlap` caza el roce de Elemto D. 316 tests verdes.
+
 ## Estado del veredicto (sección K)
 
 | # | Ítem | Estado | Nota |
