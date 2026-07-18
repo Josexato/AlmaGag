@@ -37,6 +37,9 @@ class QualityReport:
     n_labels: int
     n_connections: int
     violations: List[Violation] = field(default_factory=list)
+    # §H8: avisos no bloqueantes (p.ej. contraste bajo). No cuentan como
+    # violaciones ni afectan `passed` — son recomendaciones.
+    warnings: List[Violation] = field(default_factory=list)
 
     @property
     def passed(self) -> bool:
@@ -44,6 +47,45 @@ class QualityReport:
 
     def by_rule(self, rule: str) -> List[Violation]:
         return [v for v in self.violations if v.rule == rule]
+
+
+def _relative_luminance(hex_color: str) -> float:
+    """Luminancia relativa WCAG de un color #rrggbb."""
+    h = hex_color.lstrip('#')
+    if len(h) != 6:
+        return 1.0
+    try:
+        r, g, b = (int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))
+    except ValueError:
+        return 1.0
+    def _lin(c):
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+    R, G, B = _lin(r), _lin(g), _lin(b)
+    return 0.2126 * R + 0.7152 * G + 0.0722 * B
+
+
+def contrast_vs_white(hex_color: str) -> float:
+    """Razón de contraste WCAG del color contra fondo blanco."""
+    return (1.0 + 0.05) / (_relative_luminance(hex_color) + 0.05)
+
+
+def check_color_contrast(data, min_ratio: float = 3.0) -> List[Violation]:
+    """§H8: avisa de colores de conexión con contraste < min_ratio sobre blanco
+    (líneas casi invisibles en proyector, p.ej. respaldos rosados)."""
+    warnings = []
+    for conn in data.get('connections', []):
+        color = conn.get('color')
+        if not color or not str(color).startswith('#'):
+            continue
+        ratio = contrast_vs_white(color)
+        if ratio < min_ratio:
+            warnings.append(Violation(
+                rule='contrast_low',
+                description=(f"conexión {conn.get('from')}→{conn.get('to')}: "
+                             f"color {color} contraste {ratio:.1f}:1 (<{min_ratio}:1)"),
+                extra={'color': color, 'ratio': round(ratio, 2)},
+            ))
+    return warnings
 
 
 def _bbox_intersects(a, b, tol=0):
@@ -555,4 +597,6 @@ def validate_gag(gag_path: str, layout_algorithm='auto') -> QualityReport:
     generate_diagram(gag_path, output_file=tmp_svg, layout_algorithm=layout_algorithm)
     report = validate_svg(tmp_svg, icon_bboxes=icon_bboxes, container_bboxes=container_bboxes)
     os.unlink(tmp_svg)
+    # §H8: avisos de contraste bajo (no bloqueantes) sobre los colores del origen.
+    report.warnings.extend(check_color_contrast(data))
     return report
