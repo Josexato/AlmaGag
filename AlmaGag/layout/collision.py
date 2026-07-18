@@ -118,13 +118,14 @@ class CollisionDetector:
             if bbox_type != 'icon_label':
                 continue
 
-            for endpoints, conn_key in lines:
+            for segments, conn_key in lines:
                 # No contar colisión si la línea conecta este elemento
                 from_id, to_id = conn_key.split('->')
                 if bbox_id in (from_id, to_id):
                     continue
 
-                if self.geometry.line_intersects_rect(endpoints, bbox):
+                if any(self.geometry.line_intersects_rect(seg, bbox)
+                       for seg in segments):
                     collision_count += 1
                     collision_pairs.append((bbox_id, conn_key, 'label_vs_line'))
 
@@ -252,20 +253,38 @@ class CollisionDetector:
 
     def _collect_all_lines(self, layout) -> List[Tuple]:
         """
-        Recolecta todas las líneas de conexión.
+        Recolecta las conexiones como listas de SEGMENTOS.
 
-        Args:
-            layout: Layout con conexiones
+        H3/H6: si la conexión tiene `computed_path` (polilínea ruteada), se usan
+        sus segmentos reales — así el detector mide lo que se DIBUJA, no la recta
+        centro-a-centro (que cruzaba etiquetas por las que el ruteo ortogonal en
+        realidad rodea → falsos `label_vs_line`). Sin ruteo, cae a la recta.
 
         Returns:
-            List[Tuple]: Lista de tuplas (endpoints, conn_key)
-                endpoints: (x1, y1, x2, y2)
+            List[Tuple]: [(segments, conn_key)] con
+                segments: [(x1, y1, x2, y2), ...]
                 conn_key: "from_id->to_id"
         """
         lines = []
         for conn in layout.connections:
-            endpoints = self.geometry.get_connection_endpoints(layout, conn)
-            if endpoints:
-                key = f"{conn['from']}->{conn['to']}"
-                lines.append((endpoints, key))
+            key = f"{conn['from']}->{conn['to']}"
+            segments = self._connection_segments(conn, layout)
+            if segments:
+                lines.append((segments, key))
         return lines
+
+    def _connection_segments(self, conn, layout):
+        """Segmentos (x1,y1,x2,y2) de la conexión: los del computed_path si
+        existe, si no la recta centro-a-centro."""
+        cp = conn.get('computed_path')
+        pts = None
+        if isinstance(cp, dict):
+            pts = cp.get('points')
+        if pts and len(pts) >= 2:
+            def _xy(p):
+                return (p[0], p[1]) if not hasattr(p, 'x') else (p.x, p.y)
+            xy = [_xy(p) for p in pts]
+            return [(xy[i][0], xy[i][1], xy[i + 1][0], xy[i + 1][1])
+                    for i in range(len(xy) - 1)]
+        endpoints = self.geometry.get_connection_endpoints(layout, conn)
+        return [endpoints] if endpoints else []

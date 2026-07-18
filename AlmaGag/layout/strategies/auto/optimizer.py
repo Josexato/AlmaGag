@@ -426,6 +426,36 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         # verticalmente y expandir el container para acomodar.
         self._stagger_overlapping_contained_labels(best_layout)
 
+        # H3: normalizar/escalonar movió iconos y expandió contenedores sin
+        # re-rutear → las rutas quedaban obsoletas y cruzaban las cajas ya
+        # crecidas. Se re-rutea (obstacle-aware, H2) para que las conexiones
+        # rodeen los contenedores en su tamaño final. Guardado: sólo se conserva
+        # si no aumenta las colisiones respecto al layout pre-reruteo.
+        cols_before_reroute = self.evaluate(best_layout)
+        pre_reroute_conns = [dict(c) for c in best_layout.connections]
+        best_layout.invalidate_collision_cache()
+        self.routing.route(best_layout)
+        # H3: re-rutear invalida posiciones de etiqueta (nota del review) → tras
+        # el re-ruteo se reubican las etiquetas de icono que hayan quedado
+        # solapadas por las rutas nuevas, antes de decidir si se conserva.
+        self._stagger_overlapping_contained_labels(best_layout)
+        for _ in range(3):
+            if not self._try_relocate_labels(best_layout):
+                break
+            best_layout.invalidate_collision_cache()
+        if self.evaluate(best_layout) > cols_before_reroute:
+            # el re-ruteo (con reubicación) empeoró: revertir a las rutas previas
+            for c, saved in zip(best_layout.connections, pre_reroute_conns):
+                c.clear()
+                c.update(saved)
+            best_layout.invalidate_collision_cache()
+        else:
+            self._capture('reruteo', best_layout,
+                          f'rutas obstacle-aware tras layout final · '
+                          f'{count_crossings(best_layout)} cruces · '
+                          f'{self.evaluate(best_layout)} colisiones')
+        min_collisions = self.evaluate(best_layout)
+
         # Guardar dump final si está habilitado
         if dumper:
             dump_path = dumper.save(best_layout, min_collisions)
