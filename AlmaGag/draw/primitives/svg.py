@@ -39,15 +39,27 @@ class DrawingGroupProxy:
 
 
 def create_canvas(output_path, canvas_width, canvas_height):
-    """Crea el Drawing SVG con filtro global de text-glow blanco para etiquetas."""
+    """Crea el Drawing SVG con halo blanco universal para TODO el texto (H5).
+
+    En vez de un filtro gaussiano por-elemento (blur suave, y que había que
+    recordar aplicar en cada `dwg.text` — los labels de contenedor y callout se
+    quedaban sin él), se define un halo nítido `paint-order:stroke` en un único
+    `<style>` global que alcanza a cualquier <text>: nodos, conexiones,
+    contenedores, callouts y áreas. Legible sobre cualquier cruce residual.
+    El id `text-glow` se conserva como filtro no-op por retrocompatibilidad
+    (algún SVG viejo/embebido podía referenciarlo)."""
     dwg = svgwrite.Drawing(output_path, size=(canvas_width, canvas_height), debug=False)
     dwg.viewbox(0, 0, canvas_width, canvas_height)
 
+    dwg.defs.add(svgwrite.container.Style(content=(
+        "text{paint-order:stroke;stroke:#ffffff;stroke-width:3px;"
+        "stroke-linejoin:round;stroke-linecap:round}"
+    )))
+
+    # Filtro heredado: neutro (feMerge de la fuente sola). Mantiene válidas las
+    # referencias `url(#text-glow)` que aún queden sin duplicar el halo.
     text_glow = dwg.filter(id='text-glow', x='-20%', y='-20%', width='140%', height='140%')
-    text_glow.feGaussianBlur(in_='SourceGraphic', stdDeviation=2, result='blur')
-    text_glow.feFlood(flood_color='white', flood_opacity=1, result='color')
-    text_glow.feComposite(in_='color', in2='blur', operator='in', result='shadow')
-    text_glow.feMerge(layernames=['shadow', 'shadow', 'SourceGraphic'])
+    text_glow.feMerge(layernames=['SourceGraphic'])
     dwg.defs.add(text_glow)
 
     return dwg
@@ -256,7 +268,6 @@ def draw_connection_labels(dwg, connections, conn_centers, optimized_label_posit
                 font_size="12px",
                 font_family="Arial, sans-serif",
                 fill="#14181d",
-                filter='url(#text-glow)',
             ))
             continue
         optimized_pos = optimized_label_positions.get(key)
@@ -270,7 +281,6 @@ def draw_connection_labels(dwg, connections, conn_centers, optimized_label_posit
                 font_size="12px",
                 font_family="Arial, sans-serif",
                 fill="#14181d",
-                filter='url(#text-glow)',
             ))
         else:
             # Fallback: centro de la conexión (default text_anchor del helper).

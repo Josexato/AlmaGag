@@ -119,7 +119,7 @@ def draw_area_node_labels(dwg, elements):
             dwg.add(dwg.text(
                 line, insert=(cx, top + i * 16), text_anchor='middle',
                 font_size='11.5px', font_family='Arial, sans-serif',
-                fill='#1a1a1a', filter='url(#text-glow)'))
+                fill='#1a1a1a'))
 
 
 def draw_role_legend(dwg, roles, used_roles, canvas_width, canvas_height):

@@ -577,7 +577,6 @@ def draw_connection_label(dwg, connection, position):
         font_size="12px",
         font_family="Arial, sans-serif",
         fill="#14181d",
-        filter='url(#text-glow)'
     ))
 
 
