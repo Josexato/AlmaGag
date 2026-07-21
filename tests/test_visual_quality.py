@@ -103,3 +103,52 @@ def test_validate_gag_uses_real_positions():
     os.unlink(tmp.name)
     # El validador debe haber visto 2 iconos
     assert r.n_icons == 2
+
+
+# ============================================================================
+# BUGS-VAL-001: detección de iconos custom (transform + polygon)
+# ============================================================================
+
+CUSTOM_ICON_SVG = '''<?xml version="1.0"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="300">
+  <!-- icono custom por transform (factory/gear/embedded) -->
+  <g id="gen" transform="translate(100,100) scale(1.0)">
+    <rect x="8" y="22" width="64" height="22" fill="currentColor"/>
+  </g>
+  <!-- icono custom por polygon (diamond) -->
+  <g id="dia"><polygon points="420,100 460,125 420,150 380,125" fill="url(#g)"/></g>
+  <!-- conexion del transform-icon al diamond -->
+  <line x1="180" y1="125" x2="380" y2="125" stroke="black" marker-end="url(#a)"/>
+</svg>'''
+
+
+def test_detects_transform_custom_icon():
+    path = _write_tmp(CUSTOM_ICON_SVG)
+    r = validate_svg(path)
+    os.unlink(path)
+    # Debe detectar ambos iconos custom (transform-group + polygon-group)
+    assert r.n_icons == 2
+
+
+def test_no_dangling_with_custom_icons():
+    """La conexión entre dos iconos custom NO debe reportarse como dangling
+    (BUGS-VAL-001: antes el icono no se detectaba → R3 falso positivo)."""
+    path = _write_tmp(CUSTOM_ICON_SVG)
+    r = validate_svg(path)
+    os.unlink(path)
+    assert len(r.by_rule('R3_dangling_connection')) == 0
+
+
+def test_semantic_colored_connection_is_detected():
+    """Una conexión con color semántico (no negro) debe contar como conexión."""
+    svg = '''<?xml version="1.0"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="500" height="300">
+  <g id="a" transform="translate(80,100)"><rect x="0" y="0" width="80" height="50" fill="c"/></g>
+  <g id="b" transform="translate(340,100)"><rect x="0" y="0" width="80" height="50" fill="c"/></g>
+  <line x1="160" y1="125" x2="340" y2="125" stroke="#e8820c" marker-end="url(#a)"/>
+</svg>'''
+    path = _write_tmp(svg)
+    r = validate_svg(path)
+    os.unlink(path)
+    assert r.n_connections == 1
+    assert len(r.by_rule('R3_dangling_connection')) == 0

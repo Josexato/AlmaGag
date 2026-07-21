@@ -1,23 +1,32 @@
 # Arquitectura de AlmaGag
 
-**Versión del Código**: v3.4.0 + SDJF v2.1
-**Fecha**: 2026-06-18
+**Versión del Código**: v3.5 + SDJF v2.1
+**Fecha**: 2026-06-23
 
 ## Visión General
 
-AlmaGag es un generador de diagramas SVG que transforma archivos JSON (formato SDJF) en gráficos vectoriales mediante un pipeline de procesamiento modular. Soporta dos algoritmos de layout:
+AlmaGag es un generador de diagramas SVG que transforma archivos JSON (formato SDJF/`.gag`) en gráficos vectoriales mediante un pipeline de procesamiento modular. Tres capas de decisión sobre dónde poner cada elemento:
 
-- **AUTO** — Híbrido. Respeta coordenadas manuales y auto-posiciona el resto vía optimización iterativa (hill climbing).
-- **LAF** — Layout Abstracto Primero. Pipeline de 11 fases inspirado en Sugiyama/Graphviz que ignora coordenadas y minimiza cruces.
-
-Ambos cumplen el mismo contrato `LayoutOptimizer` y son seleccionables vía CLI (`--layout-algorithm`).
+1. **Templates (`layout/templates/`)** — Detección semántica del patrón estructural del grafo (architecture / flow / hub_and_spoke / dashboard / er / sequence / state). Asigna coords cuando faltan **antes** de que corra el algoritmo de layout. Opt-in vía `"layout_template": "auto" | "<name>"`. **Norte estratégico del proyecto (WISH-LAYOUT-004).**
+2. **Algoritmos de layout** — Resuelven coordenadas restantes:
+   - **AUTO** — Híbrido. Respeta coordenadas manuales y auto-posiciona el resto vía optimización iterativa (hill climbing).
+   - **LAF** — Layout Abstracto Primero. Pipeline de 11 fases inspirado en Sugiyama/Graphviz que ignora coordenadas y minimiza cruces.
+   Ambos cumplen `LayoutOptimizer`, seleccionables vía CLI (`--layout-algorithm`).
+3. **Validación visual (`validation/`)** — Audit post-render contra 3 reglas de calidad (labels-no-sobre-icono, labels-no-solapados, no-conectores-sueltos). Usable como regresión visual.
 
 ### Refactores recientes (resumen)
 
 | Código | Resuelto | Resumen |
 |---|---|---|
+| WISH-LAYOUT-004 (Fase 1-4) | 2026-06-19..23 | Auto-detección semántica del template óptimo según estructura del grafo. 7 templates + nested templates + semantic hints (`role`). Módulo `layout/templates/`. |
+| BUGS-AUTO-001..007 | 2026-06-19..22 | 7 fixes en cascada en el pipeline AUTO con containers: re-cálculo de labels, normalización a coords no-negativas, containers no bloquean labels, resolución de overlap entre containers, clamping de labels a canvas/container, escalonado horizontal, ancho correcto para bold en headers. |
+| WISH-ARCH-003 | 2026-06-19 | Reorg de `draw/` en `primitives/` (4 archivos) + `icons/` (11 archivos). Split de `laf/visualizer.py` (2876 líneas) en paquete `laf/visualizer/` con 11 archivos (uno por fase). |
+| WISH-LAYOUT-003 | 2026-06-19 | Auto-callout para labels grandes (≥6 líneas / ≥150 chars) en `draw/primitives/callout.py`. |
+| WISH-LAYOUT-002 v1 | 2026-06-19 | SDJF: `constraints.align` para grupos co-alineados. |
+| WISH-LAF-001 v1 | 2026-06-19 | Pesos dinámicos del barycenter (más cruces de conexiones reducidos). |
+| `validation/` (3 reglas) | 2026-06-23 | Módulo nuevo: chequeo automático de calidad visual sobre SVGs y `.gag`. |
 | WISH-ARCH-001 | 2026-06-18 | `LAFOptimizer` hereda de `LayoutOptimizer`; `generator.py` usa factoría (`OPTIMIZERS` dict) en vez de `if/elif`. |
-| WISH-ARCH-002 | 2026-06-18 | Renderers separados por algoritmo (`AutoSVGRenderer`, `LAFSVGRenderer`); primitivas SVG agnósticas en `draw/svg.py`. Eliminado `AlmaGag/renderer.py` (legacy compartido). |
+| WISH-ARCH-002 | 2026-06-18 | Renderers separados por algoritmo (`AutoSVGRenderer`, `LAFSVGRenderer`); primitivas SVG agnósticas en `draw/primitives/svg.py`. Eliminado `AlmaGag/renderer.py` (legacy compartido). |
 | BUGS-LAYOUT-002 | 2026-06-18 | LAF: margen vertical de canvas separado del horizontal (waste ~33% → ~18%). |
 | BUGS-LAF-002 | 2026-06-18 | LAF: nuevo Fase 1.5 "dashboard reflow" + skip de doble-mover de hijos en Fase 9. |
 | BUGS-LAYOUT-001 | 2026-06-18 | Renderers: etiquetas de `--visualdebug` movidas fuera del bbox del elemento, con `text-glow`. |
@@ -42,27 +51,43 @@ Ambos cumplen el mismo contrato `LayoutOptimizer` y son seleccionables vía CLI 
 └──────┬──────┘
        │
        v
-┌─────────────────────────────────────────────────────────┐
-│  generator.py (187 líneas)  —  Orquestador delgado      │
-│  ┌────────────────────────────────────────────────┐     │
-│  │ 1. Parse JSON → Layout (Value Object inmutable)│     │
-│  │ 2. Factoría: OPTIMIZERS[layout_algorithm]      │     │
-│  │       ├─ 'auto' → AutoLayoutOptimizer          │     │
-│  │       └─ 'laf'  → LAFOptimizer                 │     │
-│  │ 3. optimizer.optimize(layout)                  │     │
-│  │ 4. optimizer.renderer.render(layout, output)   │     │
-│  │       AutoSVGRenderer (inline icon)            │     │
-│  │       LAFSVGRenderer (separate icon + NdFn)    │     │
-│  └────────────────────────────────────────────────┘     │
-└──────┬──────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────┐
+│  generator.py (190 líneas)  —  Orquestador delgado         │
+│  ┌──────────────────────────────────────────────────┐      │
+│  │ 1. Parse JSON                                    │      │
+│  │ 2. Template detection (WISH-LAYOUT-004):         │      │
+│  │      data["layout_template"] == "auto"           │      │
+│  │           → classify(features) → apply           │      │
+│  │      data["layout_template"] == "<name>"         │      │
+│  │           → apply ese template (override manual) │      │
+│  │      ausente → agnóstico (algoritmo AUTO/LAF)    │      │
+│  │      [sub-templates en containers SIEMPRE corren]│      │
+│  │ 3. Layout (Value Object inmutable)               │      │
+│  │ 4. Factoría: OPTIMIZERS[layout_algorithm]        │      │
+│  │       ├─ 'auto' → AutoLayoutOptimizer            │      │
+│  │       └─ 'laf'  → LAFOptimizer                   │      │
+│  │ 5. optimizer.optimize(layout)                    │      │
+│  │ 6. optimizer.renderer.render(layout, output)     │      │
+│  │       AutoSVGRenderer (inline icon)              │      │
+│  │       LAFSVGRenderer (separate icon + NdFn)      │      │
+│  └──────────────────────────────────────────────────┘      │
+└──────┬─────────────────────────────────────────────────────┘
        │
        v
 ┌─────────────┐
 │ archivo.svg │  (con <desc> NdFn metadata si LAF + visualdebug)
 └─────────────┘
+
+(opcional, fuera del pipeline de render)
+┌─────────────────────────────────┐
+│ validation.validate_svg(path)   │  3 reglas R1/R2/R3 → QualityReport
+│ validation.validate_gag(path)   │  reusa posiciones reales del optimizer
+└─────────────────────────────────┘
 ```
 
-Tras WISH-ARCH-002 (2026-06-18), cada algoritmo es **autosuficiente**: su optimizer construye su propio renderer en `__init__`, y `generator.py` solo despacha sin conocer detalles de cada algoritmo. Las primitivas SVG agnósticas (`create_canvas`, `setup_arrow_markers`, `draw_connections`, etc.) viven en `AlmaGag/draw/svg.py`.
+Tras WISH-ARCH-002 (2026-06-18), cada algoritmo es **autosuficiente**: su optimizer construye su propio renderer en `__init__`, y `generator.py` solo despacha sin conocer detalles de cada algoritmo. Las primitivas SVG agnósticas (`create_canvas`, `setup_arrow_markers`, `draw_connections`, etc.) viven en `AlmaGag/draw/primitives/svg.py` (renombrado de `draw/svg.py` por WISH-ARCH-003).
+
+El paso 2 (template detection) corre **antes** de que el optimizer vea el layout, por lo que las coordenadas que el template asigne se respetan como manuales por el resto del pipeline. Si el SDJF no declara `layout_template`, el paso 2 se omite por completo y el comportamiento es el agnóstico clásico (AUTO/LAF normal sobre las coords del JSON).
 
 ### Pipeline LAF (12 fases — 11 numeradas + 1.5)
 
@@ -230,6 +255,13 @@ class LayoutOptimizer(ABC):
 #### `layout/auto/optimizer.py`
 
 **Clase `AutoLayoutOptimizer`** — algoritmo de layout original. Respeta coordenadas manuales y resuelve el resto con auto-positioning + optimización iterativa (hill climbing) de colisiones. Routing encapsulado en `AutoRoutingPolicy`. Su `renderer` es `AutoSVGRenderer` (definido en `layout/auto/auto_renderer.py`).
+
+Post-passes del optimizer (todos cubren bugs BUGS-AUTO-001..007):
+- `_recalculate_label_positions_after_container_move` — fix BUGS-AUTO-001 (labels huérfanas tras mover icons por containers).
+- `_normalize_to_canvas` — fix BUGS-AUTO-002 (coords negativas → desplaza todo al origen).
+- `_resolve_container_overlaps` + `_shift_container_subtree` — fix BUGS-AUTO-004 (containers solapados, cascada de empujones).
+- `_stagger_overlapping_contained_labels` — fix BUGS-AUTO-006 (labels bottom solapados horizontalmente; escalona en vertical y expande container).
+- `_label_inside_container` + `_label_within_canvas` chequeos en `_find_best_label_position` — fix BUGS-AUTO-005 (labels off-canvas / fuera de container).
 
 📍 Referencia detallada (5 fases, tabla AUTO vs LAF, workaround Dashboard layout): `modules/layout/auto/AUTO.md`.
 
@@ -425,13 +457,82 @@ class GraphAnalyzer:
 
 ---
 
-### 6. Módulo `draw/`
+### 6. Módulo `layout/templates/` — NUEVO 2026-06-19..23 (WISH-LAYOUT-004)
+
+**Responsabilidad:** Detección semántica del patrón estructural del grafo y asignación de coordenadas según ese patrón. Es el **norte estratégico** del proyecto: el sistema infiere la mejor distribución a partir de la estructura (no requiere que el usuario la declare).
+
+#### Pipeline interno
+
+```
+SDJF (sin coords)
+   │
+   v
+GraphFeatures.extract(elements, connections)
+   ├─ n_root_elements, n_containers, n_contained
+   ├─ n_root_nodes_no_incoming / n_leaf_nodes_no_outgoing
+   ├─ max_degree, avg_degree, max_degree_ratio
+   ├─ has_cycles, n_self_loops, topological_depth
+   ├─ pct_inter_container_connections, branching_factor
+   └─ label_keywords (semantic), declared_roles (`role`)
+   │
+   v
+TemplateClassifier — corre detect_score(features) en cada template
+   ├─ threshold = 0.6   (mínimo absoluto para aplicar)
+   └─ min_lead  = 0.05  (ventaja sobre el segundo, evita empates ambiguos)
+   │
+   v
+template.apply(data)  → asigna x/y a cada elemento root sin coords
+   │                     (respeta coords manuales pre-existentes)
+   v
+apply_nested_templates(data) → procesa containers bottom-up con sub-template
+   │                            (asigna `_inner_width`/`_inner_height` al padre)
+   v
+offset_nested_children(data) → suma offsets del padre a las coords relativas
+```
+
+#### Templates registrados
+
+| Nombre | Patrón estructural | Layout |
+|---|---|---|
+| `architecture` | Entry vertical → containers en fila → contract central → terminales | T-shape con containers row |
+| `flow` | Cadena vertical depth ≥ 4 con branching ~1 | Pipeline vertical |
+| `hub_and_spoke` | Un nodo central con grado >> resto (incluye SD-WAN) | Radial / columnas |
+| `dashboard` | Containers paralelos sin conexiones inter-container | Grid `⌈√N⌉ × ⌈N/cols⌉` |
+| `er` | Grafo plano, sin containers, n_connections ≥ 3, keywords entity/table/database | Layout ER |
+| `sequence` | Actores horizontales + flujo temporal | Swimlanes |
+| `state` | Ciclos + self-loops, role `state` | Circular |
+
+Calibración hecha contra los 23 canonicals (cortocircuito ER `n_connections < 3` y penalty `-0.45` por containers; bonus `+0.55` por keywords).
+
+#### Semantic hints — `role` field
+
+El SDJF puede declarar el rol semántico de un elemento (`role: entry|output|terminal|shared|hub|spoke|abstract|state|actor`). Cada template lo respeta como override declarativo sobre la inferencia. Ej.: en `architecture`, un elemento con `role: shared` se centra entre los containers contract aunque no calce con el patrón inferido.
+
+#### Templates anidados
+
+Los sub-templates SIEMPRE corren (incluso si el padre no aplica): un container puede declarar su propio `layout_template` que aplica solo a sus hijos directos. Procesamiento bottom-up; conflict policy: "hijo siempre infla, padre adapta".
+
+#### Llamadas públicas (`AlmaGag/layout/templates/__init__.py`)
+
+- `auto_apply_template(data) → (name_or_None, all_scores)` — clasifica + aplica si pasa threshold + nested.
+- `apply_template(name, data) → bool` — override manual por nombre + nested.
+- `apply_sub_templates(data) → list` — solo nested (corre siempre).
+- `get_default_classifier() → TemplateClassifier` — instancia configurada con los 7 templates.
+
+📍 Detalle de cada template: ver `AlmaGag/layout/templates/*.py` (`architecture.py`, `flow.py`, ...). Cada uno expone `name`, `detect_score(features) → [0,1]` y `apply(data)`.
+
+---
+
+### 7. Módulo `draw/` (reorganizado por WISH-ARCH-003 2026-06-19)
 
 **Responsabilidad:** Primitivas de dibujo SVG **agnósticas del algoritmo**.
 
-Tras WISH-ARCH-002 (2026-06-18), la orquestación específica de cada algoritmo vive en su propio renderer (`layout/auto/auto_renderer.py`, `layout/laf/laf_renderer.py`). El módulo `draw/` queda como librería pura de primitivas: tipos de iconos, contenedor rect, conexiones, y utilities SVG compartidas.
+Tras WISH-ARCH-002 (2026-06-18), la orquestación específica de cada algoritmo vive en su propio renderer (`layout/auto/auto_renderer.py`, `layout/laf/laf_renderer.py`). El módulo `draw/` queda como librería pura, separada por subdominio:
 
-#### `draw/svg.py` (NUEVO 2026-06-18)
+- **`draw/primitives/`** — utilities SVG agnósticas: `svg.py` (canvas, markers, ndfn_wrap, draw_connections), `connections.py` (líneas + self-loops + colored connections), `container.py` (container rect + label-aware bounds), `callout.py` (auto-callout WISH-LAYOUT-003 para labels grandes).
+- **`draw/icons/`** — un archivo por tipo de icono + dispatcher: `__init__.py` (dispatcher dinámico vía `importlib`), `server.py`, `cloud.py`, `firewall.py`, `building.py`, `router.py`, `computer.py`, `laptop.py`, `database.py`, `document.py`, `user.py`, `bwt.py` (fallback Banana With Tape).
+
+#### `draw/primitives/svg.py`
 
 Primitivas SVG compartidas entre los renderers, sin conocimiento de algoritmo:
 
@@ -442,7 +543,7 @@ Primitivas SVG compartidas entre los renderers, sin conocimiento de algoritmo:
 - `draw_connection_labels(dwg, connections, conn_centers, optimized_positions)` — labels de conexiones con posición optimizada.
 - `DrawingGroupProxy` — proxy que difiere el `add()` al drawing real hasta tener el wrapping completo.
 
-#### `draw/icons.py`
+#### `draw/icons/__init__.py`
 
 **Dispatcher de íconos + sistema de gradientes + blur glow**
 
@@ -471,12 +572,12 @@ def draw_icon_shape(dwg, element):
     element_id = element.get('id', f'{elem_type}_{x}_{y}')
 
     try:
-        module = importlib.import_module(f'AlmaGag.draw.{elem_type}')
+        module = importlib.import_module(f'AlmaGag.draw.icons.{elem_type}')
         draw_func = getattr(module, f'draw_{elem_type}')
         draw_func(dwg, x, y, color, element_id)
     except Exception as e:
         # Fallback: Banana With Tape
-        from AlmaGag.draw.bwt import draw_bwt
+        from AlmaGag.draw.icons.bwt import draw_bwt
         draw_bwt(dwg, x, y)
 
 def draw_icon_label(dwg, element, label_pos):
@@ -484,14 +585,12 @@ def draw_icon_label(dwg, element, label_pos):
     # ...
 ```
 
-**Módulos de íconos específicos:**
-- `server.py` - Rectángulo con gradiente
-- `building.py` - Rectángulo con gradiente
-- `cloud.py` - Elipse con gradiente
-- `firewall.py` - Rectángulo con gradiente
-- `bwt.py` - Plátano con cinta (fallback)
+**Módulos de íconos específicos** (todos en `draw/icons/`):
+- `server.py`, `cloud.py`, `firewall.py`, `building.py` — formas base con gradiente
+- `router.py`, `computer.py`, `laptop.py`, `database.py`, `document.py`, `user.py` — iconos específicos por tipo
+- `bwt.py` - Plátano con cinta (fallback cuando el `type` no tiene módulo registrado)
 
-#### `draw/connections.py`
+#### `draw/primitives/connections.py`
 
 **Renderizado de conexiones**
 
@@ -539,7 +638,7 @@ def draw_connection_label(dwg, elements_by_id, connection):
     # ...
 ```
 
-#### `draw/container.py` (NUEVO en v2.0)
+#### `draw/primitives/container.py`
 
 **Renderizado de contenedores**
 
@@ -577,6 +676,72 @@ def calculate_container_bounds(container, elements_by_id):
     # Aplicar padding y aspect_ratio
     # ...
 ```
+
+---
+
+### 8. Módulo `routing/`
+
+**Responsabilidad:** Cálculo de paths para conexiones. Compartido por ambos algoritmos.
+
+```
+routing/
+├── router_base.py            # Interfaz BaseRouter
+├── router_manager.py         # ConnectionRouterManager (despacho por tipo)
+├── straight_router.py        # Línea recta (default)
+├── orthogonal_router.py      # Manhattan / 90°
+├── bezier_router.py          # Curvas suaves
+├── arc_router.py             # Arcos
+├── manual_router.py          # Waypoints explícitos en SDJF
+├── port_assignment.py        # Selección de puntos de anclaje al icono
+└── visibility_graph.py       # Pathfinding evadiendo obstáculos
+```
+
+Cada conexión puede declarar su routing en el SDJF: `"routing": {"type": "orthogonal|bezier|arc|straight|manual"}`. Sin declaración, cada algoritmo elige según su `RoutingPolicy` (`AutoRoutingPolicy` en `layout/auto/routing_policy.py`, `LAFRoutingPolicy` en `layout/laf/routing_policy.py`).
+
+📍 Detalle: `modules/routing/ROUTING.md`.
+
+---
+
+### 9. Módulo `validation/` — NUEVO 2026-06-23
+
+**Responsabilidad:** Audit automático de calidad visual sobre SVGs renderizados. Cubre las 3 reglas explícitas del usuario:
+
+| Regla | Descripción | Tolerancia |
+|---|---|---|
+| **R1** `label_over_icon` | Las etiquetas NO deben caer encima de iconos. | área de overlap > 80 px² |
+| **R2** `labels_overlap` | Las etiquetas NO deben solaparse entre sí. | área de overlap > 50 px² |
+| **R3** `dangling_connection` | Los conectores NO deben terminar en el aire (sin endpoint cercano a icono). | distancia endpoint→icono > 20 px |
+
+#### API pública (`AlmaGag/validation/__init__.py`)
+
+```python
+from AlmaGag.validation import validate_svg, validate_gag, QualityReport
+
+# Modo 1: parsear un SVG ya renderizado.
+report = validate_svg('output.svg')               # auto-detecta iconos
+report = validate_svg('output.svg', icon_bboxes=[(x1,y1,x2,y2), ...])  # explícito
+
+# Modo 2: validar un .gag corriendo el optimizer (usa posiciones reales).
+report = validate_gag('diagrama.gag', layout_algorithm='auto')
+
+# Inspección del reporte.
+report.passed        # bool — ¿pasó las 3 reglas?
+report.n_icons, report.n_labels, report.n_connections
+report.by_rule('R1_label_over_icon')   # filter de Violations
+```
+
+#### Heurísticas para reducir falsos positivos en R3
+
+R3 es la regla con más ruido (decoración interna de iconos puede parecer conector). Filtros aplicados:
+- Solo cuenta como conexión líneas con stroke `'black'` o `'gray'` (descarta colores HEX decorativos).
+- Líneas sin marker (arrow-end/start/mid) Y longitud < 50px se ignoran (decoración interna).
+- Para `.gag` con iconos SVG custom embebidos, `validate_gag()` usa las posiciones reales del optimizer en vez de parsear bboxes del SVG (que no detecta iconos custom).
+
+#### Uso esperado
+
+- **Audit periódico** del set canonical de SVGs (regresión visual).
+- **Test de aceptación** de nuevos templates (cada template debe producir SVGs con `report.passed == True`).
+- **Tests unitarios** del validador en `tests/test_visual_quality.py`.
 
 ---
 
@@ -694,23 +859,28 @@ class LAFOptimizer(LayoutOptimizer):
 
 ---
 
-## Estructura de Directorios (2026-06-18)
+## Estructura de Directorios (2026-06-23)
 
 ```
 AlmaGag/
 ├── main.py                          # CLI entry point (argparse + dispatch)
-├── generator.py                     # Orquestador delgado (187 líneas, factoría)
-├── config.py                        # Constantes globales (LAF_DASHBOARD_MIN_CONTAINERS,
-│                                    #   LAF_CANVAS_MARGIN_HORIZONTAL/VERTICAL, etc.)
+├── generator.py                     # Orquestador delgado (190 líneas)
+│                                    #   con template detection + factoría
+├── config.py                        # Constantes globales
 ├── debug.py                         # Helpers de debug: badge, grid, guide_lines
 │
 ├── draw/                            # Primitivas de dibujo SVG (algoritmo-agnósticas)
-│   ├── svg.py                       # NUEVO: create_canvas, markers, ndfn_wrap, draw_connections
-│   ├── icons.py                     # Dispatcher de iconos + gradientes
-│   ├── connections.py               # Líneas + self-loops + colored connections
-│   ├── container.py                 # Container rect + label-aware bounds
-│   ├── bwt.py                       # Banana With Tape (fallback)
-│   └── server.py, cloud.py, ...     # Tipos de iconos específicos
+│   ├── primitives/                  # WISH-ARCH-003 (2026-06-19): subdominio
+│   │   ├── svg.py                   #   create_canvas, markers, ndfn_wrap, draw_connections
+│   │   ├── connections.py           #   Líneas + self-loops + colored connections
+│   │   ├── container.py             #   Container rect + label-aware bounds
+│   │   └── callout.py               #   WISH-LAYOUT-003: auto-callout para labels grandes
+│   └── icons/                       # WISH-ARCH-003: 1 archivo por tipo + dispatcher
+│       ├── __init__.py              #   Dispatcher dinámico (importlib)
+│       ├── server.py, cloud.py, firewall.py, building.py
+│       ├── router.py, computer.py, laptop.py
+│       ├── database.py, document.py, user.py
+│       └── bwt.py                   #   Banana With Tape (fallback)
 │
 ├── layout/                          # Módulo de Layout y Optimización
 │   ├── layout.py                    # Layout (Value Object inmutable)
@@ -721,25 +891,57 @@ AlmaGag/
 │   ├── graph_analysis.py            # GraphAnalyzer
 │   ├── label_optimizer.py           # LabelPositionOptimizer
 │   ├── container_calculator.py      # ContainerCalculator
+│   ├── templates/                   # NUEVO (WISH-LAYOUT-004): inferencia semántica
+│   │   ├── __init__.py              #   auto_apply_template, apply_template
+│   │   ├── base.py                  #   BaseTemplate + TemplateClassifier
+│   │   ├── features.py              #   GraphFeatures.extract(elements, conns)
+│   │   ├── architecture.py          #   Patrón architecture (T)
+│   │   ├── flow.py                  #   Pipeline vertical
+│   │   ├── hub_and_spoke.py         #   Hub central + spokes
+│   │   ├── dashboard.py             #   Grid de containers paralelos
+│   │   ├── er.py                    #   Entity-Relationship
+│   │   ├── sequence.py              #   Swimlanes temporales
+│   │   ├── state.py                 #   State machine circular
+│   │   └── nested.py                #   Sub-templates en containers
 │   ├── auto/                        # Algoritmo AUTO
-│   │   ├── optimizer.py             # AutoLayoutOptimizer (hereda LayoutOptimizer)
-│   │   ├── positioner.py            # AutoLayoutPositioner (Fase 0)
-│   │   ├── routing_policy.py        # AutoRoutingPolicy
-│   │   └── auto_renderer.py         # NUEVO: AutoSVGRenderer (Fase 5 equiv.)
+│   │   ├── optimizer.py             #   AutoLayoutOptimizer (1171 líneas)
+│   │   │                            #   con post-passes BUGS-AUTO-001..007
+│   │   ├── positioner.py            #   AutoLayoutPositioner (Fase 0)
+│   │   ├── routing_policy.py        #   AutoRoutingPolicy
+│   │   └── auto_renderer.py         #   AutoSVGRenderer (Fase 5 equiv.)
 │   └── laf/                         # Algoritmo LAF
-│       ├── optimizer.py             # LAFOptimizer (hereda LayoutOptimizer)
+│       ├── optimizer.py             #   LAFOptimizer (2091 líneas)
 │       │                            #   con _apply_dashboard_reflow (Fase 1.5)
-│       ├── structure_analyzer.py    # Fase 1
-│       ├── abstract_placer.py       # Fase 4
-│       ├── position_optimizer.py    # Fase 5
-│       ├── inflator.py              # Fase 8 (inflación)
-│       ├── container_grower.py      # Fase 8 (crecimiento)
-│       ├── visualizer.py            # Snapshots de fases con --visualize-growth
-│       ├── routing_policy.py        # LAFRoutingPolicy (Fase 10)
-│       └── laf_renderer.py          # NUEVO: LAFSVGRenderer (Fase 11)
+│       ├── structure_analyzer.py    #   Fase 1
+│       ├── abstract_placer.py       #   Fase 4
+│       ├── position_optimizer.py    #   Fase 5
+│       ├── inflator.py              #   Fase 8 (inflación)
+│       ├── container_grower.py      #   Fase 8 (crecimiento)
+│       ├── visualizer/              #   WISH-ARCH-003: 1 archivo por fase
+│       │   ├── phase1.py, phase2_topology.py, phase3_centrality.py
+│       │   ├── phase4_abstract.py, phase5_optimized.py
+│       │   ├── phase7_iterative.py, phase8_inflated.py
+│       │   ├── phase9_redistributed.py, phase10_routed.py
+│       │   └── phase11_final.py
+│       ├── routing_policy.py        #   LAFRoutingPolicy (Fase 10)
+│       └── laf_renderer.py          #   LAFSVGRenderer (Fase 11)
 │
-└── routing/                         # Cálculo de paths (compartido por ambos algoritmos)
-    └── router_manager.py            # ConnectionRouterManager
+├── routing/                         # Cálculo de paths (compartido)
+│   ├── router_base.py               # Interfaz BaseRouter
+│   ├── router_manager.py            # ConnectionRouterManager
+│   ├── straight_router.py           # Línea recta (default)
+│   ├── orthogonal_router.py         # Manhattan / 90°
+│   ├── bezier_router.py             # Curvas suaves
+│   ├── arc_router.py                # Arcos
+│   ├── manual_router.py             # Waypoints explícitos en SDJF
+│   ├── port_assignment.py           # Selección de anclajes al icono
+│   └── visibility_graph.py          # Pathfinding evadiendo obstáculos
+│
+├── validation/                      # NUEVO (2026-06-23): audit de calidad visual
+│   ├── __init__.py                  # validate_svg, validate_gag, QualityReport
+│   └── visual_quality.py            # 3 reglas R1/R2/R3
+│
+└── iteration_debug/                 # Dump CSV de evolución por iteración
 
 docs/
 ├── architecture/                    # ARCHITECTURE.md + EVOLUTION.md + modules/
@@ -749,17 +951,20 @@ docs/
 ├── TECHNICAL_DEBT.md                # BUGS-* + WISH-* + métricas
 └── DIAGRAM_REVIEW.md                # BUGS-DIAG-* visuales
 
-tests/                               # 17 pasados + 2 skipped al 2026-06-18
+tests/                               # 70 tests passed al 2026-06-23
 
 .github/workflows/ci.yml             # Tests + render smoke + determinism guard
 ```
 
-**Cambios estructurales recientes** (todos al 2026-06-18):
-- `AlmaGag/renderer.py` (509 líneas, compartido) **eliminado** — split en `auto_renderer.py` + `laf_renderer.py`.
-- `AlmaGag/draw/svg.py` **creado** — primitivas SVG agnósticas.
-- `AlmaGag/layout/auto/auto_renderer.py` **creado** — `AutoSVGRenderer`.
-- `AlmaGag/layout/laf/laf_renderer.py` **creado** — `LAFSVGRenderer`.
-- `AlmaGag/generator.py` reducido de 838 → 187 líneas (-77%) usando la factoría.
+**Cambios estructurales en el último ciclo** (2026-06-19..23):
+- `AlmaGag/layout/templates/` **creado** — 7 templates + classifier + nested (WISH-LAYOUT-004 Fases 1-4).
+- `AlmaGag/validation/` **creado** — validador de las 3 reglas de calidad visual.
+- `AlmaGag/draw/svg.py` → `AlmaGag/draw/primitives/svg.py` (WISH-ARCH-003).
+- `AlmaGag/draw/{icons.py, server.py, cloud.py, …}` → `AlmaGag/draw/icons/{__init__.py, server.py, cloud.py, …}` (WISH-ARCH-003).
+- `AlmaGag/draw/primitives/callout.py` **creado** (WISH-LAYOUT-003).
+- `AlmaGag/layout/laf/visualizer.py` (2876 líneas, monolítico) **eliminado**; split en `laf/visualizer/` con 11 archivos (uno por fase).
+- `AlmaGag/generator.py`: 187 → 190 líneas (añadido step de template detection).
+- Tests: 17 + 2 skipped → 70 passed.
 
 ---
 
@@ -790,6 +995,65 @@ def draw_mi_icono(dwg, x, y, color, element_id):
 ```
 
 **No requiere modificar código existente** (dynamic import).
+
+### Agregar Nuevo Template (WISH-LAYOUT-004)
+
+1. Crear `layout/templates/mi_template.py`:
+
+```python
+from AlmaGag.layout.templates.base import BaseTemplate
+from AlmaGag.layout.templates.features import GraphFeatures
+
+
+class MiTemplate(BaseTemplate):
+    name = 'mi_template'
+
+    def detect_score(self, features: GraphFeatures) -> float:
+        # Heurísticas basadas en features estructurales del grafo.
+        # Devuelve [0, 1] — qué tan probable es que este grafo
+        # encaje en este patrón.
+        score = 0.0
+        if features.n_containers >= 3:
+            score += 0.5
+        if features.max_degree_ratio > 0.4:
+            score += 0.3
+        if 'mi_keyword' in features.label_keywords:
+            score += 0.2
+        return min(score, 1.0)
+
+    def apply(self, data: dict) -> None:
+        # Asigna x, y a cada elemento root sin coords.
+        # Respeta coords manuales pre-existentes.
+        # ...
+```
+
+2. Registrarlo en `layout/templates/__init__.py`:
+
+```python
+def get_default_classifier() -> TemplateClassifier:
+    return TemplateClassifier([
+        ArchitectureTemplate(),
+        # ...
+        MiTemplate(),  # ← una línea
+    ])
+```
+
+3. Usarlo en SDJF:
+
+```json
+{
+  "layout_template": "mi_template",
+  "elements": [...]
+}
+```
+
+O dejar que la auto-detección lo descubra: `"layout_template": "auto"` corre `classify()` y elige el de mayor score si supera el threshold (0.6) con ventaja sobre el segundo (≥0.05).
+
+4. (Opcional) Agregar tests en `tests/test_template_*.py` con grafos sintéticos donde tu template gane.
+
+**Calibración**: tras agregar un template, regenerar los 23 canonicals con `python smoke_test.py` y verificar que no haya regresiones (templates existentes manteniendo sus selecciones, sin falsos positivos del nuevo).
+
+---
 
 ### Agregar Nuevo Optimizador
 
@@ -901,23 +1165,30 @@ parser.add_argument(
    - Regenerar ejemplos después de cambios
    - Diff visual con herramientas como Playwright
 
-### Archivos de Test Actuales
+### Archivos de Test Actuales (2026-06-23)
+
+#### Tests unitarios (`tests/`)
 
 ```
-docs/examples/
-├── 01-iconos-registrados.gag       # Tipos de íconos
-├── 02-iconos-no-registrados.gag    # Fallback BWT
-├── 03-conexiones.gag                # Direcciones de flechas
-├── 04-gradientes-colores.gag        # Sistema de colores
-├── 05-arquitectura-gag.gag          # Diagrama complejo
-├── 06-waypoints.gag                 # Waypoints v1.5
-├── 07-containers.gag                # Contenedores v2.0
-├── 08-auto-layout.gag               # Auto-layout v2.0
-├── 09-proportional-sizing.gag       # hp/wp v2.0
-└── 10-hybrid-layout.gag             # Híbrido v2.0
+tests/
+├── test_architecture_template.py       # 8 tests — WISH-LAYOUT-004 Fase 1
+├── test_template_classifier.py         # 16 tests — WISH-LAYOUT-004 Fase 2
+├── test_template_fase3.py              # 11 tests — WISH-LAYOUT-004 Fase 3
+├── test_template_fase4.py              # 10 tests — WISH-LAYOUT-004 Fase 4
+├── test_visual_quality.py              # 6 tests — validator R1/R2/R3
+├── test_pipeline_consistency.py        # Pipeline AUTO/LAF idempotente
+├── test_position_optimizer_normalization.py
+├── test_terminal_leaf_nodes.py
+└── test_topological_levels.py          # 13 tests — niveles topológicos LAF
 ```
 
-**Validación:** Regenerar todos los .svg y verificar visualmente
+**Total: 70 tests passed** (al 2026-06-23).
+
+#### Canonicals visuales (`docs/diagrams/gags/`)
+
+23 archivos `.gag` que se renderizan en CI como smoke test. Cubren todos los tipos de iconos, container nesting, waypoints, hp/wp, custom icons, y los 7 templates de layout. La regeneración masiva con `python smoke_test.py` confirma que no hay regresiones.
+
+**Validación visual adicional**: usar `AlmaGag.validation.validate_svg(path)` para chequear las 3 reglas R1/R2/R3 sobre cada SVG generado.
 
 ---
 
@@ -931,5 +1202,5 @@ svgwrite>=1.4.3     # Generación de SVG
 
 ---
 
-**Última actualización**: 2026-06-18
-**Versión documentada**: AlmaGag v3.4.0 + SDJF v2.1 | LAF Pipeline 11 fases (12 con 1.5 dashboard reflow)
+**Última actualización**: 2026-06-23
+**Versión documentada**: AlmaGag v3.5 + SDJF v2.1 | 3 capas (Templates → Algoritmo → Validation) | LAF Pipeline 11 fases (12 con 1.5 dashboard reflow) | 7 templates de auto-distribución

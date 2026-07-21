@@ -14,7 +14,11 @@ import math
 from typing import List
 from AlmaGag.routing.router_base import ConnectionRouter, Path, Point
 from AlmaGag.config import CORNER_RADIUS_DEFAULT
-from AlmaGag.routing.visibility_graph import find_orthogonal_path
+from AlmaGag.routing.visibility_graph import (
+    find_orthogonal_path,
+    build_obstacles,
+    simplify_orthogonal_zigzag,
+)
 
 
 class OrthogonalRouter(ConnectionRouter):
@@ -80,7 +84,14 @@ class OrthogonalRouter(ConnectionRouter):
         from_container = self._find_parent_container(from_elem.get('id'), layout)
         to_container = self._find_parent_container(to_elem.get('id'), layout)
 
-        # For container-crossing connections, use container boundary logic
+        related_containers = set()
+        if from_container:
+            related_containers.add(from_container.get('id', ''))
+        if to_container:
+            related_containers.add(to_container.get('id', ''))
+
+        # Camino base (comportamiento previo): entry/exit de contenedor o, para
+        # aristas normales, el grafo de visibilidad con cajas DURAS.
         if from_container and not to_container:
             exit_point = self._calculate_container_entry_point(
                 from_container, to_center, from_center, sizing_calculator
@@ -106,18 +117,94 @@ class OrthogonalRouter(ConnectionRouter):
                 [from_center, exit_point, entry_point, to_center], preference
             )
         else:
-            # Normal routing: try visibility graph first
             waypoints = self._route_with_visibility_graph(
                 from_center, to_center,
                 from_elem, to_elem,
                 layout, sizing_calculator, preference
             )
 
+        # H2: SÓLO si el camino base cruza un contenedor ajeno, se intenta el
+        # ruteo obstacle-aware con cajas blandas (padres del origen/destino con
+        # cruce libre, el resto penalizado). Se adopta únicamente si elimina el
+        # cruce. Una arista cuyo camino base ya está limpio no se toca → cero
+        # churn de etiquetas; H2 sólo mejora, nunca empeora (criterio del review).
+        if (related_containers and hasattr(layout, 'elements')
+                and len(layout.elements) > 2
+                and self._path_crosses_unrelated_container(
+                    waypoints, layout, related_containers, sizing_calculator)):
+            vg_path = find_orthogonal_path(
+                from_center, to_center, layout,
+                from_elem.get('id', ''), to_elem.get('id', ''),
+                sizing_calculator, related_containers=related_containers,
+                soft_containers=True
+            )
+            if (vg_path and len(vg_path) >= 2 and
+                    not self._path_crosses_unrelated_container(
+                        vg_path, layout, related_containers, sizing_calculator)):
+                waypoints = vg_path
+
+        # Post-process: remove unnecessary bends (L-shortcuts) when the
+        # straight L-path doesn't intersect any obstacle. Keeps source and
+        # target endpoints stable; only collapses intermediate zig-zags.
+        # Parent containers of from/to are excluded — we must cross them.
+        from_id = from_elem.get('id', '')
+        to_id = to_elem.get('id', '')
+        obstacles = build_obstacles(layout, from_id, to_id, sizing_calculator)
+        parent_ids = set()
+        if from_container:
+            parent_ids.add(from_container.get('id', ''))
+        if to_container:
+            parent_ids.add(to_container.get('id', ''))
+        if parent_ids:
+            obstacles = [o for o in obstacles if o.elem_id not in parent_ids]
+        waypoints = simplify_orthogonal_zigzag(waypoints, obstacles)
+
         return Path(
             type='polyline',
             points=waypoints,
             corner_radius=corner_radius if corner_radius > 0 else None
         )
+
+    def _path_crosses_unrelated_container(self, waypoints, layout,
+                                          related_containers, sizing_calculator):
+        """True si algún tramo del path pasa por el INTERIOR de un contenedor
+        que no es padre del origen/destino (H2). Endpoints/bordes no cuentan
+        (rect con inset pequeño). Sirve de guarda anti-regresión."""
+        related = related_containers or set()
+        rects = []
+        for c in getattr(layout, 'elements', []):
+            if 'contains' not in c or 'x' not in c or 'y' not in c:
+                continue
+            if c.get('id', '') in related:
+                continue
+            if 'width' in c and 'height' in c:
+                w, h = c['width'], c['height']
+            elif sizing_calculator:
+                w, h = sizing_calculator.get_element_size(c)
+            else:
+                w, h = 80, 50
+            inset = 3.0
+            rects.append((c['x'] + inset, c['y'] + inset,
+                          c['x'] + w - inset, c['y'] + h - inset))
+        if not rects:
+            return False
+        pts = [(p.x, p.y) if hasattr(p, 'x') else (p[0], p[1]) for p in waypoints]
+        for i in range(len(pts) - 1):
+            ax, ay = pts[i]
+            bx, by = pts[i + 1]
+            for (x1, y1, x2, y2) in rects:
+                if abs(ax - bx) < 0.1:                 # vertical
+                    if x1 < ax < x2 and min(ay, by) < y2 and max(ay, by) > y1:
+                        return True
+                elif abs(ay - by) < 0.1:               # horizontal
+                    if y1 < ay < y2 and min(ax, bx) < x2 and max(ax, bx) > x1:
+                        return True
+                else:                                  # diagonal: muestreo
+                    for t in (0.25, 0.5, 0.75):
+                        px, py = ax + (bx - ax) * t, ay + (by - ay) * t
+                        if x1 < px < x2 and y1 < py < y2:
+                            return True
+        return False
 
     def _route_with_visibility_graph(
         self,

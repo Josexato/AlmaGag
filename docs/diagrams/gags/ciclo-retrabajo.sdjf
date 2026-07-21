@@ -1,0 +1,21 @@
+{
+  "canvas": {
+    "width": 900,
+    "height": 800
+  },
+  "elements": [
+    { "id": "inicio",   "label": "Recepción",        "type": "server", "color": "gold" },
+    { "id": "revisar",  "label": "Revisar",          "type": "decision", "color": "sky" },
+    { "id": "validar",  "label": "Validar",          "type": "decision", "color": "sky" },
+    { "id": "corregir", "label": "Corregir",         "type": "server", "color": "coral" },
+    { "id": "aprobado", "label": "Aprobado",         "type": "server", "color": "mint" }
+  ],
+  "connections": [
+    { "from": "inicio",   "to": "revisar",  "direction": "forward" },
+    { "from": "revisar",  "to": "validar",  "direction": "forward" },
+    { "from": "validar",  "to": "aprobado", "direction": "forward", "label": "OK" },
+    { "from": "validar",  "to": "corregir", "direction": "forward", "label": "rechazo" },
+    { "from": "corregir", "to": "revisar",  "direction": "forward", "label": "reproceso" },
+    { "from": "corregir", "to": "validar",  "direction": "forward", "label": "re-validar" }
+  ]
+}

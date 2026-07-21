@@ -31,17 +31,44 @@ PROXIMITY_RANGE = 50.0
 # Maximum penalty per unit of edge length for obstacle-hugging edges
 PROXIMITY_PENALTY_FACTOR = 0.8
 
+# H2: coste por unidad de longitud que un tramo pasa DENTRO de un contenedor
+# ajeno (obstáculo blando). No bloquea —permite el cruce si no hay canal libre—
+# pero lo penaliza fuerte para que el ruteo rodee la caja cuando puede.
+SOFT_OBSTACLE_COST = 12.0
+
 
 class Rect:
-    """Axis-aligned rectangle (obstacle bounding box with margin)."""
-    __slots__ = ('x1', 'y1', 'x2', 'y2', 'elem_id')
+    """Axis-aligned rectangle (obstacle bounding box with margin).
 
-    def __init__(self, x1: float, y1: float, x2: float, y2: float, elem_id: str = ''):
+    `soft=True` marca un obstáculo BLANDO (contenedor ajeno a la arista): no
+    invalida nodos ni bloquea tramos en el grafo de visibilidad, sólo suma coste
+    al cruzarlo (H2). Los nodos normales son duros (soft=False)."""
+    __slots__ = ('x1', 'y1', 'x2', 'y2', 'elem_id', 'soft')
+
+    def __init__(self, x1: float, y1: float, x2: float, y2: float, elem_id: str = '',
+                 soft: bool = False):
         self.x1 = min(x1, x2)
         self.y1 = min(y1, y2)
         self.x2 = max(x1, x2)
         self.y2 = max(y1, y2)
         self.elem_id = elem_id
+        self.soft = soft
+
+    def overlap_length(self, ax: float, ay: float, bx: float, by: float) -> float:
+        """Longitud del tramo axis-aligned (ax,ay)-(bx,by) que cae dentro del rect."""
+        if abs(ax - bx) < 0.1:                       # vertical
+            x = ax
+            if x <= self.x1 or x >= self.x2:
+                return 0.0
+            lo, hi = min(ay, by), max(ay, by)
+            return max(0.0, min(hi, self.y2) - max(lo, self.y1))
+        elif abs(ay - by) < 0.1:                     # horizontal
+            y = ay
+            if y <= self.y1 or y >= self.y2:
+                return 0.0
+            lo, hi = min(ax, bx), max(ax, bx)
+            return max(0.0, min(hi, self.x2) - max(lo, self.x1))
+        return 0.0
 
     def contains_point(self, x: float, y: float, tolerance: float = 0.5) -> bool:
         """Check if point is strictly inside the rectangle (not on edge)."""
@@ -79,17 +106,29 @@ class Rect:
         return min(abs(x - self.x1), abs(x - self.x2))
 
 
-def build_obstacles(layout, from_id: str, to_id: str, sizing_calculator=None) -> List[Rect]:
+def build_obstacles(layout, from_id: str, to_id: str, sizing_calculator=None,
+                    related_containers=None, soft_containers=False) -> List[Rect]:
     """
     Build obstacle rectangles from all positioned elements, excluding source and target.
+
+    H2: con `soft_containers=True`, los contenedores (`'contains'`) se marcan
+    BLANDOS — cruzarlos cuesta pero no bloquea — y los de `related_containers`
+    (padres del origen/destino) se excluyen del todo (cruce libre de su borde).
+    Con el default (`soft_containers=False`) los contenedores son obstáculos
+    DUROS como cualquier nodo (comportamiento previo, sin regresión). Los nodos
+    normales siempre son duros.
     """
     obstacles = []
     exclude = {from_id, to_id}
+    related = related_containers or set()
 
     for elem in layout.elements:
         eid = elem.get('id', '')
         if eid in exclude:
             continue
+        is_container = 'contains' in elem
+        if is_container and soft_containers and eid in related:
+            continue                                  # padre de la arista: cruce libre
         x = elem.get('x')
         y = elem.get('y')
         if x is None or y is None:
@@ -110,7 +149,8 @@ def build_obstacles(layout, from_id: str, to_id: str, sizing_calculator=None) ->
             y - OBSTACLE_MARGIN,
             x + w + OBSTACLE_MARGIN,
             y + h + OBSTACLE_MARGIN,
-            elem_id=eid
+            elem_id=eid,
+            soft=(is_container and soft_containers)
         ))
 
     return obstacles
@@ -191,6 +231,17 @@ def _min_obstacle_distance_v(x: float, obstacles: List[Rect]) -> float:
     return min(obs.distance_to_vline(x) for obs in obstacles)
 
 
+def _soft_crossing_penalty(ax: float, ay: float, bx: float, by: float,
+                           soft_obstacles: List[Rect]) -> float:
+    """H2: coste extra por la longitud que un tramo pasa dentro de contenedores
+    ajenos (obstáculos blandos). Empuja el ruteo a rodear la caja; si no hay
+    canal, el cruce se permite pero caro."""
+    if not soft_obstacles:
+        return 0.0
+    inside = sum(o.overlap_length(ax, ay, bx, by) for o in soft_obstacles)
+    return inside * SOFT_OBSTACLE_COST
+
+
 def _proximity_penalty(min_dist: float, edge_length: float) -> float:
     """
     Calculate proximity penalty for an edge based on its distance to the nearest obstacle.
@@ -263,10 +314,15 @@ def build_visibility_graph(
     """
     xs, ys = _collect_coordinates(obstacles, extra_points, channel_ys, canvas_w, canvas_h)
 
+    # H2: sólo los obstáculos DUROS invalidan nodos / bloquean tramos; los
+    # blandos (contenedores ajenos) se penalizan por coste al cruzarlos.
+    hard = [o for o in obstacles if not o.soft]
+    soft = [o for o in obstacles if o.soft]
+
     valid_nodes: Set[Tuple[float, float]] = set()
     for x in xs:
         for y in ys:
-            if not _point_in_any_obstacle(x, y, obstacles):
+            if not _point_in_any_obstacle(x, y, hard):
                 valid_nodes.add((x, y))
 
     for pt in extra_points:
@@ -290,25 +346,27 @@ def build_visibility_graph(
 
     # Horizontal edges with proximity penalty
     for y, x_list in by_y.items():
-        min_dist_h = _min_obstacle_distance_h(y, obstacles)
+        min_dist_h = _min_obstacle_distance_h(y, hard)
         for i in range(len(x_list) - 1):
             x1 = x_list[i]
             x2 = x_list[i + 1]
-            if not _segment_blocked(x1, y, x2, y, obstacles):
+            if not _segment_blocked(x1, y, x2, y, hard):
                 edge_len = abs(x2 - x1)
-                cost = edge_len + _proximity_penalty(min_dist_h, edge_len)
+                cost = (edge_len + _proximity_penalty(min_dist_h, edge_len)
+                        + _soft_crossing_penalty(x1, y, x2, y, soft))
                 graph[(x1, y)].append(((x2, y), cost))
                 graph[(x2, y)].append(((x1, y), cost))
 
     # Vertical edges with proximity penalty
     for x, y_list in by_x.items():
-        min_dist_v = _min_obstacle_distance_v(x, obstacles)
+        min_dist_v = _min_obstacle_distance_v(x, hard)
         for i in range(len(y_list) - 1):
             y1 = y_list[i]
             y2 = y_list[i + 1]
-            if not _segment_blocked(x, y1, x, y2, obstacles):
+            if not _segment_blocked(x, y1, x, y2, hard):
                 edge_len = abs(y2 - y1)
-                cost = edge_len + _proximity_penalty(min_dist_v, edge_len)
+                cost = (edge_len + _proximity_penalty(min_dist_v, edge_len)
+                        + _soft_crossing_penalty(x, y1, x, y2, soft))
                 graph[(x, y1)].append(((x, y2), cost))
                 graph[(x, y2)].append(((x, y1), cost))
 
@@ -406,21 +464,84 @@ def simplify_path(path: List[Tuple[float, float]]) -> List[Tuple[float, float]]:
     return result
 
 
+def simplify_orthogonal_zigzag(path: List[Point], obstacles: List[Rect]) -> List[Point]:
+    """
+    Reduce unnecessary bends in an orthogonal path by trying L-shortcuts.
+
+    Tries progressively larger windows (4, 5, ..., MAX points). For each
+    window [p_i, ..., p_j], if there is an L-path p_i → corner → p_j (one
+    bend) that does not cross any obstacle, replace the inner points with
+    just the corner.
+
+    Larger windows allow skipping multi-hop zig-zags that smaller windows
+    can't reduce (e.g., when the immediate L-shortcut is blocked but a
+    further-out one is clear).
+
+    Iterates until no more reductions are possible. Also removes any
+    remaining collinear points at the end.
+    """
+    if len(path) < 4:
+        return [Point(x, y) for x, y in simplify_path([(p.x, p.y) for p in path])]
+
+    # Window sizes to try in order. Smaller first (more aggressive on simple
+    # cases), then larger to catch chains. Max window size limits work.
+    MAX_WINDOW = 7
+
+    result = [Point(p.x, p.y) for p in path]
+    # Safety: each successful simplification reduces path length by ≥1,
+    # so the total number of simplifications is bounded by len(path).
+    max_outer_passes = len(path) + 2
+    for _ in range(max_outer_passes):
+        changed = False
+        for window in range(4, MAX_WINDOW + 1):
+            i = 0
+            while i <= len(result) - window:
+                a = result[i]
+                d = result[i + window - 1]
+                window_changed = False
+                for cx, cy in [(a.x, d.y), (d.x, a.y)]:
+                    # Skip degenerate corners that don't actually shortcut
+                    if (abs(cx - a.x) < 0.1 and abs(cy - a.y) < 0.1) or \
+                       (abs(cx - d.x) < 0.1 and abs(cy - d.y) < 0.1):
+                        continue
+                    if (not _segment_blocked(a.x, a.y, cx, cy, obstacles) and
+                            not _segment_blocked(cx, cy, d.x, d.y, obstacles)):
+                        result = result[:i + 1] + [Point(cx, cy)] + result[i + window - 1:]
+                        changed = True
+                        window_changed = True
+                        break
+                if not window_changed:
+                    i += 1
+            if changed:
+                break  # Restart with smallest window after any reduction
+        if not changed:
+            break
+
+    # Final collinear cleanup
+    return [Point(x, y) for x, y in simplify_path([(p.x, p.y) for p in result])]
+
+
 def find_orthogonal_path(
     start: Point,
     end: Point,
     layout,
     from_id: str,
     to_id: str,
-    sizing_calculator=None
+    sizing_calculator=None,
+    related_containers=None,
+    soft_containers=False
 ) -> Optional[List[Point]]:
     """
     Find an obstacle-avoiding orthogonal path between two points.
 
     Uses inter-level channel lines and proximity penalties to route
-    paths through the center of free space between levels.
+    paths through the center of free space between levels. Con
+    `soft_containers=True` (H2), los `related_containers` (padres del
+    origen/destino) se cruzan libremente y el resto de contenedores son blandos.
     """
-    obstacles = build_obstacles(layout, from_id, to_id, sizing_calculator)
+    obstacles = build_obstacles(layout, from_id, to_id, sizing_calculator,
+                                related_containers=related_containers,
+                                soft_containers=soft_containers)
 
     canvas = getattr(layout, 'canvas', {})
     canvas_w = canvas.get('width', 2000)

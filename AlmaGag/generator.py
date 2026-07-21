@@ -11,7 +11,60 @@ from AlmaGag.debug import dump_layout_table
 logger = logging.getLogger('AlmaGag')
 
 
-def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False, guide_lines=None, dump_iterations=False, output_file=None, layout_algorithm='auto', visualize_growth=False, color_connections=False, **centrality_kwargs):
+def select_strategy(data, view='auto'):
+    """Un solo algoritmo: elige la mejor estrategia de layout a partir del JSON.
+
+    El usuario normalmente NO elige algoritmo — corre `almagag archivo.json` y
+    el motor decide. Sólo si un parámetro de comando fuerza algo (una vista o un
+    `--layout-algorithm` explícito) se respeta esa elección.
+
+    Política (conservadora, no regresiona los canónicos de arquitectura):
+    - una vista explícita (`--view`) → esa vista es de hier
+    - contenedores anidados (`contains`) → AUTO (hier aún no los soporta)
+    - metadata de fases (`areas`) → flujo por ámbitos (hier)
+    - nodos de decisión (rombos) → flowchart → hier
+    - flujo CON CICLO, sin coords manuales → hier (niveles + arcos de ciclo)
+    - en cualquier otro caso → AUTO (placement general)
+    """
+    elements = data.get('elements', [])
+    if view and view != 'auto':
+        return 'hier'                       # las vistas (areas/lanes/matrix) son de hier
+    if data.get('considerations') or data.get('constraints'):
+        return 'auto'                       # consideraciones (align/near/avoid): sólo AUTO
+    if any('contains' in e for e in elements):
+        return 'auto'                       # hier no maneja contenedores anidados
+    if data.get('areas'):
+        return 'hier'
+    types = {e.get('type') for e in elements}
+    if types & {'decision', 'diamond'}:
+        return 'hier'
+    # Un flujo dirigido CON CICLO y sin coordenadas manuales es el dominio de
+    # hier (niveles + arcos de ciclo E15–E17); auto lo aplana a una fila y rutea
+    # en diagonal perforando iconos. Estrecho a ciclos: los DAGs sin ciclo se
+    # dejan en auto (hier los renderiza peor — ver K37). Medido: 14-stresstest
+    # 5→1 cruces, layout-optimization-flow 7→3, sin solapes nuevos.
+    if not any(('x' in e or 'y' in e) for e in elements) and \
+            _has_cycle(elements, data.get('connections', [])):
+        return 'hier'
+    return 'auto'
+
+
+def _has_cycle(elements, connections) -> bool:
+    """True si el grafo dirigido tiene un ciclo (SCC de 2+ o self-loop)."""
+    ids = [e['id'] for e in elements]
+    idset = set(ids)
+    out = {i: [] for i in ids}
+    for c in connections:
+        f, t = c.get('from'), c.get('to')
+        if f == t and f in idset:
+            return True                     # self-loop
+        if f in out and t in idset:
+            out[f].append(t)
+    from AlmaGag.layout.strategies.hier.scc import strongly_connected_components
+    return any(len(s) >= 2 for s in strongly_connected_components(ids, out))
+
+
+def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False, guide_lines=None, dump_iterations=False, output_file=None, layout_algorithm='select', view='auto', visualize_growth=False, color_connections=False, **centrality_kwargs):
     # Configurar logging si debug está activo
     if debug:
         logging.basicConfig(
@@ -40,14 +93,33 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
         logger.error(f"Error al leer el JSON: {e}")
         return False
 
+    # §H7: expandir `unions` (matrimonio) a nodo de barra + aristas padre→union
+    # ANTES de decidir estrategia/template, para que el motor las trate como
+    # nodos/aristas normales. No-op si el JSON no declara `unions`.
+    from AlmaGag.layout.unions import expand_unions
+    n_unions = expand_unions(data)
+    if n_unions:
+        logger.info(f"§H7: {n_unions} union(es) expandida(s) a nodo de barra")
+
+    # Decidir la estrategia sobre el JSON CRUDO (antes de que el template inyecte
+    # coords). Si el motor elegido es hier, hier hace su propio placement por
+    # niveles/columnas y el `layout_template` (que asigna coords pensadas para
+    # AUTO) sólo lo estorbaría — se saltea. Este pre-cálculo también es el que se
+    # usa después para el LayoutEngine (no se recalcula sobre data ya modificada).
+    resolved_strategy = select_strategy(data, view) if layout_algorithm == 'select' else layout_algorithm
+
     # WISH-LAYOUT-004 Fase 2: auto-detección de template por estructura del grafo.
     # Prioridad:
     #   1. Override manual: `"layout_template": "<name>"` en SDJF → aplicar ese.
     #   2. Auto-detección: `"layout_template": "auto"` → clasificar grafo y aplicar.
     #   3. Sin declaración → comportamiento agnóstico (AUTO/LAF normal).
     # Los templates respetan coords manuales: solo asignan a elementos sin x/y.
+    # Sólo se aplican cuando el motor es AUTO (hier ignora coords inyectadas).
     template_name = data.get('layout_template')
-    if template_name == 'auto':
+    if resolved_strategy == 'hier':
+        if template_name:
+            logger.info(f"Layout template '{template_name}' omitido: motor hier hace su propio placement")
+    elif template_name == 'auto':
         from AlmaGag.layout.templates import auto_apply_template
         applied, scores = auto_apply_template(data)
         scores_str = ', '.join(f'{n}={s:.2f}' for n, s in scores)
@@ -105,20 +177,41 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     diagram_name = os.path.splitext(os.path.basename(json_file))[0]
     initial_layout._diagram_name = diagram_name
 
-    # 2. Instanciar optimizador (WISH-ARCH-001 resuelto: factoría unificada).
-    # Ambos optimizers heredan de LayoutOptimizer y son self-contained.
-    from AlmaGag.layout.laf.optimizer import LAFOptimizer
-    OPTIMIZERS = {
-        'auto': AutoLayoutOptimizer,
-        'laf':  LAFOptimizer,
-    }
-    optimizer_cls = OPTIMIZERS[layout_algorithm]
-    optimizer_kwargs = {'verbose': debug, 'visualdebug': visualdebug}
-    if layout_algorithm == 'laf':
-        optimizer_kwargs['visualize_growth'] = visualize_growth
-        optimizer_kwargs.update(centrality_kwargs)
-    optimizer = optimizer_cls(**optimizer_kwargs)
-    logger.debug(f"{optimizer_cls.__name__} instanciado ({optimizer_kwargs})")
+    # §I27/§I30: ámbitos por fase (areas) y leyenda de roles (opcionales; sólo
+    # los consume el algoritmo hier). Retrocompatible: si faltan, camino normal.
+    initial_layout._areas = data.get('areas')
+    initial_layout._roles = data.get('roles')
+    initial_layout._lanes = data.get('lanes')
+    # §④ consideraciones BLANDAS (align/near/avoid): sólo las consume AUTO y las
+    # aplica detrás de una guarda (sólo si no aumentan colisiones). Si el JSON no
+    # las declara, queda [] y nada cambia (cero regresión).
+    from AlmaGag.layout.considerations import extract_considerations
+    initial_layout._considerations = extract_considerations(data)
+    # Vista del layout (§I): la REPRESENTACIÓN se decide sola a partir del JSON
+    # y sólo se fuerza por parámetro de COMANDO (`--view`), nunca por un campo
+    # del archivo. El JSON describe *qué es* (incluida la metadata semántica
+    # areas/roles); el algoritmo decide *cómo se ve*; el CLI puede pisarlo.
+    resolved_view = view if (view and view != 'auto') else 'auto'
+    if resolved_view == 'auto':
+        resolved_view = 'areas' if data.get('areas') else 'flow'
+    initial_layout._layout_view = resolved_view
+
+    # 2. Motor ÚNICO (WISH-ARCH-002): el generator ve UN solo optimizer, el
+    # `LayoutEngine`. Si no se forzó una estrategia por CLI (`select`, el
+    # default), el motor la elige a partir del JSON (`select_strategy`) y viaja
+    # en `layout._strategy`. `auto/laf/hier` explícitos la fuerzan (avanzado/
+    # debug); hier ya no es un algoritmo peer sino la estrategia de flujo.
+    from AlmaGag.layout.engine import LayoutEngine
+    if layout_algorithm == 'select':
+        # Reusar la estrategia decidida sobre el JSON crudo (antes del template),
+        # no recalcular sobre `data` ya modificada por el template.
+        logger.info(f"     - Estrategia auto-seleccionada: {resolved_strategy}")
+        initial_layout._strategy = resolved_strategy
+        forced = None
+    else:
+        forced = layout_algorithm                 # override explícito por CLI
+    optimizer = LayoutEngine(verbose=debug, visualdebug=visualdebug, strategy=forced,
+                             visualize_growth=visualize_growth, **centrality_kwargs)
 
     # 3. Optimizar (retorna NUEVO layout)
     #    NOTA: optimize() ahora maneja auto-layout para coordenadas faltantes (SDJF v2.0)
@@ -146,20 +239,30 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     normal_priority = sum(1 for priority in optimized_layout.priorities.values() if priority == 1)
     low_priority = sum(1 for priority in optimized_layout.priorities.values() if priority == 2)
 
-    # Mostrar resultados
-    remaining = optimized_layout._collision_count if optimized_layout._collision_count is not None else 0
-
-    if remaining > 0:
-        logger.warning(f"AutoLayout v2.1: {remaining} colisiones detectadas")
+    # Mostrar resultados: §H6 tres contadores separados (no un único
+    # 'colisiones' ambiguo) y con el nombre del motor real (no "AutoLayout"
+    # cuando corrió hier/legacy).
+    from AlmaGag.layout.metrics import quality_counters
+    q = quality_counters(optimized_layout)
+    engine = getattr(optimizer, 'chosen', None) or resolved_strategy or 'auto'
+    line = (f"[{engine}] cruces(arista×arista)={q['edge_x_edge']} "
+            f"arista×nodo={q['edge_x_node']} labels={q['label_overlap']}")
+    if q['edge_x_edge'] + q['edge_x_node'] + q['label_overlap'] > 0:
+        logger.warning(line)
     else:
-        logger.info(f"AutoLayout v2.1: 0 colisiones detectadas")
+        logger.info(line)
 
     logger.info(f"     - {num_levels} niveles, {num_groups} grupo(s)")
     logger.info(f"     - Prioridades: {high_priority} high, {normal_priority} normal, {low_priority} low")
 
     # 5. Obtener canvas final (puede haber sido expandido)
     final_canvas = optimized_layout.canvas
-    if final_canvas['width'] > canvas_width or final_canvas['height'] > canvas_height:
+    if optimizer.chosen == 'hier':
+        # hier ajusta su propio canvas al contenido (§G22/§J33): respetarlo tal
+        # cual, sin inflarlo al canvas declarado (evita láminas medio vacías).
+        canvas_width = final_canvas['width']
+        canvas_height = final_canvas['height']
+    elif final_canvas['width'] > canvas_width or final_canvas['height'] > canvas_height:
         canvas_width = final_canvas['width']
         canvas_height = final_canvas['height']
         logger.info(f"     - Canvas expandido a {canvas_width}x{canvas_height}")

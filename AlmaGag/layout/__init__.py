@@ -15,12 +15,12 @@ Este módulo separa las responsabilidades de almacenamiento y optimización de d
 
 from AlmaGag.layout.layout import Layout
 from AlmaGag.layout.sizing import SizingCalculator
-from AlmaGag.layout.auto.positioner import AutoLayoutPositioner
+from AlmaGag.layout.strategies.auto.positioner import AutoLayoutPositioner
 from AlmaGag.layout.geometry import GeometryCalculator
 from AlmaGag.layout.collision import CollisionDetector
 from AlmaGag.layout.graph_analysis import GraphAnalyzer
 from AlmaGag.layout.optimizer_base import LayoutOptimizer
-from AlmaGag.layout.auto.optimizer import AutoLayoutOptimizer
+from AlmaGag.layout.strategies.auto.optimizer import AutoLayoutOptimizer
 
 __all__ = [
     'Layout',

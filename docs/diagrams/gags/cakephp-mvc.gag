@@ -1,0 +1,75 @@
+{
+  "_comment": "Test neutro: arquitectura MVC genérica de CakePHP. Sin coords manuales — todo lo decide layout_template=auto + algoritmo AUTO. Sirve para detectar overfitting de AlmaGag.",
+
+  "layout_template": "auto",
+
+  "canvas": { "width": 1400, "height": 900 },
+
+  "elements": [
+    { "id": "request", "type": "document", "label": "HTTP Request", "color": "lightblue" },
+    { "id": "router", "type": "router", "label": "Router\n(routes.php)", "color": "orange" },
+    { "id": "dispatcher", "type": "server", "label": "Dispatcher\n+ Middleware", "color": "orange" },
+
+    {
+      "id": "controllers_box",
+      "type": "building",
+      "label": "Controllers",
+      "color": "lightgreen",
+      "contains": ["articles_ctrl", "users_ctrl", "auth_comp"]
+    },
+    { "id": "articles_ctrl", "type": "server", "label": "ArticlesController", "color": "lightgreen" },
+    { "id": "users_ctrl", "type": "server", "label": "UsersController", "color": "lightgreen" },
+    { "id": "auth_comp", "type": "firewall", "label": "AuthComponent", "color": "lightgreen" },
+
+    {
+      "id": "models_box",
+      "type": "building",
+      "label": "Models (ORM)",
+      "color": "wheat",
+      "contains": ["articles_table", "users_table", "entity"]
+    },
+    { "id": "articles_table", "type": "database", "label": "ArticlesTable", "color": "wheat" },
+    { "id": "users_table", "type": "database", "label": "UsersTable", "color": "wheat" },
+    { "id": "entity", "type": "document", "label": "Entity", "color": "wheat" },
+
+    {
+      "id": "views_box",
+      "type": "building",
+      "label": "Views",
+      "color": "plum",
+      "contains": ["template", "helper", "cell"]
+    },
+    { "id": "template", "type": "document", "label": "Template\n(.php)", "color": "plum" },
+    { "id": "helper", "type": "computer", "label": "Helper", "color": "plum" },
+    { "id": "cell", "type": "laptop", "label": "Cell", "color": "plum" },
+
+    { "id": "db", "type": "database", "label": "Database\n(MySQL)", "color": "gray" },
+    { "id": "cache", "type": "cloud", "label": "Cache", "color": "yellow" },
+    { "id": "response", "type": "document", "label": "HTTP Response", "color": "lightblue" }
+  ],
+
+  "connections": [
+    { "from": "request", "to": "router", "direction": "forward" },
+    { "from": "router", "to": "dispatcher", "direction": "forward" },
+    { "from": "dispatcher", "to": "articles_ctrl", "direction": "forward" },
+    { "from": "dispatcher", "to": "users_ctrl", "direction": "forward" },
+
+    { "from": "articles_ctrl", "to": "auth_comp", "label": "auth", "direction": "forward" },
+    { "from": "users_ctrl", "to": "auth_comp", "label": "auth", "direction": "forward" },
+
+    { "from": "articles_ctrl", "to": "articles_table", "direction": "forward" },
+    { "from": "users_ctrl", "to": "users_table", "direction": "forward" },
+    { "from": "articles_table", "to": "entity", "direction": "forward" },
+    { "from": "users_table", "to": "entity", "direction": "forward" },
+
+    { "from": "articles_table", "to": "db", "label": "SQL", "direction": "bidirectional" },
+    { "from": "users_table", "to": "db", "label": "SQL", "direction": "bidirectional" },
+    { "from": "articles_table", "to": "cache", "direction": "bidirectional" },
+
+    { "from": "articles_ctrl", "to": "template", "label": "render", "direction": "forward" },
+    { "from": "users_ctrl", "to": "template", "label": "render", "direction": "forward" },
+    { "from": "template", "to": "helper", "direction": "forward" },
+    { "from": "template", "to": "cell", "direction": "forward" },
+    { "from": "template", "to": "response", "direction": "forward" }
+  ]
+}

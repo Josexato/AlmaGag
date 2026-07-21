@@ -150,6 +150,99 @@ Ver `tests/test_template_fase4.py` y `AlmaGag/layout/templates/` para detalles.
 
 ---
 
+## 0.3. Vistas del algoritmo `hier` — `layout_view`, `areas`, `lanes`, `roles` (§I)
+
+Sólo las usa `--layout-algorithm=hier`. Separan **el dato** (qué fase / quién es
+responsable de cada nodo) de **la vista** (cómo se agrupa visualmente). Un SDJF
+sin estos campos se comporta igual que hoy.
+
+**Principio:** el JSON describe *qué es* (contenido, incluida la metadata
+semántica `areas`/`roles`); el algoritmo decide *cómo se ve*. La representación
+**sólo se fuerza por parámetro de comando** (`--view`), **nunca por un campo del
+archivo** — no hay `layout_view` en el JSON.
+
+```
+--view {auto|flow|areas|lanes|matrix}     # override, sólo por CLI
+# (default: auto → el algoritmo elige a partir del JSON: areas si las declara)
+```
+
+| Vista | Qué hace | Criterio |
+|-------|----------|----------|
+| `flow` | columnas por flujo (una tira/mariposa) | A–H |
+| `areas` | una caja por fase, sub-layout A–H interno, a lo ancho | §I27 |
+| `lanes` | un carril vertical por rol, flujo en Y | §I28 |
+| `matrix` | grilla fase (columna) × rol (fila); flowchart transfuncional | §I |
+
+**`areas`** (top-level) — ámbitos por fase (§I27):
+```json
+"areas": [
+  { "id": "F1", "label": "1 · Contratación", "color": "#2a6fdb",
+    "members": ["inicio", "obtiene", "crea_sga"] }
+]
+```
+Cada área corre A–H sobre sus miembros y se dibuja como caja punteada rotulada;
+las conexiones inter-área cruzan por el borde (§I29). Un nodo puede no pertenecer
+a ningún área.
+
+**`lanes`** (top-level, opcional) — carriles por responsable (§I28):
+```json
+"lanes": [ { "id": "com", "label": "Consultor Comercial", "members": ["obtiene"] } ]
+```
+Si NO declaras `lanes`, la vista `lanes` los deriva del campo `role` de cada nodo
+(un carril por rol distinto). Todo nodo cae en exactamente un carril.
+
+**`role` + `roles`** — responsable por nodo (§I30). Cada elemento puede llevar
+`"role": "com"`; el mapa top-level `roles` da etiqueta y color de la leyenda:
+```json
+"roles": { "com": { "label": "Consultor Comercial", "color": "#2a6fdb" } }
+```
+En vista `areas` el rol se muestra como franja de color + leyenda; en vista
+`lanes` es el propio carril. (Nota: este `role` de responsable es distinto del
+`role` semántico de templates §0.1 — aquél usa palabras clave como `entry`/`hub`;
+éste es una clave libre de agrupación.)
+
+Ver `AlmaGag/layout/strategies/hier/areas.py`, `lanes.py` y `tests/test_hier_areas.py`,
+`test_hier_lanes.py`.
+
+---
+
+## 0.4. Consideraciones — `considerations` (align / near / avoid)
+
+Array top-level opcional para expresar **intención** de layout: alinear, acercar
+o separar elementos. Son **blandas** (por eso "consideraciones", no
+"restricciones"): cada una se aplica **sólo si no rompe la diagramación**. Si
+cumplirla aumentaría las colisiones, **cede** y se informa en el log
+(`[CONSIDERACIONES] no se pudo cumplir: ...`) sin explicar el porqué. Así una
+consideración nunca degrada el diagrama. Las aplica el motor **AUTO** (declararlas
+enruta el diagrama a AUTO). Si no las declaras, no cambia nada.
+
+```json
+"considerations": [
+  { "align": ["web1", "web2", "web3"], "axis": "y" },
+  { "align": ["db", "cache"], "axis": "x" },
+  { "near":  ["api", "db"] },
+  { "avoid": ["frontend", "backend"] }
+]
+```
+
+| Consideración | Efecto | `axis` |
+|---|---|---|
+| `align` | Lleva los elementos a una coordenada común (la media del grupo) | `"x"` (misma columna, default) o `"y"` (misma fila) |
+| `near`  | Acerca los elementos hacia su centroide (reduce la caja que los contiene) | — |
+| `avoid` | Si dos elementos se solapan, los separa por el eje de menor penetración | — |
+
+- Cada consideración necesita **≥2 ids**; las entradas inválidas se descartan con
+  un warning (no rompen el render).
+- Son best-effort y **guardadas**: se prueban una por una y sólo se conservan si
+  no suben las colisiones. Combínalas: `align` para formar una columna, `avoid`
+  para que dos cajas no se pisen.
+- Alias retrocompatible: también se acepta la clave `constraints`.
+
+Ver `AlmaGag/layout/considerations.py`,
+`docs/diagrams/gags/considerations-demo.sdjf` y `tests/test_considerations.py`.
+
+---
+
 ## 1. canvas (opcional)
 
 Define el tamano del area de dibujo en pixeles. Si lo omites, AlmaGag usa 1400x900 y lo expande si hace falta. Si declaras `layout_template`, el template lo calcula automaticamente.
@@ -241,6 +334,33 @@ Es un array de objetos. Cada objeto es una linea que conecta dos elementos.
 | `label` | string | no | sin texto | Texto que aparece sobre la linea. |
 | `direction` | string | no | `"none"` | Tipo de flecha. Ver tabla abajo. |
 | `routing` | objeto | no | linea recta | Como se dibuja la linea. Ver seccion "Routing" mas abajo. |
+| `semantic_type` | string | no | — | Tipo semantico → color automatico. Ver tabla abajo. |
+| `color` | string | no | negro | Color directo (hex o nombre CSS). Tiene precedencia sobre `semantic_type`. |
+| `style` | string | no | `"solid"` | Estilo de trazo: `"solid"` (default), `"dashed"` (punteado largo) o `"dotted"` (punteado corto). Útil para enlaces de respaldo/secundarios en topologías de red. Alias: `line_style`. |
+
+### Color por tipo semantico (`semantic_type`)
+
+Asigna color a la linea segun el tipo de relacion, sin tener que elegir el
+color a mano. `connection.color` lo sobreescribe si quieres un color exacto.
+
+| `semantic_type` | Color | Uso tipico |
+|-----------------|-------|-----------|
+| `data_flow` | naranja | Flujo de datos |
+| `control_flow` | azul | Flujo de control |
+| `sync` | verde | Sincronizacion / bidireccional |
+| `event` | purpura | Eventos / mensajes |
+| `callback` | teal | Callbacks |
+| `dependency` | gris | Dependencias |
+| `error` | rojo | Caminos de error |
+
+```json
+{ "from": "api", "to": "db", "direction": "bidirectional", "semantic_type": "sync" }
+{ "from": "b", "to": "c", "direction": "forward", "color": "#ff8800" }
+```
+
+Funciona sin el flag `--color-connections` (ese flag colorea cada conexion con
+un color unico arcoiris; `semantic_type` agrupa por significado). Ver canonical
+`docs/diagrams/gags/17-semantic-connections.gag`.
 
 ### Valores de `direction`
 
@@ -406,6 +526,28 @@ Un contenedor es un elemento normal que tiene el campo `contains`. Dibuja un rec
 | `"full"` | El hijo esta completamente dentro del contenedor (default). |
 | `"border"` | El hijo se posiciona sobre el borde del contenedor. |
 
+### Campo `shape: "band"` — banda de contrato (WISH-LAYOUT-005)
+
+Un contenedor con `"shape": "band"` se dibuja como una **banda/eje horizontal**
+en vez de una caja con título arriba. Sirve para expresar que N elementos son
+equivalentes/intercambiables a través de un contrato comun.
+
+```json
+{
+  "id": "contract", "shape": "band", "label": "Contract",
+  "color": "lightblue",
+  "contains": ["impl_a", "iface", "impl_b"]
+}
+```
+
+Diferencias frente a un contenedor normal:
+- Los hijos se colocan en **una sola fila** horizontal (no en grid).
+- El título va **rotado en el borde izquierdo**, no como header arriba.
+- Fondo más sutil y esquinas de barra.
+
+Util como capa media de un diagrama en T: `[endpoint_A, abstract, endpoint_B]`.
+Ver canonical `docs/diagrams/gags/16-contract-band.gag`.
+
 ---
 
 ## 6. Formato .gag (iconos SVG embebidos)
@@ -468,6 +610,8 @@ Estos tipos vienen incluidos en AlmaGag. Solo pon el nombre en `"type"`:
 | `computer` | Monitor con base | Pantalla de escritorio |
 | `document` | Pagina con esquina doblada | Hoja de papel |
 | `user` | Silueta de persona | Cabeza + torso |
+| `diamond` | Rombo (abstract/interfaz) | Diamante UML |
+| `decision` | Rombo (alias de `diamond`) | Diamante BPMN |
 
 **Si pones un tipo que no existe** (ej: `"type": "xyz"`), AlmaGag dibuja una banana con cinta (BWT) como indicador de tipo no reconocido.
 

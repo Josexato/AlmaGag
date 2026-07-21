@@ -39,15 +39,27 @@ class DrawingGroupProxy:
 
 
 def create_canvas(output_path, canvas_width, canvas_height):
-    """Crea el Drawing SVG con filtro global de text-glow blanco para etiquetas."""
+    """Crea el Drawing SVG con halo blanco universal para TODO el texto (H5).
+
+    En vez de un filtro gaussiano por-elemento (blur suave, y que había que
+    recordar aplicar en cada `dwg.text` — los labels de contenedor y callout se
+    quedaban sin él), se define un halo nítido `paint-order:stroke` en un único
+    `<style>` global que alcanza a cualquier <text>: nodos, conexiones,
+    contenedores, callouts y áreas. Legible sobre cualquier cruce residual.
+    El id `text-glow` se conserva como filtro no-op por retrocompatibilidad
+    (algún SVG viejo/embebido podía referenciarlo)."""
     dwg = svgwrite.Drawing(output_path, size=(canvas_width, canvas_height), debug=False)
     dwg.viewbox(0, 0, canvas_width, canvas_height)
 
+    dwg.defs.add(svgwrite.container.Style(content=(
+        "text{paint-order:stroke;stroke:#ffffff;stroke-width:3px;"
+        "stroke-linejoin:round;stroke-linecap:round}"
+    )))
+
+    # Filtro heredado: neutro (feMerge de la fuente sola). Mantiene válidas las
+    # referencias `url(#text-glow)` que aún queden sin duplicar el halo.
     text_glow = dwg.filter(id='text-glow', x='-20%', y='-20%', width='140%', height='140%')
-    text_glow.feGaussianBlur(in_='SourceGraphic', stdDeviation=2, result='blur')
-    text_glow.feFlood(flood_color='white', flood_opacity=1, result='color')
-    text_glow.feComposite(in_='color', in2='blur', operator='in', result='shadow')
-    text_glow.feMerge(layernames=['shadow', 'shadow', 'SourceGraphic'])
+    text_glow.feMerge(layernames=['SourceGraphic'])
     dwg.defs.add(text_glow)
 
     return dwg
@@ -63,6 +75,37 @@ def _generate_color_palette(n):
     return colors
 
 
+# WISH-LAYOUT-007: paleta de colores por tipo semántico de conexión.
+# El SDJF puede declarar `connection.semantic_type` y el color se asigna
+# automáticamente. `connection.color` (hex/nombre CSS) tiene precedencia.
+SEMANTIC_CONNECTION_COLORS = {
+    'data_flow':    '#e8820c',  # naranja — flujo de datos
+    'control_flow': '#1f6fd0',  # azul — flujo de control
+    'sync':         '#1aa64b',  # verde — sincronización / bidireccional
+    'event':        '#8e44ad',  # púrpura — eventos
+    'callback':     '#0e8a8a',  # teal — callbacks
+    'dependency':   '#888888',  # gris — dependencias
+    'error':        '#cc2222',  # rojo — caminos de error
+}
+
+
+def resolve_connection_color(conn):
+    """
+    Color de una conexión según WISH-LAYOUT-007.
+
+    Prioridad:
+    1. `conn['color']` (hex o nombre CSS) — override directo.
+    2. `conn['semantic_type']` mapeado por SEMANTIC_CONNECTION_COLORS.
+    3. None (el caller usa el default, típicamente negro).
+    """
+    if conn.get('color'):
+        return conn['color']
+    st = conn.get('semantic_type')
+    if st:
+        return SEMANTIC_CONNECTION_COLORS.get(st)
+    return None
+
+
 def _create_arrow_marker(dwg, marker_id, color, direction='end'):
     """Crea un marker de flecha triangular."""
     if direction == 'end':
@@ -75,10 +118,21 @@ def _create_arrow_marker(dwg, marker_id, color, direction='end'):
     return marker
 
 
+# Radio del punto de origen (círculo). En userSpaceOnUse es px absolutos:
+# diámetro 2.4px = 20% más ancho que la línea (stroke-width 2).
+CIRCLE_MARKER_R = 1.2
+
+
 def _create_circle_marker(dwg, marker_id, color):
-    """Crea un marker de círculo para origen de conexiones unidireccionales."""
-    marker = dwg.marker(id=marker_id, insert=(5, 5), size=(10, 10), orient='auto')
-    marker.add(dwg.circle(center=(5, 5), r=4, fill=color))
+    """Crea un marker de círculo para origen de conexiones unidireccionales.
+
+    Tamaño absoluto (userSpaceOnUse) para que NO escale con el stroke-width:
+    un punto discreto, apenas más ancho que la línea.
+    """
+    r = CIRCLE_MARKER_R
+    marker = dwg.marker(id=marker_id, insert=(r, r), size=(2 * r, 2 * r), orient='auto')
+    marker['markerUnits'] = 'userSpaceOnUse'
+    marker.add(dwg.circle(center=(r, r), r=r, fill=color))
     dwg.defs.add(marker)
     return marker
 
@@ -100,15 +154,27 @@ def setup_arrow_markers(dwg, connections=None, color_connections=False):
         'bidirectional': (arrow_start.get_funciri(), arrow_end.get_funciri()),
     }
 
-    if not color_connections or not connections:
+    if not connections:
         return default_markers
 
-    n = len(connections)
-    palette = _generate_color_palette(n)
-    per_connection = []
+    # Determinar el color de cada conexión:
+    # - color_connections=True → paleta arcoíris (un color único por conexión).
+    # - si no, WISH-LAYOUT-007 → color por semantic_type/color declarado.
+    if color_connections:
+        colors = _generate_color_palette(len(connections))
+    else:
+        colors = [resolve_connection_color(c) for c in connections]
+        # Si ninguna conexión declara color semántico, comportamiento clásico.
+        if not any(colors):
+            return default_markers
 
+    per_connection = []
     for i, conn in enumerate(connections):
-        color = palette[i]
+        color = colors[i]
+        if not color:
+            # Conexión sin color semántico → markers/stroke negros por defecto.
+            per_connection.append({'markers': default_markers, 'color': 'black'})
+            continue
         suffix = f'-c{i}'
         ae = _create_arrow_marker(dwg, f'arrow-end{suffix}', color, 'end')
         ast = _create_arrow_marker(dwg, f'arrow-start{suffix}', color, 'start')
@@ -191,6 +257,19 @@ def draw_connection_labels(dwg, connections, conn_centers, optimized_label_posit
         if not conn.get('label'):
             continue
         key = f"{conn['from']}->{conn['to']}"
+        # §G23 (hier): ancla pegada al puerto de salida — prioritaria sobre el
+        # optimizador (que buscaría el punto medio del path).
+        anchor = conn.get('_label_anchor')
+        if anchor:
+            dwg.add(dwg.text(
+                conn['label'],
+                insert=(anchor[0], anchor[1]),
+                text_anchor="middle",
+                font_size="12px",
+                font_family="Arial, sans-serif",
+                fill="#14181d",
+            ))
+            continue
         optimized_pos = optimized_label_positions.get(key)
         if optimized_pos:
             # Posición optimizada por LabelPositionOptimizer: dibujar el texto
@@ -201,8 +280,7 @@ def draw_connection_labels(dwg, connections, conn_centers, optimized_label_posit
                 text_anchor=optimized_pos.anchor,
                 font_size="12px",
                 font_family="Arial, sans-serif",
-                fill="gray",
-                filter='url(#text-glow)',
+                fill="#14181d",
             ))
         else:
             # Fallback: centro de la conexión (default text_anchor del helper).

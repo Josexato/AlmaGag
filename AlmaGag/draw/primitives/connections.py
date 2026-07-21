@@ -65,6 +65,22 @@ def _apply_direction_markers(attrs, direction, markers):
             attrs['marker_end'] = markers.get('arrow_end', '')
 
 
+def _dash_for(connection):
+    """Patrón de guiones según `connection['style']` ('dashed' | 'dotted').
+    Devuelve None para línea sólida (default). Útil para enlaces de respaldo /
+    secundarios en topologías de red."""
+    style = connection.get('style') or connection.get('line_style')
+    if style == 'dashed':
+        return '7,5'
+    if style == 'dotted':
+        return '2,4'
+    # §E/§L40: arista de retorno de un ciclo → arco punteado (a menos que el
+    # usuario haya fijado un estilo explícito, ya cubierto arriba).
+    if connection.get('_cycle_return'):
+        return '6,4'
+    return None
+
+
 def draw_connection_line(dwg, elements_by_id, connection, markers, stroke_color='black'):
     """
     Dibuja solo la línea de conexión, sin etiqueta.
@@ -100,9 +116,11 @@ def draw_connection_line(dwg, elements_by_id, connection, markers, stroke_color=
         return None
 
     # v2.1: Check if connection has computed_path from routing system
+    dash = _dash_for(connection)
+
     computed_path = connection.get('computed_path')
     if computed_path:
-        return _draw_computed_path(dwg, from_elem, to_elem, connection, computed_path, markers, stroke_color)
+        return _draw_computed_path(dwg, from_elem, to_elem, connection, computed_path, markers, stroke_color, dash)
 
     # Legacy behavior: waypoints or straight line
     # Centro de cada elemento
@@ -141,6 +159,8 @@ def draw_connection_line(dwg, elements_by_id, connection, markers, stroke_color=
             'stroke': stroke_color,
             'stroke_width': 2
         }
+        if dash:
+            line_attrs['stroke_dasharray'] = dash
 
         _apply_direction_markers(line_attrs, direction, markers)
 
@@ -197,6 +217,8 @@ def draw_connection_line(dwg, elements_by_id, connection, markers, stroke_color=
             'stroke_width': 2,
             'fill': 'none'
         }
+        if dash:
+            polyline_attrs['stroke_dasharray'] = dash
 
         # Aplicar markers solo en los extremos
         _apply_direction_markers(polyline_attrs, direction, markers)
@@ -212,7 +234,7 @@ def draw_connection_line(dwg, elements_by_id, connection, markers, stroke_color=
         return (mid_x, mid_y)
 
 
-def _draw_computed_path(dwg, from_elem, to_elem, connection, computed_path, markers, stroke_color='black'):
+def _draw_computed_path(dwg, from_elem, to_elem, connection, computed_path, markers, stroke_color='black', dash=None):
     """
     Dibuja una conexión usando un path pre-computado por el routing system (v2.1).
 
@@ -240,35 +262,86 @@ def _draw_computed_path(dwg, from_elem, to_elem, connection, computed_path, mark
         y2 = to_elem['y'] + ICON_HEIGHT // 2
         return (x1 + x2) / 2, (y1 + y2) / 2
 
-    # Skip offsets cuando los puntos ya están en el borde del ícono
-    # (self-loops o conexiones con ports pre-asignados por port_assignment)
+    # K34 — regla de oro: todo conector empieza y termina EXACTO sobre el borde
+    # del ícono. Si el extremo (puerto asignado o centro) ya está en el borde, se
+    # respeta (puertos buenos de hier/arcos); si no (centro, o puerto mal ubicado
+    # por coords explícitas), se recorta al borde. Único camino de emisión.
     is_self_loop = from_elem['id'] == to_elem['id']
-    has_ports = connection.get('_from_port') is not None
-    if is_self_loop or has_ports:
+    if is_self_loop or len(points) < 2:
         adjusted_points = points
     else:
-        adjusted_points = _apply_visual_offsets(points, from_elem, to_elem)
+        adjusted_points = list(points)
+        if not from_elem.get('contains') and not _on_border(from_elem, adjusted_points[0]):
+            c = clip_to_border(from_elem, adjusted_points[1])
+            if c is not None:
+                adjusted_points[0] = c
+        if not to_elem.get('contains') and not _on_border(to_elem, adjusted_points[-1]):
+            c = clip_to_border(to_elem, adjusted_points[-2])
+            if c is not None:
+                adjusted_points[-1] = c
 
     if path_type == 'line':
-        return _draw_straight_line(dwg, adjusted_points, direction, markers, stroke_color)
+        return _draw_straight_line(dwg, adjusted_points, direction, markers, stroke_color, dash)
     elif path_type == 'polyline':
         corner_radius = computed_path.get('corner_radius', 0)
-        return _draw_polyline(dwg, adjusted_points, direction, markers, corner_radius, stroke_color)
+        return _draw_polyline(dwg, adjusted_points, direction, markers, corner_radius, stroke_color, dash)
     elif path_type == 'bezier':
         control_points = computed_path.get('control_points', [])
-        return _draw_bezier_curve(dwg, adjusted_points, control_points, direction, markers, stroke_color)
+        return _draw_bezier_curve(dwg, adjusted_points, control_points, direction, markers, stroke_color, dash)
     elif path_type == 'arc':
         arc_center = computed_path.get('arc_center', (0, 0))
         radius = computed_path.get('radius', 50)
-        return _draw_arc(dwg, adjusted_points, arc_center, radius, direction, markers, stroke_color)
+        return _draw_arc(dwg, adjusted_points, arc_center, radius, direction, markers, stroke_color, dash)
     else:
         # Unknown type, fallback to straight line
-        return _draw_straight_line(dwg, adjusted_points, direction, markers, stroke_color)
+        return _draw_straight_line(dwg, adjusted_points, direction, markers, stroke_color, dash)
+
+
+def _on_border(elem, point, tol=1.5):
+    """True si `point` cae sobre el borde del rectángulo de `elem` (±tol). Sirve
+    para respetar puertos ya bien ubicados y sólo recortar los que flotan."""
+    ex, ey = elem.get('x'), elem.get('y')
+    if ex is None or ey is None:
+        return True                       # sin geometría → no tocar
+    w = elem.get('width', ICON_WIDTH)
+    h = elem.get('height', ICON_HEIGHT)
+    px, py = point
+    on_x = abs(px - ex) <= tol or abs(px - (ex + w)) <= tol
+    on_y = abs(py - ey) <= tol or abs(py - (ey + h)) <= tol
+    in_x = ex - tol <= px <= ex + w + tol
+    in_y = ey - tol <= py <= ey + h + tol
+    return (on_x and in_y) or (on_y and in_x)
+
+
+def clip_to_border(elem, toward):
+    """Punto sobre el BORDE del rectángulo de `elem` en la dirección hacia
+    `toward` (x, y), partiendo del centro del ícono (K34 — recorte compartido).
+
+    A diferencia del viejo offset radial `max(w,h)/2` (que para diagonales caía
+    fuera del rectángulo → conectores flotando), esto resuelve la intersección
+    rayo-rectángulo: el extremo cae EXACTO en el borde a cualquier ángulo.
+    Los contenedores se devuelven sin tocar (el router ya dio su punto de borde).
+    """
+    ex, ey = elem.get('x'), elem.get('y')
+    if ex is None or ey is None:
+        return None
+    w = elem.get('width', ICON_WIDTH)
+    h = elem.get('height', ICON_HEIGHT)
+    cx, cy = ex + w / 2.0, ey + h / 2.0
+    dx, dy = toward[0] - cx, toward[1] - cy
+    if dx == 0 and dy == 0:
+        return (cx, cy)
+    tx = (w / 2.0) / abs(dx) if dx != 0 else float('inf')
+    ty = (h / 2.0) / abs(dy) if dy != 0 else float('inf')
+    t = min(tx, ty)
+    return (cx + dx * t, cy + dy * t)
 
 
 def _apply_visual_offsets(points, from_elem, to_elem):
     """
-    Aplica offsets visuales a los puntos para evitar superposición con íconos.
+    Recorta los extremos del path al borde de cada ícono (K34), en vez de
+    aplicar un offset radial fijo. Así todo conector empieza y termina EXACTO
+    sobre el borde del rectángulo, a cualquier ángulo.
 
     Args:
         points: Lista de tuplas (x, y)
@@ -283,41 +356,22 @@ def _apply_visual_offsets(points, from_elem, to_elem):
 
     adjusted = list(points)
 
-    # Ajustar primer punto (origen)
-    x1, y1 = points[0]
-    x2, y2 = points[1] if len(points) > 1 else points[0]
+    # Origen: recortar al borde salvo contenedor (el router ya dio el borde).
+    if not from_elem.get('contains'):
+        clipped = clip_to_border(from_elem, points[1])
+        if clipped is not None:
+            adjusted[0] = clipped
 
-    dx = x2 - x1
-    dy = y2 - y1
-    length = math.hypot(dx, dy)
-
-    if length > 0:
-        offset_start = compute_visual_offset(from_elem)
-        adjusted[0] = (
-            x1 + offset_start * dx / length,
-            y1 + offset_start * dy / length
-        )
-
-    # Ajustar último punto (destino)
-    if len(points) > 1:
-        xn_1, yn_1 = points[-2]
-        xn, yn = points[-1]
-
-        dx = xn - xn_1
-        dy = yn - yn_1
-        length = math.hypot(dx, dy)
-
-        if length > 0:
-            offset_end = compute_visual_offset(to_elem)
-            adjusted[-1] = (
-                xn - offset_end * dx / length,
-                yn - offset_end * dy / length
-            )
+    # Destino: idem, mirando hacia el penúltimo punto.
+    if not to_elem.get('contains'):
+        clipped = clip_to_border(to_elem, points[-2])
+        if clipped is not None:
+            adjusted[-1] = clipped
 
     return adjusted
 
 
-def _draw_straight_line(dwg, points, direction, markers, stroke_color='black'):
+def _draw_straight_line(dwg, points, direction, markers, stroke_color='black', dash=None):
     """Dibuja una línea recta entre dos puntos."""
     if len(points) < 2:
         return (0, 0)
@@ -331,6 +385,8 @@ def _draw_straight_line(dwg, points, direction, markers, stroke_color='black'):
         'stroke': stroke_color,
         'stroke_width': 2
     }
+    if dash:
+        line_attrs['stroke_dasharray'] = dash
 
     _apply_direction_markers(line_attrs, direction, markers)
 
@@ -340,13 +396,13 @@ def _draw_straight_line(dwg, points, direction, markers, stroke_color='black'):
     return (x1 + x2) / 2, (y1 + y2) / 2
 
 
-def _draw_polyline(dwg, points, direction, markers, corner_radius=0, stroke_color='black'):
+def _draw_polyline(dwg, points, direction, markers, corner_radius=0, stroke_color='black', dash=None):
     """Dibuja una polyline, opcionalmente con esquinas redondeadas via SVG path Q curves."""
     if len(points) < 2:
         return (0, 0)
 
     if corner_radius > 0 and len(points) > 2:
-        return _draw_rounded_polyline(dwg, points, direction, markers, corner_radius, stroke_color)
+        return _draw_rounded_polyline(dwg, points, direction, markers, corner_radius, stroke_color, dash)
 
     polyline_attrs = {
         'points': points,
@@ -354,6 +410,8 @@ def _draw_polyline(dwg, points, direction, markers, corner_radius=0, stroke_colo
         'stroke_width': 2,
         'fill': 'none'
     }
+    if dash:
+        polyline_attrs['stroke_dasharray'] = dash
 
     _apply_direction_markers(polyline_attrs, direction, markers)
 
@@ -365,7 +423,7 @@ def _draw_polyline(dwg, points, direction, markers, corner_radius=0, stroke_colo
     return total_x / len(points), total_y / len(points)
 
 
-def _draw_rounded_polyline(dwg, points, direction, markers, corner_radius, stroke_color='black'):
+def _draw_rounded_polyline(dwg, points, direction, markers, corner_radius, stroke_color='black', dash=None):
     """Dibuja polyline con esquinas redondeadas usando SVG path con curvas cuadraticas (Q)."""
     # Construir SVG path: M start L...Q...L... end
     x0, y0 = points[0]
@@ -412,6 +470,8 @@ def _draw_rounded_polyline(dwg, points, direction, markers, corner_radius, strok
         'stroke_width': 2,
         'fill': 'none'
     }
+    if dash:
+        path_attrs['stroke_dasharray'] = dash
 
     _apply_direction_markers(path_attrs, direction, markers)
 
@@ -423,7 +483,7 @@ def _draw_rounded_polyline(dwg, points, direction, markers, corner_radius, strok
     return total_x / len(points), total_y / len(points)
 
 
-def _draw_bezier_curve(dwg, points, control_points, direction, markers, stroke_color='black'):
+def _draw_bezier_curve(dwg, points, control_points, direction, markers, stroke_color='black', dash=None):
     """Dibuja una curva de Bézier cúbica."""
     if len(points) < 2:
         return (0, 0)
@@ -449,6 +509,8 @@ def _draw_bezier_curve(dwg, points, control_points, direction, markers, stroke_c
         'stroke_width': 2,
         'fill': 'none'
     }
+    if dash:
+        path_attrs['stroke_dasharray'] = dash
 
     _apply_direction_markers(path_attrs, direction, markers)
 
@@ -458,7 +520,7 @@ def _draw_bezier_curve(dwg, points, control_points, direction, markers, stroke_c
     return (x1 + x2) / 2, (y1 + y2) / 2
 
 
-def _draw_arc(dwg, points, arc_center, radius, direction, markers, stroke_color='black'):
+def _draw_arc(dwg, points, arc_center, radius, direction, markers, stroke_color='black', dash=None):
     """Dibuja un arco circular."""
     if len(points) < 2:
         return (0, 0)
@@ -483,6 +545,8 @@ def _draw_arc(dwg, points, arc_center, radius, direction, markers, stroke_color=
         'stroke_width': 2,
         'fill': 'none'
     }
+    if dash:
+        path_attrs['stroke_dasharray'] = dash
 
     _apply_direction_markers(path_attrs, direction, markers)
 
@@ -512,8 +576,7 @@ def draw_connection_label(dwg, connection, position):
         text_anchor="middle",
         font_size="12px",
         font_family="Arial, sans-serif",
-        fill="gray",
-        filter='url(#text-glow)'
+        fill="#14181d",
     ))
 
 

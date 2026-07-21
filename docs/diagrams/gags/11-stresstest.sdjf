@@ -4,7 +4,7 @@
     { "id": "jose_heraclides", "label": "José Heráclides", "type": "server", "color": "gold" },
     { "id": "daria", "label": "Daría", "type": "server", "color": "gold" },
 
-    { "id": "silvia", "label": "Silvia", "type": "serveer", "color": "lightblue" },
+    { "id": "silvia", "label": "Silvia", "type": "server", "color": "lightblue" },
     { "id": "lica", "label": "Lica", "type": "server", "color": "lightblue" },
     { "id": "patricia", "label": "Patricia", "type": "server", "color": "lightblue" },
     { "id": "santiago", "label": "Santiago", "type": "server", "color": "lightblue" },
@@ -20,21 +20,15 @@
     { "id": "gerardo", "label": "Gerardo", "type": "server", "color": "lightgreen" },
     { "id": "dante", "label": "Dante", "type": "server", "color": "lightgreen" }
   ],
+  "unions": [
+    { "id": "u_jh_daria", "between": ["jose_heraclides", "daria"] }
+  ],
   "connections": [
-    { "from": "jose_heraclides", "to": "silvia", "direction": "forward" },
-    { "from": "daria", "to": "silvia", "direction": "forward" },
-
-    { "from": "jose_heraclides", "to": "lica", "direction": "forward" },
-    { "from": "daria", "to": "lica", "direction": "forward" },
-
-    { "from": "jose_heraclides", "to": "patricia", "direction": "forward" },
-    { "from": "daria", "to": "patricia", "direction": "forward" },
-
-    { "from": "jose_heraclides", "to": "santiago", "direction": "forward" },
-    { "from": "daria", "to": "santiago", "direction": "forward" },
-
-    { "from": "jose_heraclides", "to": "jose", "direction": "forward" },
-    { "from": "daria", "to": "jose", "direction": "forward" },
+    { "from": "u_jh_daria", "to": "silvia", "direction": "forward" },
+    { "from": "u_jh_daria", "to": "lica", "direction": "forward" },
+    { "from": "u_jh_daria", "to": "patricia", "direction": "forward" },
+    { "from": "u_jh_daria", "to": "santiago", "direction": "forward" },
+    { "from": "u_jh_daria", "to": "jose", "direction": "forward" },
 
     { "from": "silvia", "to": "sebastian", "direction": "forward" },
 

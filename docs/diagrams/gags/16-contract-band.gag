@@ -1,0 +1,24 @@
+{
+  "canvas": {"width": 900, "height": 600},
+  "elements": [
+    {"id": "entry", "type": "server", "label": "Entry", "color": "steelblue", "x": 410, "y": 60},
+    {
+      "id": "contract_band", "shape": "band", "type": "firewall",
+      "label": "Contract", "color": "lightblue",
+      "x": 176, "y": 250,
+      "contains": ["ep_left", "abstract", "ep_right"]
+    },
+    {"id": "ep_left", "type": "server", "label": "Impl A", "color": "lightgreen", "x": 310, "y": 270},
+    {"id": "abstract", "type": "diamond", "label": "Iface", "color": "gold", "x": 410, "y": 270},
+    {"id": "ep_right", "type": "server", "label": "Impl B", "color": "lightgreen", "x": 510, "y": 270},
+    {"id": "out", "type": "document", "label": "Output", "color": "lightblue", "x": 410, "y": 470}
+  ],
+  "connections": [
+    {"from": "entry", "to": "ep_left", "direction": "forward"},
+    {"from": "entry", "to": "ep_right", "direction": "forward"},
+    {"from": "ep_left", "to": "abstract", "direction": "forward"},
+    {"from": "ep_right", "to": "abstract", "direction": "forward"},
+    {"from": "ep_left", "to": "out", "direction": "forward"},
+    {"from": "ep_right", "to": "out", "direction": "forward"}
+  ]
+}

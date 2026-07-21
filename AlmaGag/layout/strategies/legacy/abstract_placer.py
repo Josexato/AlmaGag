@@ -1,0 +1,1659 @@
+"""
+AbstractPlacer - Posicionamiento abstracto de elementos minimizando cruces
+
+Implementa algoritmo híbrido basado en Sugiyama para layout jerárquico:
+1. Layering: Asignar elementos a capas según nivel topológico
+2. Ordering: Ordenar dentro de capas usando barycenter + tipo
+3. Positioning: Distribuir uniformemente minimizando cruces
+
+Author: José + ALMA
+Version: v1.0
+Date: 2026-01-17
+"""
+
+import logging
+from typing import Dict, List, Tuple, Set
+from AlmaGag.layout.strategies.legacy.structure_analyzer import StructureInfo
+
+logger = logging.getLogger('AlmaGag')
+
+
+class AbstractPlacer:
+    """
+    Posiciona elementos como puntos de 1px minimizando cruces.
+
+    Usa 4 heurísticas:
+    1. Tipo de elementos (similares cerca)
+    2. Secuencia topológica (respeta orden de conexión)
+    3. Distribución simétrica por tipo
+    4. Minimización de cruces por capas (barycenter)
+    """
+
+    # DESCONTINUADO: Ahora usamos algoritmo híbrido que mezcla barycenter + centralidad
+    # Ver _calculate_centrality_weight() para la nueva implementación
+    # SCORE_CENTER_INFLUENCE = 20.0
+
+    def __init__(self, debug: bool = False):
+        """
+        Inicializa el placer abstracto.
+
+        Args:
+            debug: Si True, imprime logs de debug
+        """
+        self.debug = debug
+        self._connection_graph = None  # Set during place_elements when in NdDp mode
+        # Pesos dinámicos del barycenter (WISH-LAF-001). Se computan en
+        # place_elements() según la proporción vertical/horizontal del grafo.
+        self._prev_weight = 0.7
+        self._same_weight = 0.3
+
+    def _compute_barycenter_weights(self, structure_info):
+        """
+        Calcula pesos prev:same para el barycenter según la proporción de
+        conexiones verticales (cross-layer) vs horizontales (same-layer)
+        del grafo (WISH-LAF-001).
+
+        - Grafo puramente vertical → prev ≈ BARYCENTER_PREV_WEIGHT_MAX (0.85).
+        - Grafo con muchas conexiones same-layer → prev ≈ MIN (0.5).
+
+        Returns:
+            (prev_weight, same_weight) sumando 1.
+        """
+        from AlmaGag.config import BARYCENTER_PREV_WEIGHT_MIN, BARYCENTER_PREV_WEIGHT_MAX
+
+        levels = structure_info.topological_levels
+        conn_graph = structure_info.connection_graph
+        if not levels or not conn_graph:
+            return (BARYCENTER_PREV_WEIGHT_MAX, 1 - BARYCENTER_PREV_WEIGHT_MAX)
+
+        vertical = 0
+        horizontal = 0
+        for from_id, to_list in conn_graph.items():
+            lv_from = levels.get(from_id, 0)
+            for to_id in to_list:
+                lv_to = levels.get(to_id, 0)
+                if lv_from == lv_to:
+                    horizontal += 1
+                else:
+                    vertical += 1
+
+        total = vertical + horizontal
+        if total == 0:
+            return (BARYCENTER_PREV_WEIGHT_MAX, 1 - BARYCENTER_PREV_WEIGHT_MAX)
+
+        ratio = vertical / total
+        prev_weight = (
+            BARYCENTER_PREV_WEIGHT_MIN
+            + (BARYCENTER_PREV_WEIGHT_MAX - BARYCENTER_PREV_WEIGHT_MIN) * ratio
+        )
+        return (prev_weight, 1 - prev_weight)
+
+    def _calculate_centrality_weight(self, accessibility_score: float) -> float:
+        """
+        Calcula el peso de centralidad (alpha) basado en el accessibility score.
+
+        Formula ajustada para dar más peso a scores bajos:
+        - score = 0      → alpha = 0.0  (100% barycenter conexiones)
+        - score = 0.01   → alpha = 0.4  (60% conexiones, 40% centro)
+        - score = 0.02   → alpha = 0.5  (50% conexiones, 50% centro)
+        - score = 0.04   → alpha = 0.7  (30% conexiones, 70% centro)
+        - score = 0.10+  → alpha = 0.95 (5% conexiones, 95% centro)
+
+        Args:
+            accessibility_score: Score de accesibilidad del elemento
+
+        Returns:
+            float: Peso alpha entre 0.0 y 1.0
+        """
+        if accessibility_score <= 0:
+            return 0.0
+        elif accessibility_score >= 0.10:
+            return 0.95
+        else:
+            # Función no-lineal: muy agresiva en scores bajos
+            # alpha = min(0.95, 0.6 + score * 3.5)
+            # Esto da: 0.01→0.635, 0.02→0.67, 0.04→0.74, 0.10→0.95
+            return min(0.95, 0.6 + accessibility_score * 3.5)
+
+    def place_elements(
+        self,
+        structure_info: StructureInfo,
+        layout,
+        centrality_order: Dict[int, List[Tuple[str, float]]] = None,
+        connection_graph: Dict[str, List[str]] = None,
+        collapsed_sizes: Dict[str, float] = None,
+        topological_levels: Dict[str, int] = None,
+        seed_positions: Dict[str, Tuple[float, float]] = None,
+        accessibility_scores: Dict[str, float] = None
+    ) -> Dict[str, Tuple[int, int]]:
+        """
+        Calcula posiciones abstractas (x, y) para elementos.
+
+        Cuando connection_graph se provee (modo NdDp), trabaja sobre nodos NdDp
+        usando el grafo abstracto directamente. No genera posiciones de elementos
+        contenidos ni aplica adjacencia TOI.
+
+        Algoritmo:
+        1. Agrupar elementos por nivel topológico (capas horizontales)
+           - Si centrality_order está disponible (Fase 3), usar ese orden inicial
+        2. Dentro de cada capa, ordenar por tipo + barycenter
+        3. Aplicar barycenter heuristic para minimizar cruces
+        4. Distribuir simétricamente dentro de cada capa
+        5. (Solo modo normal) Asignar posiciones a elementos contenidos
+
+        Args:
+            structure_info: Información estructural del diagrama
+            layout: Layout con connections
+            centrality_order: Orden de Fase 3 {level: [(elem_id, score), ...]}
+            connection_graph: Grafo de conexiones explícito (modo NdDp).
+                              Si se provee, se usa en vez de layout.connections.
+            collapsed_sizes: {elem_id: estimated_width} para nodos colapsados
+                             que ocupan más espacio horizontal.
+            topological_levels: Niveles topológicos explícitos (override para
+                                iteraciones de expansión parcial).
+            accessibility_scores: Scores parciales por iteración. Si se provee,
+                                  se usa en vez de structure_info.accessibility_scores.
+
+        Returns:
+            {element_id: (abstract_x, abstract_y)}
+        """
+        # Guardar estado para uso en métodos internos
+        self._connection_graph = connection_graph
+        self._seed_positions = seed_positions
+        self._accessibility_scores = accessibility_scores
+
+        # WISH-LAF-001: pesos dinámicos del barycenter según ratio vertical:horizontal.
+        self._prev_weight, self._same_weight = self._compute_barycenter_weights(structure_info)
+        if self.debug:
+            logger.debug(
+                f"[BARYCENTER] pesos dinámicos prev={self._prev_weight:.2f} "
+                f"same={self._same_weight:.2f}"
+            )
+
+        # Fase 1: Layering (asignar elementos a capas)
+        if topological_levels and connection_graph:
+            # Modo iterativo: usar topological_levels del grafo parcial
+            layers = self._assign_layers_from_levels(topological_levels)
+            # Pre-ordenar capas por centrality_order iterativo
+            if centrality_order:
+                self._presort_layers_by_centrality(layers, centrality_order)
+        else:
+            layers = self._assign_layers(structure_info, centrality_order)
+
+        # Step 2: Ordering (ordenar dentro de capas)
+        if self._seed_positions:
+            # Modo congelado: elementos previos fijos, solo nuevos se ordenan
+            self._order_with_frozen(layers, structure_info, layout)
+        else:
+            self._order_within_layers(layers, structure_info, layout)
+
+        # Guardar orden optimizado para Fase 9 (Redistribución)
+        layout.optimized_layer_order = [layer.copy() for layer in layers]
+
+        # Fase 3: Positioning (asignar coordenadas abstractas)
+        positions = self._assign_abstract_positions(layers, collapsed_sizes)
+
+        # Fase 4: Positioning de elementos contenidos (solo modo normal)
+        if not connection_graph:
+            self._assign_contained_positions(positions, structure_info, layout)
+
+        if self.debug:
+            for idx, layer in enumerate(layers):
+                if len(layer) > 1:
+                    logger.debug(f"  Capa {idx}: {' -> '.join(layer)}")
+
+        # Limpiar estado temporal
+        self._connection_graph = None
+        self._seed_positions = None
+        self._accessibility_scores = None
+
+        return positions
+
+    def _get_accessibility_score(self, elem_id: str, structure_info: StructureInfo) -> float:
+        """Obtiene accessibility score del override parcial o de structure_info."""
+        if self._accessibility_scores:
+            return self._accessibility_scores.get(elem_id, 0.0)
+        return structure_info.accessibility_scores.get(elem_id, 0.0)
+
+    def _presort_layers_by_centrality(
+        self,
+        layers: List[List[str]],
+        centrality_order: Dict[int, List[Tuple[str, float]]]
+    ) -> None:
+        """
+        Pre-ordena capas según centrality_order (distribución centro-extremos).
+
+        Para cada capa, reordena los elementos según el orden definido
+        en centrality_order para ese nivel. Elementos no presentes en
+        centrality_order se agregan al final.
+
+        Args:
+            layers: Capas a pre-ordenar (modifica in-place)
+            centrality_order: {level: [(elem_id, score), ...]}
+        """
+        for level, layer in enumerate(layers):
+            if level not in centrality_order or len(layer) <= 1:
+                continue
+
+            order_ids = [eid for eid, _ in centrality_order[level]]
+            order_map = {eid: idx for idx, eid in enumerate(order_ids)}
+
+            # Separar: los que están en centrality_order y los que no
+            in_order = [e for e in layer if e in order_map]
+            not_in_order = [e for e in layer if e not in order_map]
+
+            in_order.sort(key=lambda e: order_map[e])
+            layer[:] = in_order + not_in_order
+
+    def _order_with_frozen(
+        self,
+        layers: List[List[str]],
+        structure_info: StructureInfo,
+        layout
+    ) -> None:
+        """
+        Ordena capas congelando elementos de iteraciones previas.
+
+        Elementos con seed_positions quedan fijos en su orden relativo.
+        Elementos nuevos (hijos de un VC recién expandido) se insertan
+        en el hueco que dejó su VC colapsado, ordenados internamente
+        por barycenter contra capas adyacentes.
+
+        Args:
+            layers: Capas a ordenar (modifica in-place)
+            structure_info: Para mapeo element_to_ndpr
+            layout: Layout con connections
+        """
+        for layer in layers:
+            if len(layer) <= 1:
+                continue
+
+            frozen = [e for e in layer if e in self._seed_positions]
+            new_elems = [e for e in layer if e not in self._seed_positions]
+
+            if not new_elems:
+                # Todos congelados: mantener orden por seed X
+                layer.sort(key=lambda e: self._seed_positions[e][0])
+                continue
+
+            if not frozen:
+                # Todos nuevos (no debería pasar en iterativo, pero fallback)
+                continue
+
+            # Frozen ordenados por seed X
+            frozen.sort(key=lambda e: self._seed_positions[e][0])
+
+            # Agrupar nuevos por su VC de origen
+            vc_groups = {}
+            for elem_id in new_elems:
+                ndpr_id = structure_info.element_to_ndpr.get(elem_id)
+                if ndpr_id and ndpr_id in self._seed_positions:
+                    vc_groups.setdefault(ndpr_id, []).append(elem_id)
+                else:
+                    # Sin VC conocido: al final
+                    vc_groups.setdefault('__tail__', []).append(elem_id)
+
+            # Construir slots: (seed_x, [elementos])
+            slots = []
+            for e in frozen:
+                slots.append((self._seed_positions[e][0], [e]))
+            for vc_id, children in vc_groups.items():
+                if vc_id == '__tail__':
+                    continue
+                vc_x = self._seed_positions[vc_id][0]
+                slots.append((vc_x, children))
+
+            slots.sort(key=lambda s: s[0])
+
+            result = []
+            for _, items in slots:
+                result.extend(items)
+
+            # Agregar elementos sin VC conocido al final
+            if '__tail__' in vc_groups:
+                result.extend(vc_groups['__tail__'])
+
+            layer[:] = result
+
+    def _assign_layers_from_levels(
+        self,
+        topological_levels: Dict[str, int]
+    ) -> List[List[str]]:
+        """
+        Asigna elementos a capas usando niveles topológicos explícitos.
+
+        Usado en el modo iterativo donde los elementos vienen del grafo parcial.
+
+        Args:
+            topological_levels: {elem_id: level} para todos los elementos
+
+        Returns:
+            Lista de capas, cada capa es lista de element_ids
+        """
+        if not topological_levels:
+            return [list(topological_levels.keys())]
+
+        max_level = max(topological_levels.values())
+        layers = [[] for _ in range(max_level + 1)]
+
+        for elem_id, level in topological_levels.items():
+            layers[level].append(elem_id)
+
+        return layers
+
+    def _assign_layers(
+        self,
+        structure_info: StructureInfo,
+        centrality_order: Dict[int, List[Tuple[str, float]]] = None
+    ) -> List[List[str]]:
+        """
+        Asigna elementos a capas según nivel topológico.
+
+        Si centrality_order está disponible (de Fase 3), usa ese orden inicial.
+        Esto proporciona un punto de partida basado en accessibility scores,
+        que luego será refinado por el algoritmo de barycenter.
+
+        Args:
+            structure_info: Información estructural
+            centrality_order: Orden de Fase 3 {level: [(elem_id, score), ...]}
+
+        Returns:
+            Lista de capas, cada capa es lista de element_ids
+            Capa 0 = nivel topológico 0 (sin dependencias entrantes)
+            Capa N = nivel topológico N
+        """
+        # Obtener máximo nivel
+        if not structure_info.topological_levels:
+            # Fallback: todos en capa 0
+            return [structure_info.primary_elements]
+
+        max_level = max(structure_info.topological_levels.values())
+
+        # Inicializar capas
+        layers = [[] for _ in range(max_level + 1)]
+
+        # Si tenemos centrality_order de Fase 3, usar ese orden inicial
+        if centrality_order:
+            for level in range(max_level + 1):
+                if level in centrality_order:
+                    # Extraer solo los elem_ids (sin scores)
+                    layers[level] = [elem_id for elem_id, score in centrality_order[level]]
+                else:
+                    layers[level] = []
+        else:
+            # Fallback: orden por aparición en primary_elements
+            for elem_id in structure_info.primary_elements:
+                level = structure_info.topological_levels.get(elem_id, 0)
+                layers[level].append(elem_id)
+
+        return layers
+
+    def _order_within_layers(
+        self,
+        layers: List[List[str]],
+        structure_info: StructureInfo,
+        layout
+    ) -> None:
+        """
+        Ordena elementos dentro de cada capa usando barycenter bidireccional.
+
+        Modifica layers in-place.
+
+        En modo NdDp (self._connection_graph set), usa el grafo abstracto
+        directamente en vez de layout.connections.
+
+        Args:
+            layers: Lista de capas a ordenar
+            structure_info: Información estructural
+            layout: Layout con connections
+        """
+        ndpr_mode = self._connection_graph is not None
+
+        # Primera capa: ordenar por tipo + cantidad de conexiones
+        if layers:
+            self._order_first_layer(layers[0], structure_info)
+
+        # Aplicar barycenter bidireccional con múltiples iteraciones
+        # para minimizar cruces de conectores
+        iterations = 4  # Número de pasadas de optimización
+
+        for iteration in range(iterations):
+            # Forward pass: considerar capa anterior
+            for layer_idx in range(1, len(layers)):
+                self._order_layer_barycenter_forward(
+                    layers[layer_idx],
+                    layers[layer_idx - 1],
+                    structure_info,
+                    layout
+                )
+
+            # Backward pass: considerar capa siguiente
+            for layer_idx in range(len(layers) - 2, 0, -1):
+                self._order_layer_barycenter_backward(
+                    layers[layer_idx],
+                    layers[layer_idx + 1],
+                    structure_info,
+                    layout
+                )
+
+            # Distribución center-out por centralidad efectiva:
+            # mayor alpha al centro, menores intercalados izq/der,
+            # hojas pegadas a su padre en el lado externo
+            for layer_idx in range(len(layers)):
+                if len(layers[layer_idx]) >= 3:
+                    self._distribute_by_centrality(
+                        layers[layer_idx],
+                        structure_info,
+                    )
+
+            pass  # orden final se muestra en place_elements
+
+    def _order_first_layer(
+        self,
+        layer: List[str],
+        structure_info: StructureInfo
+    ) -> None:
+        """
+        Ordena primera capa por tipo + cantidad de conexiones.
+
+        Args:
+            layer: Lista de element_ids a ordenar (modifica in-place)
+            structure_info: Información estructural
+        """
+        conn_graph = self._connection_graph if self._connection_graph is not None else structure_info.connection_graph
+
+        # Obtener tipo y cantidad de conexiones de cada elemento
+        def get_sort_key(elem_id: str) -> Tuple[str, int]:
+            # Tipo del elemento
+            elem_type = 'unknown'
+            for etype, ids in structure_info.element_types.items():
+                if elem_id in ids:
+                    elem_type = etype
+                    break
+
+            # Cantidad de conexiones (salientes)
+            conn_count = len(conn_graph.get(elem_id, []))
+
+            return (elem_type, -conn_count, elem_id)  # tie-break por elem_id
+
+        layer.sort(key=get_sort_key)
+
+    def _order_layer_barycenter_forward(
+        self,
+        current_layer: List[str],
+        previous_layer: List[str],
+        structure_info: StructureInfo,
+        layout
+    ) -> None:
+        """
+        Ordena capa usando forward barycenter (considera capa anterior).
+
+        En modo NdDp (self._connection_graph set), usa el grafo abstracto
+        para calcular barycenters en vez de layout.connections.
+
+        Args:
+            current_layer: Capa actual a ordenar (modifica in-place)
+            previous_layer: Capa anterior (ya ordenada)
+            structure_info: Información estructural
+            layout: Layout con connections
+        """
+        ndpr_mode = self._connection_graph is not None
+
+        # Crear mapa de posiciones de capa anterior
+        prev_positions = {elem_id: idx for idx, elem_id in enumerate(previous_layer)}
+
+        # Crear mapa temporal de posiciones actuales
+        current_positions = {elem_id: idx for idx, elem_id in enumerate(current_layer)}
+
+        # Calcular barycenter para cada elemento (PRIMERA PASADA)
+        barycenters = {}
+        for elem_id in current_layer:
+            if ndpr_mode:
+                barycenter = self._calculate_barycenter_from_graph(
+                    elem_id, current_layer, prev_positions, self._connection_graph
+                )
+            else:
+                barycenter = self._calculate_barycenter(
+                    elem_id, current_layer, prev_positions, structure_info, layout
+                )
+            barycenters[elem_id] = barycenter
+
+        # SEGUNDA PASADA: Recalcular barycenters de contenedores usando
+        # los barycenters de otros elementos (no sus posiciones)
+        # En modo NdDp, VCs son nodos atómicos → no necesita segunda pasada
+        if not ndpr_mode:
+            for elem_id in current_layer:
+                container_node = structure_info.element_tree.get(elem_id)
+                if container_node and container_node['is_container'] and container_node['children']:
+                    barycenter = self._calculate_container_barycenter(
+                        elem_id, current_layer, barycenters, structure_info, layout
+                    )
+                    barycenters[elem_id] = barycenter
+
+        # ALGORITMO HÍBRIDO: Mezclar barycenter de conexiones con atracción al centro
+        # según accessibility score
+        center = (len(current_layer) - 1) / 2.0
+        conn_graph = self._connection_graph if self._connection_graph is not None else structure_info.connection_graph
+
+        # Detectar clusters padre-hojas en la misma capa para reducir centralidad del padre
+        layer_set = set(current_layer)
+        has_same_layer_leaves = set()
+        for elem_id in current_layer:
+            same_layer_targets = [t for t in conn_graph.get(elem_id, []) if t in layer_set]
+            if same_layer_targets:
+                # Verificar si algún target es hoja (sin conexiones inter-capa)
+                for t in same_layer_targets:
+                    t_outdeg = len([x for x in conn_graph.get(t, []) if x not in layer_set])
+                    t_indeg = sum(1 for s, ts in conn_graph.items()
+                                  if s not in layer_set and t in ts)
+                    if t_outdeg + t_indeg == 0:
+                        has_same_layer_leaves.add(elem_id)
+                        break
+
+        for elem_id in current_layer:
+            score = self._get_accessibility_score(elem_id, structure_info)
+            barycenter_conn = barycenters.get(elem_id, center)
+
+            # Calcular peso de centralidad (alpha) basado en score
+            alpha = self._calculate_centrality_weight(score)
+
+            # Reducir centralidad de nodos que tienen hojas en la misma capa:
+            # estos nodos deben moverse con sus hojas hacia la periferia
+            if elem_id in has_same_layer_leaves:
+                alpha *= 0.3  # Reducir atracción al centro drásticamente
+
+            # Mezclar: barycenter_final = (1-alpha)*barycenter_conn + alpha*center
+            barycenter_final = (1.0 - alpha) * barycenter_conn + alpha * center
+            barycenters[elem_id] = barycenter_final
+
+        # Ordenar por barycenter híbrido (ya incluye centralidad)
+        def get_sort_key(elem_id: str) -> Tuple[float, int, str]:
+            barycenter = barycenters.get(elem_id, len(previous_layer) / 2)
+            container_node = structure_info.element_tree.get(elem_id)
+            is_container = 1 if (container_node and container_node['is_container']) else 2
+            elem_type = 'unknown'
+            for etype, ids in structure_info.element_types.items():
+                if elem_id in ids:
+                    elem_type = etype
+                    break
+            return (barycenter, is_container, elem_type, elem_id)
+
+        current_layer.sort(key=get_sort_key)
+
+        # Keep TOI virtual container members adjacent after sorting
+        # (not needed in NdDp mode - VCs are single nodes)
+        if not ndpr_mode:
+            self._enforce_toi_container_adjacency(current_layer, structure_info)
+
+    def _distribute_by_centrality(
+        self,
+        current_layer: List[str],
+        structure_info: StructureInfo,
+    ) -> None:
+        """
+        Distribuye nodos center-out según centralidad efectiva (alpha).
+
+        Algoritmo:
+        1. Identificar hojas same-layer (sin conexiones inter-capa)
+        2. Calcular alpha efectivo para cada nodo (con penalización por hojas)
+        3. Crear unidades: singletons o clusters padre+hojas
+        4. Ordenar unidades por alpha descendente
+        5. Colocar center-out: mayor alpha al centro, alternando izq/der
+        6. Hojas siempre en el lado externo (opuesto al centro) del padre
+
+        Args:
+            current_layer: Capa a redistribuir (modifica in-place)
+            structure_info: Información estructural
+        """
+        conn_graph = self._connection_graph if self._connection_graph is not None else structure_info.connection_graph
+        layer_set = set(current_layer)
+
+        # Paso 1: Identificar hojas same-layer
+        leaf_to_parent = {}
+        for elem_id in current_layer:
+            if conn_graph.get(elem_id, []):
+                continue
+            score = self._get_accessibility_score(elem_id, structure_info)
+            if score > 0.05:
+                continue
+            indeg_inter = sum(1 for s, ts in conn_graph.items()
+                              if s not in layer_set and elem_id in ts)
+            if indeg_inter > 0:
+                continue
+            for candidate in current_layer:
+                if candidate == elem_id:
+                    continue
+                if elem_id in conn_graph.get(candidate, []):
+                    leaf_to_parent[elem_id] = candidate
+                    break
+
+        # Paso 2: Calcular alpha efectivo para cada nodo
+        has_leaves = set()
+        parent_leaves = {}
+        for leaf_id, parent_id in leaf_to_parent.items():
+            has_leaves.add(parent_id)
+            parent_leaves.setdefault(parent_id, []).append(leaf_id)
+
+        effective_alphas = {}
+        for elem_id in current_layer:
+            score = self._get_accessibility_score(elem_id, structure_info)
+            alpha = self._calculate_centrality_weight(score)
+            if elem_id in has_leaves:
+                alpha *= 0.3
+            effective_alphas[elem_id] = alpha
+
+        # Paso 3: Crear unidades (singleton o cluster padre+hojas)
+        all_leaves = set(leaf_to_parent.keys())
+        units = []  # [(alpha, parent_id, [leaves])]
+
+        for elem_id in current_layer:
+            if elem_id in all_leaves:
+                continue
+            alpha = effective_alphas[elem_id]
+            leaves = parent_leaves.get(elem_id, [])
+            units.append((alpha, elem_id, leaves))
+
+        # Paso 4: Ordenar por alpha descendente, tie-break por elem_id para determinismo
+        units.sort(key=lambda u: (-u[0], u[1]))
+
+        # Paso 5: Colocar center-out alternando izquierda/derecha
+        # Mayor alpha → centro, siguiente → izquierda, siguiente → derecha, etc.
+        n_units = len(units)
+        placed = [None] * n_units
+        center_idx = n_units // 2
+        left = center_idx - 1
+        right = center_idx + 1
+        place_left = True  # Empezar alternando por la izquierda
+
+        for i, unit in enumerate(units):
+            if i == 0:
+                placed[center_idx] = unit
+            elif place_left and left >= 0:
+                placed[left] = unit
+                left -= 1
+                place_left = False
+            elif not place_left and right < n_units:
+                placed[right] = unit
+                right += 1
+                place_left = True
+            elif left >= 0:
+                placed[left] = unit
+                left -= 1
+            elif right < n_units:
+                placed[right] = unit
+                right += 1
+
+        # Paso 6: Expandir unidades a la capa final
+        # Hojas se distribuyen simétricamente alrededor del padre:
+        # mitad a la izquierda, mitad a la derecha (contenedor virtual)
+        # Cuando hay número impar de hojas, la hoja extra va al lado periférico
+        new_layer = []
+        center_pos = (n_units - 1) / 2.0
+
+        for unit_idx, unit in enumerate(placed):
+            if unit is None:
+                continue
+            _, parent_id, leaves = unit
+            if not leaves:
+                new_layer.append(parent_id)
+            else:
+                # Determinar lado periférico según posición del cluster
+                on_left_side = unit_idx < center_pos
+
+                if on_left_side:
+                    # Cluster a la izquierda: hoja extra va a la izquierda (periferia)
+                    mid = (len(leaves) + 1) // 2  # redondeo hacia arriba → más a la izq
+                else:
+                    # Cluster a la derecha o centro: hoja extra va a la derecha
+                    mid = len(leaves) // 2  # redondeo hacia abajo → más a la der
+
+                left_leaves = leaves[:mid]
+                right_leaves = leaves[mid:]
+                new_layer.extend(left_leaves)
+                new_layer.append(parent_id)
+                new_layer.extend(right_leaves)
+
+        # Aplicar nuevo orden (modificar in-place)
+        current_layer[:] = new_layer
+
+    def _order_layer_barycenter_backward(
+        self,
+        current_layer: List[str],
+        next_layer: List[str],
+        structure_info: StructureInfo,
+        layout
+    ) -> None:
+        """
+        Ordena capa usando backward barycenter (considera capa siguiente).
+
+        En modo NdDp, usa self._connection_graph directamente.
+
+        Args:
+            current_layer: Capa actual a ordenar (modifica in-place)
+            next_layer: Capa siguiente (ya ordenada)
+            structure_info: Información estructural
+            layout: Layout con connections
+        """
+        ndpr_mode = self._connection_graph is not None
+
+        # Crear mapa de posiciones de capa siguiente
+        next_positions = {elem_id: idx for idx, elem_id in enumerate(next_layer)}
+
+        # Calcular barycenter backward para cada elemento
+        barycenters = {}
+        for elem_id in current_layer:
+            if ndpr_mode:
+                barycenter = self._calculate_barycenter_backward_from_graph(
+                    elem_id, current_layer, next_positions, self._connection_graph
+                )
+            else:
+                barycenter = self._calculate_barycenter_backward(
+                    elem_id, current_layer, next_positions, structure_info, layout
+                )
+            barycenters[elem_id] = barycenter
+
+        # ALGORITMO HÍBRIDO también en backward: mezclar barycenter con atracción al centro
+        center = (len(current_layer) - 1) / 2.0
+        conn_graph = self._connection_graph if self._connection_graph is not None else structure_info.connection_graph
+
+        # Detectar clusters padre-hojas en la misma capa
+        layer_set = set(current_layer)
+        has_same_layer_leaves = set()
+        for elem_id in current_layer:
+            same_layer_targets = [t for t in conn_graph.get(elem_id, []) if t in layer_set]
+            if same_layer_targets:
+                for t in same_layer_targets:
+                    t_outdeg = len([x for x in conn_graph.get(t, []) if x not in layer_set])
+                    t_indeg = sum(1 for s, ts in conn_graph.items()
+                                  if s not in layer_set and t in ts)
+                    if t_outdeg + t_indeg == 0:
+                        has_same_layer_leaves.add(elem_id)
+                        break
+
+        for elem_id in current_layer:
+            score = self._get_accessibility_score(elem_id, structure_info)
+            barycenter_conn = barycenters.get(elem_id, center)
+            alpha = self._calculate_centrality_weight(score)
+
+            # Reducir centralidad de nodos con hojas en la misma capa
+            if elem_id in has_same_layer_leaves:
+                alpha *= 0.3
+
+            barycenters[elem_id] = (1.0 - alpha) * barycenter_conn + alpha * center
+
+        # Ordenar por barycenter híbrido, tie-break por elem_id
+        def get_sort_key(elem_id: str):
+            return (barycenters.get(elem_id, len(next_layer) / 2), elem_id)
+
+        current_layer.sort(key=get_sort_key)
+
+        # Keep TOI virtual container members adjacent after sorting
+        # (not needed in NdDp mode)
+        if not ndpr_mode:
+            self._enforce_toi_container_adjacency(current_layer, structure_info)
+
+    def _enforce_toi_container_adjacency(
+        self,
+        layer: List[str],
+        structure_info: StructureInfo
+    ) -> None:
+        """
+        Ensure members of the same TOI virtual container are adjacent in the layer.
+
+        For each virtual container, collects its members present in this layer
+        and clusters them together around their median position.
+
+        Args:
+            layer: Current layer to adjust (modified in-place)
+            structure_info: StructureInfo with toi_virtual_containers
+        """
+        if not structure_info.toi_virtual_containers:
+            return
+
+        layer_set = set(layer)
+
+        for vc in structure_info.toi_virtual_containers:
+            # Find members of this container present in this layer
+            members_in_layer = [m for m in vc['members'] if m in layer_set]
+
+            if len(members_in_layer) <= 1:
+                continue
+
+            # Find their current positions
+            positions = [layer.index(m) for m in members_in_layer]
+
+            # Check if already contiguous
+            positions.sort()
+            if positions[-1] - positions[0] == len(positions) - 1:
+                continue  # already contiguous
+
+            # Remove members from layer, preserving their relative order
+            members_ordered = sorted(members_in_layer, key=lambda m: layer.index(m))
+            for m in members_ordered:
+                layer.remove(m)
+
+            # Insert them contiguously at the median original position
+            median_pos = positions[len(positions) // 2]
+            insert_at = min(median_pos, len(layer))
+            for i, m in enumerate(members_ordered):
+                layer.insert(insert_at + i, m)
+
+    def _get_temp_positions(self, layers: List[List[str]]) -> Dict[str, Tuple[int, int]]:
+        """
+        Calcula posiciones temporales para los layers actuales.
+
+        Útil para calcular cruces durante las iteraciones de optimización.
+
+        Args:
+            layers: Lista de capas con elementos ordenados
+
+        Returns:
+            Dict con posiciones abstractas temporales
+        """
+        positions = {}
+        for layer_idx, layer in enumerate(layers):
+            for elem_idx, elem_id in enumerate(layer):
+                positions[elem_id] = (elem_idx, layer_idx)
+        return positions
+
+    def _calculate_container_barycenter(
+        self,
+        container_id: str,
+        current_layer: List[str],
+        source_barycenters: Dict[str, float],
+        structure_info: StructureInfo,
+        layout
+    ) -> float:
+        """
+        Calcula barycenter especial para contenedores.
+
+        Considera conexiones ENTRANTES a sus hijos desde otros elementos
+        del mismo nivel. Usa los BARYCENTERS de los elementos fuente,
+        no sus posiciones actuales, para mejor convergencia.
+
+        Args:
+            container_id: ID del contenedor
+            current_layer: Elementos del nivel actual
+            source_barycenters: Barycenters de elementos del nivel actual
+            structure_info: Información estructural
+            layout: Layout con conexiones
+
+        Returns:
+            float: Posición óptima del contenedor
+        """
+        # Obtener hijos del contenedor
+        container_node = structure_info.element_tree.get(container_id)
+        if not container_node or not container_node['children']:
+            return len(current_layer) / 2
+
+        children = set(container_node['children'])
+
+        # Encontrar elementos del mismo nivel que se conectan a los hijos
+        source_barycenter_values = []
+
+        for conn in layout.connections:
+            from_id = conn['from']
+            to_id = conn['to']
+
+            # Si la conexión va HACIA un hijo de este contenedor
+            if to_id in children:
+                # Resolver from a primario
+                from_primary_id = from_id
+                if from_id not in structure_info.primary_elements:
+                    from_node = structure_info.element_tree.get(from_id)
+                    while from_node and from_node['parent']:
+                        from_parent = from_node['parent']
+                        if from_parent in structure_info.primary_elements:
+                            from_primary_id = from_parent
+                            break
+                        from_node = structure_info.element_tree.get(from_parent)
+
+                # Si el origen está en el mismo nivel, usar su barycenter
+                if from_primary_id in source_barycenters and from_primary_id != container_id:
+                    source_barycenter_values.append(source_barycenters[from_primary_id])
+
+        # Calcular barycenter basado en los barycenters de las fuentes
+        if source_barycenter_values:
+            avg_barycenter = sum(source_barycenter_values) / len(source_barycenter_values)
+
+            # CRÍTICO: Mezclar con posición central para atraer contenedores hacia el medio
+            # Esto minimiza cruces cuando múltiples elementos se conectan a los hijos del contenedor
+            center_position = (len(current_layer) - 1) / 2.0
+
+            # Peso: 50% barycenter de fuentes, 50% centro
+            # Esto ayuda a posicionar contenedores en el medio de sus "clientes"
+            barycenter = avg_barycenter * 0.5 + center_position * 0.5
+
+            return barycenter
+        else:
+            # Sin conexiones entrantes: posición central
+            return (len(current_layer) - 1) / 2.0
+
+    def _calculate_barycenter(
+        self,
+        elem_id: str,
+        current_layer: List[str],
+        prev_positions: Dict[str, int],
+        structure_info: StructureInfo,
+        layout
+    ) -> float:
+        """
+        Calcula posición X óptima basada en conexiones.
+
+        MEJORADO: Ahora considera también conexiones del mismo nivel.
+
+        Args:
+            elem_id: ID del elemento a posicionar
+            current_layer: Elementos de la capa actual
+            prev_positions: {elem_id: posición_x} de capa anterior
+            structure_info: Información estructural
+            layout: Layout con conexiones
+
+        Returns:
+            float: Posición X óptima (barycenter)
+        """
+        # 1. Resolver elemento a primario
+        elem_primary_id = elem_id
+        if elem_id not in structure_info.primary_elements:
+            node = structure_info.element_tree.get(elem_id)
+            while node and node['parent']:
+                parent = node['parent']
+                if parent in structure_info.primary_elements:
+                    elem_primary_id = parent
+                    break
+                node = structure_info.element_tree.get(parent)
+
+        # 2. CONEXIONES DESDE CAPA ANTERIOR (peso 70%)
+        prev_neighbor_positions = []
+
+        for conn in layout.connections:
+            from_id = conn['from']
+            to_id = conn['to']
+
+            # Resolver a primarios
+            from_primary_id = from_id
+            if from_id not in structure_info.primary_elements:
+                from_node = structure_info.element_tree.get(from_id)
+                while from_node and from_node['parent']:
+                    from_parent = from_node['parent']
+                    if from_parent in structure_info.primary_elements:
+                        from_primary_id = from_parent
+                        break
+                    from_node = structure_info.element_tree.get(from_parent)
+
+            to_primary_id = to_id
+            if to_id not in structure_info.primary_elements:
+                to_node = structure_info.element_tree.get(to_id)
+                while to_node and to_node['parent']:
+                    to_parent = to_node['parent']
+                    if to_parent in structure_info.primary_elements:
+                        to_primary_id = to_parent
+                        break
+                    to_node = structure_info.element_tree.get(to_parent)
+
+            # Si conecta DESDE capa anterior A este elemento
+            if to_primary_id == elem_primary_id and from_primary_id in prev_positions:
+                prev_neighbor_positions.append(prev_positions[from_primary_id])
+
+        # 3. NUEVO: CONEXIONES DESDE MISMO NIVEL (peso 30%)
+        same_level_neighbor_positions = []
+
+        # Crear mapa temporal de posiciones actuales (índices en current_layer)
+        current_positions = {e_id: idx for idx, e_id in enumerate(current_layer)}
+
+        for conn in layout.connections:
+            from_id = conn['from']
+            to_id = conn['to']
+
+            # Resolver a primarios (mismo código que arriba)
+            from_primary_id = from_id
+            if from_id not in structure_info.primary_elements:
+                from_node = structure_info.element_tree.get(from_id)
+                while from_node and from_node['parent']:
+                    from_parent = from_node['parent']
+                    if from_parent in structure_info.primary_elements:
+                        from_primary_id = from_parent
+                        break
+                    from_node = structure_info.element_tree.get(from_parent)
+
+            to_primary_id = to_id
+            if to_id not in structure_info.primary_elements:
+                to_node = structure_info.element_tree.get(to_id)
+                while to_node and to_node['parent']:
+                    to_parent = to_node['parent']
+                    if to_parent in structure_info.primary_elements:
+                        to_primary_id = to_parent
+                        break
+                    to_node = structure_info.element_tree.get(to_parent)
+
+            # Si conecta DESDE el mismo nivel A este elemento
+            if (to_primary_id == elem_primary_id and
+                from_primary_id in current_positions and
+                from_primary_id != elem_primary_id):
+
+                # FILTRO: Ignorar conexiones a hojas (elementos sin hijos)
+                # Las hojas suelen estar en extremos y sesgan el barycenter
+                from_node = structure_info.element_tree.get(from_primary_id, {})
+                has_children = bool(from_node.get('children', []))
+
+                if has_children:  # Solo considerar elementos con hijos
+                    same_level_neighbor_positions.append(current_positions[from_primary_id])
+
+        # 4. Calcular barycenter combinado con pesos
+        total_weight = 0
+        weighted_sum = 0
+
+        # Pesos dinámicos según ratio vertical:horizontal del grafo (WISH-LAF-001).
+        prev_w = self._prev_weight
+        same_w = self._same_weight
+
+        if prev_neighbor_positions:
+            prev_barycenter = sum(prev_neighbor_positions) / len(prev_neighbor_positions)
+            weighted_sum += prev_barycenter * prev_w * len(prev_neighbor_positions)
+            total_weight += prev_w * len(prev_neighbor_positions)
+
+        if same_level_neighbor_positions:
+            same_barycenter = sum(same_level_neighbor_positions) / len(same_level_neighbor_positions)
+            weighted_sum += same_barycenter * same_w * len(same_level_neighbor_positions)
+            total_weight += same_w * len(same_level_neighbor_positions)
+
+        # 5. Retornar barycenter final
+        if total_weight > 0:
+            return weighted_sum / total_weight
+        else:
+            # Sin conexiones: verificar si tiene score de centralidad
+            score = self._get_accessibility_score(elem_id, structure_info)
+
+            if score > 0.0001:  # Tiene score significativo -> centrar
+                if prev_positions:
+                    return len(prev_positions) / 2
+                else:
+                    return len(current_layer) / 2
+            else:
+                # Sin score (hoja o elemento sin importancia) -> izquierda
+                return 0.0
+
+    def _calculate_barycenter_backward(
+        self,
+        elem_id: str,
+        current_layer: List[str],
+        next_positions: Dict[str, int],
+        structure_info: StructureInfo,
+        layout
+    ) -> float:
+        """
+        Calcula barycenter considerando conexiones hacia la capa siguiente.
+
+        IMPORTANTE: Si elem_id es un contenedor, también considera conexiones
+        a sus elementos contenidos.
+
+        Args:
+            elem_id: ID del elemento a posicionar
+            current_layer: Elementos de la capa actual
+            next_positions: {elem_id: posición_x} de capa siguiente
+            structure_info: Información estructural
+            layout: Layout con conexiones
+
+        Returns:
+            float: Posición X óptima (barycenter)
+        """
+        # Resolver elemento a primario
+        elem_primary_id = elem_id
+        if elem_id not in structure_info.primary_elements:
+            node = structure_info.element_tree.get(elem_id)
+            while node and node['parent']:
+                parent = node['parent']
+                if parent in structure_info.primary_elements:
+                    elem_primary_id = parent
+                    break
+                node = structure_info.element_tree.get(parent)
+
+        # Si es un contenedor, obtener sus hijos
+        elem_and_children = [elem_primary_id]
+        container_node = structure_info.element_tree.get(elem_primary_id)
+        if container_node and container_node['children']:
+            elem_and_children.extend(container_node['children'])
+
+        # Buscar conexiones HACIA la capa siguiente
+        next_neighbor_positions = []
+
+        for conn in layout.connections:
+            from_id = conn['from']
+            to_id = conn['to']
+
+            # Resolver from a primario
+            from_primary_id = from_id
+            if from_id not in structure_info.primary_elements:
+                from_node = structure_info.element_tree.get(from_id)
+                while from_node and from_node['parent']:
+                    from_parent = from_node['parent']
+                    if from_parent in structure_info.primary_elements:
+                        from_primary_id = from_parent
+                        break
+                    from_node = structure_info.element_tree.get(from_parent)
+
+            # Resolver to a primario
+            to_primary_id = to_id
+            if to_id not in structure_info.primary_elements:
+                to_node = structure_info.element_tree.get(to_id)
+                while to_node and to_node['parent']:
+                    to_parent = to_node['parent']
+                    if to_parent in structure_info.primary_elements:
+                        to_primary_id = to_parent
+                        break
+                    to_node = structure_info.element_tree.get(to_parent)
+
+            # Si conecta DESDE este elemento (o sus hijos) HACIA capa siguiente
+            if from_primary_id in elem_and_children and to_primary_id in next_positions:
+                next_neighbor_positions.append(next_positions[to_primary_id])
+            # CRÍTICO: También considerar conexiones A elementos contenidos
+            elif to_id in elem_and_children and from_primary_id in current_layer:
+                # Una conexión apunta a un hijo de este contenedor desde otro elemento del mismo nivel
+                # Usar la posición del elemento que está enviando la conexión
+
+                # FILTRO: Ignorar conexiones desde hojas (elementos sin hijos)
+                from_node = structure_info.element_tree.get(from_primary_id, {})
+                has_children = bool(from_node.get('children', []))
+
+                if has_children:  # Solo considerar elementos con hijos
+                    current_positions = {e_id: idx for idx, e_id in enumerate(current_layer)}
+                    if from_primary_id in current_positions:
+                        next_neighbor_positions.append(current_positions[from_primary_id])
+
+        # Calcular barycenter (promedio de posiciones de vecinos)
+        if next_neighbor_positions:
+            barycenter = sum(next_neighbor_positions) / len(next_neighbor_positions)
+        else:
+            # Sin vecinos: verificar si tiene score de centralidad
+            score = self._get_accessibility_score(elem_id, structure_info)
+
+            if score > 0.0001:  # Tiene score significativo -> centrar
+                barycenter = len(next_positions) / 2
+            else:
+                # Sin score (hoja o elemento sin importancia) -> izquierda
+                barycenter = 0.0
+
+        return barycenter
+
+    def _calculate_barycenter_from_graph(
+        self,
+        elem_id: str,
+        current_layer: List[str],
+        prev_positions: Dict[str, int],
+        connection_graph: Dict[str, List[str]]
+    ) -> float:
+        """
+        Calcula forward barycenter usando un connection_graph directo (modo NdDp).
+
+        Busca nodos en la capa anterior que apuntan a elem_id (forward),
+        y nodos en la misma capa que apuntan a elem_id (same-level).
+
+        Args:
+            elem_id: ID del nodo NdDp
+            current_layer: Nodos de la capa actual
+            prev_positions: {elem_id: idx} de la capa anterior
+            connection_graph: {from_id: [to_ids]}
+
+        Returns:
+            float: barycenter position
+        """
+        current_positions = {e: idx for idx, e in enumerate(current_layer)}
+
+        prev_neighbor_positions = []
+        same_level_positions = []
+
+        for from_id, targets in connection_graph.items():
+            if elem_id not in targets:
+                continue
+            if from_id in prev_positions:
+                prev_neighbor_positions.append(prev_positions[from_id])
+            elif from_id in current_positions and from_id != elem_id:
+                same_level_positions.append(current_positions[from_id])
+
+        # Pesos dinámicos según ratio vertical:horizontal del grafo (WISH-LAF-001).
+        prev_w = self._prev_weight
+        same_w = self._same_weight
+
+        total_weight = 0.0
+        weighted_sum = 0.0
+
+        if prev_neighbor_positions:
+            avg = sum(prev_neighbor_positions) / len(prev_neighbor_positions)
+            weighted_sum += avg * prev_w * len(prev_neighbor_positions)
+            total_weight += prev_w * len(prev_neighbor_positions)
+
+        if same_level_positions:
+            avg = sum(same_level_positions) / len(same_level_positions)
+            weighted_sum += avg * same_w * len(same_level_positions)
+            total_weight += same_w * len(same_level_positions)
+
+        if total_weight > 0:
+            return weighted_sum / total_weight
+        else:
+            return len(current_layer) / 2.0
+
+    def _calculate_barycenter_backward_from_graph(
+        self,
+        elem_id: str,
+        current_layer: List[str],
+        next_positions: Dict[str, int],
+        connection_graph: Dict[str, List[str]]
+    ) -> float:
+        """
+        Calcula backward barycenter usando un connection_graph directo (modo NdDp).
+
+        Busca nodos en la capa siguiente a los que elem_id apunta.
+
+        Args:
+            elem_id: ID del nodo NdDp
+            current_layer: Nodos de la capa actual
+            next_positions: {elem_id: idx} de la capa siguiente
+            connection_graph: {from_id: [to_ids]}
+
+        Returns:
+            float: barycenter position
+        """
+        targets = connection_graph.get(elem_id, [])
+        neighbor_positions = [next_positions[t] for t in targets if t in next_positions]
+
+        if neighbor_positions:
+            return sum(neighbor_positions) / len(neighbor_positions)
+        else:
+            return len(next_positions) / 2.0 if next_positions else 0.0
+
+    def _assign_abstract_positions(
+        self,
+        layers: List[List[str]],
+        collapsed_sizes: Dict[str, float] = None
+    ) -> Dict[str, Tuple[int, int]]:
+        """
+        Asigna coordenadas abstractas (x, y) a elementos.
+
+        Cuando collapsed_sizes se provee, nodos con tamaño estimado ocupan
+        más espacio horizontal para evitar solapamientos.
+
+        Args:
+            layers: Lista de capas ordenadas
+            collapsed_sizes: {elem_id: estimated_width} para nodos colapsados
+
+        Returns:
+            {element_id: (abstract_x, abstract_y)}
+        """
+        positions = {}
+
+        for layer_idx, layer in enumerate(layers):
+            abstract_x = 0.0
+
+            for elem_idx, elem_id in enumerate(layer):
+                # Posición Y = índice de capa
+                abstract_y = layer_idx
+
+                # Posición X: secuencial pero con espacio extra para nodos colapsados
+                if collapsed_sizes and elem_id in collapsed_sizes:
+                    # Dejar espacio proporcional al tamaño estimado
+                    half_size = collapsed_sizes[elem_id] / 2.0
+                    abstract_x += half_size
+                    positions[elem_id] = (abstract_x, abstract_y)
+                    abstract_x += half_size + 1.0  # gap de 1 unidad después
+                else:
+                    positions[elem_id] = (abstract_x, abstract_y)
+                    abstract_x += 1.0
+
+        return positions
+
+    def _assign_contained_positions(
+        self,
+        positions: Dict[str, Tuple[int, int]],
+        structure_info: StructureInfo,
+        layout
+    ) -> None:
+        """
+        Asigna posiciones abstractas a elementos contenidos.
+
+        Los elementos contenidos heredan la posición Y de su contenedor,
+        y reciben un offset horizontal pequeño para distribuirse.
+
+        Args:
+            positions: Diccionario de posiciones (modificado in-place)
+            structure_info: Información estructural
+            layout: Layout con elementos
+        """
+        # Offset horizontal abstracto entre elementos contenidos
+        # Usar 0.15 unidades abstractas para separación
+        horizontal_offset = 0.15
+
+        # Offset vertical para que los hijos estén DENTRO del contenedor
+        # (debajo del ícono del contenedor en coordenadas abstractas)
+        vertical_offset = 0.3  # Offset pequeño hacia abajo
+
+        for container_id, node in structure_info.element_tree.items():
+            # Solo procesar contenedores
+            if not node['is_container']:
+                continue
+
+            # Verificar que el contenedor tenga posición
+            if container_id not in positions:
+                continue
+
+            container_pos = positions[container_id]
+            children = node['children']
+
+            if not children:
+                continue
+
+            # Distribuir hijos horizontalmente DESDE el contenedor (no centrados)
+            # Comenzar ligeramente a la derecha del contenedor
+            start_x = container_pos[0] + 0.1  # Pequeño offset a la derecha
+
+            # Asignar posiciones a cada hijo
+            for i, child_id in enumerate(children):
+                # X: offset horizontal desde el contenedor (siempre positivo)
+                child_x = start_x + (i * horizontal_offset)
+
+                # Y: ligeramente debajo del contenedor
+                child_y = container_pos[1] + vertical_offset
+
+                positions[child_id] = (child_x, child_y)
+
+    def count_crossings(
+        self,
+        positions: Dict[str, Tuple[int, int]],
+        connections: List[dict]
+    ) -> int:
+        """
+        Cuenta cruces entre conexiones en layout abstracto.
+
+        Algoritmo O(n²):
+        - Para cada par de conexiones (e1->e2, e3->e4):
+          - Si líneas se cruzan → +1
+        - Usar test geométrico simple
+
+        Args:
+            positions: {element_id: (x, y)}
+            connections: Lista de conexiones
+
+        Returns:
+            int: Cantidad de cruces
+        """
+        crossings = 0
+        n = len(connections)
+
+        # Comparar cada par de conexiones
+        for i in range(n):
+            conn1 = connections[i]
+            from1 = conn1['from']
+            to1 = conn1['to']
+
+            # Skip si no tenemos posiciones
+            if from1 not in positions or to1 not in positions:
+                continue
+
+            p1 = positions[from1]
+            p2 = positions[to1]
+
+            for j in range(i + 1, n):
+                conn2 = connections[j]
+                from2 = conn2['from']
+                to2 = conn2['to']
+
+                # Skip si no tenemos posiciones
+                if from2 not in positions or to2 not in positions:
+                    continue
+
+                p3 = positions[from2]
+                p4 = positions[to2]
+
+                # Test de cruce de líneas
+                if self._lines_intersect(p1, p2, p3, p4):
+                    crossings += 1
+
+        return crossings
+
+    def _lines_intersect(
+        self,
+        p1: Tuple[int, int],
+        p2: Tuple[int, int],
+        p3: Tuple[int, int],
+        p4: Tuple[int, int]
+    ) -> bool:
+        """
+        Verifica si dos líneas se cruzan usando test de orientación.
+
+        Args:
+            p1, p2: Endpoints de línea 1
+            p3, p4: Endpoints de línea 2
+
+        Returns:
+            bool: True si las líneas se cruzan
+        """
+        def orientation(p, q, r):
+            """
+            Calcula orientación del triplete (p, q, r).
+            Returns:
+                0 -> Colineal
+                1 -> Clockwise
+                2 -> Counterclockwise
+            """
+            val = (q[1] - p[1]) * (r[0] - q[0]) - (q[0] - p[0]) * (r[1] - q[1])
+            if abs(val) < 0.001:
+                return 0
+            return 1 if val > 0 else 2
+
+        def on_segment(p, q, r):
+            """Verifica si q está en el segmento pr (asumiendo colineal)."""
+            if (q[0] <= max(p[0], r[0]) and q[0] >= min(p[0], r[0]) and
+                q[1] <= max(p[1], r[1]) and q[1] >= min(p[1], r[1])):
+                return True
+            return False
+
+        o1 = orientation(p1, p2, p3)
+        o2 = orientation(p1, p2, p4)
+        o3 = orientation(p3, p4, p1)
+        o4 = orientation(p3, p4, p2)
+
+        # Caso general
+        if o1 != o2 and o3 != o4:
+            return True
+
+        # Casos especiales (colineales)
+        if o1 == 0 and on_segment(p1, p3, p2):
+            return True
+        if o2 == 0 and on_segment(p1, p4, p2):
+            return True
+        if o3 == 0 and on_segment(p3, p1, p4):
+            return True
+        if o4 == 0 and on_segment(p3, p2, p4):
+            return True
+
+        return False
+
+    def _apply_optimal_distribution(
+        self,
+        current_layer: List[str],
+        positions: Dict[str, Tuple[int, int]],
+        structure_info: StructureInfo,
+        layout
+    ) -> None:
+        """
+        Aplica distribución óptima basada en centralidad y distancia a padres.
+
+        Algoritmo:
+        1. Clasificar elementos en centrales (score > 0), normales (score = 0 con hijos),
+           y hojas (score = 0 sin hijos)
+        2. Centrales: ordenar por score y colocar en el centro
+        3. Normales: colocar a izq/der minimizando distancia euclidiana a padres
+        4. Hojas: colocar en extremos, al lado opuesto del centro respecto a padres
+
+        Args:
+            current_layer: Capa a reorganizar (modifica in-place)
+            positions: Posiciones temporales actuales de todos los elementos
+            structure_info: Información estructural
+            layout: Layout con conexiones
+        """
+        if len(current_layer) < 3:
+            return  # No tiene sentido reorganizar con menos de 3 elementos
+
+        # Clasificar elementos
+        centrales = []  # (elem_id, score, avg_parent_distance)
+        normales = []   # (elem_id, avg_parent_x, has_left_parents, has_right_parents)
+        hojas = []      # (elem_id, avg_parent_x)
+
+        center_x = (len(current_layer) - 1) / 2.0
+
+        for elem_id in current_layer:
+            score = self._get_accessibility_score(elem_id, structure_info)
+            node = structure_info.element_tree.get(elem_id)
+            has_children = node and node.get('children', [])
+
+            # Calcular padres y su posición promedio
+            parents = self._get_parents(elem_id, structure_info, layout)
+            if parents:
+                avg_parent_x = sum(positions[p][0] for p in parents if p in positions) / len(parents)
+                avg_parent_dist = self._calculate_avg_parent_distance(
+                    elem_id, parents, positions
+                )
+            else:
+                avg_parent_x = center_x
+                avg_parent_dist = 0
+
+            if score > 0:
+                centrales.append((elem_id, score, avg_parent_dist))
+            elif has_children:
+                # Normal: clasificar por lado de padres
+                has_left = any(positions.get(p, (center_x, 0))[0] < center_x for p in parents)
+                has_right = any(positions.get(p, (center_x, 0))[0] > center_x for p in parents)
+                normales.append((elem_id, avg_parent_x, has_left, has_right))
+            else:
+                # Hoja
+                hojas.append((elem_id, avg_parent_x))
+
+        # Ordenar centrales por score (descendente), desempate por cercanía a padres
+        centrales.sort(key=lambda x: (-x[1], x[2]))
+
+        # Ordenar normales por distancia a padres (más cerca = más cerca del centro)
+        normales.sort(key=lambda x: (abs(x[1] - center_x), x[0]))
+
+        # Ordenar hojas por distancia a padres (más lejos = más en extremos)
+        hojas.sort(key=lambda x: (-abs(x[1] - center_x), x[0]))
+
+        # Distribuir elementos
+        left_side = []
+        center_side = []
+        right_side = []
+
+        # Centrales: distribuir alrededor del centro (mayor score más cerca)
+        for i, (elem_id, score, _) in enumerate(centrales):
+            if i == 0:
+                center_side.append(elem_id)  # El más importante al centro
+            elif i % 2 == 1:
+                left_side.insert(0, elem_id)
+            else:
+                right_side.append(elem_id)
+
+        # Normales: distribuir a izq/der según posición de padres
+        for elem_id, avg_parent_x, has_left, has_right in normales:
+            if avg_parent_x < center_x or (has_left and not has_right):
+                left_side.insert(0, elem_id)
+            else:
+                right_side.append(elem_id)
+
+        # Hojas: extremos opuestos al centro respecto a padres
+        for elem_id, avg_parent_x in hojas:
+            if avg_parent_x < center_x:
+                # Padres a la izquierda → hoja al extremo izquierdo (más lejos del centro)
+                left_side.insert(0, elem_id)
+            else:
+                # Padres a la derecha → hoja al extremo derecho
+                right_side.append(elem_id)
+
+        # Reconstruir capa
+        new_order = left_side + center_side + right_side
+
+        # Actualizar current_layer in-place
+        current_layer[:] = new_order
+
+        pass  # distribución óptima aplicada
+
+    def _get_parents(
+        self,
+        elem_id: str,
+        structure_info: StructureInfo,
+        layout
+    ) -> List[str]:
+        """
+        Obtiene lista de elementos padres (que conectan hacia elem_id).
+
+        Args:
+            elem_id: ID del elemento
+            structure_info: Información estructural
+            layout: Layout con conexiones
+
+        Returns:
+            Lista de elem_ids de padres
+        """
+        parents = set()
+
+        for conn in layout.connections:
+            to_id = conn['to']
+
+            # Resolver to_id a primario
+            to_primary = to_id
+            if to_id not in structure_info.primary_elements:
+                node = structure_info.element_tree.get(to_id)
+                while node and node.get('parent'):
+                    parent = node['parent']
+                    if parent in structure_info.primary_elements:
+                        to_primary = parent
+                        break
+                    node = structure_info.element_tree.get(parent)
+
+            if to_primary == elem_id:
+                from_id = conn['from']
+
+                # Resolver from_id a primario
+                from_primary = from_id
+                if from_id not in structure_info.primary_elements:
+                    node = structure_info.element_tree.get(from_id)
+                    while node and node.get('parent'):
+                        parent = node['parent']
+                        if parent in structure_info.primary_elements:
+                            from_primary = parent
+                            break
+                        node = structure_info.element_tree.get(parent)
+
+                parents.add(from_primary)
+
+        return list(parents)
+
+    def _calculate_avg_parent_distance(
+        self,
+        elem_id: str,
+        parents: List[str],
+        positions: Dict[str, Tuple[int, int]]
+    ) -> float:
+        """
+        Calcula distancia euclidiana promedio a todos los padres.
+
+        Args:
+            elem_id: ID del elemento
+            parents: Lista de IDs de padres
+            positions: Posiciones actuales
+
+        Returns:
+            float: Distancia promedio (0 si no hay padres o posiciones)
+        """
+        if not parents or elem_id not in positions:
+            return 0.0
+
+        elem_pos = positions[elem_id]
+        distances = []
+
+        for parent_id in parents:
+            if parent_id in positions:
+                parent_pos = positions[parent_id]
+                # Distancia euclidiana
+                dist = ((elem_pos[0] - parent_pos[0])**2 +
+                       (elem_pos[1] - parent_pos[1])**2)**0.5
+                distances.append(dist)
+
+        return sum(distances) / len(distances) if distances else 0.0

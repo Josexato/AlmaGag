@@ -20,6 +20,10 @@ Cada entrada tiene un código con estructura uniforme `<CATEGORÍA>-<COMPONENTE>
 - **`LAYOUT`** — Issues transversales del módulo `AlmaGag/layout/` que afectan a ambos algoritmos.
 - **`LAF`** — Issues exclusivos del algoritmo LAF (`AlmaGag/layout/laf/`).
 - **`AUTO`** — Issues exclusivos del algoritmo AUTO (`AlmaGag/layout/auto/`).
+- **`ROUT`** — Issues del módulo de routing (`AlmaGag/routing/`): cálculo de paths, port assignment, visibility graph, simplificación.
+- **`TPL`** — Issues del módulo de templates (`AlmaGag/layout/templates/`): detección semántica, scorers, aplicación de patrones, calibración del clasificador.
+- **`VAL`** — Issues del módulo de validación (`AlmaGag/validation/`): reglas de calidad visual (R1/R2/R3) y sus heurísticas.
+- **`DRAW`** — Issues del módulo de dibujo (`AlmaGag/draw/`): nuevos tipos de iconos/shapes, primitivas SVG, gradientes, markers.
 - **`ARCH`** — Issues arquitecturales del sistema (acoplamientos, contratos, extensibilidad).
 - **`DOCS`** — Documentación que quedó desincronizada del código o del estado actual del proyecto.
 - **`DIAG`** — Problemas visuales en los SVG renderizados. Viven en `docs/DIAGRAM_REVIEW.md`, no aquí.
@@ -32,6 +36,16 @@ El código de runtime usa identificadores como `LAF_PHASE_6_NDPR_EXPANDED` para 
 |---|---|---|
 | `LAF_PHASE_N_NOMBRE` | `AlmaGag/layout/laf/optimizer.py` | Fase del pipeline LAF (para snapshots de debug) |
 | `BUGS-LAF-NNN` / `WISH-LAF-NNN` | Este documento | Issue específico a corregir |
+
+---
+
+## Diseños abiertos (documentos aparte)
+
+- **WISH-ARCH-004 — "El Mapa"** (🟡 diseño en revisión): separar limpiamente
+  **contenedor / carril / ámbito** como capas componibles (hoy `areas`/`lanes`
+  son vistas excluyentes y el `areas` §I27 es en realidad un contenedor mal
+  nombrado). Introduce el **ámbito de forma arbitraria** (terreno). Ver
+  `docs/architecture/WISH-ARCH-004-el-mapa.md`. Pendiente: decisiones de §9.
 
 ---
 
@@ -382,7 +396,372 @@ En `05-arquitectura-gag` el label "Shared (algoritmo-agnóstico)" (28 chars) nec
 
 ---
 
+### BUGS-ROUT-001: Rutas Ortogonales con Bends Innecesarios al Cruzar a Container ✅ RESUELTO (v2)
+**Componente**: `AlmaGag/routing/orthogonal_router.py` + `AlmaGag/routing/visibility_graph.py`
+**Severidad**: Media (afecta legibilidad visual de cualquier diagrama con containers)
+**Reportado**: 2026-06-23 (feedback visual del usuario sobre `05-arquitectura-gag` post-actualización a v3.5)
+**Resuelto**: 2026-06-23 (v1: commit `32e82a6`, v2: ventanas 4..7 puntos)
+
+**Causa raíz** (doble):
+
+1. **Routing por intermediate point con segmentos independientes**: cuando una conexión cruza el límite de un container (from fuera, to dentro — o viceversa), `OrthogonalRouter.calculate_path` delega a `_calculate_orthogonal_waypoints_with_intermediate`, que computa **2 segmentos independientes** (from → entry_point del container, entry_point → to), cada uno con su propio naive midpoint H-V o V-H (2 bends c/u). Resultado: hasta 4 bends por conexión aunque la geometría permita 1 bend limpio.
+
+2. **Fallback al naive midpoint cuando A* falla**: `_route_with_visibility_graph` cae a `_calculate_orthogonal_waypoints` cuando A* no encuentra ruta. A* falla cuando alguno de los ports asignados por `port_assignment` cae dentro del bbox inflado (`OBSTACLE_MARGIN=25`) de algún container, lo cual ocurre con frecuencia cuando el target está pegado al borde de su container.
+
+**Caso de prueba reproducible** (antes del fix, commit `e2712e4`):
+
+Diagrama `05-arquitectura-gag.gag` con elementos `templates` (fuera de container, y=440) y `auto_opt` (dentro de `auto_box`, y=630).
+
+| Conexión | Bends antes | Bends ideal |
+|---|---:|---:|
+| `templates → auto_opt` | 3 | 1 |
+| `templates → laf_opt` | 3 | 1 |
+| `auto_opt → contract` | 4 | 1 |
+| `laf_opt → contract` | 4 | 1 |
+
+**Fix aplicado**:
+
+Nueva función `simplify_orthogonal_zigzag(path, obstacles)` en `visibility_graph.py`. Algoritmo:
+
+```
+para cada ventana de N puntos consecutivos [p_i, ..., p_{i+N-1}] en el path:
+    para cada esquina candidata corner ∈ {(p_i.x, p_{i+N-1}.y), (p_{i+N-1}.x, p_i.y)}:
+        si segmento (p_i → corner) y (corner → p_{i+N-1}) no cruzan obstáculos:
+            reemplazar el rango por [p_i, corner, p_{i+N-1}]
+            marcar changed
+            break
+N corre de 4 a 7 (configurable); empezar desde N=4 (más conservador) y subir
+si no se encontraron reducciones. Cuando hay reducción, reiniciar al N más
+pequeño para permitir cadenas de simplificación.
+iterar hasta no haber cambios (acotado por len(path))
+limpieza final de puntos colineales
+```
+
+Llamada desde `OrthogonalRouter.calculate_path` como post-process, **después** de cualquier estrategia de waypoint computation. Los containers padre de `from`/`to` se excluyen de los obstáculos (no podemos chequearlos como obstáculos porque tenemos que cruzarlos para llegar al destino).
+
+**v1 (commit `32e82a6`)**: ventanas de exactamente 4 puntos.
+**v2**: ventanas de 4 a 7 puntos progresivas, mejora `15-architecture-template` (20→18 bends) y casos similares con zig-zags más largos.
+
+**Validación**:
+
+| Métrica | Antes (`e2712e4`) | Después (`32e82a6`) |
+|---|---:|---:|
+| Bends en `05-arquitectura-gag` (12 conexiones) | 28 total | 16 total (−43%) |
+| Conexiones con solo 1 bend | 3/12 | 9/12 |
+| Conexiones con ≥3 bends | 8/12 | 1/12 |
+| Tests | 70/70 | 70/70 |
+| Smoke (canonicals representativos) | OK | OK |
+| Determinismo | 1 hash | 1 hash |
+
+**Audit global** sobre los 24 canonicals (regenerando con/sin el fix):
+
+| Diagrama | Bends pre | Bends post | Δ |
+|---|---:|---:|---:|
+| `05-arquitectura-gag` | 36 | 19 | **−47%** |
+| `15-architecture-template` | 37 | 18 | **−51%** |
+| `13-stresstest` | 45 | 36 | **−20%** |
+| `continentes-america` | 24 | 24 | 0% |
+| `svg-to-bwt-flow` | 8 | 8 | 0% |
+| `reference-cheatsheet` | 9 | 9 | 0% |
+| `git` | 6 | 6 | 0% |
+| **TOTAL** (130 conexiones afectadas) | **165** | **120** | **−27%** |
+
+Los otros canonicals no listados (16) no usan routing ortogonal sobre containers, así que no se benefician — pero tampoco se degradan.
+
+**Limitaciones conocidas (no bloquean cierre)**:
+- Las 3 conexiones residuales en `05-arquitectura-gag` con 2-4 bends son las que tienen que **cruzar completamente** el `shared_box` (los dos endpoints están en lados opuestos del container y el L-shortcut por encima/debajo del container requeriría puntos que no están en el path original). Resolver eso es re-routing, no simplification — issue distinto.
+- La simplificación es **orthogonal-only**. Otros routing types (bezier, arc, straight) no usan este post-process. Si en el futuro vuelven a producir paths con bends innecesarios, mover la simplificación a `router_base.ConnectionRouter`.
+
+---
+
+### BUGS-TPL-001: Architecture Scorer Calibrado Demasiado Conservador ✅ RESUELTO
+**Componente**: `AlmaGag/layout/templates/architecture.py` — `ArchitectureTemplate.detect_score`
+**Severidad**: Media (arquitecturas claras no reciben el template adecuado y caen al fallback agnóstico)
+**Reportado**: 2026-06-23 (test neutro `cakephp-mvc.gag`)
+**Resuelto**: 2026-06-23
+
+**Caso de prueba reproducible**:
+
+`docs/diagrams/gags/cakephp-mvc.gag` — arquitectura MVC clásica:
+- 3 containers (controllers, models, views) + 1 cross-cutting implícito.
+- Entry: `request`. Terminal: `response`. Cadena lineal en medio.
+- 19 elementos, 18 conexiones, profundidad topológica 8, sin ciclos.
+
+Es estructuralmente un caso de libro del template `architecture`. Sin embargo, los scores resultantes son:
+
+```
+architecture=0.55, er=0.45, sequence=0.40, state=0.40, flow=0.35,
+dashboard=0.30, hub_and_spoke=0.25
+```
+
+`architecture` queda por debajo del threshold (`0.6`). Cae al fallback agnóstico → canvas alargado 1400×2108 y 6 colisiones.
+
+**Causa raíz**:
+
+El scorer suma:
+- `+0.35` por `n_containers >= 2` ✓
+- `+0.10` por `n_containers >= 3` ✓
+- `+0.20` por keyword `shared`/`compart`/`agnost` ✗ (CakePHP no usa esos términos)
+- `+0.10` por DAG ✓
+- `+0.15` por depth 3..7 ✗ (depth=8 queda fuera del rango)
+- Sin roles declarados (`+0.15` no aplica)
+
+Total: `0.55`. Pierde por dos hilos:
+1. La ventana de profundidad `3..7` excluye depth=8, que es perfectamente válido en arquitecturas reales.
+2. El bonus por keyword es muy específico a la nomenclatura interna de AlmaGag (`shared (algoritmo-agnóstico)`).
+
+**Diagnóstico**:
+
+El scorer está sobre-ajustado al patrón visual de `05-arquitectura-gag` (que usa la palabra "shared" y tiene depth 5). Cualquier arquitectura sin esa nomenclatura específica o con cadena más larga pierde el template.
+
+**Fix aplicado**:
+1. Ventana de depth ampliada `3..7` → `3..10` (arquitecturas reales tienen cadenas más largas).
+2. Nuevo bonus por **firma estructural** (`+0.10`): `n_root_nodes_no_incoming == 1` + `n_leaf_nodes_no_outgoing >= 1` + `n_containers >= 2`. Es la señal genérica de arquitectura (entry → containers paralelos → salida), independiente de la nomenclatura.
+3. Peso del keyword `shared`/`compart`/`agnost` bajado `0.20` → `0.15` (señal débil, no excluyente).
+
+**Validación** (matriz de scores sobre los 24 canonicals, antes vs después):
+
+| Diagrama | architecture antes | después | winner antes | winner después |
+|---|---:|---:|---|---|
+| `cakephp-mvc` | 0.55 | **0.80** | —(agnostic) | **architecture** ✓ |
+| `05-arquitectura-gag` | 0.75 | 0.95 | architecture | architecture |
+| `07-containers` | 0.60 | 0.70 | architecture | architecture |
+| `06-flujo-ejecucion` | 0.45 | 0.55 | hub_and_spoke | hub_and_spoke |
+| `continentes-america` | 0.20 | 0.35 | —(agnostic) | —(agnostic) |
+| resto (21) | — | — | (sin cambios) | (sin cambios) |
+
+**Cero regresiones**: ningún canonical cambió de winner salvo `cakephp-mvc` (el objetivo). `cakephp-mvc.svg` regenerado con architecture: canvas 1400×2108 → 1140×1330 (−58% área).
+
+**Tests**: `tests/test_architecture_scorer_calibration.py` (5 tests: MVC sin keyword supera threshold, cadena profunda ya no descalifica, bonus estructural requiere entry único, canonical cakephp detecta architecture, no-regresión de winners). Suite 84/84.
+
+---
+
+### BUGS-VAL-001: R3 Reporta Falsos Positivos con Conectores Rectos Cortos ✅ RESUELTO
+**Componente**: `AlmaGag/validation/visual_quality.py` — `_collect_icon_bboxes`, `check_connections_attached`, `_is_connection_stroke`
+**Severidad**: Baja (afecta solo a reportes del validador, no al render)
+**Reportado**: 2026-06-23 (test neutro `cakephp-mvc.gag`)
+**Resuelto**: 2026-06-23
+
+**Caso de prueba reproducible**:
+
+`docs/diagrams/svgs/cakephp-mvc.svg` — el validador reporta `R3=14` (conectores supuestamente "sueltos"). Inspección visual: los 14 conectores están correctamente atados a sus iconos. Son conexiones rectas (straight routing), porque el `.gag` no declara `routing.type`.
+
+**Causa raíz** (hipótesis):
+
+`check_connections_attached` clasifica como dangling cualquier endpoint cuya distancia a icon_bbox > 20px. Pero:
+1. Algunos iconos custom (router, computer, laptop, database) son grupos SVG complejos con `<g transform="translate(x,y)">` en vez de `<rect>` simple. `_extract_icon_bboxes` puede estar derivando bboxes inexactos para estos tipos.
+2. La tolerancia de `20px` es razonable para iconos centrados, pero con port_assignment los endpoints caen en bordes del icono. Si el bbox extraído del SVG está desplazado, la distancia queda > 20px aunque visualmente esté atado.
+
+**Validación**:
+- En `cakephp-mvc.svg`: 10 iconos detectados por el validador vs 19 elementos en el `.gag` → el validador está perdiendo iconos custom y luego reporta sus conectores como dangling.
+- En los canonicals con iconos custom embebidos (`05-arquitectura-gag`), R3 también es alta (30) por el mismo motivo.
+
+**Fix aplicado**:
+1. `_collect_icon_bboxes` reescrito para reconocer iconos custom:
+   - `_group_transform_bbox`: `<g transform="translate(tx,ty) scale(s)">` → bbox `ICON_W×ICON_H` escalado (factory, gear, contract, iconos SVG embebidos).
+   - `_group_children_bbox`: `<g>` con `polygon`/`circle`/`ellipse`/`rect` en coords absolutas → bbox por extensión de hijos (diamond y similares).
+   - Mantiene la detección de `<rect>` con gradiente suelto (built-ins) sin duplicar los ya cubiertos por un grupo.
+2. Tolerancia R3 `20 → 30px` (port_assignment distribuye los puntos en sectores; offsets de hasta ~25px del centro del lado).
+3. `_is_connection_stroke` ahora acepta los colores de la paleta semántica (WISH-LAYOUT-007), que de otro modo dejaban las conexiones coloreadas sin detectar (conns=0).
+
+**Validación** (validador HEAD vs nuevo sobre los mismos 26 SVGs canónicos):
+
+| Métrica | HEAD | Nuevo | Δ |
+|---|---:|---:|---:|
+| R3 total | 241 | 44 | **−82%** |
+| `05-arquitectura-gag` R3 | 30 | 1 | −97% |
+| `cakephp-mvc` R3 | 14 | 2 | −86% |
+| R1 total | 35 | 51 | +16 (más preciso) |
+
+El alza de R1 es **correcta**: al detectar ahora los iconos custom, el validador captura labels que sí caen sobre ellos (overlaps reales antes invisibles), no falsos positivos.
+
+**Tests**: `tests/test_visual_quality.py` +3 (detección de icono por transform y por polygon, conexión entre custom-icons no es dangling, conexión con color semántico se detecta). Suite 99/99.
+
+**Limitación conocida**: un `connection.color` arbitrario fuera de la paleta semántica (ej. `"color": "red"`) puede no detectarse como conexión por `_is_connection_stroke`. El distinguidor robusto sería "tiene marker" — se deja para v2.
+
+---
+
 ## 🌟 WISH
+
+### WISH-ARCH-002: Convergencia a un solo algoritmo (auto-selección) 🚧 EN CURSO
+**Componente**: `AlmaGag/generator.py` (`select_strategy`), `main.py`, `AlmaGag/layout/`
+**Contexto**: la intención original del autor NO es tener tres algoritmos (auto/laf/hier).
+AUTO fue el algoritmo original; LAF nació como **lente de debug por fases** de AUTO (mismo
+algoritmo, con visibilidad), no como uno aparte; `hier` recombinó y mejoró ideas de ambos. El
+objetivo es **un único motor** que interprete la mejor representación **a partir del JSON**, y
+que la representación sólo se fuerce por **parámetro de comando** (nunca por un campo del JSON).
+**Decisión (autor, 1a+2a)**: AUTO absorbe a hier (un motor); `areas`/`roles` quedan como
+*contenido* del JSON; se saca `layout_view` del JSON (la representación va por `--view`).
+**Hecho hasta ahora**:
+- `layout_view` eliminado del JSON — la representación se fuerza sólo por CLI (`--view`).
+- `--layout-algorithm` default = `select`: `almagag archivo.json` sin flags corre
+  `select_strategy(data, view)` que elige la estrategia desde el JSON. Política conservadora:
+  vista explícita→hier · contenedores→AUTO (hier no los soporta) · `areas`→hier · rombos
+  (decision)→hier · resto→AUTO. Verificado: sólo 3 canónicos enrutan a hier (es-primo,
+  activacion, red-areas); los 28 de arquitectura/topología siguen en AUTO. `auto/laf/hier`
+  explícitos quedan como override avanzado/debug.
+- **(i) Fusión estructural — `AlmaGag/layout/engine.py` (`LayoutEngine`)**: el generator ve UN
+  solo optimizer (el engine). El engine elige la estrategia (override CLI > `layout._strategy` >
+  'auto') y DELEGA en el optimizer correspondiente, adoptando su `renderer`. hier/laf dejan de ser
+  algoritmos peer expuestos al generator → son estrategias internas. Cero regresión por
+  construcción (delega en el mismo código): las 3 rutas a hier (deterministas) quedan
+  byte-idénticas; las rutas a AUTO varían sólo por un **no-determinismo** que se investigó y
+  **RESOLVIÓ** (ver abajo).
+- **Determinismo (RESUELTO)**: el "capricho de AUTO" NO estaba en AUTO sino en los **templates**
+  `flow` y `hub_and_spoke`: iteraban un `set` de ids de string (`for eid in root_ids`) para
+  ordenar niveles/spokes, y el orden de iteración de un set de strings depende de
+  `PYTHONHASHSEED` → el layout cambiaba entre procesos. Fix: iterar la lista de elementos (orden
+  del input), no el set (`templates/flow.py:_topological_order`, `templates/hub_and_spoke.py:_find_hub`).
+  Verificado: los 31 canónicos rinden byte-idénticos con cualquier hash seed. Regresión:
+  `tests/test_determinism.py` (subprocesos con seeds distintos).
+- **(i) prolijo — las 3 estrategias juntas bajo un motor**: `layout/hier/`, `layout/auto/` y
+  `layout/laf/` → **`layout/strategies/{hier,auto,legacy}/`**. Ya no hay algoritmos peer al lado del
+  motor: `layout/` sólo tiene `engine.py` + `strategies/`. Se puede cambiar de estrategia, pero
+  **AUTO es la principal** (`_STRATEGIES` marca `kind`: base/flow/frozen + `DEFAULT_STRATEGY='auto'`).
+  `laf` **renombrado a `legacy`** (motor histórico): CLI `--layout-algorithm=legacy` (ya no `laf`),
+  congelado, nunca auto-elegido. Byte-idéntico tras los moves; 251 tests en verde.
+- **(ii) LAF diferenciado en dos**: LAF se separó en (a) el **motor histórico** = estrategia
+  `legacy` (el placement abstracto-primero con VC/SCC/TOI, congelado), y (b) **Epifanía**, el
+  **analizador del proceso de conceptualización** = clase `Epifania` en
+  `layout/strategies/legacy/epifania/` (ex-`ConceptualizationAnalyzer`/`GrowthVisualizer`, ambos
+  conservados como alias retrocompat): NO posiciona, emite un SVG por fase del análisis (estructura
+  → topología → centralidad → abstracción VC → placement → ruteo) para *ver cómo NACE la
+  abstracción*. CLI `--epifania` (alias `--debug-phases`, `--visualize-growth`), salida en
+  `debug/epifania/<diagrama>/`, títulos "Epifanía · Fase N". *Nombre elegido por José (sobre
+  "Janus").*
+- **(ii-b) Epifanía agnóstica del motor (paso 2) ✅**: `--epifania` ya no es exclusiva de `legacy`.
+  `layout/epifania.py::PhaseRecorder` es un grabador **agnóstico**: hace `deepcopy` del layout en
+  cada frontera de fase y re-renderiza cada foto con el *renderer real* de la estrategia → un
+  "flipbook" del layout real naciendo etapa a etapa (la última foto es byte-idéntica al SVG final,
+  verificado). Las estrategias emiten fases con `self._capture(label, layout, note)` (helper no-op
+  de `LayoutOptimizer`, costo cero si no hay grabador); el `LayoutEngine` conecta el grabador sólo
+  con `--epifania` y sólo a estrategias vivas (auto/hier) — `legacy` conserva su Epifanía "de lujo"
+  (VC/centralidad) porque dibuja internos que sólo ese motor tiene. Fases instrumentadas: AUTO
+  (posicionamiento → contenedores → ruteo-inicial → iteración-N por mejora → final); hier
+  (niveles-columnas → ruteo → arcos → etiquetas → final; + final-areas/lanes/matrix). Salida:
+  `debug/epifania/<diagrama>/NN_<fase>.svg` + `index.html` (hoja de contacto). Las capturas son
+  sólo-lectura: **no alteran salida ni determinismo**; camino normal (sin `--epifania`) byte-idéntico.
+
+**Pendiente**: afinar el clasificador con más señales (hoy es intencionalmente conservador);
+opcional: portar las piezas de rescate ①/② desde `legacy` a `hier`. Test:
+`tests/test_strategy_selection.py`, `tests/test_determinism.py`.
+
+**Dirección de trabajo adoptada**: **AUTO = motor / puerta de entrada** (es el maduro, ya maneja
+contenedores y es la puerta de `select_strategy`); **hier = estrategia de flujo** (sus módulos
+limpios se conservan y se invocan como estrategia, no como algoritmo peer); **LAF = congelar**
+(no borrar aún) y **rescatar 4 piezas** hacia el motor único. Diagnóstico de tamaños: espina
+compartida ~2.750 LOC · AUTO placement ~2.500 · hier ~1.960 · LAF engine-VC ~7.800 (el que más
+divergió) · LAF `GrowthVisualizer` ~2.450 (rescatable).
+
+**Notas de rescate desde LAF** (portar a la maquinaria hier/AUTO cuando toque; independientes de
+la dirección — le sirven al motor gane quien gane):
+
+| # | Idea a rescatar | Fuente en LAF | Destino |
+|---|---|---|---|
+| ① | **Optimizador por bisección de layer-offset** — desplazamiento de toda una capa como variable continua; minimiza la distancia ponderada de conectores buscando la raíz de la derivada (convexa, ~48 iter, forward/backward, conv. <0.001). El aporte más original/limpio de LAF. | `AlmaGag/layout/laf/position_optimizer.py:416-520` | ✅ **INTEGRADA en AUTO**. Utilidad agnóstica `AlmaGag/layout/offset_optimizer.py::optimize_group_offsets` (`tests/test_offset_optimizer.py`, 6) + pasada `AutoLayoutOptimizer._compact_horizontal`. **Hallazgo empírico**: inerte en hier (carriles ya empaquetados) y en AUTO sin contenedores (barycenter ya bueno); **rinde en AUTO con contenedores** tratando cada contenedor como bloque rígido + libres por fila visual. **Guardada**: sólo adopta si bajan los cruces sin subir colisiones → cero regresión (32 canónicos: 2 mejoran, 30 igual, 0 peor). Medido: git cruces 14→11 / colis 73→64; reference-cheatsheet 8→4 / 35→32. Visible en Epifanía (fase `compactacion`). `tests/test_compaction.py` (3). |
+| ② | **Contracción de SCC para levelizar** — contrae cada ciclo/componente fuerte a un representante para correr longest-path sobre un DAG. Más sólido que la detección de back-edges ad-hoc de hier hoy. | `AlmaGag/layout/laf/structure_analyzer.py:1015,1326` | ✅ **INTEGRADA** → `strategies/hier/scc.py` (Tarjan iterativo canónico) alimenta `leveling.py` §A. Los back-edges ahora salen de un feedback set derivado de los SCC (canónico, no del recorrido). **Cero regresión**: DAGs → ∅, ciclo simple → misma arista (14-stresstest byte-idéntico). Robustez nueva: ciclos entrelazados → un SCC + feedback set válido (probado). `tests/test_scc.py` (7). Demo visible en Epifanía: `docs/diagrams/gags/ciclo-retrabajo.sdjf`. |
+| ③ | **`count_crossings` O(n²)** — cuenta cruces reales (intersección de segmentos). Métrica barata; ni AUTO ni hier la tienen. Usar como criterio de calidad y test de regresión. | `AlmaGag/layout/laf/abstract_placer.py:1358` | ✅ **INTEGRADA** → `AlmaGag/layout/metrics.py::count_crossings` (agnóstica del motor, centros de iconos; mejora: pares que comparten nodo no cuentan). Visible en **Epifanía** (chip ✕N + delta por fase) y en `tests/test_crossings.py` (9 tests). Reveló: AUTO=16 vs hier=1 cruces en 14-stresstest. |
+| ④ | **Consideraciones declarativas** (`considerations.align/near/avoid`) — idea de producto valiosa y transversal (la impl LAF es un stub: solo `align`). | `AlmaGag/layout/laf/optimizer.py:245-321` | ✅ **INTEGRADA (blanda)**. Schema top-level `considerations: [...]` (alias legacy `constraints`) en `AlmaGag/layout/considerations.py`; AUTO las aplica **guardadas**: cada una sólo si no aumenta colisiones, la que no se puede CEDE y se informa en el log sin el porqué (`no se pudo cumplir: ...`). Son *consideraciones*, no restricciones duras — nunca degradan el diagrama. `select_strategy` enruta a AUTO. Cero regresión (sin `considerations` → no-op). Visible en Epifanía (fase `consideraciones`). Demo `docs/diagrams/gags/considerations-demo.sdjf` (incluye una que cede); `tests/test_considerations.py` (11); `FORMATO_ARCHIVOS.md §0.4`. |
+
+*Bonus menores*: `W_precedence` (peso por skip-connections según distancia de nivel,
+`structure_analyzer.py:148-172`); pesos de barycenter dinámicos vert:horiz (`abstract_placer.py:50-89`);
+patrón "estimar → medir contenido real → re-expandir" para labels de contenedor
+(`container_grower.py:20-33`); snapshots por fase (`GrowthVisualizer`) como práctica de debug al
+desarrollar hier.
+
+**Descartado a conciencia** (cubierto por auto/hier o demasiado atado al andamiaje de LAF):
+abstracción **VC/TOI** ("tío" — atada al dominio genealógico, y la doc `CONCEPTS.md` la define
+distinto que el código → concepto no consolidado; comprimir 11/13 nodos del stresstest en un VC
+fue lo que rompió LAF y motivó hier); nomenclatura **NdDp/NdPr/NdFn** (inconsistente); spacing con
+constantes mágicas; redistribución half-widths; **dashboard-reflow** (fix reactivo — insight
+reutilizable: "componentes desconectados van en grid 2D, no en fila"); iconos-de-contenedor
+separados (rendering, no layout). Señales de inmadurez de LAF que refuerzan congelarlo:
+hiperparámetros "experimentales" sin defaults, docstrings contradictorios, fases que son fixes
+reactivos más que diseño.
+
+---
+
+### WISH-LAF-002: Layout Jerárquico `hier` según Criterios A1–F18 (spec Claude Design) ✅ RESUELTO (v1) (Fases 1-2-3 ✅ — A1–F18 sobre 14-stresstest)
+**Componente**: `AlmaGag/layout/hier/` (algoritmo nuevo) — leveling.py (§A), columns.py (§B), optimizer.py; + routing/draw (§C–§F)
+**Severidad**: Alta (norte de calidad de layout; caso de regresión `14-stresstest.sdjf`)
+**Reportado**: 2026-06-24 (spec "Criterios AlmaGag" generada por el usuario con Claude Design)
+
+**Decisión de enfoque (2026-06-24)**: se implementa como un **algoritmo nuevo `--layout-algorithm=hier`**, NO como retrofit de LAF. Razón: LAF abstrae los nodos en contenedores virtuales (SCC/TOI/loop) — en el stresstest 11/13 nodos colapsan en `_scc_vc_0` y el placement ocurre dentro de esa caja, un modelo incompatible con el "niveles + columnas plano" que asume el spec. Un algoritmo limpio: (a) coincide 1:1 con la referencia, (b) no arriesga los 24 canonicals que usan LAF en CI, (c) reusa la lógica §A. LAF queda intacto.
+
+**Motivación**:
+
+El usuario produjo una especificación completa de layout jerárquico (18 criterios A1–F18, con orden de dependencias y render de referencia) para mejorar la presentación de LAF, usando `14-stresstest.sdjf` como caso de verificación. El render actual dispersa el grafo (canvas 1960×1860), destierra el satélite `L`, mete las tomas `B`/`C` en filas propias y usa 7 niveles donde el spec compacta a 6.
+
+**Gap analysis (estado al abrir el ticket)** — 1 hecho, 6 parciales, 11 ausentes:
+
+| Grupo | Criterios | Estado |
+|---|---|---|
+| A · Niveles | A1 min-parent · A2 satélites · A3 tomas | A1 **invertido** (usa longest-path/max-parent); A2/A3 parciales |
+| B · Columnas | B4 ghosts+barycenter · B5 carriles · B6 alineación · B7 bifurcación · B8 tallo | B7 parcial; B4/B5/B6/B8 ausentes |
+| C · Puertos | C9 proyección · C10 lado · C11 tomas | 12 sectores angulares (no proyección); C9/C11 ausentes |
+| D · Ruteo | D12 mismo-nivel · D13 cruces · D14 carriles | **D14 hecho**; D12/D13 ausentes |
+| E · Arcos | E15 winding · E16 signo · E17 comba | arco no se auto-aplica a ciclos; E16/E17 ausentes |
+| F · Etiquetas | F18 lado despejado | parcial |
+
+**Criterios de aceptación**: cada criterio A1–F18 verificado contra `14-stresstest.sdjf` (LAF), tal como describe la sección "verificación" de cada uno en el spec.
+
+**Plan por fases** (respeta el orden de dependencias del spec):
+- **Fase 1 — §A+§B** (niveles min-parent, satélites, tomas medio-nivel, ghosts+barycenter, carriles, alineación, bifurcación, tallo). *§A entregada (commit `756a7a0`); §B en progreso.*
+  - **§A hecho** (`AlmaGag/layout/hier/leveling.py`): `compute_levels()` puro — min-parent (A1) + satélites (A2, con requisito de padre que continúa el flujo) + tomas a medio-nivel (A3) + back-edges. Verificado contra 14-stresstest: `A=0 D=1 B=1.5 E/H/L=2 F/I=3 C=3.5 G/J=4 K/M=5`.
+  - **§B v1 hecho** (`AlmaGag/layout/hier/columns.py`): barycenter (B4) + alineación iterativa al ancestro dominante con sesgo tronco/ciclo (B6) + centrado de bifurcación (B7) + separación mínima por fila + tallo raíz (B8) + satélites al costado / tomas al margen exterior. `14-stresstest` en `hier`: canvas **1380×980** (vs 1960×2150 en LAF), 2 columnas principales limpias, sin solapes.
+  - **§B5 hecho** (`columns.py`): carriles cycle-aware — cada componente de ciclo (SCC) recibe un carril propio y los nodos acíclicos se descomponen por spine (DFS de primera visita, hijo de subárbol más profundo continúa el carril). 14-stresstest queda con tronco A·D·E·F·G·M en una columna, ciclo I·J·K en otra, H aparte, satélite L al lado, tomas B/C al margen exterior. Canvas 1480×980.
+  - **§B4 hecho** (`columns.py`): nodos fantasma en aristas largas. Hallazgo: bajo min-parent NINGUNA arista forward baja >1 nivel (min-parent garantiza Δ≤1); las largas van de un nodo profundo a uno superficial (Δ negativo), así que la detección es `|Δnivel|>1`. Cada arista larga se parte con un ghost por nivel intermedio; los ghosts entran al barycenter/carriles (reducen cruces) y sus X se exponen como `waypoints` en la conexión para el ruteo (§D).
+  - **Fase 1 §A+§B COMPLETA.** Falta la consumación de waypoints por el ruteo (§D, Fase 2).
+- **Fase 2 — §C+§D COMPLETA** (`AlmaGag/layout/hier/routing.py`): produce `connection['computed_path']`.
+  - C9 puertos por proyección del otro extremo sobre el borde (fracción 0.16–0.84), separados por borde.
+  - C10 lado del puerto según eje de flujo + llegada perpendicular.
+  - C11 ruteo de tomas (salida lateral → horizontal → bajada vertical, 3 puntos).
+  - D12 aristas de mismo nivel en recta; D13 cruces reales en recta (bifurcación/fusión conservan codo); D14 carriles de canal (offset por pista).
+  - Consume los waypoints §B4. Las back-edges quedan sin path → arco §E (Fase 3). Conexiones a contenidos (sin posición) se saltan sin romper.
+- **Fase 3 — §E+§F COMPLETA**:
+  - §E (`AlmaGag/layout/hier/arcs.py`): aristas de ciclo como bezier con winding coherente. E15: signo global sobre la normal de la dirección → ida interior, retorno exterior automáticamente. E16: signo elegido desde la back-edge para que su normal apunte lejos del centroide. E17: comba adaptativa (base 44px, crece para librar nodos con proyección interior a la cuerda y perp<72px del lado de la comba, tope 320px).
+  - §F18 (`AlmaGag/layout/hier/labels.py`): etiqueta al borde menos concurrido (cuenta conectores por T/B/L/R, desempate abajo→arriba→exterior→interior); setea `label_position`.
+  - **§B7 v2 (simetría)**: se completó el centrado de la bifurcación. El tallo (bifurcación superior + ancestros de hijo único) se separa a su propio carril y se centra entre las columnas hijas; además el nodo de entrada del ciclo (H) se fusiona a la columna del ciclo (H·I·J·K vertical, sin diagonal larga H→I). 14-stresstest queda simétrico: tallo A·D centrado, ciclo a un lado, tronco al otro.
+
+**QA de Claude Design (2026-07-13)** — evaluó el render y aprobó el layout («el layout ya está bien; el bug es uno solo»), detectando un único bug de trazado (etapas 10-11): los conectores quedaban recortados 40px (flujo) / 15px (arcos) antes del borde en vez de tocarlo. Corregido:
+- Q1/Q3: los puertos hier (ya sobre el borde) se marcan como `_from_port`/`_to_port` → el renderer NO aplica su offset. Arcos: extremos recortados al borde con `clip_to_border` (función única).
+- Q2: `_perp_stubs` garantiza un tramo final perpendicular ≥14px (aun en aristas de cruce/rectas) → flechas derechas.
+- Q4: la toma sale por el COSTADO hacia el destino (no por el fondo) → salida horizontal + bajada vertical al borde superior.
+- Q5: `tests/test_hier_geometry.py` — asserts geométricos (extremos en borde, llegada perpendicular) sobre el stresstest + 24 canónicos; evasión de obstáculos (d) validada en el stresstest.
+
+**QA de Claude Design (2026-07-14) — evaluación es-primo (extensión G19–G23)**: se generó una POC de flowchart (`¿es n primo?`, con rombos de decisión y bucle `while`) y Claude Design la evaluó, extendiendo el spec con cinco criterios nuevos. Todos resueltos (**Fase G**):
+- **G19** (`AlmaGag/layout/hier/shapes.py`): el recorte de puertos respeta el POLÍGONO real de la forma, no su bbox. Rombos (`decision`/`diamond`) usan convención flowchart: entrada por el vértice superior; salidas por izquierdo/derecho/inferior (un puerto por vértice, sin fracciones). `routing.py` snapea los puertos de rombo al vértice según dirección dominante; `arcs.py` recorta contra el rombo (`clip_shape`). Los conectores dejan de "flotar" en las esquinas vacías del bbox.
+- **G20** (`leveling.py`): un sumidero (0 salidas, ≥2 padres acíclicos) baja a `max(nivel de padres)+1` en vez de subir por min-parent → los terminales del flowchart (NO es primo / ES PRIMO) caen al fondo, cerca de sus orígenes.
+- **G21** (`columns.py`): asignación de carriles reescrita a *spine + hijo primario «menos padres»* con fusión de carriles-singleton hacia el head-child; el carve del tallo y el centrado B7 se restringen a bifurcaciones **reales** (excluyen fantasmas). `es-primo` queda en columna única; `14-stresstest` conserva la mariposa simétrica.
+- **G22** (`optimizer.py`): contención del viewBox — se reúne toda la geometría (iconos, polylines, waypoints, control-points de bezier, anclas de rótulo), se traslada al espacio positivo si algo se salió por arriba/izquierda (tomas a medio nivel) y se expande el canvas. `bbox(paths) ⊆ viewBox` verificado sobre todos los canónicos.
+- **G23** (`labels.py`): el rótulo de conexión (sí/no/repetir) se ancla a ~14px del puerto de SALIDA sobre el primer segmento; el renderer lo prioriza sobre el optimizador de etiquetas.
+
+**QA de Claude Design (2026-07-14) — evaluación v3 (§H)**: midió el es-primo regenerado. Confirmó Q1–Q3 (borde a borde), G20 (not_prime al fondo), G21 (tronco recto), G22 (dentro del viewBox) y E15–E17 (lazo). Quedaban tres defectos de calidad de ruteo, todos resueltos (**Fase H**):
+- **H24** (`routing.py`): ruteo largo ortogonal PURO. Se reemplazó el seguimiento diagonal de waypoints por `_ortho_route(p_from, sf, p_to, st, channel)` — router radial que respeta la dirección del puerto (primer/último tramo perpendicular al borde) y sólo emite codos de 90°. Diagonales permitidas únicamente en rectas de 2 puntos (§D12 mismo nivel / §D13 cruces reales) y arcos de ciclo (§E, bezier). Nuevo test `test_all_canonicals_no_diagonal_elbows`.
+- **H25** (`columns.py`): el sumidero compartido (0 hijos, ≥2 padres reales) se reubica en la columna ADYACENTE al baricentro de sus padres, del lado libre (menos poblado), en vez de caer al margen lejano. En es-primo `not_prime` pasa de x=110 (4 carriles) a un carril del tronco → aristas cortas y paralelas. Usa `orig_parents` (padres reales antes de la cirugía de ghosts §B4).
+- **H26** (`routing.py`): puertos de rombo estrictamente en el vértice, sin micro-codo. La salida se asigna considerando TODAS las aristas del rombo: la que baja recto (menor |Δx|) toma el vértice inferior; las demás salen por el lateral izq/der → el «sí» ya no roba el vértice inferior al «no», y el primer tramo sale radial (sin quiebre a <15px del puerto).
+
+**Fase I+J (2026-07-14) — áreas, roles y densidad** (spec `Criterios AlmaGag.dc.html`, render de referencia `Activacion DC Render.dc.html`). El caso `activacion-datacenter.sdjf` se emitía como una tira de 980×5060; el spec añadió §I27–§I30 y §J30–§J33 para repartirlo a lo ancho. Implementado:
+- **J30** (`optimizer.py`): paso vertical = icono + holgura fija (`ICON_HEIGHT+42` ≈ 92px) en vez de 170. es-primo 980→590, activacion 5060→2798 antes de áreas.
+- **J31/J32** (`labels.py::wrap_label`): etiquetas partidas por palabras en ≤3 líneas dentro de un ancho máximo (~180px) con «\n»; truncado con «…» si excede. `apply_label_wrapping` corre en el optimizer.
+- **I27** (`AlmaGag/layout/hier/areas.py`, nuevo): si el SDJF trae `areas:[{id,label,members,color?}]`, cada área es un sub-lienzo — corre A–H sobre su subgrafo intra-área (reusa `compute_levels`/`compute_columns`/`route_*`), se dimensiona al contenido + etiquetas (label-aware bbox, paso ampliado §J30) y se empaqueta izquierda→derecha (§J33). `optimizer._optimize_areas` despacha cuando hay `areas`.
+- **I29** (`areas.py::_route_inter_area`): una arista entre áreas sale por el borde de la caja origen, cruza el corredor entre cajas y entra por el borde de la caja destino; ningún tramo cruza una 3ª caja.
+- **I30** (`draw/primitives/phase_areas.py` + `auto_renderer.py`): cajas de fase punteadas rotuladas (fondo); rol por color (barra lateral en cajas, punto en rombos) desde `role` + `roles:{key:{label,color}}`; leyenda de responsables en la franja inferior. Etiquetas de nodo centradas bajo el icono (placement propio, sin el optimizador AUTO).
+- Resultado: `activacion-datacenter.sdjf` pasa de 980×5060 (tira) a **2910×1022** (5 fases a lo ancho, roles por color, aristas inter-área cruzando bordes). Tests `test_hier_density.py` (6) + `test_hier_areas.py` (7).
+
+**§I28 + selección de vista (2026-07-14)** — carriles por rol + sistema de vistas híbrido. Se separó **dato** (fase/rol) de **vista** (cómo se agrupa):
+- **Selección híbrida**: prioridad `--view` (CLI) > `layout_view` (campo del SDJF) > `auto` (código decide: `areas` si las hay, si no `flow`). Resuelto en `generator.py`; despachado en `optimizer.optimize` por `_layout_view`. Valores: `flow|areas|lanes|matrix`. `matrix` aún no implementada (cae a `areas` con warning).
+- **§I28** (`AlmaGag/layout/hier/lanes.py`, nuevo): carriles verticales por rol. Y = nivel de flujo (reusa §A + ruteo §C–§E), X = banda del carril; si no hay `lanes:[…]` explícito se derivan del campo `role`. Franjas de fondo rotuladas (`draw_lane_strips`); cruzar carril = handoff. Es la vista clásica de swimlanes ("¿quién?").
+- La misma `activacion-datacenter.sdjf` rinde ahora en 3 vistas: `areas` 2910×1022 (a lo ancho), `lanes` 1550×2856 (swimlanes), `flow` 980×2798 (tira). `--view` en `main.py`; `layout_view`/`lanes` documentados en `docs/spec/FORMATO_ARCHIVOS.md §0.3`.
+- Tests `test_hier_lanes.py` (6).
+
+**Vista `matrix` (fase×rol) (2026-07-14)** — `AlmaGag/layout/hier/matrix.py` + `draw_matrix_grid`. La vista más completa (el spec la ofrecía "solo bajo petición" por lo cara de rutear): grilla con **fase en columnas** y **rol en filas**; cada nodo cae en la celda (fase, rol) y si varios comparten celda se apilan por nivel de flujo. Es el flowchart transfuncional clásico (BPMN cross-functional). Headers de fase arriba, bandas de rol tintadas con rótulo a la izquierda, separadores de columna. Requiere `areas` + `role`. `activacion-datacenter.sdjf` en `--view=matrix` → 5×7 celdas, 1318×2564. Tests `test_hier_matrix.py` (3). Con esto las 4 vistas del sistema §I están completas: `flow` | `areas` | `lanes` | `matrix`.
+
+**Bugfix etiquetas agrupadas (2026-07-14)**: `apply_label_wrapping` exigía `x` en el elemento → en áreas/carriles/matriz (que envuelven antes de posicionar) las etiquetas no se partían. Quitado el guard (envolver un string no necesita coords). Además en `lanes` el ancho de carril se hizo proporcional al máximo de nodos por nivel para que dos etiquetas centradas (satélite + padre) no se solapen. §J32 sólo trunca, no maqueta notas externas.
+
+Registro: `--layout-algorithm=hier` en `main.py` + `generator.OPTIMIZERS`. Reusa `AutoSVGRenderer` para el dibujo. Tests en `tests/test_hier_layout.py`, `test_hier_routing.py`, `test_hier_arcs_labels.py`, `test_hier_geometry.py` (210 en total con la Fase H). LAF y sus 24 canonicals quedan intactos. Limitación Fase 1: `hier` posiciona sólo elementos root (grafos planos); el soporte de containers vendrá después.
+
+---
 
 ### WISH-ARCH-001: LAFOptimizer Cumpla el Contrato LayoutOptimizer ✅ RESUELTO
 **Componente**: `AlmaGag/layout/laf/optimizer.py` + `AlmaGag/generator.py`
@@ -976,6 +1355,168 @@ Reemplazado el placeholder "v2.2 - (Futuro)" por 3 entradas nuevas que cubren ~1
   - Diagrama de arquitectura: descripción del nuevo `.gag` con iconos custom.
 
 **Validación**: doc renderiza correctamente en GitHub markdown.
+
+---
+
+### WISH-LAYOUT-005: Container Especial "Contract Band" Envolvente ✅ RESUELTO (v1)
+**Componente**: SDJF spec + `AlmaGag/draw/primitives/container.py` + `AlmaGag/layout/container_calculator.py` + `AlmaGag/layout/auto/positioner.py` + `AlmaGag/layout/auto/auto_renderer.py`
+**Severidad**: Media (mejora expresividad de diagramas arquitectónicos)
+**Reportado**: 2026-06-23 (feedback visual del usuario sobre diagrama manual)
+**Resuelto**: 2026-06-23
+
+**Motivación**:
+
+En diagramas arquitectónicos es común expresar "estos N elementos son intercambiables a través de este contrato" con una **banda horizontal** que envuelve un grupo `[endpoint_A, abstract, endpoint_B]`. Visualmente la banda comunica que es un eje único de simetría, no un container jerárquico clásico.
+
+AlmaGag hoy solo tiene containers tipo "caja con título": el background rectangular agrupa pero no transmite el sentido de banda/eje.
+
+**Caso de prueba**:
+Diagrama manual del usuario (2026-06-23): banda horizontal azul claro envuelve `[green-rect-izq, yellow-diamond, green-rect-der]` haciendo evidente la equivalencia funcional.
+
+**Propuesta**:
+- Nuevo tipo de container en SDJF: `"type": "band"` o `"shape": "band"` (compatible con `"contains": [...]`).
+- Render: rect muy ancho y bajo (alto = max height de hijos + padding), sin título arriba sino lateral. Color de fondo más sutil que un container normal.
+- Comportamiento de layout: hijos en fila horizontal con padding uniforme, no en grid.
+- Compatible con el `architecture` template (banda = capa del medio en la T).
+
+**Fix aplicado (v1)**:
+
+Un container con `"shape": "band"` (cualquier container con `contains` puede llevarlo) se comporta distinto:
+
+1. **Layout de hijos** (`positioner._layout_contained_elements_locally`): todos los hijos en **una sola fila** horizontal (`cols = n`), con offset lateral izquierdo para el título y sin reserva de header arriba. Es el eje de equivalencia.
+2. **Bounds** (`container_calculator.calculate_container_bounds` + `positioner._calculate_container_bounds`, ambos band-aware vía helper `is_band` / `band_label_margin`): reservan margen lateral izquierdo (`band_label_margin = n_líneas*18 + 16`) en vez de header arriba; alto = hijos + 2·padding (hug vertical).
+3. **Render del rect** (`draw/primitives/container.py`): fondo más sutil (`CONTAINER_FILL_OPACITY * 0.6`), esquinas de barra (`radius = min(height/2, 24)`), sin icono superior.
+4. **Título** (`auto_renderer._render_container_labels`): rotado -90° sobre el borde izquierdo, centrado verticalmente.
+
+**Validación**:
+- Canonical `16-contract-band.gag` — banda envuelve `[server, diamond, server]` en fila, 0 colisiones.
+- `tests/test_band_container.py` — 5 tests (detección, margen por líneas, hijos en fila única, sin overflow horizontal, label rotado en SVG).
+- Regresión: containers normales (`05-arquitectura-gag`, `07-containers`, `reference-cheatsheet`) byte-idénticos vs HEAD.
+- Tests 79/79 passed.
+
+**Follow-up (2026-06-23, mismo ticket)** — feedback visual del usuario:
+1. **Icono en cada container**: se detectó que el renderer AUTO pasaba `draw_icon=False` y por eso **ningún** container AUTO mostraba su icono de tipo (aunque el label ya venía offseteado `x + 10 + ICON_WIDTH + 10` dejando el hueco). Se activó `draw_icon=True`: containers normales dibujan el icono en la esquina superior izquierda; las bands lo dibujan tras el título rotado, alineado con la fila de hijos (`band_left_region = título + ICON_WIDTH + gap`). Regenerados todos los canonicals con containers.
+2. **Centrado**: el eje del band demo se alineó (Entry, hijo central y Output centrados en la misma X).
+
+**Pendiente (v2, no bloquea)**:
+- Soporte en el renderer LAF (hoy solo AUTO maneja el título lateral; LAF dibujaría el label como header normal).
+- Integración con el `architecture` template (auto-detectar la capa media como band).
+
+---
+
+### WISH-LAYOUT-006: Auto Label-Position por Geometría del Container ✅ RESUELTO (v1)
+**Componente**: `AlmaGag/layout/auto/optimizer.py`
+**Severidad**: Media (mejora legibilidad de diagramas con containers anchos/estrechos)
+**Reportado**: 2026-06-23 (feedback visual del usuario sobre diagrama manual)
+**Resuelto**: 2026-06-23
+
+**Motivación**:
+
+El usuario en su diagrama manual posiciona los labels de iconos contenidos **hacia afuera del centro del container**: icono izquierdo → label a la izquierda; icono derecho → label a la derecha. Esa heurística:
+- Evita solape entre labels de hermanos adyacentes (problema BUGS-AUTO-006 que ya parchamos con stagger).
+- Aprovecha el espacio libre fuera del container.
+
+AlmaGag hoy elige label_position con un default global (`bottom`) o con `_find_best_label_position` que prueba 4 lados en orden fijo. No considera la geometría del container padre.
+
+**Propuesta**:
+- En `_find_best_label_position`, cuando el elemento tiene un container padre, sesgar la preferencia hacia el lado **lejano** del centro del container.
+- Para containers row (hijos alineados horizontalmente): preferir `left` para el primer hijo, `right` para el último, `bottom`/`top` para los del medio.
+- Para containers column: análogo con `top`/`bottom`.
+- Reduce dependencia del stagger horizontal (BUGS-AUTO-006).
+
+**Fix aplicado (v1)**:
+
+Nuevo helper `_outward_label_preference(layout, element, parent_container)`:
+- Devuelve `'left'` para el hijo **más a la izquierda** de su fila, `'right'` para el **más a la derecha**, `None` para los internos o únicos.
+- **Gate single-row**: solo sesga si todos los hijos del container están en una sola fila (`max(y)-min(y) <= 0.6·icon_h`). En grids multi-fila devuelve `None` — sesgar un extremo pondría su label sobre vecinos de otra fila (medido: empeoraba R1 en `reference-cheatsheet`).
+
+Integración como **reordenamiento del fallback** en `_find_best_label_position`: la posición preferida (`bottom` o la del usuario) se mantiene primera; el lado outward se inserta en 2º lugar, antes del resto. Así, cuando `bottom` colisiona, el extremo prueba su lado externo antes que los demás — sin forzar el cambio cuando `bottom` ya funciona (cero regresiones en los canonicals deterministas).
+
+Bug colateral corregido: `_label_inside_container` reservaba una franja superior de 40px (header) también en bands, que **no tienen header** (el título va lateral). Ahora `header_h=0` para bands, permitiendo labels en su parte alta.
+
+**Validación**:
+- `tests/test_outward_labels.py` — 5 tests (helper: leftmost→left, rightmost→right, middle→None, multi-fila→None, sin-container→None; + band sin franja superior).
+- Balance R1/R2 sobre canonicals deterministas (excluyendo `06-flujo-ejecucion`, que tiene no-determinismo **preexistente** en placement de labels): **sin cambios** (31/83 → 31/83). El efecto aparece solo cuando `bottom` colisiona, sin degradar lo que ya funcionaba.
+- Suite 89/89.
+
+**Pendiente (v2, no bloquea)**:
+- Forzar outward como preferida en bands requiere reservar margen lateral **simétrico** (hoy solo el lado izquierdo tiene espacio: título + icono; el label `right` del último hijo se sale y cae a `bottom`). Necesita que el bounds-calc de la band reserve sitio para los labels de los extremos.
+- Soporte para containers column (sesgo vertical `top`/`bottom`).
+- Investigar/abrir ticket para el no-determinismo de `06-flujo-ejecucion` (label placement varía entre corridas; remanente de BUGS-LAYOUT-003).
+
+---
+
+### WISH-LAYOUT-007: Color Semántico por Tipo de Conexión ✅ RESUELTO (v1)
+**Componente**: SDJF spec + `AlmaGag/draw/primitives/svg.py` + renderers
+**Severidad**: Baja (mejora expresividad de diagramas con múltiples tipos de relación)
+**Reportado**: 2026-06-23 (feedback visual del usuario sobre diagrama manual)
+**Resuelto**: 2026-06-23
+
+**Motivación**:
+
+En diagramas con múltiples tipos de relación (data flow, control flow, sync, callback, event), el color del conector codifica la semántica de un vistazo. El usuario lo hizo manualmente: 17 conexiones naranja (data flow) + 1 verde bidireccional (sync de estado).
+
+AlmaGag hoy:
+- `color_connections=True` → colorea cada conexión con un color único determinado por id (no semántico).
+- Si `color_connections=False`, todas en negro.
+- `connection.color` no existe en SDJF.
+
+**Propuesta**:
+1. **Campo nuevo en SDJF**: `connection.semantic_type` (string libre) o `connection.color` (hex/nombre).
+2. **Mapeo automático**: si `semantic_type` está presente, asignar color de paleta predefinida (`data_flow=orange`, `control_flow=blue`, `sync=green`, `event=purple`, `callback=teal`).
+3. **Override directo**: `connection.color` tiene precedencia sobre `semantic_type`.
+4. **Compatibilidad**: si nada de esto se declara, comportamiento actual (negro o `color_connections`).
+5. Bonus: leyenda automática si hay 2+ `semantic_type` distintos en el diagrama.
+
+**Fix aplicado (v1)**:
+
+- `AlmaGag/draw/primitives/svg.py`:
+  - `SEMANTIC_CONNECTION_COLORS`: paleta `data_flow`(naranja), `control_flow`(azul), `sync`(verde), `event`(púrpura), `callback`(teal), `dependency`(gris), `error`(rojo).
+  - `resolve_connection_color(conn)`: `conn['color']` (override) → `SEMANTIC_CONNECTION_COLORS[conn['semantic_type']]` → `None`.
+  - `setup_arrow_markers` refactorizado: si `color_connections` → arcoíris (como antes); si no, calcula color por `resolve_connection_color`; si **alguna** conexión declara color/tipo, devuelve per-connection styles (las sin tipo quedan negras); si ninguna → markers planos (comportamiento clásico intacto).
+- Renderers (`auto_renderer.py`, `laf_renderer.py`): manejan el tuple per-connection independientemente del flag `color_connections`.
+
+**Validación**:
+- `tests/test_semantic_connection_colors.py` — 7 tests (precedencia color>semantic, mapeo por tipo, None sin declarar, markers planos sin semantic, per-connection con semantic, arcoíris intacto).
+- Canonical `17-semantic-connections.gag` (data_flow/sync/event/callback) — 0 colisiones.
+- Regresión: canonicals sin `semantic_type` byte-idénticos (05-arquitectura, 07-containers). Suite 96/96.
+
+**Pendiente (v2, no bloquea)**:
+- Leyenda automática (swatch + etiqueta por `semantic_type` presente). Requiere reservar área sin solapar contenido (placement no trivial); se deja como incremento.
+
+---
+
+### WISH-DRAW-001: Shape `diamond` (abstract/decision) como Icono Nativo ✅ RESUELTO
+**Componente**: `AlmaGag/draw/icons/` — nuevo módulo `diamond.py` + alias `decision.py`
+**Severidad**: Baja (cosmético, mejora claridad visual)
+**Reportado**: 2026-06-23 (feedback visual del usuario sobre diagrama manual)
+**Resuelto**: 2026-06-23
+
+**Motivación**:
+
+El usuario usa un diamante amarillo para el nodo abstracto/contrato en el centro de la banda. El diamante es convención UML/BPMN para "decision" o "interface", y comunica el rol abstracto al instante. AlmaGag hoy:
+- `type: "contract"` renderiza un rect dashed con texto `«abstract»` (estilo UML clase abstracta).
+- No hay shape `diamond` registrado.
+
+Ambos son válidos UML pero el diamante es más universal en diagramas arquitectónicos (no solo de clases). Vale tenerlo disponible.
+
+**Propuesta**:
+1. Crear `AlmaGag/draw/icons/diamond.py` con `draw_diamond(dwg, x, y, color, element_id)`:
+   - Polígono rombo (4 puntos) en gradiente.
+   - Tamaño base ICON_WIDTH × ICON_HEIGHT, ajustable con `wp`/`hp`.
+2. Registrar en el dispatcher (`AlmaGag/draw/icons/__init__.py`).
+3. Disponible como `"type": "diamond"` en cualquier SDJF.
+4. **Opcional**: añadir `"type": "decision"` como alias semántico.
+
+**Fix aplicado**:
+- `AlmaGag/draw/icons/diamond.py` — `draw_diamond(dwg, x, y, color, element_id)`: polígono rombo con sus 4 vértices en los puntos medios del bbox `ICON_WIDTH × ICON_HEIGHT`. El centro y los anclajes de conexión coinciden con los de cualquier icono rectangular (port_assignment funciona sin cambios). Gradiente + línea de realce diagonal sutil.
+- `AlmaGag/draw/icons/decision.py` — alias: `"type": "decision"` renderiza el mismo rombo (el dispatcher importa por nombre de módulo, así que necesita su propio archivo).
+- Compatible con `wp`/`hp` (vía bbox), gradientes y todos los routing types.
+
+**Validación**:
+- `tests/test_diamond_icon.py` — 4 tests (render del polígono, alias decision==diamond, dispatcher resuelve ambos tipos sin caer al fallback bwt).
+- Tests 74/74 passed.
+- Render de prueba: rombos correctos en `diamond` y `decision`, sin warnings de ícono por defecto.
 
 ---
 

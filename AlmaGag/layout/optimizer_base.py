@@ -37,6 +37,21 @@ class LayoutOptimizer(ABC):
             verbose: Si True, imprime información de debug durante optimización
         """
         self.verbose = verbose
+        # Epifanía agnóstica (WISH-ARCH-002, paso 2): el motor conecta acá un
+        # `PhaseRecorder` cuando corre con --epifania; si es None, `_capture` no
+        # hace nada. Así la instrumentación de fases no cuesta nada en el camino
+        # normal y ninguna estrategia depende del grabador.
+        self.recorder = None
+
+    def _capture(self, label: str, layout, note: str = '') -> None:
+        """Marca una fase del pipeline para Epifanía (no-op si no hay grabador).
+
+        Las estrategias llaman a esto en sus fronteras naturales de fase; el
+        grabador guarda una foto del layout y luego la re-renderiza con el
+        renderer real de la estrategia."""
+        rec = getattr(self, 'recorder', None)
+        if rec is not None:
+            rec.capture(label, layout, note)
 
     @abstractmethod
     def optimize(self, layout: Layout, max_iterations: int = 10) -> Layout:

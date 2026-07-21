@@ -326,6 +326,21 @@ def draw_icon_shape(dwg, element, embedded_icons=None):
     color = element.get('color', 'gray')
     element_id = element.get('id', f'{elem_type}_{x}_{y}')
 
+    # §H7: nodo de UNION (matrimonio) → barra corta discreta centrada en el slot
+    # (no un icono grande). Es el punto del que baja un solo tronco por hijo.
+    if elem_type == 'union':
+        cx = x + ICON_WIDTH / 2
+        cy = y + ICON_HEIGHT / 2
+        bar_w = ICON_WIDTH * 0.7
+        bar_h = 8
+        dwg.add(dwg.rect(
+            insert=(cx - bar_w / 2, cy - bar_h / 2),
+            size=(bar_w, bar_h), rx=4, ry=4,
+            fill=(color if color and color != 'gray' else '#5a5a5a'),
+            stroke='#333', stroke_width=1,
+        ))
+        return
+
     # Prioridad 1: icono SVG embebido (.gag format)
     if embedded_icons and elem_type in embedded_icons:
         draw_embedded_icon(dwg, x, y, color, element_id, embedded_icons[elem_type])
@@ -366,7 +381,6 @@ def draw_icon_label(dwg, element, position_info):
             font_size="14px",
             font_family="Arial, sans-serif",
             fill="black",
-            filter='url(#text-glow)'
         ))
 
 

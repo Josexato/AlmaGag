@@ -18,9 +18,10 @@ Ejemplos:
   almagag archivo.gag                                              # Formato .gag (con iconos SVG embebidos)
   almagag archivo.sdjf --debug --visualdebug --exportpng           # Todo habilitado
   almagag archivo.sdjf --debug --guide-lines 186 236               # Con líneas guía
-  almagag archivo.sdjf --layout-algorithm=laf --debug              # Usar LAF (minimiza cruces)
-  almagag archivo.sdjf --layout-algorithm=laf --visualize-growth   # LAF + visualización de fases
-  almagag archivo.sdjf --layout-algorithm=laf --color-connections  # LAF + conexiones coloreadas
+  almagag archivo.sdjf --layout-algorithm=legacy --debug           # Motor histórico (ex-LAF)
+  almagag archivo.sdjf --epifania                                 # Epifanía: flipbook del layout naciendo por fase
+  almagag archivo.sdjf --layout-algorithm=legacy --epifania          # Epifanía de lujo (VC/centralidad, sólo legacy)
+  almagag archivo.sdjf --layout-algorithm=hier                     # Forzar la estrategia de flujo
   python -m AlmaGag.main docs/diagrams/gags/05-arquitectura-gag.gag --debug --visualdebug
         """
     )
@@ -64,14 +65,32 @@ Ejemplos:
     parser.add_argument(
         "--layout-algorithm",
         type=str,
-        choices=['auto', 'laf'],
-        default='auto',
-        help="Algoritmo de layout: 'auto' (sistema actual) o 'laf' (Layout Abstracto Primero - minimiza cruces)"
+        choices=['select', 'auto', 'hier', 'legacy'],
+        default='select',
+        help="Estrategia de layout. Default 'select': el motor elige a partir "
+             "del JSON (un solo algoritmo, con AUTO como principal). Forzar una "
+             "es avanzado/debug: 'auto' (principal, placement general), 'hier' "
+             "(flujo dirigido A–J), 'legacy' (motor histórico ex-LAF, congelado)."
     )
     parser.add_argument(
-        "--visualize-growth",
+        "--view",
+        type=str,
+        choices=['auto', 'flow', 'areas', 'lanes', 'matrix'],
+        default='auto',
+        help="Fuerza la REPRESENTACIÓN (solo por CLI, nunca por el JSON): "
+             "'flow' (columnas por flujo), 'areas' (cajas por fase §I27), "
+             "'lanes' (carriles por rol §I28), 'matrix' (fase×rol). "
+             "'auto' (default) la decide el algoritmo a partir del JSON "
+             "(areas si el archivo declara la metadata)."
+    )
+    parser.add_argument(
+        "--epifania", "--debug-phases", "--visualize-growth",
+        dest="visualize_growth",
         action="store_true",
-        help="Genera SVGs de cada fase del proceso LAF (solo con --layout-algorithm=laf)"
+        help="Epifanía — ver cómo NACE la abstracción del layout, paso a paso: un "
+             "SVG por fase en debug/epifania/<diagrama>/ (+ index.html). Con "
+             "auto/hier es un flipbook del layout real por etapa; con "
+             "--layout-algorithm=legacy usa el analizador de lujo (VC/centralidad)."
     )
     parser.add_argument(
         "--color-connections",
@@ -129,6 +148,7 @@ Ejemplos:
         dump_iterations=args.dump_iterations,
         output_file=args.output,
         layout_algorithm=args.layout_algorithm,
+        view=args.view,
         visualize_growth=args.visualize_growth,
         color_connections=args.color_connections,
         **centrality_kwargs

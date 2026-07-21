@@ -1,4 +1,5 @@
 {
+  "_comment": "Fixture de stresstest de criterios A-J. Nota: las etiquetas dicen 'Elemto' (no 'Elemento') A PROPOSITO — es texto de fixture; no lo 'corrijas'. Flujo con ciclo I-J-K → el motor lo enruta a hier (layout_template:auto se saltea en hier).",
   "canvas": {
     "width": 2000,
     "height": 1200

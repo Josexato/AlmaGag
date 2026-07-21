@@ -37,6 +37,9 @@ class QualityReport:
     n_labels: int
     n_connections: int
     violations: List[Violation] = field(default_factory=list)
+    # §H8: avisos no bloqueantes (p.ej. contraste bajo). No cuentan como
+    # violaciones ni afectan `passed` — son recomendaciones.
+    warnings: List[Violation] = field(default_factory=list)
 
     @property
     def passed(self) -> bool:
@@ -44,6 +47,45 @@ class QualityReport:
 
     def by_rule(self, rule: str) -> List[Violation]:
         return [v for v in self.violations if v.rule == rule]
+
+
+def _relative_luminance(hex_color: str) -> float:
+    """Luminancia relativa WCAG de un color #rrggbb."""
+    h = hex_color.lstrip('#')
+    if len(h) != 6:
+        return 1.0
+    try:
+        r, g, b = (int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))
+    except ValueError:
+        return 1.0
+    def _lin(c):
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+    R, G, B = _lin(r), _lin(g), _lin(b)
+    return 0.2126 * R + 0.7152 * G + 0.0722 * B
+
+
+def contrast_vs_white(hex_color: str) -> float:
+    """Razón de contraste WCAG del color contra fondo blanco."""
+    return (1.0 + 0.05) / (_relative_luminance(hex_color) + 0.05)
+
+
+def check_color_contrast(data, min_ratio: float = 3.0) -> List[Violation]:
+    """§H8: avisa de colores de conexión con contraste < min_ratio sobre blanco
+    (líneas casi invisibles en proyector, p.ej. respaldos rosados)."""
+    warnings = []
+    for conn in data.get('connections', []):
+        color = conn.get('color')
+        if not color or not str(color).startswith('#'):
+            continue
+        ratio = contrast_vs_white(color)
+        if ratio < min_ratio:
+            warnings.append(Violation(
+                rule='contrast_low',
+                description=(f"conexión {conn.get('from')}→{conn.get('to')}: "
+                             f"color {color} contraste {ratio:.1f}:1 (<{min_ratio}:1)"),
+                extra={'color': color, 'ratio': round(ratio, 2)},
+            ))
+    return warnings
 
 
 def _bbox_intersects(a, b, tol=0):
@@ -106,21 +148,122 @@ def _estimate_text_bbox(elem):
     return (x1, y1, x2, y2)
 
 
+import re as _re
+
+# Dimensiones nominales de un icono (deben coincidir con AlmaGag.config).
+_ICON_W = 80
+_ICON_H = 50
+
+_TRANSLATE_RE = _re.compile(r'translate\(\s*([-\d.]+)[ ,]+([-\d.]+)\s*\)')
+_SCALE_RE = _re.compile(r'scale\(\s*([-\d.]+)')
+
+
+def _group_transform_bbox(g):
+    """
+    Bbox de un icono custom renderizado como <g transform="translate(x,y) scale(s)">
+    (factory, gear, contract, iconos SVG embebidos). Devuelve (x1,y1,x2,y2) o None.
+    """
+    tr = g.get('transform', '')
+    m = _TRANSLATE_RE.search(tr)
+    if not m:
+        return None
+    tx, ty = float(m.group(1)), float(m.group(2))
+    sm = _SCALE_RE.search(tr)
+    s = float(sm.group(1)) if sm else 1.0
+    return (tx, ty, tx + _ICON_W * s, ty + _ICON_H * s)
+
+
+def _group_children_bbox(g):
+    """
+    Bbox a partir de las formas hijas de un <g> sin transform: <rect>,
+    <polygon>, <circle>, <ellipse> (cubre diamond y built-ins con coords
+    absolutas). Devuelve (x1,y1,x2,y2) o None.
+    """
+    xs, ys = [], []
+    for rect in g.iter(f'{{{SVG_NS}}}rect'):
+        try:
+            x, y = float(rect.get('x', 0)), float(rect.get('y', 0))
+            w, h = float(rect.get('width', 0)), float(rect.get('height', 0))
+            xs += [x, x + w]; ys += [y, y + h]
+        except (TypeError, ValueError):
+            pass
+    for poly in g.iter(f'{{{SVG_NS}}}polygon'):
+        nums = []
+        for part in poly.get('points', '').replace(',', ' ').split():
+            try:
+                nums.append(float(part))
+            except ValueError:
+                pass
+        xs += nums[0::2]; ys += nums[1::2]
+    for circ in g.iter(f'{{{SVG_NS}}}circle'):
+        try:
+            cx, cy, r = float(circ.get('cx', 0)), float(circ.get('cy', 0)), float(circ.get('r', 0))
+            xs += [cx - r, cx + r]; ys += [cy - r, cy + r]
+        except (TypeError, ValueError):
+            pass
+    for el in g.iter(f'{{{SVG_NS}}}ellipse'):
+        try:
+            cx, cy = float(el.get('cx', 0)), float(el.get('cy', 0))
+            rx, ry = float(el.get('rx', 0)), float(el.get('ry', 0))
+            xs += [cx - rx, cx + rx]; ys += [cy - ry, cy + ry]
+        except (TypeError, ValueError):
+            pass
+    if not xs or not ys:
+        return None
+    return (min(xs), min(ys), max(xs), max(ys))
+
+
+def _is_icon_group_id(gid):
+    """¿El id de un <g> corresponde a un elemento-icono (no metadata)?"""
+    if not gid:
+        return False
+    if gid.startswith('ndfn-') or gid.startswith('conn-'):
+        return False
+    if gid.endswith('_icon'):  # icono de container, lo tratamos aparte
+        return False
+    return True
+
+
 def _collect_icon_bboxes(root):
     """
-    Recolecta bboxes de iconos. Un "icono" se identifica por <rect> con
-    fill gradient (o por <polygon>/<circle> dentro de un <g id="..._icon"></g>).
+    Recolecta bboxes de iconos del SVG.
 
-    Para mantenerlo simple, usamos los <rect> con fill="url(#gradient-...)".
-    Excluimos containers (los que tienen "gradient-X_container" o cuando el
-    rect es muy grande relativo al canvas, asumimos container).
+    BUGS-VAL-001: además de los <rect> con gradiente (iconos built-in como
+    server/database), reconoce iconos CUSTOM:
+    - <g transform="translate(x,y) scale(s)"> (factory, gear, contract,
+      iconos SVG embebidos).
+    - <g id="..."> con polygon/circle (diamond y similares en coords abs).
+
+    Sin esto, los conectores hacia iconos custom se reportaban como
+    "dangling" (R3 falso positivo) porque el icono no se detectaba.
+
+    Excluye containers (gradient "_container"/"_box" o rect muy grande).
     """
     bboxes = []
+    seen_groups = set()
+
+    # 1. Iconos custom: cada <g> de elemento → bbox por transform o por hijos.
+    for g in root.iter(f'{{{SVG_NS}}}g'):
+        gid = g.get('id', '')
+        if not _is_icon_group_id(gid):
+            continue
+        bb = _group_transform_bbox(g)
+        if bb is None:
+            bb = _group_children_bbox(g)
+        if bb is None:
+            continue
+        w, h = bb[2] - bb[0], bb[3] - bb[1]
+        # Saltar containers grandes
+        if w > 300 or h > 200:
+            continue
+        bboxes.append(bb)
+        seen_groups.add(gid)
+
+    # 2. Built-in por gradient rect SUELTO (no dentro de un <g> ya contado).
     for rect in root.iter(f'{{{SVG_NS}}}rect'):
         fill = rect.get('fill', '')
         if 'url' not in fill or 'gradient' not in fill:
             continue
-        # Saltar containers: gradient ID contiene "_container" o el rect es muy ancho/alto
         if '_container' in fill or '_box' in fill:
             continue
         try:
@@ -130,10 +273,15 @@ def _collect_icon_bboxes(root):
             h = float(rect.get('height', 0))
         except (TypeError, ValueError):
             continue
-        # Containers suelen ser grandes: heurística — si w > 300 o h > 200 lo saltamos
         if w > 300 or h > 200:
             continue
-        bboxes.append((x, y, x + w, y + h))
+        bb = (x, y, x + w, y + h)
+        # Evitar duplicar un rect que ya está cubierto por un grupo contado.
+        if any(_bbox_intersects(bb, e) and _bbox_overlap_area(bb, e) > 0.5 * w * h
+               for e in bboxes):
+            continue
+        bboxes.append(bb)
+
     return bboxes
 
 
@@ -162,15 +310,24 @@ def _collect_text_bboxes(root, only_visible_labels=True):
 
 def _is_connection_stroke(stroke: str) -> bool:
     """
-    Conexiones reales usan stroke 'black', 'gray' (líneas grises de
-    waypoints) o colores explícitos asignados por --color-connections.
-    Las líneas decorativas dentro de iconos tienen colores HEX específicos
-    cortos (#566c73, etc).
+    Conexiones reales usan stroke 'black', 'gray' (waypoints) o un color
+    semántico declarado (WISH-LAYOUT-007). Las líneas decorativas dentro de
+    iconos tienen otros colores HEX y, sobre todo, no llevan marker — el
+    chequeo de marker/longitud en _collect_connection_endpoints las filtra.
     """
     if not stroke or stroke == 'none':
         return False
     s = stroke.lower().strip()
-    return s in ('black', '#000', '#000000', 'gray', '#808080')
+    if s in ('black', '#000', '#000000', 'gray', '#808080'):
+        return True
+    # Colores de la paleta semántica (WISH-LAYOUT-007).
+    try:
+        from AlmaGag.draw.primitives.svg import SEMANTIC_CONNECTION_COLORS
+        if s in {c.lower() for c in SEMANTIC_CONNECTION_COLORS.values()}:
+            return True
+    except Exception:
+        pass
+    return False
 
 
 def _has_marker(elem) -> bool:
@@ -281,17 +438,28 @@ def check_labels_overlap(text_bboxes, min_overlap_area=50):
     return violations
 
 
-def check_connections_attached(endpoints, icon_bboxes, tolerance=20):
+def check_connections_attached(endpoints, icon_bboxes, container_bboxes=None, tolerance=30):
     """
-    R3: cada extremo de conector debe estar cerca de un icono
-    (dentro de `tolerance` px del borde del icono).
+    R3: cada extremo de conector debe estar cerca de un icono O de un
+    contenedor (dentro de `tolerance` px del borde).
+
+    BUGS-VAL-001: tolerancia 20 → 30. port_assignment coloca los puntos de
+    conexión en los bordes del icono distribuidos en sectores angulares, con
+    offsets de hasta ~25px del centro del lado; 20px generaba falsos
+    positivos en conexiones legítimamente atadas.
+
+    BUGS-VAL-002: las conexiones entre CONTENEDORES terminan en el borde de la
+    caja (un endpoint válido), lejos de cualquier icono contenido → se contaban
+    como colgantes falsamente. Ahora un endpoint sobre/dentro de un contenedor
+    también cuenta como atado.
     """
+    targets = list(icon_bboxes) + list(container_bboxes or [])
     violations = []
     for ep in endpoints:
         x1, y1, x2, y2 = ep
         for p_name, (px, py) in (('start', (x1, y1)), ('end', (x2, y2))):
             attached = False
-            for ibb in icon_bboxes:
+            for ibb in targets:
                 bx1, by1, bx2, by2 = ibb
                 if (bx1 - tolerance <= px <= bx2 + tolerance
                         and by1 - tolerance <= py <= by2 + tolerance):
@@ -312,7 +480,7 @@ def check_connections_attached(endpoints, icon_bboxes, tolerance=20):
 # ============================================================================
 
 def validate_svg(svg_path: str,
-                 icon_bboxes=None,
+                 icon_bboxes=None, container_bboxes=None,
                  check_r1=True, check_r2=True, check_r3=True) -> QualityReport:
     """
     Valida un SVG contra las 3 reglas.
@@ -345,7 +513,7 @@ def validate_svg(svg_path: str,
     if check_r2:
         report.violations.extend(check_labels_overlap(texts))
     if check_r3:
-        report.violations.extend(check_connections_attached(endpoints, icon_bboxes))
+        report.violations.extend(check_connections_attached(endpoints, icon_bboxes, container_bboxes))
 
     return report
 
@@ -359,17 +527,31 @@ def validate_gag(gag_path: str, layout_algorithm='auto') -> QualityReport:
     import json
     import tempfile
     import os
-    from AlmaGag.generator import generate_diagram
+    from AlmaGag.generator import generate_diagram, select_strategy
     from AlmaGag.layout import Layout
-    from AlmaGag.layout.auto.optimizer import AutoLayoutOptimizer
-    from AlmaGag.layout.laf.optimizer import LAFOptimizer
+    from AlmaGag.layout.engine import LayoutEngine
 
     with open(gag_path) as f:
         data = json.load(f)
 
-    # Aplicar template si está declarado (igual que generator)
+    # §H7: expandir uniones igual que el generator (para que las bboxes y el
+    # render coincidan). No-op si no hay `unions`.
+    from AlmaGag.layout.unions import expand_unions
+    expand_unions(data)
+
+    # Decidir la estrategia sobre el JSON CRUDO, igual que el generator: si el
+    # motor resuelto es `hier`, hace su propio placement y el template (coords
+    # pensadas para AUTO) sólo estorbaría — se saltea. Extraer las bboxes con
+    # otro motor que el del render produce falsos R3 (endpoints "colgantes"
+    # porque los iconos están donde el motor equivocado los puso, no donde el
+    # SVG los dibujó). Por eso aquí se usa el MISMO LayoutEngine que el render.
+    resolved_strategy = (
+        select_strategy(data, 'auto') if layout_algorithm == 'select'
+        else layout_algorithm
+    )
+
     template_name = data.get('layout_template')
-    if template_name:
+    if resolved_strategy != 'hier' and template_name:
         from AlmaGag.layout.templates import (
             apply_template, auto_apply_template
         )
@@ -383,25 +565,43 @@ def validate_gag(gag_path: str, layout_algorithm='auto') -> QualityReport:
         connections=data.get('connections', []),
         canvas=data.get('canvas', {}),
     )
-    Optim = AutoLayoutOptimizer if layout_algorithm == 'auto' else LAFOptimizer
-    eng = Optim(verbose=False)
+    # Metadata semántica que el motor hier consume (retrocompatible: si falta,
+    # camino normal). Debe viajar en el layout igual que en el generator.
+    layout._areas = data.get('areas')
+    layout._roles = data.get('roles')
+    layout._lanes = data.get('lanes')
+    from AlmaGag.layout.considerations import extract_considerations
+    layout._considerations = extract_considerations(data)
+    if layout_algorithm == 'select':
+        layout._strategy = resolved_strategy
+        forced = None
+    else:
+        forced = layout_algorithm
+    eng = LayoutEngine(verbose=False, strategy=forced)
     result = eng.optimize(layout)
 
-    # Bboxes reales de iconos (no-containers)
+    # Bboxes reales de iconos (no-containers) y de contenedores por separado:
+    # R1 (label sobre icono) sólo mira iconos; R3 (colgantes) acepta también
+    # bordes de contenedor como endpoint válido (conexiones entre contenedores).
     icon_bboxes = []
+    container_bboxes = []
     for e in result.elements:
-        if 'contains' in e:
-            continue
         if 'x' not in e or 'y' not in e:
             continue
         w = e.get('width', 80)
         h = e.get('height', 50)
-        icon_bboxes.append((e['x'], e['y'], e['x'] + w, e['y'] + h))
+        bbox = (e['x'], e['y'], e['x'] + w, e['y'] + h)
+        if 'contains' in e:
+            container_bboxes.append(bbox)
+        else:
+            icon_bboxes.append(bbox)
 
     # Renderizar a SVG temporal y validar
     with tempfile.NamedTemporaryFile(suffix='.svg', delete=False) as f:
         tmp_svg = f.name
     generate_diagram(gag_path, output_file=tmp_svg, layout_algorithm=layout_algorithm)
-    report = validate_svg(tmp_svg, icon_bboxes=icon_bboxes)
+    report = validate_svg(tmp_svg, icon_bboxes=icon_bboxes, container_bboxes=container_bboxes)
     os.unlink(tmp_svg)
+    # §H8: avisos de contraste bajo (no bloqueantes) sobre los colores del origen.
+    report.warnings.extend(check_color_contrast(data))
     return report

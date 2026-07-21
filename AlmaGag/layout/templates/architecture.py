@@ -103,18 +103,36 @@ class ArchitectureTemplate(BaseTemplate):
         """
         Señales positivas para 'architecture':
         - Tiene containers (>=2).
-        - Algún label menciona 'shared'/'compart'/'agnost'.
+        - Firma estructural: 1 punto de entrada → containers paralelos → salida(s).
         - DAG (sin ciclos).
-        - Profundidad moderada (3-7 niveles).
+        - Profundidad moderada (3-10 niveles).
         - Branching moderado (no es chain pura).
+        - (señal débil) algún label menciona 'shared'/'compart'/'agnost'.
+
+        BUGS-TPL-001: la ventana de depth 3..7 excluía arquitecturas reales
+        con cadenas más largas (cakephp-mvc, depth=10) y el peso del keyword
+        'shared' estaba sobre-ajustado a la nomenclatura interna. Se amplía la
+        ventana a 3..10 y se añade un bonus por la firma estructural
+        entry→containers→terminal, que no depende de la nomenclatura.
         """
         score = 0.0
         if features.n_containers >= 2:
             score += 0.35
         if features.n_containers >= 3:
             score += 0.10
+
+        # Firma estructural de arquitectura: un único punto de entrada,
+        # al menos una salida, y 2+ containers paralelos en el medio.
+        # Es la señal genérica (no depende de keywords) — generaliza a
+        # cualquier diagrama arquitectónico (ej. MVC).
+        if (features.n_root_nodes_no_incoming == 1
+                and features.n_leaf_nodes_no_outgoing >= 1
+                and features.n_containers >= 2):
+            score += 0.10
+
+        # Señal débil por nomenclatura (no excluyente).
         if any(k in features.label_keywords for k in ('shared', 'compart', 'agnost')):
-            score += 0.20
+            score += 0.15
 
         # Fase 4: bonus por roles declarados típicos de arquitectura
         declared_role_values = set(features.declared_roles.values())
@@ -123,7 +141,7 @@ class ArchitectureTemplate(BaseTemplate):
             score += 0.15 * min(len(arch_roles), 3) / 3  # hasta +0.15
         if not features.has_cycles:
             score += 0.10
-        if 3 <= features.topological_depth <= 7:
+        if 3 <= features.topological_depth <= 10:
             score += 0.15
         if 1.5 <= features.branching_factor <= 4.0:
             score += 0.10

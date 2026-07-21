@@ -1,0 +1,34 @@
+{
+  "_comment": "Topología de red dual-homing: dos sedes conectadas por MPLS (primario, sólido) con Internet/HFC como respaldo (líneas punteadas). Coordenadas explícitas: es topología, no flujo → no usa hier. Enlaces: main=rojo, LAN=verde, secundario=rosa, respaldo=punteado. NOTA: los iconos de AlmaGag son de tamaño fijo 80x50 (el respaldo HFC se oscureció a #b5645e (>=3:1)).",
+  "canvas": { "width": 1400, "height": 640 },
+  "elements": [
+    { "id": "internet",   "type": "cloud",    "label": "Internet",      "color": "#8b2f2f", "x": 90,   "y": 40 },
+    { "id": "rtr_int",    "type": "router",   "label": "BR Internet",   "color": "#8b2f2f", "x": 110,  "y": 175 },
+    { "id": "fw_a",       "type": "firewall", "label": "Firewall",      "color": "tomato",  "x": 40,   "y": 300 },
+    { "id": "srv_a1",     "type": "server",   "label": "Srv A1",        "color": "#d9d9d9", "x": 40,   "y": 390 },
+    { "id": "srv_a2",     "type": "server",   "label": "Srv A2",        "color": "#d9d9d9", "x": 40,   "y": 480 },
+    { "id": "hfc",        "type": "cloud",    "label": "INTERNET HFC",  "color": "#b5645e", "x": 560,  "y": 170 },
+    { "id": "rtr_hfc",    "type": "router",   "label": "BR HFC",        "color": "#c47c78", "x": 820,  "y": 200 },
+    { "id": "mpls",       "type": "cloud",    "label": "MPLS F.O.",     "color": "#8b2f2f", "x": 470,  "y": 430 },
+    { "id": "rtr_mplsL",  "type": "router",   "label": "BR MPLS-A",     "color": "#8b2f2f", "x": 300,  "y": 450 },
+    { "id": "rtr_mplsR",  "type": "router",   "label": "BR MPLS-B",     "color": "#8b2f2f", "x": 820,  "y": 450 },
+    { "id": "srv_b1",     "type": "server",   "label": "Srv B1",        "color": "#d9d9d9", "x": 1080, "y": 300 },
+    { "id": "srv_b2",     "type": "server",   "label": "Srv B2",        "color": "#d9d9d9", "x": 1080, "y": 410 }
+  ],
+  "connections": [
+    { "from": "internet",  "to": "rtr_int",   "direction": "none", "color": "#8b2f2f" },
+    { "from": "rtr_int",   "to": "fw_a",      "direction": "none", "color": "#4a7c1f" },
+    { "from": "fw_a",      "to": "srv_a1",    "direction": "none", "color": "#4a7c1f" },
+    { "from": "srv_a1",    "to": "srv_a2",    "direction": "none", "color": "#4a7c1f" },
+    { "from": "fw_a",      "to": "rtr_mplsL", "direction": "none", "color": "#4a7c1f" },
+    { "from": "rtr_mplsL", "to": "mpls",      "direction": "none", "color": "#8b2f2f" },
+    { "from": "mpls",      "to": "rtr_mplsR", "direction": "none", "color": "#8b2f2f" },
+    { "from": "internet",  "to": "hfc",       "direction": "none", "color": "#b5645e" },
+    { "from": "hfc",       "to": "rtr_hfc",   "direction": "none", "color": "#b5645e" },
+    { "from": "rtr_hfc",   "to": "srv_b1",    "direction": "none", "color": "#c0392b", "style": "dashed" },
+    { "from": "rtr_hfc",   "to": "srv_b2",    "direction": "none", "color": "#c0392b", "style": "dashed" },
+    { "from": "rtr_mplsR", "to": "srv_b1",    "direction": "none", "color": "#8b2f2f" },
+    { "from": "rtr_mplsR", "to": "srv_b2",    "direction": "none", "color": "#8b2f2f" },
+    { "from": "srv_b1",    "to": "srv_b2",    "direction": "none", "color": "#4a7c1f" }
+  ]
+}

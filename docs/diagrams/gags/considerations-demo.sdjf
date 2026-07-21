@@ -1,0 +1,28 @@
+{
+  "canvas": { "width": 900, "height": 700 },
+  "elements": [
+    { "id": "lb",    "label": "Balanceador", "type": "server", "color": "gold" },
+    { "id": "web1",  "label": "Web 1",       "type": "server", "color": "sky" },
+    { "id": "web2",  "label": "Web 2",       "type": "server", "color": "sky" },
+    { "id": "web3",  "label": "Web 3",       "type": "server", "color": "sky" },
+    { "id": "api",   "label": "API",         "type": "server", "color": "mint" },
+    { "id": "db",    "label": "Base datos",  "type": "database", "color": "coral" },
+    { "id": "cache", "label": "Cache",       "type": "database", "color": "coral" }
+  ],
+  "connections": [
+    { "from": "lb",   "to": "web1", "direction": "forward" },
+    { "from": "lb",   "to": "web2", "direction": "forward" },
+    { "from": "lb",   "to": "web3", "direction": "forward" },
+    { "from": "web1", "to": "api",  "direction": "forward" },
+    { "from": "web2", "to": "api",  "direction": "forward" },
+    { "from": "web3", "to": "api",  "direction": "forward" },
+    { "from": "api",  "to": "db",    "direction": "forward" },
+    { "from": "api",  "to": "cache", "direction": "forward" }
+  ],
+  "considerations": [
+    { "align": ["web1", "web2", "web3"], "axis": "y" },
+    { "align": ["db", "cache"], "axis": "y" },
+    { "avoid": ["db", "cache"] },
+    { "align": ["web1", "web2", "web3"], "axis": "x" }
+  ]
+}

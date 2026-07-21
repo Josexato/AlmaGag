@@ -41,5 +41,26 @@ Repository = "https://github.com/Josexato/AlmaGag.git"
 Issues = "https://github.com/Josexato/AlmaGag/issues"
 
 [tool.setuptools]
-packages = ["AlmaGag", "AlmaGag.draw", "AlmaGag.layout", "AlmaGag.layout.laf", "AlmaGag.routing", "AlmaGag.iteration_debug"]
+# Lista explícita (no `packages.find`): el shim `__init__.py` de la raíz del
+# repo rompe el auto-descubrimiento de flat-layout (setuptools ve la raíz como
+# paquete y devuelve []). H1: la lista anterior declaraba AlmaGag.layout.laf
+# —ya inexistente tras el refactor a strategies/— y omitía strategies/*,
+# templates, validation y draw.icons/primitives, rompiendo `pip install -e .`.
+# Al añadir/mover subpaquetes, actualizar esta lista.
+packages = [
+    "AlmaGag",
+    "AlmaGag.draw",
+    "AlmaGag.draw.icons",
+    "AlmaGag.draw.primitives",
+    "AlmaGag.iteration_debug",
+    "AlmaGag.layout",
+    "AlmaGag.layout.strategies",
+    "AlmaGag.layout.strategies.auto",
+    "AlmaGag.layout.strategies.hier",
+    "AlmaGag.layout.strategies.legacy",
+    "AlmaGag.layout.strategies.legacy.epifania",
+    "AlmaGag.layout.templates",
+    "AlmaGag.routing",
+    "AlmaGag.validation",
+]
 package-dir = {"AlmaGag" = "AlmaGag"}
