@@ -166,6 +166,33 @@ def main():
 
         print()
 
+    # Salidas ESPECIALES: variantes por vista y fuentes fuera de gags/.
+    # Sin esta sección quedaban SVGs versionados huérfanos que nadie
+    # regeneraba y arrastraban emisiones viejas (detectado en el
+    # seguimiento de §O56: lanes/matrix a 11.5px, red-edificios a 16px).
+    special_outputs = [
+        (gags_dir / "activacion-datacenter.sdjf",
+         "activacion-datacenter-lanes.svg", ["--view", "lanes"]),
+        (gags_dir / "activacion-datacenter.sdjf",
+         "activacion-datacenter-matrix.svg", ["--view", "matrix"]),
+        (project_root / "examples" / "red-edificios.sdjf",
+         "red-edificios.svg", []),
+    ]
+    for src, out_name, flags in special_outputs:
+        print(f"[especial] {out_name} (fuente: {src.name} {' '.join(flags)})")
+        cmd = ["python", "-m", "AlmaGag.main", str(src),
+               "-o", str(svgs_dir / out_name)] + flags
+        try:
+            subprocess.run(cmd, check=True, text=True,
+                           stdout=None if verbose else subprocess.DEVNULL,
+                           stderr=None if verbose else subprocess.DEVNULL)
+            print_success(f"Generado: {out_name} → {svgs_dir.relative_to(project_root)}/")
+            success_count += 1
+        except subprocess.CalledProcessError:
+            print_error(f"Error generando {out_name}")
+            error_count += 1
+        print()
+
     # Reporte final
     print_header("Reporte Final")
 
