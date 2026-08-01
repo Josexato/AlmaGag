@@ -130,8 +130,9 @@
     {
       "id": "fw_cliente",
       "type": "firewall",
-      "label": "Firewall del cliente\nequipo propio",
-      "color": "#F4B183"
+      "label": "Firewall cliente\nEquipo propio",
+      "color": "#F4B183",
+      "label_position": "right"
     },
     {
       "id": "servidores",
@@ -141,24 +142,24 @@
     }
   ],
   "connections": [
-    { "from": "usuarios", "to": "router_oficina", "direction": "forward", "label": "LAN", "routing": { "type": "orthogonal" } },
-    { "from": "router_oficina", "to": "internet", "direction": "bidirectional", "label": "Internet 50M", "semantic_type": "data_flow", "routing": { "type": "orthogonal" } },
-    { "from": "internet", "to": "router_internet_mina", "direction": "bidirectional", "label": "Internet 300M", "semantic_type": "data_flow", "routing": { "type": "orthogonal" } },
-    { "from": "internet", "to": "fortigate_vm", "direction": "bidirectional", "label": "2 WAN", "semantic_type": "control_flow", "routing": { "type": "orthogonal" } },
-    { "from": "fortigate_vm", "to": "vrf", "direction": "bidirectional", "label": "2 accesos RPV", "semantic_type": "data_flow", "routing": { "type": "orthogonal" } },
-    { "from": "fortigate_vm", "to": "fortigate_ha", "direction": "bidirectional", "label": "HA", "style": "dashed", "semantic_type": "backup", "routing": { "type": "orthogonal" } },
-    { "from": "vrf", "to": "router_rpv_mina", "direction": "bidirectional", "label": "RPV 100M", "semantic_type": "data_flow", "routing": { "type": "orthogonal" } },
-    { "from": "vrf", "to": "router_dc", "direction": "bidirectional", "label": "RPV 100M", "semantic_type": "data_flow", "routing": { "type": "orthogonal" } },
-    { "from": "vrf", "to": "router_antiguo", "direction": "none", "label": "fuera de servicio", "style": "dotted", "semantic_type": "error", "routing": { "type": "orthogonal" } },
-    { "from": "router_internet_mina", "to": "fortigate_mina", "direction": "bidirectional", "routing": { "type": "orthogonal" } },
-    { "from": "fortigate_mina", "to": "red_mina", "direction": "bidirectional", "routing": { "type": "orthogonal" } },
-    { "from": "router_rpv_mina", "to": "red_mina", "direction": "bidirectional", "routing": { "type": "orthogonal" } },
-    { "from": "router_dc", "to": "fw_cliente", "direction": "bidirectional", "routing": { "type": "orthogonal" } },
-    { "from": "fw_cliente", "to": "servidores", "direction": "bidirectional", "routing": { "type": "orthogonal" } }
+    { "from": "usuarios", "to": "router_oficina", "direction": "forward", "label": "LAN", "color": "#000000", "routing": { "type": "orthogonal" } },
+    { "from": "router_oficina", "to": "internet", "direction": "bidirectional", "label": "Internet 50M", "color": "#F28C00", "routing": { "type": "orthogonal" } },
+    { "from": "internet", "to": "router_internet_mina", "direction": "bidirectional", "label": "Internet 300M", "color": "#F28C00", "routing": { "type": "orthogonal" } },
+    { "from": "internet", "to": "fortigate_vm", "direction": "bidirectional", "label": "2 WAN", "color": "#8B39D3", "routing": { "type": "orthogonal" } },
+    { "from": "fortigate_vm", "to": "vrf", "direction": "bidirectional", "label": "2 accesos RPV", "color": "#1976D2", "routing": { "type": "orthogonal" } },
+    { "from": "fortigate_vm", "to": "fortigate_ha", "direction": "bidirectional", "label": "HA", "style": "dashed", "color": "#21B65C", "routing": { "type": "orthogonal" } },
+    { "from": "vrf", "to": "router_rpv_mina", "direction": "bidirectional", "label": "RPV 100M", "color": "#1976D2", "routing": { "type": "orthogonal" } },
+    { "from": "vrf", "to": "router_dc", "direction": "bidirectional", "label": "RPV 100M", "color": "#1976D2", "routing": { "type": "orthogonal" } },
+    { "from": "vrf", "to": "router_antiguo", "direction": "none", "label": "fuera de servicio", "style": "dotted", "color": "#E53935", "routing": { "type": "orthogonal" } },
+    { "from": "router_internet_mina", "to": "fortigate_mina", "direction": "bidirectional", "color": "#000000", "routing": { "type": "orthogonal" } },
+    { "from": "fortigate_mina", "to": "red_mina", "direction": "bidirectional", "color": "#000000", "routing": { "type": "orthogonal" } },
+    { "from": "router_rpv_mina", "to": "red_mina", "direction": "bidirectional", "color": "#000000", "routing": { "type": "orthogonal" } },
+    { "from": "router_dc", "to": "fw_cliente", "direction": "bidirectional", "color": "#000000", "routing": { "type": "orthogonal" } },
+    { "from": "fw_cliente", "to": "servidores", "direction": "bidirectional", "color": "#000000", "routing": { "type": "orthogonal" } }
   ],
   "considerations": [
-    { "type": "align", "elements": ["fortigate_vm", "vrf"], "axis": "y" },
-    { "type": "align", "elements": ["campamento", "dc_crion"], "axis": "x" },
-    { "type": "avoid", "elements": ["internet", "vrf"] }
+    { "align": ["fortigate_vm", "vrf"], "axis": "y" },
+    { "align": ["campamento", "dc_crion"], "axis": "x" },
+    { "avoid": ["internet", "vrf"] }
   ]
 }
