@@ -121,6 +121,11 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     if n_unions:
         logger.info(f"§H7: {n_unions} union(es) expandida(s) a nodo de barra")
 
+    # §O57: resolver tokens de tema (`theme` top-level + `"color": "<token>"`)
+    # sobre el JSON crudo — el resto del pipeline sólo ve hex/nombres CSS.
+    from AlmaGag.layout.theme import apply_theme
+    apply_theme(data)
+
     # Decidir la estrategia sobre el JSON CRUDO (antes de que el template inyecte
     # coords). Si el motor elegido es hier, hier hace su propio placement por
     # niveles/columnas y el `layout_template` (que asigna coords pensadas para
