@@ -61,3 +61,4 @@ tests/*.gag
 # OS
 .DS_Store
 Thumbs.db
+!docs/reviews/iteracion-5/*.png
