@@ -1,0 +1,164 @@
+{
+  "canvas": { "width": 1600, "height": 1000 },
+  "layout_template": "architecture",
+  "elements": [
+    {
+      "id": "oficina",
+      "type": "building",
+      "label": "OFICINA SAN ISIDRO\nCamino Real 1260",
+      "color": "#E9EDF2",
+      "x": 70,
+      "y": 250,
+      "contains": [
+        { "id": "usuarios", "scope": "full" },
+        { "id": "router_oficina", "scope": "full" }
+      ]
+    },
+    {
+      "id": "usuarios",
+      "type": "user",
+      "label": "Hasta 70 usuarios\nVPN IPsec / IKEv2",
+      "color": "#5B9BD5"
+    },
+    {
+      "id": "router_oficina",
+      "type": "router",
+      "label": "Internet 50M trasladado\nCID 24072602 · Proy. 23862558",
+      "color": "#AFC6D9"
+    },
+    {
+      "id": "internet",
+      "type": "cloud",
+      "label": "Internet Claro\nprincipal + contingencia",
+      "color": "#7030A0",
+      "x": 505,
+      "y": 100
+    },
+    {
+      "id": "fortigate_vm",
+      "type": "firewall",
+      "label": "FortiGate-VM sobre HPC Claro\n2 WAN + 2 RPV + gestión",
+      "color": "#F4B183",
+      "x": 505,
+      "y": 490,
+      "label_position": "right"
+    },
+    {
+      "id": "fortigate_ha",
+      "type": "firewall",
+      "label": "FortiGate-VM #2 en HA\nopción recomendada",
+      "color": "#F4B183",
+      "x": 505,
+      "y": 725,
+      "label_position": "bottom"
+    },
+    {
+      "id": "vrf",
+      "type": "cloud",
+      "label": "RPV / MPLS Claro\nVRF Condestable",
+      "color": "#70AD47",
+      "x": 825,
+      "y": 490,
+      "label_position": "right"
+    },
+    {
+      "id": "router_antiguo",
+      "type": "router",
+      "label": "RPV oficina CID 25245086\ntraslado sin reflejo · SOT pendiente",
+      "color": "#A6A6A6",
+      "x": 825,
+      "y": 800,
+      "label_position": "bottom"
+    },
+    {
+      "id": "campamento",
+      "type": "building",
+      "label": "CAMPAMENTO MINA MALA",
+      "color": "#F5E9DF",
+      "x": 1080,
+      "y": 75,
+      "contains": [
+        { "id": "router_internet_mina", "scope": "full" },
+        { "id": "fortigate_mina", "scope": "full" },
+        { "id": "router_rpv_mina", "scope": "full" },
+        { "id": "red_mina", "scope": "full" }
+      ]
+    },
+    {
+      "id": "router_internet_mina",
+      "type": "router",
+      "label": "Router Internet 300M\nSOT 82966015",
+      "color": "#C9AA8F"
+    },
+    {
+      "id": "fortigate_mina",
+      "type": "firewall",
+      "label": "FortiGate 200F\nSOT 82966134",
+      "color": "#F4B183"
+    },
+    {
+      "id": "router_rpv_mina",
+      "type": "router",
+      "label": "Router RPV 100M\nSOT 82966081",
+      "color": "#C9AA8F"
+    },
+    {
+      "id": "red_mina",
+      "type": "computer",
+      "label": "Red de mina",
+      "color": "#D9B38C"
+    },
+    {
+      "id": "dc_crion",
+      "type": "building",
+      "label": "DATA CENTER CIRION",
+      "color": "#F5E9DF",
+      "x": 1080,
+      "y": 600,
+      "contains": [
+        { "id": "router_dc", "scope": "full" },
+        { "id": "fw_cliente", "scope": "full" },
+        { "id": "servidores", "scope": "full" }
+      ]
+    },
+    {
+      "id": "router_dc",
+      "type": "router",
+      "label": "Router RPV 100M\nSOT 83544670",
+      "color": "#C9AA8F"
+    },
+    {
+      "id": "fw_cliente",
+      "type": "firewall",
+      "label": "Firewall del cliente\nequipo propio",
+      "color": "#F4B183"
+    },
+    {
+      "id": "servidores",
+      "type": "database",
+      "label": "Servidores\nCondestable",
+      "color": "#D9B38C"
+    }
+  ],
+  "connections": [
+    { "from": "usuarios", "to": "router_oficina", "direction": "forward", "label": "LAN", "routing": { "type": "orthogonal" } },
+    { "from": "router_oficina", "to": "internet", "direction": "bidirectional", "label": "Internet 50M", "semantic_type": "data_flow", "routing": { "type": "orthogonal" } },
+    { "from": "internet", "to": "router_internet_mina", "direction": "bidirectional", "label": "Internet 300M", "semantic_type": "data_flow", "routing": { "type": "orthogonal" } },
+    { "from": "internet", "to": "fortigate_vm", "direction": "bidirectional", "label": "2 WAN", "semantic_type": "control_flow", "routing": { "type": "orthogonal" } },
+    { "from": "fortigate_vm", "to": "vrf", "direction": "bidirectional", "label": "2 accesos RPV", "semantic_type": "data_flow", "routing": { "type": "orthogonal" } },
+    { "from": "fortigate_vm", "to": "fortigate_ha", "direction": "bidirectional", "label": "HA", "style": "dashed", "semantic_type": "backup", "routing": { "type": "orthogonal" } },
+    { "from": "vrf", "to": "router_rpv_mina", "direction": "bidirectional", "label": "RPV 100M", "semantic_type": "data_flow", "routing": { "type": "orthogonal" } },
+    { "from": "vrf", "to": "router_dc", "direction": "bidirectional", "label": "RPV 100M", "semantic_type": "data_flow", "routing": { "type": "orthogonal" } },
+    { "from": "vrf", "to": "router_antiguo", "direction": "none", "label": "fuera de servicio", "style": "dotted", "semantic_type": "error", "routing": { "type": "orthogonal" } },
+    { "from": "router_internet_mina", "to": "fortigate_mina", "direction": "bidirectional", "routing": { "type": "orthogonal" } },
+    { "from": "fortigate_mina", "to": "red_mina", "direction": "bidirectional", "routing": { "type": "orthogonal" } },
+    { "from": "router_rpv_mina", "to": "red_mina", "direction": "bidirectional", "routing": { "type": "orthogonal" } },
+    { "from": "router_dc", "to": "fw_cliente", "direction": "bidirectional", "routing": { "type": "orthogonal" } },
+    { "from": "fw_cliente", "to": "servidores", "direction": "bidirectional", "routing": { "type": "orthogonal" } }
+  ],
+  "considerations": [
+    { "type": "align", "elements": ["fortigate_vm", "vrf"], "axis": "y" },
+    { "type": "align", "elements": ["campamento", "dc_crion"], "axis": "x" },
+    { "type": "avoid", "elements": ["internet", "vrf"] }
+  ]
+}
