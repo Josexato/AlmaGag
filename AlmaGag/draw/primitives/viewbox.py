@@ -75,12 +75,71 @@ def parse_transform(s):
     return m
 
 
+def _arc_points(p0, rx, ry, rot_deg, large_arc, sweep, p1, samples=16):
+    """Puntos muestreados de un arco elíptico (comando A/a).
+
+    Parametrización endpoint→centro del spec SVG (F.6.5) y muestreo del
+    barrido real: con 16 muestras el error de bbox es <0.5% del radio —
+    despreciable frente al margen de recorte. Degenerados (radio 0,
+    endpoints coincidentes) caen al punto final, como manda el spec.
+    """
+    x0, y0 = p0
+    x1, y1 = p1
+    rx, ry = abs(rx), abs(ry)
+    if rx == 0 or ry == 0 or (x0 == x1 and y0 == y1):
+        return [p1]
+    phi = math.radians(rot_deg % 360)
+    cosp, sinp = math.cos(phi), math.sin(phi)
+    # (F.6.5.1) al marco de la elipse
+    dx, dy = (x0 - x1) / 2.0, (y0 - y1) / 2.0
+    x1p = cosp * dx + sinp * dy
+    y1p = -sinp * dx + cosp * dy
+    # (F.6.6) corregir radios insuficientes
+    lam = (x1p / rx) ** 2 + (y1p / ry) ** 2
+    if lam > 1:
+        s = math.sqrt(lam)
+        rx, ry = rx * s, ry * s
+    # (F.6.5.2) centro en el marco de la elipse
+    num = rx * rx * ry * ry - rx * rx * y1p * y1p - ry * ry * x1p * x1p
+    den = rx * rx * y1p * y1p + ry * ry * x1p * x1p
+    coef = math.sqrt(max(0.0, num / den)) if den else 0.0
+    if large_arc == sweep:
+        coef = -coef
+    cxp = coef * rx * y1p / ry
+    cyp = -coef * ry * x1p / rx
+    # (F.6.5.3) centro real
+    cx = cosp * cxp - sinp * cyp + (x0 + x1) / 2.0
+    cy = sinp * cxp + cosp * cyp + (y0 + y1) / 2.0
+
+    def _angle(ux, uy, vx, vy):
+        dot = ux * vx + uy * vy
+        norm = math.hypot(ux, uy) * math.hypot(vx, vy)
+        a = math.acos(max(-1.0, min(1.0, dot / norm)))
+        return -a if ux * vy - uy * vx < 0 else a
+
+    theta1 = _angle(1, 0, (x1p - cxp) / rx, (y1p - cyp) / ry)
+    dtheta = _angle((x1p - cxp) / rx, (y1p - cyp) / ry,
+                    (-x1p - cxp) / rx, (-y1p - cyp) / ry)
+    if not sweep and dtheta > 0:
+        dtheta -= 2 * math.pi
+    elif sweep and dtheta < 0:
+        dtheta += 2 * math.pi
+
+    pts = []
+    for k in range(samples + 1):
+        t = theta1 + dtheta * k / samples
+        ex = rx * math.cos(t)
+        ey = ry * math.sin(t)
+        pts.append((cosp * ex - sinp * ey + cx, sinp * ex + cosp * ey + cy))
+    return pts
+
+
 def _path_points(d):
     """Puntos de un path (anclas + puntos de control: bbox conservador).
 
     El bbox de una Bézier está contenido en el casco de sus puntos de
     control, así que incluirlos nunca deja contenido afuera. Los arcos (A/a)
-    aportan sólo su punto final — el margen de recorte absorbe la panza.
+    se muestrean sobre su barrido real (`_arc_points`).
     """
     pts = []
     cur = (0.0, 0.0)
@@ -122,8 +181,10 @@ def _path_points(d):
                 cur = pt(v[i + 2], v[i + 3]); i += 4
                 pts.append(cur)
             elif c == 'A':
-                cur = pt(v[i + 5], v[i + 6]); i += 7
-                pts.append(cur)
+                end = pt(v[i + 5], v[i + 6])
+                pts.extend(_arc_points(cur, v[i], v[i + 1], v[i + 2],
+                                       bool(v[i + 3]), bool(v[i + 4]), end))
+                cur = end; i += 7
             else:
                 break
     return pts

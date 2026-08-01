@@ -114,3 +114,24 @@ def test_legend_reanchored_to_new_bottom(tmp_path):
     bottom = sub[3]
     assert y0 < bottom <= y0 + h, 'leyenda fuera de la lámina recortada'
     assert (y0 + h) - bottom < 60, 'leyenda no quedó pegada al borde inferior'
+
+
+def test_arc_bbox_covers_the_bulge():
+    """Los arcos A/a aportan su barrido real al bbox, no sólo el punto final.
+
+    Semicírculo superior de radio 50 entre (0,0) y (100,0): la panza llega a
+    y=-50; antes el bbox sólo veía los extremos (y=0).
+    """
+    pts = _path_points('M 0 0 A 50 50 0 0 1 100 0')
+    ys = [p[1] for p in pts]
+    xs = [p[0] for p in pts]
+    assert min(ys) < -49.5                    # cúspide del semicírculo
+    assert -0.5 < min(xs) and max(xs) < 100.5  # sin desborde lateral
+    # variante relativa con sweep contrario: panza hacia abajo
+    pts = _path_points('M 0 0 a 50 50 0 0 0 100 0')
+    assert max(p[1] for p in pts) > 49.5
+
+
+def test_arc_degenerate_radius_falls_to_endpoint():
+    pts = _path_points('M 0 0 A 0 50 0 0 1 100 0')
+    assert (100, 0) in pts
