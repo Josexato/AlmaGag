@@ -98,93 +98,142 @@ def add_debug_badge(dwg, canvas_width: int, canvas_height: int) -> None:
     ))
 
 
-def convert_svg_to_png(svg_path: str, scale: float = 2.0) -> None:
-    """
-    Convierte un archivo SVG a PNG y lo guarda en la carpeta debug/outputs/.
+def _find_chrome_executable():
+    """§O58: localiza Chrome/Chromium/Edge en cualquier plataforma.
 
-    La conversión se realiza con una escala 2x para obtener mayor resolución.
-    Usa Chrome/Edge/Chromium en modo headless (sin dependencias extra en Windows).
+    Orden: variable ALMAGAG_CHROME → binarios en PATH → rutas típicas de
+    Windows → Chromium de Playwright (contenedores de CI). None si no hay.
+    """
+    import glob
+    import shutil
+
+    env = os.environ.get('ALMAGAG_CHROME')
+    if env and os.path.exists(env):
+        return env
+
+    for name in ('google-chrome', 'google-chrome-stable', 'chromium',
+                 'chromium-browser', 'chrome', 'msedge'):
+        found = shutil.which(name)
+        if found:
+            return found
+
+    windows_paths = [
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+    ]
+    mac_paths = [
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "/Applications/Chromium.app/Contents/MacOS/Chromium",
+    ]
+    pw_root = os.environ.get('PLAYWRIGHT_BROWSERS_PATH', '/opt/pw-browsers')
+    playwright_globs = glob.glob(os.path.join(pw_root, 'chromium-*', 'chrome-linux', 'chrome'))
+    for path in windows_paths + mac_paths + sorted(playwright_globs, reverse=True):
+        if os.path.exists(path):
+            return path
+    return None
+
+
+def _png_via_chrome(chrome_exe, svg_path, png_path, width, height):
+    """Rasteriza con Chrome headless. True si el PNG quedó escrito."""
+    import subprocess
+
+    svg_abs_path = os.path.abspath(svg_path)
+    cmd = [
+        chrome_exe,
+        '--headless',
+        '--disable-gpu',
+        '--no-sandbox',          # imprescindible en contenedores de CI (root)
+        '--default-background-color=FFFFFFFF',
+        f'--screenshot={os.path.abspath(png_path)}',
+        f'--window-size={width},{height}',
+        f'file:///{svg_abs_path.replace(chr(92), "/")}'  # Convertir \ a /
+    ]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+    except subprocess.TimeoutExpired:
+        logger.error("Timeout al ejecutar Chrome")
+        return False
+    if result.returncode == 0 and os.path.exists(png_path):
+        return True
+    logger.warning("Chrome falló al generar PNG")
+    if result.stderr:
+        logger.warning(f"  {result.stderr.strip()}")
+    return False
+
+
+def _png_via_cairosvg(svg_path, png_path, scale):
+    """Rasteriza con cairosvg (sin navegador). True si el PNG quedó escrito.
+
+    Confiable desde §O50: el halo de texto es geometría SVG 1.1, así que el
+    resultado es fiel al de un navegador — apto para regenerar los PNG de
+    revisión en CI sin Chrome.
+    """
+    try:
+        import cairosvg
+    except ImportError:
+        return False
+    try:
+        cairosvg.svg2png(url=os.path.abspath(svg_path),
+                         write_to=os.path.abspath(png_path),
+                         scale=scale, background_color='white')
+    except Exception as e:
+        logger.error(f"cairosvg falló al generar PNG: {e}")
+        return False
+    return os.path.exists(png_path)
+
+
+def convert_svg_to_png(svg_path: str, scale: float = 2.0, png_path: str = None):
+    """
+    Convierte un archivo SVG a PNG (por defecto en debug/outputs/).
+
+    §O58 — PNG sin navegador: usa Chrome/Edge/Chromium headless si hay alguno
+    disponible (en cualquier plataforma) y cae a cairosvg si no. El fallback es
+    fiel gracias al halo portable de §O50 (geometría SVG 1.1, sin paint-order).
 
     Args:
         svg_path: Ruta completa al archivo SVG
         scale: Factor de escala para la resolución (default: 2.0 = 2x)
+        png_path: Ruta de salida; por defecto debug/outputs/<nombre>.png
+
+    Returns:
+        Ruta del PNG generado, o None si no se pudo convertir.
     """
-    import subprocess
     import xml.etree.ElementTree as ET
 
     try:
-        # Obtener nombre base del SVG
-        svg_name = os.path.basename(svg_path)
-        base_name = os.path.splitext(svg_name)[0]
+        if png_path is None:
+            base_name = os.path.splitext(os.path.basename(svg_path))[0]
+            debug_dir = os.path.join(os.getcwd(), 'debug', 'outputs')
+            os.makedirs(debug_dir, exist_ok=True)
+            png_path = os.path.join(debug_dir, f"{base_name}.png")
 
-        # Crear carpeta debug/outputs/ en la raíz del proyecto
-        # Asumimos que estamos ejecutando desde el directorio del proyecto
-        debug_dir = os.path.join(os.getcwd(), 'debug', 'outputs')
-        os.makedirs(debug_dir, exist_ok=True)
+        # Dimensiones del SVG escaladas para la captura de Chrome.
+        root = ET.parse(svg_path).getroot()
+        width = int(float(root.get('width', '800')) * scale)
+        height = int(float(root.get('height', '600')) * scale)
 
-        # Ruta de salida para el PNG
-        png_path = os.path.join(debug_dir, f"{base_name}.png")
+        chrome_exe = _find_chrome_executable()
+        done = False
+        if chrome_exe:
+            done = _png_via_chrome(chrome_exe, svg_path, png_path, width, height)
+        if not done:
+            done = _png_via_cairosvg(svg_path, png_path, scale)
 
-        # Leer dimensiones del SVG
-        tree = ET.parse(svg_path)
-        root = tree.getroot()
-        width = int(float(root.get('width', '800')))
-        height = int(float(root.get('height', '600')))
-
-        # Aplicar escala
-        width = int(width * scale)
-        height = int(height * scale)
-
-        # Convertir ruta absoluta para Chrome
-        svg_abs_path = os.path.abspath(svg_path)
-        png_abs_path = os.path.abspath(png_path)
-
-        # Buscar Chrome/Edge/Chromium en ubicaciones comunes de Windows
-        chrome_paths = [
-            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
-            r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
-            r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
-            r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-        ]
-
-        chrome_exe = None
-        for path in chrome_paths:
-            if os.path.exists(path):
-                chrome_exe = path
-                break
-
-        if chrome_exe is None:
-            logger.warning("Chrome/Edge no encontrado. PNG no generado.")
-            logger.warning("  Alternativas:")
-            logger.warning("  1. Instalar Chrome: https://www.google.com/chrome/")
-            logger.warning("  2. Instalar Cairo + GTK: https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases")
-            return
-
-        # Ejecutar Chrome en modo headless para captura
-        cmd = [
-            chrome_exe,
-            '--headless',
-            '--disable-gpu',
-            f'--screenshot={png_abs_path}',
-            f'--window-size={width},{height}',
-            f'file:///{svg_abs_path.replace(chr(92), "/")}'  # Convertir \ a /
-        ]
-
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-
-        if result.returncode == 0 and os.path.exists(png_path):
+        if done:
             logger.info(f"PNG generado: {png_path}")
-        else:
-            logger.error(f"Chrome falló al generar PNG")
-            if result.stderr:
-                logger.error(f"  {result.stderr}")
+            return png_path
+        logger.warning("PNG no generado: no hay Chrome/Chromium/Edge ni cairosvg.")
+        logger.warning("  Instalar uno de los dos: https://www.google.com/chrome/"
+                       " o `pip install cairosvg`.")
+        return None
 
     except FileNotFoundError:
         logger.error("Archivo SVG no encontrado")
-    except subprocess.TimeoutExpired:
-        logger.error("Timeout al ejecutar Chrome")
     except (ValueError, OSError, ET.ParseError) as e:
         logger.error(f"No se pudo convertir a PNG: {e}")
+    return None
 
 
 # ============================================================================
