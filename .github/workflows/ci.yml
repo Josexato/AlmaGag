@@ -20,7 +20,7 @@ jobs:
       - name: Install package + pytest
         run: |
           pip install -e .
-          pip install pytest
+          pip install pytest pillow
 
       - name: Unit tests
         run: python -m pytest tests/ -v
