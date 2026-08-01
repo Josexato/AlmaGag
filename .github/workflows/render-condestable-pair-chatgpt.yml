@@ -1,0 +1,64 @@
+name: render-condestable-pair-chatgpt
+
+on:
+  push:
+    branches:
+      - chatgpt/render-condestable-pair-20260731
+  workflow_dispatch:
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install AlmaGag and PNG renderer
+        run: |
+          pip install -e .
+          pip install cairosvg
+
+      - name: Render both uploaded GAG files with AlmaGag
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p rendered
+          almagag docs/diagrams/gags/condestable-antes.gag \
+            --debug \
+            -o rendered/condestable-antes.svg \
+            2>&1 | tee rendered/condestable-antes.log
+          almagag docs/diagrams/gags/condestable-despues.gag \
+            --debug \
+            -o rendered/condestable-despues.svg \
+            2>&1 | tee rendered/condestable-despues.log
+
+      - name: Export PNG previews
+        run: |
+          python - <<'PY'
+          import cairosvg
+          for name in ('condestable-antes', 'condestable-despues'):
+              cairosvg.svg2png(
+                  url=f'rendered/{name}.svg',
+                  write_to=f'rendered/{name}.png',
+                  output_width=1900,
+              )
+          PY
+
+      - name: Copy source GAG files and hashes
+        run: |
+          cp docs/diagrams/gags/condestable-antes.gag rendered/
+          cp docs/diagrams/gags/condestable-despues.gag rendered/
+          cd rendered
+          sha256sum *.gag *.svg *.png *.log > SHA256SUMS.txt
+
+      - name: Upload reproducible render artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: condestable-antes-despues-rendered-by-almagag
+          path: rendered/
+          retention-days: 30
