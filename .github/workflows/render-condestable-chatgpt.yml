@@ -1,0 +1,63 @@
+name: render-condestable-chatgpt
+
+on:
+  pull_request:
+    branches: [master]
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install AlmaGag and rasterizer
+        run: |
+          pip install -e .
+          pip install cairosvg
+
+      - name: Render with AlmaGag
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p artifact
+          almagag docs/diagrams/gags/condestable-propuesta.gag \
+            -o artifact/condestable-propuesta.svg \
+            --debug 2>&1 | tee artifact/render.log
+          cp docs/diagrams/gags/condestable-propuesta.gag artifact/
+
+      - name: Create PNG preview from rendered SVG
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import cairosvg
+          p = Path('artifact/condestable-propuesta.svg')
+          svg = p.read_text(encoding='utf-8')
+          svg_png = svg.replace(
+              'paint-order:stroke;stroke:#ffffff;stroke-width:3px',
+              'stroke:none;stroke-width:0'
+          )
+          cairosvg.svg2png(
+              bytestring=svg_png.encode('utf-8'),
+              write_to='artifact/condestable-propuesta.png',
+              output_width=1600,
+              background_color='white'
+          )
+          PY
+
+      - name: Record hashes
+        run: |
+          cd artifact
+          sha256sum condestable-propuesta.gag condestable-propuesta.svg condestable-propuesta.png > SHA256SUMS.txt
+
+      - name: Upload rendered files
+        uses: actions/upload-artifact@v4
+        with:
+          name: condestable-rendered-by-almagag
+          path: artifact/
+          if-no-files-found: error
