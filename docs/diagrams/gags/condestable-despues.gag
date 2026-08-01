@@ -1,0 +1,251 @@
+{
+  "canvas": {
+    "width": 1900,
+    "height": 1300
+  },
+  "elements": [
+    {
+      "id": "of_si",
+      "type": "building",
+      "label": "OFICINA SAN ISIDRO - Camino Real 1260",
+      "color": "#1F3864",
+      "x": 70,
+      "y": 330,
+      "contains": [
+        {
+          "id": "usuarios"
+        },
+        {
+          "id": "inet_si"
+        }
+      ]
+    },
+    {
+      "id": "usuarios",
+      "type": "grupo",
+      "label": "Hasta 70 usuarios\nVPN IPsec / IKEv2"
+    },
+    {
+      "id": "inet_si",
+      "type": "router",
+      "label": "Internet 50M trasladado\nCID 24072602 - Proy 23862558",
+      "color": "#5B9BD5"
+    },
+    {
+      "id": "internet",
+      "type": "mundo",
+      "label": "Internet Claro\nprincipal + contingencia",
+      "x": 580,
+      "y": 120
+    },
+    {
+      "id": "fgvm",
+      "type": "escudo",
+      "label": "FortiGate-VM sobre HPC Claro\n2 WAN + 2 RPV + gestion",
+      "x": 580,
+      "y": 580
+    },
+    {
+      "id": "fgvm_ha",
+      "type": "escudo_gris",
+      "label": "FortiGate-VM #2 en HA\nopcion recomendada",
+      "x": 580,
+      "y": 880
+    },
+    {
+      "id": "rpv_mpls",
+      "type": "cloud",
+      "label": "RPV / MPLS Claro\nVRF Condestable",
+      "color": "#548B54",
+      "x": 980,
+      "y": 580
+    },
+    {
+      "id": "campamento",
+      "type": "building",
+      "label": "CAMPAMENTO MINA MALA",
+      "color": "#C55A11",
+      "x": 1320,
+      "y": 100,
+      "contains": [
+        {
+          "id": "camp_rtr_inet"
+        },
+        {
+          "id": "camp_fg"
+        },
+        {
+          "id": "camp_rtr_rpv"
+        },
+        {
+          "id": "camp_red"
+        }
+      ]
+    },
+    {
+      "id": "camp_rtr_inet",
+      "type": "router",
+      "label": "Router Internet 300M\nSOT 82966015",
+      "color": "#F4B183"
+    },
+    {
+      "id": "camp_fg",
+      "type": "firewall",
+      "label": "FortiGate 200F\nSOT 82966134",
+      "color": "#C00000"
+    },
+    {
+      "id": "camp_rtr_rpv",
+      "type": "router",
+      "label": "Router RPV 100M\nSOT 82966081",
+      "color": "#F4B183"
+    },
+    {
+      "id": "camp_red",
+      "type": "hub",
+      "label": "Red de mina"
+    },
+    {
+      "id": "cirion",
+      "type": "building",
+      "label": "DATA CENTER CIRION",
+      "color": "#C55A11",
+      "x": 1320,
+      "y": 720,
+      "contains": [
+        {
+          "id": "cir_rtr"
+        },
+        {
+          "id": "cir_fw"
+        },
+        {
+          "id": "cir_srv"
+        }
+      ]
+    },
+    {
+      "id": "cir_rtr",
+      "type": "router",
+      "label": "Router RPV 100M\nSOT 83544670",
+      "color": "#F4B183"
+    },
+    {
+      "id": "cir_fw",
+      "type": "firewall",
+      "label": "Firewall del cliente\nequipo propio",
+      "color": "gray"
+    },
+    {
+      "id": "cir_srv",
+      "type": "database",
+      "label": "Servidores\nCondestable",
+      "color": "#F4B183"
+    },
+    {
+      "id": "rtr_viejo",
+      "type": "router",
+      "label": "RPV oficina CID 25245086\ntraslado sin reflejo - SOT pendiente",
+      "color": "gray",
+      "x": 980,
+      "y": 980
+    }
+  ],
+  "connections": [
+    {
+      "from": "usuarios",
+      "to": "inet_si",
+      "direction": "forward",
+      "label": "LAN"
+    },
+    {
+      "from": "inet_si",
+      "to": "internet",
+      "direction": "bidirectional",
+      "semantic_type": "data_flow"
+    },
+    {
+      "from": "internet",
+      "to": "fgvm",
+      "direction": "forward",
+      "label": "VPN 70 usuarios",
+      "semantic_type": "event"
+    },
+    {
+      "from": "fgvm",
+      "to": "rpv_mpls",
+      "direction": "bidirectional",
+      "label": "2 accesos RPV",
+      "semantic_type": "control_flow"
+    },
+    {
+      "from": "fgvm",
+      "to": "fgvm_ha",
+      "direction": "bidirectional",
+      "label": "HA",
+      "style": "dashed",
+      "semantic_type": "sync"
+    },
+    {
+      "from": "camp_red",
+      "to": "camp_fg",
+      "direction": "forward"
+    },
+    {
+      "from": "camp_fg",
+      "to": "camp_rtr_inet",
+      "direction": "forward"
+    },
+    {
+      "from": "camp_red",
+      "to": "camp_rtr_rpv",
+      "direction": "forward"
+    },
+    {
+      "from": "camp_rtr_inet",
+      "to": "internet",
+      "direction": "bidirectional",
+      "label": "Internet 300M",
+      "semantic_type": "data_flow"
+    },
+    {
+      "from": "camp_rtr_rpv",
+      "to": "rpv_mpls",
+      "direction": "bidirectional",
+      "label": "RPV 100M",
+      "semantic_type": "control_flow"
+    },
+    {
+      "from": "cir_rtr",
+      "to": "cir_fw",
+      "direction": "forward"
+    },
+    {
+      "from": "cir_fw",
+      "to": "cir_srv",
+      "direction": "forward"
+    },
+    {
+      "from": "cir_rtr",
+      "to": "rpv_mpls",
+      "direction": "bidirectional",
+      "label": "RPV 100M",
+      "semantic_type": "control_flow"
+    },
+    {
+      "from": "rtr_viejo",
+      "to": "rpv_mpls",
+      "direction": "none",
+      "style": "dotted",
+      "label": "fuera de servicio",
+      "semantic_type": "error"
+    }
+  ],
+  "icons": {
+    "grupo": "<svg viewBox='0 0 80 50'><circle cx='24' cy='16' r='7' fill='#5B9BD5' stroke='#173d5e' stroke-width='2'/><path d='M12 42 v-6 a12 12 0 0 1 24 0 v6 Z' fill='#5B9BD5' stroke='#173d5e' stroke-width='2'/><circle cx='56' cy='16' r='7' fill='#5B9BD5' stroke='#173d5e' stroke-width='2'/><path d='M44 42 v-6 a12 12 0 0 1 24 0 v6 Z' fill='#5B9BD5' stroke='#173d5e' stroke-width='2'/><circle cx='40' cy='13' r='8' fill='#2E75B6' stroke='#173d5e' stroke-width='2'/><path d='M26 46 v-7 a14 14 0 0 1 28 0 v7 Z' fill='#2E75B6' stroke='#173d5e' stroke-width='2'/></svg>",
+    "mundo": "<svg viewBox='0 0 80 50'><circle cx='40' cy='25' r='19' fill='#2E75B6' stroke='#173d5e' stroke-width='2.5'/><ellipse cx='40' cy='25' rx='7.5' ry='19' fill='none' stroke='#cfe3f5' stroke-width='1.6'/><line x1='21' y1='25' x2='59' y2='25' stroke='#cfe3f5' stroke-width='1.6'/><path d='M24 16 H56 M24 34 H56' fill='none' stroke='#cfe3f5' stroke-width='1.3'/></svg>",
+    "hub": "<svg viewBox='0 0 80 50'><rect x='22' y='19' width='36' height='12' rx='2.5' fill='#2E75B6' stroke='#173d5e' stroke-width='2.5'/><circle cx='29' cy='25' r='1.8' fill='#F6C445'/><circle cx='36' cy='25' r='1.8' fill='#F6C445'/><circle cx='43' cy='25' r='1.8' fill='#F6C445'/><circle cx='50' cy='25' r='1.8' fill='#F6C445'/><line x1='28' y1='19' x2='16' y2='7' stroke='#173d5e' stroke-width='1.8'/><line x1='40' y1='19' x2='40' y2='5' stroke='#173d5e' stroke-width='1.8'/><line x1='52' y1='19' x2='64' y2='7' stroke='#173d5e' stroke-width='1.8'/><rect x='11' y='3' width='9' height='6' fill='#5B9BD5' stroke='#173d5e' stroke-width='1.5'/><rect x='35.5' y='1' width='9' height='6' fill='#5B9BD5' stroke='#173d5e' stroke-width='1.5'/><rect x='60' y='3' width='9' height='6' fill='#5B9BD5' stroke='#173d5e' stroke-width='1.5'/><line x1='28' y1='31' x2='16' y2='43' stroke='#173d5e' stroke-width='1.8'/><line x1='40' y1='31' x2='40' y2='45' stroke='#173d5e' stroke-width='1.8'/><line x1='52' y1='31' x2='64' y2='43' stroke='#173d5e' stroke-width='1.8'/><rect x='11' y='41' width='9' height='6' fill='#5B9BD5' stroke='#173d5e' stroke-width='1.5'/><rect x='35.5' y='43' width='9' height='6' fill='#5B9BD5' stroke='#173d5e' stroke-width='1.5'/><rect x='60' y='41' width='9' height='6' fill='#5B9BD5' stroke='#173d5e' stroke-width='1.5'/></svg>",
+    "escudo": "<svg viewBox='0 0 80 50'><path d='M40 4 L64 12 V26 C64 38 53 45 40 48 C27 45 16 38 16 26 V12 Z' fill='#2E75B6' stroke='#173d5e' stroke-width='2.5' stroke-linejoin='round'/><rect x='33' y='25' width='14' height='12' rx='2' fill='#F6C445' stroke='#173d5e' stroke-width='1.6'/><path d='M35 25 V21 a5 5 0 0 1 10 0 V25' fill='none' stroke='#173d5e' stroke-width='2'/><circle cx='40' cy='30' r='1.8' fill='#173d5e'/></svg>",
+    "escudo_gris": "<svg viewBox='0 0 80 50'><path d='M40 4 L64 12 V26 C64 38 53 45 40 48 C27 45 16 38 16 26 V12 Z' fill='#9AA4AE' stroke='#5a6470' stroke-width='2.5' stroke-linejoin='round'/><rect x='33' y='25' width='14' height='12' rx='2' fill='#DDE1E5' stroke='#5a6470' stroke-width='1.6'/><path d='M35 25 V21 a5 5 0 0 1 10 0 V25' fill='none' stroke='#5a6470' stroke-width='2'/><circle cx='40' cy='30' r='1.8' fill='#5a6470'/></svg>"
+  }
+}
