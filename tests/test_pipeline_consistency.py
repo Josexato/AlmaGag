@@ -43,11 +43,15 @@ def test_no_duplicate_container_labels():
         'Shared (algoritmo-agnóstico)',
     ]
 
+    # §O50: cada <text> visible lleva un gemelo de halo (class="ag-text-halo")
+    # con el mismo contenido — se descuenta del conteo de duplicados reales.
+    import xml.etree.ElementTree as ET
+    root = ET.fromstring(content)
+    texts = [t for t in root.iter('{http://www.w3.org/2000/svg}text')
+             if t.get('class') != 'ag-text-halo']
+
     for label in container_labels:
-        # Buscar patrón >{label}< (texto dentro de tags SVG)
-        pattern = f'>{re.escape(label)}<'
-        matches = re.findall(pattern, content)
-        count = len(matches)
+        count = sum(1 for t in texts if (t.text or '').strip() == label)
         assert count == 1, f"'{label}' aparece {count} veces (esperado: 1)"
 
 

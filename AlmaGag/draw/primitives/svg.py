@@ -10,7 +10,9 @@ LAFSVGRenderer) y orquesta estas primitivas a su manera.
 """
 
 import colorsys
+import copy
 import logging
+import xml.etree.ElementTree as ET
 
 import svgwrite
 
@@ -38,23 +40,92 @@ class DrawingGroupProxy:
         return getattr(self._dwg, name)
 
 
+# §O50: atributos del halo blanco que lleva la copia inferior de cada <text>.
+# Mismo trazo que tenía la regla `paint-order:stroke` global, pero como
+# geometría SVG 1.1 (funciona en cairosvg/librsvg/Office, no sólo navegadores).
+TEXT_HALO_ATTRS = {
+    'class': 'ag-text-halo',
+    'stroke': '#ffffff',
+    'stroke-width': '3',
+    'stroke-linejoin': 'round',
+    'stroke-linecap': 'round',
+    'fill': '#ffffff',
+}
+
+_SVG_NS = 'http://www.w3.org/2000/svg'
+
+
+def inject_text_halos(svg_string):
+    """§O50: materializa el halo de texto como geometría SVG 1.1.
+
+    Por cada <text> del documento inserta, inmediatamente antes y en el mismo
+    padre, una copia con trazo blanco (TEXT_HALO_ATTRS). El apilado resultante
+    es idéntico al de `paint-order:stroke` (halo bajo el glifo, ambos sobre lo
+    ya dibujado), pero sin depender de SVG2: cairosvg y librsvg —que pintan el
+    stroke ENCIMA del fill— ya no borran las etiquetas al rasterizar.
+    """
+    root = ET.fromstring(svg_string)
+    text_tag = f'{{{_SVG_NS}}}text'
+    defs_tag = f'{{{_SVG_NS}}}defs'
+    for parent in list(root.iter()):
+        if parent.tag in (defs_tag, text_tag):
+            continue
+        for idx in range(len(parent) - 1, -1, -1):
+            child = parent[idx]
+            if child.tag != text_tag:
+                continue
+            halo = copy.deepcopy(child)
+            halo.attrib.pop('id', None)
+            halo.attrib.update(TEXT_HALO_ATTRS)
+            parent.insert(idx, halo)
+    return _tostring_svg_default_ns(root)
+
+
+def _tostring_svg_default_ns(root):
+    """Serializa con SVG como namespace por defecto SIN dejar estado global.
+
+    `register_namespace` muta el mapa global de ElementTree; svgwrite también
+    serializa con ElementTree y, con '' → SVG registrado de forma permanente,
+    su root saldría con `xmlns` duplicado cuando el diagrama embebe iconos SVG
+    (atributo literal + declaración inyectada). Registrar → serializar →
+    restaurar mantiene el efecto local a esta llamada.
+    """
+    from xml.etree.ElementTree import _namespace_map
+    saved = dict(_namespace_map)
+    ET.register_namespace('', _SVG_NS)
+    ET.register_namespace('xlink', 'http://www.w3.org/1999/xlink')
+    ET.register_namespace('ev', 'http://www.w3.org/2001/xml-events')
+    try:
+        return ET.tostring(root, encoding='unicode')
+    finally:
+        _namespace_map.clear()
+        _namespace_map.update(saved)
+
+
+class PortableHaloDrawing(svgwrite.Drawing):
+    """Drawing cuyo XML final lleva el halo de texto de §O50.
+
+    `save()`/`write()` de svgwrite pasan por `tostring()`, así que basta
+    interceptarlo aquí: todo el pipeline dibuja texto normalmente y el halo se
+    inyecta una única vez al emitir."""
+
+    def tostring(self):
+        return inject_text_halos(super().tostring())
+
+
 def create_canvas(output_path, canvas_width, canvas_height):
-    """Crea el Drawing SVG con halo blanco universal para TODO el texto (H5).
+    """Crea el Drawing SVG con halo blanco universal para TODO el texto (H5+O50).
 
     En vez de un filtro gaussiano por-elemento (blur suave, y que había que
     recordar aplicar en cada `dwg.text` — los labels de contenedor y callout se
-    quedaban sin él), se define un halo nítido `paint-order:stroke` en un único
-    `<style>` global que alcanza a cualquier <text>: nodos, conexiones,
-    contenedores, callouts y áreas. Legible sobre cualquier cruce residual.
+    quedaban sin él), el halo se materializa al emitir: cada <text> recibe una
+    copia inferior con trazo blanco (ver `inject_text_halos`). Es geometría
+    SVG 1.1 pura — antes era una regla `paint-order:stroke` global (SVG2) que
+    cairosvg/librsvg no entienden y que volvía ilegibles las etiquetas en PNG.
     El id `text-glow` se conserva como filtro no-op por retrocompatibilidad
     (algún SVG viejo/embebido podía referenciarlo)."""
-    dwg = svgwrite.Drawing(output_path, size=(canvas_width, canvas_height), debug=False)
+    dwg = PortableHaloDrawing(output_path, size=(canvas_width, canvas_height), debug=False)
     dwg.viewbox(0, 0, canvas_width, canvas_height)
-
-    dwg.defs.add(svgwrite.container.Style(content=(
-        "text{paint-order:stroke;stroke:#ffffff;stroke-width:3px;"
-        "stroke-linejoin:round;stroke-linecap:round}"
-    )))
 
     # Filtro heredado: neutro (feMerge de la fuente sola). Mantiene válidas las
     # referencias `url(#text-glow)` que aún queden sin duplicar el halo.
@@ -140,11 +211,13 @@ def draw_connection_type_legend(dwg, connections, canvas_width, canvas_height,
         dashes = {_dash_for(c) for c in conns}
         dash = dashes.pop() if len(dashes) == 1 else None
 
-        line_attrs = {'x1': x, 'y1': y, 'x2': x + 26, 'y2': y,
-                      'stroke': color or '#333', 'stroke_width': 2.5}
+        # start/end posicionales: svgwrite.Line SOBRESCRIBE x1..y2 pasados como
+        # extra con sus defaults (0,0) — pasarlos sueltos deja el swatch en el
+        # origen con longitud cero (invisible).
+        line_attrs = {'stroke': color or '#333', 'stroke_width': 2.5}
         if dash:
             line_attrs['stroke_dasharray'] = dash
-        dwg.add(dwg.line(**line_attrs))
+        dwg.add(dwg.line(start=(x, y), end=(x + 26, y), **line_attrs))
         label = SEMANTIC_TYPE_LABELS.get(st, st)
         dwg.add(dwg.text(label, insert=(x + 32, y + 4),
                          font_size='10.5px', font_family='Arial, sans-serif',

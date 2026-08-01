@@ -294,6 +294,10 @@ def _collect_text_bboxes(root, only_visible_labels=True):
     for txt in root.iter(f'{{{SVG_NS}}}text'):
         if (txt.text or '').strip() == '':
             continue
+        # §O50: los gemelos de halo (copia con trazo blanco bajo cada label)
+        # no son etiquetas — contarlos duplicaría cada solape.
+        if txt.get('class') == 'ag-text-halo':
+            continue
         # Excluir labels minúsculos de debug (NdFn etc) que viven en gris muy chico
         size = txt.get('font-size', '14')
         try:
