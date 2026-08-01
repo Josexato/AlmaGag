@@ -5,12 +5,15 @@ Esta guía documenta todas las opciones de línea de comandos disponibles en Alm
 ## Tabla de Contenidos
 
 - [Sintaxis Básica](#sintaxis-básica)
+- [Modelo Mental: el motor elige por ti](#modelo-mental-el-motor-elige-por-ti)
 - [Opciones de Layout](#opciones-de-layout)
+- [Opciones de Vista](#opciones-de-vista)
 - [Opciones de Estilo Visual](#opciones-de-estilo-visual)
-- [Parámetros de Centralidad LAF](#parámetros-de-centralidad-laf)
+- [Parámetros de Centralidad (solo `legacy`)](#parámetros-de-centralidad-solo-legacy)
 - [Opciones de Debug](#opciones-de-debug)
 - [Opciones de Exportación](#opciones-de-exportación)
 - [Opciones de Visualización](#opciones-de-visualización)
+- [Señal de Calidad del Layout](#señal-de-calidad-del-layout)
 - [Resumen Rápido de Parámetros](#resumen-rápido-de-parámetros)
 - [Combinaciones Comunes](#combinaciones-comunes)
 - [Troubleshooting](#troubleshooting)
@@ -18,59 +21,128 @@ Esta guía documenta todas las opciones de línea de comandos disponibles en Alm
 ## Sintaxis Básica
 
 ```bash
-almagag <archivo.gag> [opciones]
+almagag <archivo.sdjf|.gag> [opciones]
 ```
 
 **Ejemplo mínimo**:
 ```bash
-almagag mi-diagrama.gag
+almagag mi-diagrama.sdjf -o mi-diagrama.svg
 ```
 
-Esto genera `mi-diagrama.svg` en el mismo directorio usando el algoritmo AUTO (por defecto).
+El archivo de entrada puede ser `.sdjf` (SDJF puro) o `.gag` (SDJF con iconos
+embebidos). Si no especificas `-o/--output`, el SVG se genera en el directorio
+actual.
+
+## Modelo Mental: el motor elige por ti
+
+La forma normal de usar AlmaGag es **sin pasar ningún flag de algoritmo**:
+
+```bash
+almagag archivo.sdjf -o salida.svg
+```
+
+El motor de layout (`LayoutEngine`) analiza el JSON y **elige él mismo la mejor
+estrategia** mediante `select_strategy`. No necesitas — ni normalmente debes —
+pasar `--layout-algorithm`; forzar una estrategia es territorio avanzado/debug.
+
+**Reglas de `select_strategy`** (se evalúan en este orden; la primera que aplica gana):
+
+1. Hay un `--view` explícito (distinto de `auto`) → **hier**
+2. El JSON declara `considerations` (align/near/avoid) → **auto**
+3. Algún elemento tiene `contains` (contenedores anidados) → **auto** (hier aún no los soporta)
+4. El JSON declara `areas` (metadata de fases) → **hier**
+5. Hay un nodo `decision`/`diamond` (flowchart) → **hier**
+6. Es un flujo dirigido **con ciclo** y **sin coordenadas manuales** (`x`/`y`) → **hier** (niveles + arcos de ciclo)
+7. En cualquier otro caso → **auto** (placement general)
+
+En resumen: entrega tu `.sdjf` y deja que el motor decida. Los flags de abajo son
+para casos avanzados, comparación y debug.
 
 ## Opciones de Layout
 
-### `--layout-algorithm {auto|laf}`
+### `--layout-algorithm {select|auto|hier|legacy}`
 
-Selecciona el algoritmo de posicionamiento automático.
+Fuerza la estrategia de posicionamiento automático. **Por defecto es `select`**,
+que delega la decisión al motor (ver [Modelo Mental](#modelo-mental-el-motor-elige-por-ti)).
 
 **Valores disponibles**:
-- `auto` (por defecto): Algoritmo AutoLayoutOptimizer v3.0 jerárquico iterativo
-- `laf`: Algoritmo LAFOptimizer v1.3 con minimización de cruces
+- `select` (**por defecto**): el motor elige la estrategia a partir del JSON vía
+  `select_strategy`. **Normalmente NO pasas este flag** — es el comportamiento
+  automático.
+- `auto`: placement general (Sugiyama + resolución de colisiones + contenedores).
+  Es la estrategia principal para la mayoría de diagramas.
+- `hier`: flujo dirigido (niveles + columnas + arcos de ciclo). Es el motor que
+  alimenta las vistas de áreas/carriles/matriz.
+- `legacy`: el motor histórico **congelado** (internamente `LAFOptimizer`, el
+  ex-`laf`). Solo para debug/Epifanía. No es para uso general.
 
-**¿Cuándo usar AUTO?**
-- Diagramas pequeños (<10 elementos)
-- Cuando tienes coordenadas manuales que quieres preservar
-- Diagramas simples sin muchas conexiones
-- Prototipado rápido
+> Nota: el nombre interno "LAF"/"LAFOptimizer" sigue apareciendo como el nombre
+> del algoritmo histórico que ejecuta `legacy`. En la línea de comandos el valor
+> es siempre `legacy`, nunca `laf`.
 
-**¿Cuándo usar LAF?**
-- Diagramas complejos (>20 elementos)
-- Contenedores anidados (3+ niveles)
-- Muchas conexiones (>20 aristas)
-- Cuando minimizar cruces de conexiones es crítico
-- Arquitecturas de microservicios
+**¿Cuándo pasar un flag explícito?**
+- `select` (default): casi siempre. Deja que el motor decida.
+- `auto`: para forzar el placement general aunque el JSON sugiera otra cosa.
+- `hier`: para forzar el flujo dirigido por niveles.
+- `legacy`: solo para debug del motor histórico o para la Epifanía de lujo
+  (análisis VC/centralidad).
 
 **Ejemplos**:
 
 ```bash
-# Usar algoritmo AUTO (default)
-almagag arquitectura.gag
+# Uso normal: el motor elige (equivale a --layout-algorithm=select)
+almagag arquitectura.sdjf -o arquitectura.svg
 
-# Usar algoritmo LAF
-almagag arquitectura.gag --layout-algorithm=laf
+# Forzar placement general
+almagag arquitectura.sdjf --layout-algorithm=auto -o arquitectura.svg
 
-# LAF es especialmente útil para diagramas complejos
-almagag microservices-architecture.gag --layout-algorithm=laf
+# Forzar flujo dirigido por niveles
+almagag flujo.sdjf --layout-algorithm=hier -o flujo.svg
+
+# Motor histórico congelado (debug / ex-LAF)
+almagag arquitectura.sdjf --layout-algorithm=legacy -o arquitectura.svg
 ```
 
-**Mejoras de LAF vs AUTO**:
-- 87% menos cruces de conexiones
-- 24% menos colisiones
-- 80% menos llamadas a routing
-- 87% menos expansiones de canvas
+Para más detalles sobre cómo se decide la estrategia, consulta
+[LAYOUT-DECISION-GUIDE.md](./LAYOUT-DECISION-GUIDE.md).
 
-Para más detalles sobre la decisión AUTO vs LAF, consulta [LAYOUT-DECISION-GUIDE.md](./LAYOUT-DECISION-GUIDE.md).
+---
+
+## Opciones de Vista
+
+### `--view {auto|flow|areas|lanes|matrix}`
+
+Fuerza la **REPRESENTACIÓN** del diagrama. Esto solo se controla por CLI, **nunca
+desde el JSON**. **Por defecto es `auto`** (la representación la decide el
+algoritmo a partir del JSON).
+
+Pasar cualquier vista distinta de `auto` **enruta el diagrama a `hier`** (ver la
+regla 1 de `select_strategy`).
+
+**Valores disponibles**:
+- `auto` (**por defecto**): el algoritmo elige la representación según el JSON
+  (por ejemplo `areas` si el archivo declara esa metadata).
+- `flow`: columnas por flujo.
+- `areas`: cajas por fase (§I27). Es una vista de `hier`.
+- `lanes`: carriles por rol (§I28). Es una vista de `hier`.
+- `matrix`: matriz fase×rol. Es una vista de `hier`.
+
+**Ejemplos**:
+```bash
+# Representación por defecto (decide el algoritmo)
+almagag proceso.sdjf -o proceso.svg
+
+# Forzar carriles por rol (enruta a hier)
+almagag proceso.sdjf --view=lanes -o proceso-lanes.svg
+
+# Forzar matriz fase×rol
+almagag proceso.sdjf --view=matrix -o proceso-matrix.svg
+```
+
+**Cuándo usar**:
+- Cuando quieres una representación específica (fases, carriles, matriz)
+  independientemente de lo que el JSON declare.
+- Recuerda que cualquier `--view` no-`auto` fuerza la estrategia `hier`.
 
 ---
 
@@ -97,13 +169,13 @@ Asigna un color distinto a cada conexión del diagrama, facilitando la identific
 **Ejemplos**:
 ```bash
 # Conexiones coloreadas para identificación visual
-almagag diagrama.gag --color-connections
+almagag diagrama.sdjf --color-connections -o diagrama.svg
 
-# Combinar con LAF para diagramas complejos
-almagag arquitectura.gag --layout-algorithm=laf --color-connections
+# Combinar con una estrategia forzada
+almagag arquitectura.sdjf --layout-algorithm=hier --color-connections -o arquitectura.svg
 
 # Generar versión coloreada para presentaciones
-almagag flow.gag --color-connections --exportpng -o docs/flow-colored.svg
+almagag flow.sdjf --color-connections --exportpng -o docs/flow-colored.svg
 ```
 
 **Cuándo usar**:
@@ -114,9 +186,12 @@ almagag flow.gag --color-connections --exportpng -o docs/flow-colored.svg
 
 ---
 
-## Parámetros de Centralidad LAF
+## Parámetros de Centralidad (solo `legacy`)
 
-Estos parámetros ajustan cómo el algoritmo LAF calcula la "importancia" de cada nodo para decidir su posición central o periférica. Solo aplican con `--layout-algorithm=laf`.
+Estos parámetros ajustan cómo el algoritmo histórico calcula la "importancia" de
+cada nodo para decidir su posición central o periférica. **Solo aplican con
+`--layout-algorithm=legacy`** (el analizador de centralidad ex-LAF); se ignoran
+en `select`, `auto` y `hier`.
 
 ### `--centrality-alpha F`
 
@@ -152,14 +227,14 @@ Clamp máximo del score de accesibilidad. Limita el valor máximo del score de c
 
 **Ejemplos**:
 ```bash
-# Layout LAF con nodos hub más centrales
-almagag arch.gag --layout-algorithm=laf --centrality-beta 0.25
+# Layout legacy con nodos hub más centrales
+almagag arch.sdjf --layout-algorithm=legacy --centrality-beta 0.25
 
 # Desactivar fan-in (solo usar conexiones salientes)
-almagag arch.gag --layout-algorithm=laf --centrality-gamma 0.0
+almagag arch.sdjf --layout-algorithm=legacy --centrality-gamma 0.0
 
 # Ajuste fino completo
-almagag arch.gag --layout-algorithm=laf \
+almagag arch.sdjf --layout-algorithm=legacy \
   --centrality-alpha 0.20 \
   --centrality-beta 0.15 \
   --centrality-gamma 0.10 \
@@ -180,43 +255,30 @@ almagag arch.gag --layout-algorithm=laf \
 Activa logs detallados del proceso de generación.
 
 **¿Qué muestra?**
-- Proceso de parsing del archivo .gag
+- Proceso de parsing del archivo de entrada
 - Cálculos de dimensiones de elementos
+- Estrategia elegida por el motor (`select_strategy`) o forzada por CLI
 - Iteraciones del algoritmo de layout
 - Detección y resolución de colisiones
 - Proceso de routing de conexiones
 - Expansión del canvas
 - Tiempos de ejecución por fase
 
-**Ejemplo de salida**:
-```
-[DEBUG] Parsing file: arquitectura.gag
-[DEBUG] Found 15 elements, 12 connections
-[DEBUG] Layout algorithm: LAF
-[DEBUG] Phase 1: Structure analysis... OK (0.05s)
-[DEBUG] Phase 2: Abstract placement... 3 cruces detectados (0.12s)
-[DEBUG] Phase 3: Inflation... OK (0.08s)
-[DEBUG] Phase 4: Container growth... 2 iteraciones (0.15s)
-[DEBUG] Routing connections... 12 paths (0.20s)
-[DEBUG] Final canvas: 1200x800
-[DEBUG] Total time: 0.60s
-```
-
 **Uso típico**:
 ```bash
 # Debug básico
-almagag diagrama.gag --debug
+almagag diagrama.sdjf --debug -o diagrama.svg
 
-# Debug con LAF para ver las 4 fases
-almagag diagrama.gag --layout-algorithm=laf --debug
+# Debug del motor histórico congelado
+almagag diagrama.sdjf --layout-algorithm=legacy --debug -o diagrama.svg
 
 # Redirigir debug a archivo
-almagag diagrama.gag --debug > debug.log 2>&1
+almagag diagrama.sdjf --debug -o diagrama.svg > debug.log 2>&1
 ```
 
 **Cuándo usar**:
 - Debugging de problemas de layout
-- Entender por qué el algoritmo tomó ciertas decisiones
+- Entender qué estrategia eligió el motor y por qué
 - Medir performance
 - Reportar bugs con información detallada
 
@@ -227,44 +289,28 @@ almagag diagrama.gag --debug > debug.log 2>&1
 Añade grilla de coordenadas y badge de debug al SVG generado.
 
 **¿Qué añade al SVG?**
-- Grilla de fondo con líneas cada 100px
+- Grilla de fondo con líneas de referencia
 - Etiquetas de coordenadas (0,0 en esquina superior izquierda)
-- Badge en esquina superior derecha mostrando:
-  - Algoritmo usado (AUTO/LAF)
-  - Versión de AlmaGag
-  - Dimensiones del canvas
-  - Timestamp de generación
-
-**Ejemplo visual**:
-```
-┌─────────────────────────────────────┐
-│ LAF v3.0 | 1200x800 | 2026-01-21   │ ← Badge
-├─────────────────────────────────────┤
-│ 0   100  200  300  400  500  600   │ ← Grilla
-│ │   │    │    │    │    │    │     │
-│ 0 ┌─────────┐                       │
-│   │ Server  │                       │
-│ 100 └─────────┘                     │
-│ 200                                 │
-```
+- Badge de debug con información de generación (estrategia usada, dimensiones del
+  canvas, etc.)
 
 **Uso típico**:
 ```bash
 # Visual debug simple
-almagag diagrama.gag --visualdebug
+almagag diagrama.sdjf --visualdebug -o diagrama.svg
 
 # Combinar con --debug para máxima información
-almagag diagrama.gag --debug --visualdebug
+almagag diagrama.sdjf --debug --visualdebug -o diagrama.svg
 
 # Útil para calibrar posiciones manuales
-almagag diagrama.gag --visualdebug --guide-lines
+almagag diagrama.sdjf --visualdebug --guide-lines 186 236 -o diagrama.svg
 ```
 
 **Cuándo usar**:
 - Desarrollo y calibración de layouts
 - Debugging visual de posiciones
 - Documentación de proceso de desarrollo
-- Comparar resultados de AUTO vs LAF visualmente
+- Comparar resultados de distintas estrategias visualmente
 
 ---
 
@@ -272,7 +318,7 @@ almagag diagrama.gag --visualdebug --guide-lines
 
 ### `--exportpng`
 
-Genera automáticamente una versión PNG del diagrama además del SVG.
+Exporta el SVG generado a PNG en la carpeta `debug/outputs/`, además del SVG.
 
 **Requisitos**:
 - Requiere `cairosvg` instalado: `pip install cairosvg`
@@ -280,28 +326,23 @@ Genera automáticamente una versión PNG del diagrama además del SVG.
 
 **Salida**:
 ```bash
-almagag diagrama.gag --exportpng
+almagag diagrama.sdjf --exportpng -o diagrama.svg
 # Genera:
 # - diagrama.svg (siempre)
-# - diagrama.png (adicional)
+# - un PNG en debug/outputs/
 ```
 
 **Características del PNG**:
-- Resolución 1:1 (1px SVG = 1px PNG)
-- Fondo transparente por defecto
 - Misma calidad visual que el SVG
 - Útil para compartir en plataformas que no soportan SVG
 
 **Uso típico**:
 ```bash
 # PNG simple
-almagag diagrama.gag --exportpng
-
-# PNG de alta calidad con LAF
-almagag arquitectura.gag --layout-algorithm=laf --exportpng
+almagag diagrama.sdjf --exportpng -o diagrama.svg
 
 # PNG para documentación
-almagag flow.gag --exportpng -o docs/images/flow.svg
+almagag flow.sdjf --exportpng -o docs/images/flow.svg
 ```
 
 **Cuándo usar**:
@@ -312,39 +353,32 @@ almagag flow.gag --exportpng -o docs/images/flow.svg
 
 ---
 
-### `-o, --output <ruta>`
+### `-o, --output FILE`
 
 Especifica la ruta de salida del archivo SVG generado.
 
 **Sintaxis**:
 ```bash
-almagag diagrama.gag -o ruta/destino.svg
-almagag diagrama.gag --output ruta/destino.svg
+almagag diagrama.sdjf -o ruta/destino.svg
+almagag diagrama.sdjf --output ruta/destino.svg
 ```
 
 **Comportamiento**:
-- Si no se especifica, usa el nombre del archivo .gag con extensión .svg
-- Crea directorios intermedios si no existen
-- Sobrescribe archivos existentes sin preguntar
-- Si se usa `--exportpng`, el PNG se genera en el mismo directorio con el mismo nombre base
+- Si no se especifica, el SVG se genera en el directorio actual.
+- Sobrescribe archivos existentes sin preguntar.
+- Con `--exportpng`, el PNG se genera en `debug/outputs/`.
 
 **Ejemplos**:
 ```bash
 # Salida en directorio específico
-almagag src/diagrams/arch.gag -o docs/images/arquitectura.svg
+almagag src/diagrams/arch.sdjf -o docs/images/arquitectura.svg
 
 # Salida con nombre diferente
-almagag temp.gag -o diagrama-final.svg
+almagag temp.sdjf -o diagrama-final.svg
 
-# Combinar con exportpng
-almagag diagrama.gag --exportpng -o output/final.svg
-# Genera:
-# - output/final.svg
-# - output/final.png
-
-# Múltiples versiones
-almagag arch.gag --layout-algorithm=auto -o output/arch-auto.svg
-almagag arch.gag --layout-algorithm=laf -o output/arch-laf.svg
+# Comparar dos estrategias forzadas
+almagag arch.sdjf --layout-algorithm=auto -o output/arch-auto.svg
+almagag arch.sdjf --layout-algorithm=hier -o output/arch-hier.svg
 ```
 
 **Cuándo usar**:
@@ -357,29 +391,26 @@ almagag arch.gag --layout-algorithm=laf -o output/arch-laf.svg
 
 ## Opciones de Visualización
 
-### `--guide-lines`
+### `--guide-lines Y [Y ...]`
 
-Añade líneas guía horizontales y verticales al canvas del SVG.
+Dibuja líneas horizontales de guía en las posiciones Y especificadas.
+
+**Sintaxis**:
+```bash
+almagag diagrama.sdjf --guide-lines 186 236 -o diagrama.svg
+```
 
 **¿Qué muestra?**
-- Líneas guía de alineación de elementos
-- Bordes del canvas
-- Helpers visuales para debugging de layout
-
-**Diferencia con `--visualdebug`**:
-- `--visualdebug`: Grilla fija + badge
-- `--guide-lines`: Líneas guía específicas del layout generado
+- Una línea horizontal por cada valor Y indicado
+- Helpers visuales para verificar alineación de elementos
 
 **Uso típico**:
 ```bash
-# Líneas guía simples
-almagag diagrama.gag --guide-lines
+# Líneas guía en Y=186 y Y=236
+almagag diagrama.sdjf --guide-lines 186 236 -o diagrama.svg
 
 # Combinar con visualdebug para máxima información
-almagag diagrama.gag --guide-lines --visualdebug
-
-# Útil durante desarrollo
-almagag diagrama.gag --guide-lines --debug
+almagag diagrama.sdjf --guide-lines 186 236 --visualdebug -o diagrama.svg
 ```
 
 **Cuándo usar**:
@@ -391,92 +422,87 @@ almagag diagrama.gag --guide-lines --debug
 
 ### `--dump-iterations`
 
-Exporta información de cada iteración del algoritmo de layout a archivos JSON.
+Guarda snapshots JSON de cada iteración del optimizador en `debug/iterations/`.
 
 **Salida**:
-Crea archivo `debug/layout_evolution_TIMESTAMP.csv` con:
-- Número de iteración
-- Score total
-- Colisiones detectadas
-- Cruces de conexiones
-- Overlap area
-- Llamadas a routing
-- Expansiones de canvas
-
-**Ejemplo de salida CSV**:
-```csv
-iteration,score,collisions,crossings,overlap_area,routing_calls,expansions
-0,1000,5,8,1200,15,2
-1,800,3,6,800,12,1
-2,600,1,4,200,10,0
-3,400,0,2,0,8,0
-```
+Crea archivos JSON en `debug/iterations/` con el estado del layout en cada
+iteración del optimizador (posiciones, métricas por iteración, etc.).
 
 **Uso típico**:
 ```bash
 # Dump de iteraciones
-almagag diagrama.gag --dump-iterations
+almagag diagrama.sdjf --dump-iterations -o diagrama.svg
 
 # Combinar con debug para análisis completo
-almagag diagrama.gag --layout-algorithm=laf --dump-iterations --debug
-
-# Análisis de convergencia
-almagag complejo.gag --dump-iterations
-# Luego analizar con: python analizar_convergencia.py debug/layout_evolution_*.csv
+almagag diagrama.sdjf --dump-iterations --debug -o diagrama.svg
 ```
 
 **Cuándo usar**:
 - Análisis de performance del algoritmo
 - Debugging de problemas de convergencia
 - Investigación y desarrollo de algoritmos
-- Comparación de AUTO vs LAF con datos cuantitativos
 
 ---
 
-### `--visualize-growth`
+### `--epifania` (aliases `--debug-phases`, `--visualize-growth`)
 
-Genera SVGs intermedios mostrando cada fase del proceso LAF (solo para `--layout-algorithm=laf`).
+**Epifanía** — ver cómo NACE la abstracción del layout, paso a paso. Genera un
+SVG por fase en `debug/epifania/<diagrama>/` junto con un `index.html` para
+navegarlos.
 
-**Requisito**: Solo funciona con `--layout-algorithm=laf`
+Los tres nombres (`--epifania`, `--debug-phases`, `--visualize-growth`) son
+alias del mismo flag.
+
+**Comportamiento según la estrategia**:
+- Con `auto`/`hier` (lo normal): es un **flipbook del layout real** naciendo por
+  cada etapa del proceso.
+- Con `--layout-algorithm=legacy`: usa el **analizador de lujo** (VC/centralidad)
+  del motor histórico ex-LAF.
 
 **Salida**:
-Crea archivos en `debug/iterations/`:
-- `fase1_structure_TIMESTAMP.svg`: Topología y jerarquía
-- `fase2_abstract_TIMESTAMP.svg`: Posicionamiento abstracto minimizando cruces
-- `fase3_inflate_TIMESTAMP.svg`: Dimensiones reales aplicadas
-- `fase4_grow_TIMESTAMP.svg`: Contenedores expandidos bottom-up
-- `final_TIMESTAMP.svg`: Resultado final con routing
-
-**Ejemplo de uso educativo**:
-```bash
-# Visualizar proceso LAF
-almagag arquitectura.gag --layout-algorithm=laf --visualize-growth
-
-# Se generan 5 SVGs mostrando evolución:
-# debug/iterations/fase1_structure_20260121_143022.svg
-# debug/iterations/fase2_abstract_20260121_143022.svg
-# debug/iterations/fase3_inflate_20260121_143022.svg
-# debug/iterations/fase4_grow_20260121_143022.svg
-# debug/iterations/final_20260121_143022.svg
+```
+debug/epifania/<diagrama>/
+├── index.html          ← navegador de las fases
+├── ...                 ← un SVG por fase
 ```
 
 **Uso típico**:
 ```bash
-# Visualización educativa del proceso LAF
-almagag microservices.gag --layout-algorithm=laf --visualize-growth
+# Epifanía: flipbook del layout real por fase
+almagag arquitectura.sdjf --epifania -o arquitectura.svg
 
-# Combinar con debug para documentación completa
-almagag arch.gag --layout-algorithm=laf --visualize-growth --debug
+# Epifanía de lujo (VC/centralidad, solo con legacy)
+almagag arquitectura.sdjf --layout-algorithm=legacy --epifania -o arquitectura.svg
 
-# Presentaciones mostrando "cómo funciona LAF"
-almagag ejemplo.gag --layout-algorithm=laf --visualize-growth --exportpng
+# Usando un alias
+almagag arquitectura.sdjf --visualize-growth -o arquitectura.svg
 ```
 
 **Cuándo usar**:
-- Entender cómo funciona el algoritmo LAF
+- Entender cómo el motor construye el layout fase a fase
 - Presentaciones y documentación educativa
-- Debugging de problemas específicos de una fase LAF
-- Comparar estrategias de minimización de cruces
+- Debugging de problemas específicos de una fase
+- Análisis de centralidad del motor histórico (`legacy`)
+
+---
+
+## Señal de Calidad del Layout
+
+En cada ejecución, AlmaGag imprime una **línea de calidad** que resume los cruces
+detectados en el resultado, por ejemplo:
+
+```
+[auto] cruces(arista×arista)=5 arista×nodo=0 labels=7
+```
+
+- El prefijo (`[auto]`, `[hier]`, `[legacy]`) indica la estrategia efectiva usada.
+- `cruces(arista×arista)`: cruces entre conexiones.
+- `arista×nodo`: conexiones que atraviesan nodos.
+- `labels`: solapamientos de etiquetas.
+
+Si **cualquiera** de esos contadores es mayor que 0, la línea se emite como
+**WARNING**; si todos son 0, se emite como **INFO**. Es la señal de calidad
+incorporada: úsala para verificar de un vistazo si el layout salió limpio.
 
 ---
 
@@ -484,80 +510,86 @@ almagag ejemplo.gag --layout-algorithm=laf --visualize-growth --exportpng
 
 | Parámetro | Tipo | Default | Descripción |
 |---|---|---|---|
-| `input_file` | positional | requerido | Archivo `.gag` de entrada |
-| `-o, --output FILE` | string | auto | Ruta de salida del SVG |
-| `--layout-algorithm` | `auto\|laf` | `auto` | Algoritmo de layout |
+| `input_file` | positional | requerido | Archivo `.sdjf` o `.gag` de entrada |
+| `-o, --output FILE` | string | dir. actual | Ruta de salida del SVG |
+| `--layout-algorithm` | `select\|auto\|hier\|legacy` | `select` | Estrategia de layout (`select` = el motor elige) |
+| `--view` | `auto\|flow\|areas\|lanes\|matrix` | `auto` | Fuerza la representación (no-`auto` enruta a `hier`) |
 | `--color-connections` | flag | off | Colorear cada conexión con color distinto |
 | `--debug` | flag | off | Logs detallados del procesamiento |
 | `--visualdebug` | flag | off | Grilla y badge visual en el SVG |
-| `--exportpng` | flag | off | Exportar a PNG adicional |
+| `--exportpng` | flag | off | Exportar PNG a `debug/outputs/` |
 | `--guide-lines Y [Y...]` | int list | off | Líneas horizontales de guía en posiciones Y |
-| `--dump-iterations` | flag | off | Guardar snapshots de iteraciones en CSV |
-| `--visualize-growth` | flag | off | SVG por fase LAF (solo con `laf`) |
-| `--centrality-alpha F` | float | `0.15` | Peso skip-connections (solo LAF) |
-| `--centrality-beta F` | float | `0.10` | Peso hub-ness (solo LAF) |
-| `--centrality-gamma F` | float | `0.15` | Peso fan-in (solo LAF) |
-| `--centrality-max-score F` | float | `100.0` | Clamp máximo de score (solo LAF) |
+| `--dump-iterations` | flag | off | Snapshots JSON de iteraciones en `debug/iterations/` |
+| `--epifania` (`--debug-phases`, `--visualize-growth`) | flag | off | Un SVG por fase en `debug/epifania/<diagrama>/` |
+| `--centrality-alpha F` | float | `0.15` | Peso skip-connections (solo `legacy`) |
+| `--centrality-beta F` | float | `0.10` | Peso hub-ness (solo `legacy`) |
+| `--centrality-gamma F` | float | `0.15` | Peso fan-in, `0`=off (solo `legacy`) |
+| `--centrality-max-score F` | float | `100.0` | Clamp máximo de score (solo `legacy`) |
 
 ---
 
 ## Combinaciones Comunes
 
+### Uso normal (recomendado)
+
+```bash
+# Deja que el motor elija la estrategia
+almagag diagrama.sdjf -o diagrama.svg
+```
+
 ### Desarrollo
 
 ```bash
 # Máxima información para debugging
-almagag diagrama.gag --debug --visualdebug --guide-lines
+almagag diagrama.sdjf --debug --visualdebug --guide-lines 186 236 -o diagrama.svg
 
-# Testing de LAF con análisis completo
-almagag diagrama.gag --layout-algorithm=laf --debug --dump-iterations --visualize-growth
+# Ver el layout nacer fase a fase
+almagag diagrama.sdjf --epifania --debug -o diagrama.svg
 ```
 
 ### Producción
 
 ```bash
-# Generación limpia con LAF
-almagag arquitectura.gag --layout-algorithm=laf
+# Generación limpia (el motor elige)
+almagag arquitectura.sdjf -o arquitectura.svg
 
 # Generación con PNG para compartir
-almagag flow.gag --layout-algorithm=laf --exportpng -o docs/images/flow.svg
+almagag flow.sdjf --exportpng -o docs/images/flow.svg
 
 # Versión coloreada para presentaciones
-almagag flow.gag --layout-algorithm=laf --color-connections -o docs/flow-colored.svg
+almagag flow.sdjf --color-connections -o docs/flow-colored.svg
 ```
 
-### Comparación AUTO vs LAF
+### Comparar estrategias
 
 ```bash
-# Generar versión AUTO
-almagag arch.gag --layout-algorithm=auto -o output/arch-auto.svg --dump-iterations
+# Forzar placement general
+almagag arch.sdjf --layout-algorithm=auto -o output/arch-auto.svg --dump-iterations
 
-# Generar versión LAF
-almagag arch.gag --layout-algorithm=laf -o output/arch-laf.svg --dump-iterations
-
-# Comparar CSVs de iteraciones
-diff debug/layout_evolution_*.csv
+# Forzar flujo dirigido por niveles
+almagag arch.sdjf --layout-algorithm=hier -o output/arch-hier.svg --dump-iterations
 ```
 
-### Debug LAF Profundo
+### Debug del motor histórico (`legacy`)
 
 ```bash
-# Máxima visibilidad del proceso LAF
-almagag complejo.gag \
-  --layout-algorithm=laf \
+# Máxima visibilidad del motor histórico ex-LAF
+almagag complejo.sdjf \
+  --layout-algorithm=legacy \
   --debug \
   --visualdebug \
   --dump-iterations \
-  --visualize-growth \
-  --exportpng
+  --epifania \
+  --exportpng \
+  -o complejo.svg
 ```
 
 ### Pipeline de Documentación
 
 ```bash
-# Regenerar todos los diagramas con LAF
-for file in docs/diagrams/gags/*.gag; do
-  almagag "$file" --layout-algorithm=laf --exportpng -o "docs/diagrams/svgs/$(basename "$file" .gag).svg"
+# Regenerar todos los diagramas (el motor elige por cada uno)
+for file in docs/diagrams/sdjf/*.sdjf; do
+  almagag "$file" --exportpng -o "docs/diagrams/svgs/$(basename "$file" .sdjf).svg"
 done
 ```
 
@@ -580,81 +612,60 @@ brew install cairo
 pip install cairosvg
 ```
 
-### El algoritmo LAF no mejora mi diagrama
+### El motor eligió una estrategia que no esperaba
 
-**Posibles causas**:
-1. **Diagrama muy pequeño** (<10 elementos): AUTO puede ser suficiente
-2. **Coordenadas manuales**: LAF las ignora; si las necesitas, usa AUTO
-3. **Pocas conexiones**: LAF optimiza cruces; si no hay cruces, no hay mucha mejora
+El motor decide con `select_strategy` (ver
+[Modelo Mental](#modelo-mental-el-motor-elige-por-ti)). Para ver qué eligió y por qué:
 
-**Solución**:
-- Usa `--dump-iterations` para ver métricas
-- Compara visualmente AUTO vs LAF con `--visualdebug`
-- Consulta [LAYOUT-DECISION-GUIDE.md](./LAYOUT-DECISION-GUIDE.md)
+```bash
+almagag diagrama.sdjf --debug -o diagrama.svg
+```
+
+Si necesitas otra estrategia, fuérzala con `--layout-algorithm=auto` o
+`--layout-algorithm=hier`. Recuerda que un `--view` no-`auto` fuerza `hier`.
 
 ### SVG generado tiene elementos superpuestos
 
-**Posibles causas**:
-1. Algoritmo no convergió (rare en v3.0)
-2. Elementos muy grandes para el canvas
-3. Demasiadas restricciones de layout
-
 **Solución**:
 ```bash
-# Ver proceso de convergencia
-almagag diagrama.gag --debug --dump-iterations
+# Ver la línea de calidad y el proceso de convergencia
+almagag diagrama.sdjf --debug --dump-iterations -o diagrama.svg
 
-# Intentar con LAF
-almagag diagrama.gag --layout-algorithm=laf --debug
+# Probar forzando otra estrategia
+almagag diagrama.sdjf --layout-algorithm=hier --debug -o diagrama.svg
 
-# Ver iteraciones con visualdebug
-almagag diagrama.gag --visualdebug --guide-lines
+# Ver posiciones con visualdebug
+almagag diagrama.sdjf --visualdebug --guide-lines 186 236 -o diagrama.svg
 ```
+
+Consulta la [Señal de Calidad del Layout](#señal-de-calidad-del-layout) para
+interpretar la línea `cruces(arista×arista)=...`.
 
 ### Proceso muy lento (>10 segundos)
 
 **Posibles causas**:
-1. Diagrama muy complejo (>50 elementos)
+1. Diagrama muy complejo (muchos elementos)
 2. Muchas iteraciones por colisiones
 3. Routing complejo con muchos obstáculos
 
 **Solución**:
 ```bash
 # Ver dónde se pasa el tiempo
-almagag diagrama.gag --debug
-
-# LAF puede ser MÁS RÁPIDO en diagramas complejos (menos routing calls)
-almagag diagrama.gag --layout-algorithm=laf --debug
+almagag diagrama.sdjf --debug -o diagrama.svg
 ```
 
-### `--visualize-growth` no genera archivos
+### `--epifania` no genera archivos
 
-**Causa**: Solo funciona con `--layout-algorithm=laf`
+**Solución**: verifica que la carpeta `debug/epifania/<diagrama>/` sea escribible
+y revisa la salida con `--debug`:
 
-**Solución**:
 ```bash
-# Correcto
-almagag diagrama.gag --layout-algorithm=laf --visualize-growth
-
-# Incorrecto (no hace nada)
-almagag diagrama.gag --visualize-growth
+almagag diagrama.sdjf --epifania --debug -o diagrama.svg
 ```
 
 ---
 
 ## Notas Adicionales
-
-### Performance
-
-**AUTO**:
-- Rápido para diagramas pequeños (<10 elementos)
-- Tiempo crecelinealmente con número de elementos
-- Múltiples llamadas a routing pueden ralentizar
-
-**LAF**:
-- Overhead inicial en análisis de estructura
-- Más eficiente para diagramas complejos (>20 elementos)
-- 80% menos llamadas a routing = más rápido en casos complejos
 
 ### Compatibilidad
 
@@ -664,9 +675,7 @@ almagag diagrama.gag --visualize-growth
 
 ### Más Información
 
-- [LAYOUT-DECISION-GUIDE.md](./LAYOUT-DECISION-GUIDE.md) - Guía para elegir AUTO vs LAF
-- [LAF COMPARISON](../architecture/modules/layout/laf/COMPARISON.md) - Comparación técnica detallada
-- [LAF PROGRESS](../architecture/modules/layout/laf/PROGRESS.md) - Historia de desarrollo de LAF
+- [LAYOUT-DECISION-GUIDE.md](./LAYOUT-DECISION-GUIDE.md) - Cómo se decide la estrategia de layout
 - [EXAMPLES.md](./EXAMPLES.md) - Ejemplos prácticos de uso
 - [QUICKSTART.md](./QUICKSTART.md) - Inicio rápido
 
