@@ -165,6 +165,9 @@ def route_cycle_arcs(layout, levels):
             # punteada — el arco exterior que cierra el lazo, distinto de las
             # aristas de ida (sólidas). Sólo marca; el renderer decide el dash
             # y respeta cualquier `style` explícito del usuario.
+            # §M43: TODO arco de ciclo va punteado (convención AlmaGag) —
+            # distingue el ciclo del flujo; el retorno además se marca.
+            c['_cycle_arc'] = True
             if (c['from'], c['to']) == (u, v):
                 c['_cycle_return'] = True
             handled.add((c['from'], c['to']))

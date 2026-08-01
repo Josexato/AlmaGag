@@ -189,9 +189,24 @@ def apply_network_layout(layout, considerations) -> int:
         return cols * 210.0, rows * 130.0
 
     slots = [(-1, 0), (1, 0), (0, 1), (0, -1), (-1, 1), (1, 1)]
-    # orden §N47: por (tamaño desc, primer id) → determinista entre archivos
-    ordered = sorted(sites, key=lambda s: (-len(s), s[0]))
-    for k, members in enumerate(ordered):
+    # §N49: el slot de una zona depende SÓLO de su identidad (hash del primer
+    # id), no de qué otras zonas existan — una zona compartida entre antes/
+    # después conserva su slot y las nuevas toman slots libres por sondeo.
+    import hashlib
+    def _pref(members):
+        # min-hash sobre TODOS los miembros: la zona compartida entre versiones
+        # conserva su clave aunque gane/pierda algún miembro version-específico
+        # (los ids compartidos dominan el mínimo).
+        return min(int(hashlib.md5(m.encode()).hexdigest(), 16)
+                   for m in members) % len(slots)
+    ordered = sorted(sites, key=lambda s: _pref(s))
+    taken = {}
+    for members in ordered:
+        k = _pref(members)
+        while k in taken:
+            k = (k + 1) % len(slots)
+        taken[k] = members
+    for k, members in sorted(taken.items()):
         dx, dy = slots[k % len(slots)]
         w, h = _site_extent(members)
         sx = CX + dx * (w / 2.0 + 330.0)

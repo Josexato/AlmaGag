@@ -46,9 +46,12 @@ def test_return_edge_marked_for_dashing():
             if c['from'] == f and c['to'] == t:
                 return bool(c.get('_cycle_return'))
         return None
-    assert marked('ElemtK', 'ElemtI') is True
-    assert marked('ElemtI', 'ElemtJ') is False
-    assert marked('ElemtJ', 'ElemtK') is False
+    assert marked('ElemtK', 'ElemtI') is True     # retorno
+    # §M43: la ida también emite dasharray (via _cycle_arc)
+    for c in r.connections:
+        cp = c.get('computed_path')
+        if isinstance(cp, dict) and cp.get('type') == 'bezier':
+            assert c.get('_cycle_arc') is True
 
 
 def test_return_edge_bulges_opposite_to_ida():
