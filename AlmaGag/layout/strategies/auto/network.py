@@ -179,6 +179,11 @@ def apply_network_layout(layout, considerations) -> int:
         e = by_id[h]
         e['x'] = CX - ICON_WIDTH / 2.0
         e['y'] = hy - ICON_HEIGHT / 2.0
+        # la banda de hubs también es una zona rotulada (caja «WAN») — mismo
+        # dibujo/rigidez que los sitios, sin re-grilla (no hay near que la
+        # clusterice: conserva la columna vertical).
+        e['_near_zone'] = 9000
+        e['_near_zone_label'] = 'WAN'
         hy += HUB_GAP
 
     # --- sitios alrededor: slots deterministas (izq, der, abajo, arriba, …) ---

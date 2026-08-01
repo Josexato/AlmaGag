@@ -31,7 +31,7 @@ ficticio MinaCo, CIDs/SOTs ficticios; mismos ids entre archivos).
 | M43 | Arcos de ciclo punteados | ✅ | TODO arco de ciclo emite dasharray (ida y retorno), no sólo la back-edge |
 | M44 | Cruces como recta pura | ✅ | E→I/H→F son recta pura de 2 puntos borde a borde (el stub perpendicular QA-Q2 los convertía en híbridos; los cruces D13 quedan exentos de ese refuerzo) |
 
-## Pendientes conocidos (no hace falta repetirlos)
-2. Orden interno del sitio no es connection-aware (cruce en X dentro de mina).
-3. La banda de hubs no dibuja caja "WAN" rotulada propia.
+## Pendientes de la ronda anterior — resueltos
+1. **Orden intra-zona connection-aware**: B4 dentro de la zona — para grupos de 3–6 miembros se elige la asignación miembro→celda que minimiza cruces y longitud de aristas internas (el cruce en X de mina desapareció).
+2. **Caja rotulada «WAN»**: la banda central de hubs dibuja su propia caja punteada con rótulo, igual que los sitios.
 
