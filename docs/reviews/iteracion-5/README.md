@@ -7,7 +7,7 @@ medir → revertir si empeora) cada uno.
 
 - **Rama de trabajo:** `claude/grupo-o-emision-portabilidad-t14i54` (mergeada a `master`) · regenerable con `docs/diagrams/run-review.sh`
 - Base raw: `https://raw.githubusercontent.com/Josexato/AlmaGag/master/`
-- Suite: `python -m pytest -q --import-mode=importlib` → **384 verdes** (336 al abrir el grupo; +48 nuevos)
+- Suite: `python -m pytest -q --import-mode=importlib` → **394 verdes** (336 al abrir el grupo; +58 nuevos)
 
 ## Veredicto del revisor (artifact, 1-ago noche) y seguimiento
 
@@ -30,7 +30,7 @@ medir → revertir si empeora) cada uno.
 | O50 | Halo portable (SVG 1.1, nunca `paint-order`) | ✅ | el halo se materializa al emitir: por cada `<text>` se inyecta una copia inferior con trazo blanco (`class="ag-text-halo"`) en el mismo padre — apilado idéntico al de `paint-order:stroke` pero legible en cairosvg/librsvg/Office. Verificado rasterizando con cairosvg SIN parche (test) y comparando visualmente cairosvg vs Chromium. **El invariante nuevo queda vigilado por `tests/test_halo_portable.py`** |
 | O51 | viewBox recortado al bbox + 40px | ✅ | post-proceso de emisión: bbox de TODO lo dibujado (con transforms; paths por anclas + puntos de control) + 40px, regla SÓLO-contraer. Las leyendas de franja inferior (§I30/§N48) van en `<g class="ag-bottom-anchored">`: fuera del bbox vertical y reancladas al nuevo borde. red-minera pasa de 1800×1150 a 1443×823 |
 | O52 | Densidad/aspecto en métricas | ✅ | línea extendida: `tinta=X% aspecto=Y`; WARNING con tinta<4% o aspecto fuera de [0.4, 3.0]. `tinta` es un proxy por Σ bboxes de iconos+contenedores+etiquetas sobre la lámina estimada (bbox+margen, espejo del recorte O51) |
-| O53 | Precedencia declarada (N46⇄I27) | ✅ v1 | WARNING nombrando la señal anulada: `considerations`/`constraints` anulan `areas`; `contains` anula `areas`; `--view` anula `considerations`. **Pendiente declarado (mediano plazo): que AUTO dibuje cajas de área** |
+| O53 | Precedencia declarada (N46⇄I27) | ✅ | WARNING nombrando la señal anulada: `contains` anula `areas`; `--view` anula `considerations`. **Mediano plazo TAMBIÉN cerrado (post-veredicto)**: cuando `considerations`/`constraints` fuerza AUTO, cada área se siembra como zona near (§N46) — caja punteada rotulada por construcción, y el aviso pasa a INFO porque la señal ya no se pierde |
 | O54 | Rótulo de zona AA | ✅ | #6b6558 (5.1:1) en vez de #8a8577 (3.7:1); banda superior de 18px RESERVADA (la caja crece hacia arriba, los miembros no la pisan por construcción); anclado al borde de SU caja; entra al contador labels vía CollisionDetector (geometría única `near_zone_boxes()` compartida render/validador) |
 | O55 | `type` sin icono → falla visible | ✅ | `inet`/`wan`/`internet` → alias explícito a `cloud` (y §N45 `HUB_TYPES` se DERIVA del mapa de alias — una sola verdad); lo demás → BWT visible + WARNING §O55 con el tipo, nunca silencioso |
 | O56 | Escala tipográfica declarada | ✅ | contrato en config: nodo 14 · conexión 12 (color semántico) · rótulo zona/fase 11 bold; sitios canónicos cableados a las constantes (las etiquetas de nodo del modo agrupado estaban en 11.5 y los rótulos de fase/carril en 12 — unificados) |
@@ -68,12 +68,16 @@ Cada uno con su PNG generado por la vía SIN navegador (cairosvg, sin parche):
 
 ## Pendientes conocidos (declarados para no re-reportar)
 
-1. **O53 mediano plazo**: AUTO todavía NO dibuja cajas de área cuando gana la
-   precedencia — hoy sólo el WARNING con la señal anulada (v1 acordada).
-2. **Recorte O51 y arcos**: los comandos `A`/`a` de paths aportan sólo su punto
-   final al bbox (la panza del arco la absorbe el margen de 40px). El ancho de
-   texto se estima (0.62×font-size, generoso): una sobrestimación sólo hace el
-   recorte menos agresivo, nunca corta (regla sólo-contraer).
+1. **O53 mediano plazo** — ~~pendiente~~ **resuelto en el seguimiento
+   post-veredicto**: AUTO dibuja las cajas de área sembrándolas como zonas
+   near (§N46) cuando una señal blanda gana la precedencia; con `contains`
+   no hay conversión y el WARNING se mantiene (`tests/test_auto_area_boxes.py`).
+2. **Recorte O51 y arcos** — ~~pendiente~~ **resuelto en el seguimiento
+   post-veredicto**: los comandos `A`/`a` se muestrean sobre su barrido real
+   (parametrización endpoint→centro del spec, F.6.5) — la panza del arco ya
+   cuenta para la lámina. Sigue vigente lo del ancho de texto: se estima
+   (0.62×font-size, generoso) y una sobrestimación sólo hace el recorte
+   menos agresivo, nunca corta (regla sólo-contraer).
 3. **O52 `tinta` es proxy**: Σ de bboxes (iconos+etiquetas), no píxeles reales
    de tinta; sirve como guarda de lámina-vacía, no como medida tipográfica.
 4. **Layout de árboles chicos en `auto`** — ~~pendiente~~ **resuelto en el
