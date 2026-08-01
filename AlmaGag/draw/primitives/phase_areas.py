@@ -7,7 +7,8 @@ Sólo se usa cuando el layout `hier` corrió en modo áreas (`layout.areas`).
 - Leyenda: franja inferior con un swatch + etiqueta por rol.
 """
 
-from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
+from AlmaGag.config import (ICON_WIDTH, ICON_HEIGHT, FONT_SIZE_NODE,
+                            FONT_SIZE_ZONE, FONT_WEIGHT_ZONE)
 
 _DECISION_TYPES = {'decision', 'diamond'}
 DEFAULT_AREA_COLOR = '#2a6fdb'
@@ -35,7 +36,7 @@ def draw_area_boxes(dwg, areas):
             stroke=color, stroke_width=1.3, stroke_dasharray='6,4'))
         dwg.add(dwg.text(
             a['label'], insert=(a['x'] + 12, a['y'] + 18),
-            font_size='12px', font_weight='700',
+            font_size=f'{FONT_SIZE_ZONE}px', font_weight=FONT_WEIGHT_ZONE,
             font_family='Arial, sans-serif', fill=color))
 
 
@@ -52,7 +53,7 @@ def draw_lane_strips(dwg, lanes):
         if ln.get('label'):
             dwg.add(dwg.text(
                 ln['label'], insert=(ln['x'] + ln['w'] / 2, ln['y'] + 18),
-                text_anchor='middle', font_size='12px', font_weight='700',
+                text_anchor='middle', font_size=f'{FONT_SIZE_ZONE}px', font_weight=FONT_WEIGHT_ZONE,
                 font_family='Arial, sans-serif', fill=color))
 
 
@@ -72,7 +73,7 @@ def draw_matrix_grid(dwg, matrix):
         if row.get('label'):
             dwg.add(dwg.text(
                 row['label'], insert=(left - 10, row['y'] + row['h'] / 2 + 4),
-                text_anchor='end', font_size='11px', font_weight='700',
+                text_anchor='end', font_size=f'{FONT_SIZE_ZONE}px', font_weight=FONT_WEIGHT_ZONE,
                 font_family='Arial, sans-serif', fill=color))
     # columnas (fase): separadores + rótulo arriba
     for col in matrix['cols']:
@@ -82,7 +83,7 @@ def draw_matrix_grid(dwg, matrix):
         if col.get('label'):
             dwg.add(dwg.text(
                 col['label'], insert=(col['x'] + col['w'] / 2, top - 14),
-                text_anchor='middle', font_size='11.5px', font_weight='700',
+                text_anchor='middle', font_size=f'{FONT_SIZE_ZONE}px', font_weight=FONT_WEIGHT_ZONE,
                 font_family="'JetBrains Mono', monospace", fill='#2a6fdb'))
     dwg.add(dwg.line(start=(right, top), end=(right, h - 8),
                      stroke='#c9c4b6', stroke_width=1.0, stroke_dasharray='4,4'))
@@ -118,7 +119,7 @@ def draw_area_node_labels(dwg, elements):
         for i, line in enumerate(lbl.split('\n')):
             dwg.add(dwg.text(
                 line, insert=(cx, top + i * 16), text_anchor='middle',
-                font_size='11.5px', font_family='Arial, sans-serif',
+                font_size=f'{FONT_SIZE_NODE}px', font_family='Arial, sans-serif',
                 fill='#1a1a1a'))
 
 
@@ -173,5 +174,5 @@ def draw_near_zones(dwg, elements):
         if zone['label']:
             dwg.add(dwg.text(
                 zone['label'], insert=(x1 + 10, y1 + 14),
-                font_size='11px', font_weight='700',
+                font_size=f'{FONT_SIZE_ZONE}px', font_weight=FONT_WEIGHT_ZONE,
                 font_family='Arial, sans-serif', fill='#6b6558'))

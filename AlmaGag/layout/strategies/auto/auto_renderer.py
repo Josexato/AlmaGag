@@ -13,7 +13,8 @@ Características específicas de AUTO:
 
 import logging
 
-from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT, TEXT_LINE_HEIGHT
+from AlmaGag.config import (ICON_WIDTH, ICON_HEIGHT, TEXT_LINE_HEIGHT,
+                            FONT_SIZE_NODE, FONT_SIZE_CONNECTION)
 from AlmaGag.draw.primitives.container import draw_container as _draw_container
 from AlmaGag.draw.icons import draw_icon_shape as _draw_icon_shape, draw_icon_label as _draw_icon_label
 from AlmaGag.draw.primitives.svg import (
@@ -237,7 +238,7 @@ class AutoSVGRenderer:
                     labels_to_optimize.append(Label(
                         id=key, text=conn['label'],
                         anchor_x=center[0], anchor_y=center[1],
-                        font_size=12, priority=1, category="connection",
+                        font_size=FONT_SIZE_CONNECTION, priority=1, category="connection",
                     ))
 
         # IDs de elementos contenidos (sus labels ya fueron posicionados por ContainerGrower)
@@ -268,7 +269,7 @@ class AutoSVGRenderer:
                 labels_to_optimize.append(Label(
                     id=elem_id, text=elem['label'],
                     anchor_x=label_x, anchor_y=label_y,
-                    font_size=14, priority=2, category="element",
+                    font_size=FONT_SIZE_NODE, priority=2, category="element",
                     fixed=False, element_center_x=elem_cx, element_center_y=elem_cy,
                 ))
         return labels_to_optimize
@@ -296,7 +297,7 @@ class AutoSVGRenderer:
                             line,
                             insert=(optimized_pos.x, optimized_pos.y + (i * 18)),
                             text_anchor=optimized_pos.anchor,
-                            font_size="14px", font_family="Arial, sans-serif",
+                            font_size=f"{FONT_SIZE_NODE}px", font_family="Arial, sans-serif",
                             fill="black", filter='url(#text-glow)',
                         ))
                 else:

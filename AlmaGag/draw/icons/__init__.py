@@ -20,7 +20,8 @@ from xml.etree import ElementTree as ET
 from AlmaGag.config import (
     ICON_WIDTH, ICON_HEIGHT,
     LABEL_OFFSET_BOTTOM, LABEL_OFFSET_SIDE,
-    TEXT_LINE_HEIGHT, TEXT_CHAR_WIDTH
+    TEXT_LINE_HEIGHT, TEXT_CHAR_WIDTH,
+    FONT_SIZE_NODE,
 )
 from AlmaGag.utils import calculate_label_dimensions
 
@@ -402,7 +403,7 @@ def draw_icon_label(dwg, element, position_info):
             line,
             insert=(text_x, text_y + (i * TEXT_LINE_HEIGHT)),
             text_anchor=anchor,
-            font_size="14px",
+            font_size=f"{FONT_SIZE_NODE}px",
             font_family="Arial, sans-serif",
             fill="black",
         ))

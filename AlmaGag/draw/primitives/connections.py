@@ -15,7 +15,7 @@ Fecha: 2026-01-08
 """
 
 import math
-from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT, CORNER_RADIUS_DEFAULT
+from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT, CORNER_RADIUS_DEFAULT, FONT_SIZE_CONNECTION
 
 
 def compute_visual_offset(elem):
@@ -574,7 +574,7 @@ def draw_connection_label(dwg, connection, position):
         label,
         insert=(mid_x, mid_y - 10),
         text_anchor="middle",
-        font_size="12px",
+        font_size=f"{FONT_SIZE_CONNECTION}px",
         font_family="Arial, sans-serif",
         fill="#14181d",
     ))

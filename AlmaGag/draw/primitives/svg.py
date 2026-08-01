@@ -16,6 +16,7 @@ import xml.etree.ElementTree as ET
 
 import svgwrite
 
+from AlmaGag.config import FONT_SIZE_CONNECTION
 from AlmaGag.draw.primitives.connections import draw_connection_line, draw_connection_label
 
 logger = logging.getLogger('AlmaGag')
@@ -421,7 +422,7 @@ def draw_connection_labels(dwg, connections, conn_centers, optimized_label_posit
                 conn['label'],
                 insert=(anchor[0], anchor[1]),
                 text_anchor="middle",
-                font_size="12px",
+                font_size=f"{FONT_SIZE_CONNECTION}px",
                 font_family="Arial, sans-serif",
                 fill="#14181d",
             ))
@@ -434,7 +435,7 @@ def draw_connection_labels(dwg, connections, conn_centers, optimized_label_posit
                 conn['label'],
                 insert=(optimized_pos.x, optimized_pos.y),
                 text_anchor=optimized_pos.anchor,
-                font_size="12px",
+                font_size=f"{FONT_SIZE_CONNECTION}px",
                 font_family="Arial, sans-serif",
                 fill="#14181d",
             ))
