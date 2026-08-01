@@ -176,6 +176,34 @@ def cluster_near_groups(layout, considerations: List[dict]) -> int:
         import math
         cols = max(1, math.ceil(math.sqrt(len(els))))
         rows = math.ceil(len(els) / cols)
+
+        # B4 dentro de la zona: para grupos chicos, elegir la asignación
+        # miembro→celda que minimiza cruces y longitud de las aristas INTERNAS
+        # (el orden posicional degeneraba en el cruce en X de la zona de mina).
+        if 3 <= len(els) <= 6:
+            import itertools
+            ids_set = {e['id'] for e in els}
+            intra = [(c2['from'], c2['to']) for c2 in layout.connections
+                     if c2.get('from') in ids_set and c2.get('to') in ids_set]
+            if intra:
+                cells = [((k % cols) * pitch_x, (k // cols) * pitch_y)
+                         for k in range(len(els))]
+                def _score(order):
+                    p = {e['id']: cells[k] for k, e in enumerate(order)}
+                    length = sum(abs(p[a][0]-p[b][0]) + abs(p[a][1]-p[b][1])
+                                 for a, b in intra)
+                    cross = 0
+                    for i2 in range(len(intra)):
+                        a1, b1 = intra[i2]
+                        for j2 in range(i2+1, len(intra)):
+                            a2, b2 = intra[j2]
+                            if {a1, b1} & {a2, b2}:
+                                continue
+                            from AlmaGag.layout.metrics import segments_intersect
+                            if segments_intersect(p[a1], p[b1], p[a2], p[b2]):
+                                cross += 1
+                    return (cross, length)
+                els = list(min(itertools.permutations(els), key=_score))
         x0 = gx - (cols - 1) * pitch_x / 2.0
         y0 = gy - (rows - 1) * pitch_y / 2.0
         for k, e in enumerate(els):
