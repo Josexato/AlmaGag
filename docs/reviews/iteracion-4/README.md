@@ -29,10 +29,10 @@ ficticio MinaCo, CIDs/SOTs ficticios; mismos ids entre archivos).
 
 | N49 | Slots estables entre versiones | ✅ | clave de zona por **min-hash sobre todos los miembros** (los ids compartidos dominan): camp/cir/oficina conservan slot en ambos archivos y la zona nueva (HPC) toma un slot libre sin desplazar a nadie |
 | M43 | Arcos de ciclo punteados | ✅ | TODO arco de ciclo emite dasharray (ida y retorno), no sólo la back-edge |
-| M44 | Cruces como recta pura | ❌ pendiente | E→I/H→F siguen como polilínea híbrida codo+diagonal |
+| M44 | Cruces como recta pura | ✅ | E→I/H→F son recta pura de 2 puntos borde a borde (el stub perpendicular QA-Q2 los convertía en híbridos; los cruces D13 quedan exentos de ese refuerzo) |
 
 ## Pendientes conocidos (no hace falta repetirlos)
 1. Corredores ortogonales inter-zona (N47): hoy diagonales rectas.
 2. Orden interno del sitio no es connection-aware (cruce en X dentro de mina).
 3. La banda de hubs no dibuja caja "WAN" rotulada propia.
-4. M44 (cruces D13 como recta pura puerto a puerto).
+
