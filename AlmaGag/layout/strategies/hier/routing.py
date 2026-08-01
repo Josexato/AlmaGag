@@ -210,9 +210,15 @@ def route_connections(layout, levels):
             pts = [p_from, p_to]
             c['_straight'] = True
         elif ci in straight_cross:
-            # D13: cruce real → recta (se cortan en un punto limpio; única
-            # diagonal permitida junto a los arcos de ciclo, §H24).
-            pts = [p_from, p_to]
+            # D13/§M44: cruce real → recta PURA puerto a puerto (se cortan en
+            # un punto limpio; única diagonal permitida junto a los arcos de
+            # ciclo, §H24). Los extremos se recortan al borde REAL de cada
+            # forma A LO LARGO de la recta (sin stubs perpendiculares que la
+            # convertían en híbrido codo+diagonal).
+            from AlmaGag.layout.strategies.hier.shapes import clip_shape
+            cf = (f['x'] + ICON_WIDTH / 2, f['y'] + ICON_HEIGHT / 2)
+            ct = (t['x'] + ICON_WIDTH / 2, t['y'] + ICON_HEIGHT / 2)
+            pts = [clip_shape(f, *ct), clip_shape(t, *cf)]
             c['_straight'] = True
         else:
             # §H24/§H26: ruteo ortogonal RADIAL — el primer/último tramo sale y
@@ -221,9 +227,11 @@ def route_connections(layout, levels):
             # (§H25) basta un codo en L/S, sin diagonales entre waypoints.
             pts = _ortho_route(p_from, sf, p_to, st, channel_offset.get(ci, 0.0))
 
-        # QA-Q2: refuerzo — garantiza tramo perpendicular en los extremos (por
-        # si D12/D13 dejaron una recta diagonal hacia un borde).
-        pts = _perp_stubs(pts, f, t)
+        # QA-Q2: refuerzo — garantiza tramo perpendicular en los extremos.
+        # §M44: los cruces D13 se EXCLUYEN — un cruce real es recta PURA puerto
+        # a puerto (el stub lo convertía en híbrido codo+diagonal de 4 puntos).
+        if ci not in straight_cross:
+            pts = _perp_stubs(pts, f, t)
         c['computed_path'] = {'type': 'polyline', 'points': pts}
         # Los puertos ya están EXACTAMENTE sobre el borde del icono (§C9/§C10);
         # marcarlos para que el renderer NO aplique su offset de 40px (que
