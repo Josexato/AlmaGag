@@ -25,13 +25,33 @@ def select_strategy(data, view='auto'):
     - nodos de decisión (rombos) → flowchart → hier
     - flujo CON CICLO, sin coords manuales → hier (niveles + arcos de ciclo)
     - en cualquier otro caso → AUTO (placement general)
+
+    §O53 — precedencia DECLARADA: cuando dos señales del JSON piden motores
+    distintos (p.ej. `considerations`→AUTO contra `areas`→hier, el conflicto
+    N46⇄I27), la de mayor precedencia gana pero la anulada se nombra en un
+    WARNING — nunca se pierde en silencio.
     """
     elements = data.get('elements', [])
+    soft = 'considerations' if data.get('considerations') else (
+        'constraints' if data.get('constraints') else None)
     if view and view != 'auto':
+        if soft:
+            logger.warning(
+                f"§O53: la vista '--view {view}' fuerza hier — señal anulada: "
+                f"'{soft}' (align/near/avoid, §④) sólo la aplica AUTO")
         return 'hier'                       # las vistas (areas/lanes/matrix) son de hier
-    if data.get('considerations') or data.get('constraints'):
+    if soft:
+        if data.get('areas'):
+            logger.warning(
+                f"§O53: '{soft}' fuerza AUTO — señal anulada: 'areas' (§I27): "
+                "las cajas de fase no se dibujarán como vista por ámbitos")
         return 'auto'                       # consideraciones (align/near/avoid): sólo AUTO
     if any('contains' in e for e in elements):
+        if data.get('areas'):
+            logger.warning(
+                "§O53: 'contains' (contenedores) fuerza AUTO — señal anulada: "
+                "'areas' (§I27): las cajas de fase no se dibujarán como vista "
+                "por ámbitos")
         return 'auto'                       # hier no maneja contenedores anidados
     if data.get('areas'):
         return 'hier'
