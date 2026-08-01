@@ -42,9 +42,10 @@ def select_strategy(data, view='auto'):
         return 'hier'                       # las vistas (areas/lanes/matrix) son de hier
     if soft:
         if data.get('areas'):
-            logger.warning(
-                f"§O53: '{soft}' fuerza AUTO — señal anulada: 'areas' (§I27): "
-                "las cajas de fase no se dibujarán como vista por ámbitos")
+            logger.info(
+                f"§O53: '{soft}' fuerza AUTO — 'areas' (§I27) se representa "
+                "como zonas near (§N46): cajas punteadas rotuladas, no la "
+                "vista por ámbitos de hier")
         return 'auto'                       # consideraciones (align/near/avoid): sólo AUTO
     if any('contains' in e for e in elements):
         if data.get('areas'):
@@ -210,7 +211,19 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     # §④ consideraciones BLANDAS (align/near/avoid): sólo las consume AUTO y las
     # aplica detrás de una guarda (sólo si no aumentan colisiones). Si el JSON no
     # las declara, queda [] y nada cambia (cero regresión).
-    from AlmaGag.layout.considerations import extract_considerations
+    from AlmaGag.layout.considerations import (
+        extract_considerations, areas_to_near_seeds)
+    # §O53 (mediano plazo): si el motor quedó en AUTO habiendo `areas` (una
+    # señal blanda las anuló, o el CLI forzó auto), las áreas se siembran
+    # como zonas near §N46 — la caja de fase no se pierde, cambia de traje.
+    # Con `contains` no se convierte (la grilla near asume elementos
+    # normales) y el WARNING §O53 sigue avisando la anulación.
+    if resolved_strategy == 'auto' and data.get('areas') and \
+            not any('contains' in e for e in data.get('elements', [])):
+        n_zonas = areas_to_near_seeds(data)
+        if n_zonas:
+            logger.info(f"§O53: {n_zonas} área(s) sembrada(s) como zona(s) "
+                        "near (§N46) para el motor AUTO")
     initial_layout._considerations = extract_considerations(data)
     # Vista del layout (§I): la REPRESENTACIÓN se decide sola a partir del JSON
     # y sólo se fuerza por parámetro de COMANDO (`--view`), nunca por un campo

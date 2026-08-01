@@ -71,17 +71,18 @@ def test_explicit_view_forces_hier():
     assert select_strategy(data, view='auto') == 'auto'
 
 
-def test_considerations_beat_areas_with_warning(caplog):
-    """§O53 (N46⇄I27): considerations→AUTO gana a areas→hier, pero la señal
-    anulada se nombra en un WARNING — nunca se pierde en silencio."""
+def test_considerations_beat_areas_with_notice(caplog):
+    """§O53 (N46⇄I27): considerations→AUTO gana a areas→hier; desde el
+    mediano plazo la señal no se pierde — se anuncia (INFO) que las áreas
+    se representan como zonas near §N46."""
     import logging
     data = {'areas': [{'id': 'F1', 'members': ['a']}],
             'considerations': [{'near': ['a', 'b']}],
             'elements': [{'id': 'a'}, {'id': 'b'}]}
-    with caplog.at_level(logging.WARNING, logger='AlmaGag'):
+    with caplog.at_level(logging.INFO, logger='AlmaGag'):
         assert select_strategy(data) == 'auto'
     text = '\n'.join(r.message for r in caplog.records)
-    assert '§O53' in text and 'areas' in text and 'anulada' in text
+    assert '§O53' in text and 'areas' in text and 'zonas near' in text
 
 
 def test_containers_beat_areas_with_warning(caplog):
