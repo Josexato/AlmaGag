@@ -144,3 +144,39 @@ def draw_role_legend(dwg, roles, used_roles, canvas_width, canvas_height):
                          font_size='10.5px', font_family='Arial, sans-serif',
                          fill='#3a362c'))
         x += 40 + len(label) * 6.4
+
+
+def draw_near_zones(dwg, elements):
+    """§N46: caja sutil alrededor de cada zona `near` (grupo clusterizado).
+
+    El bbox se calcula de las posiciones FINALES de los miembros (icono +
+    espacio de etiqueta), así la caja sobrevive a cualquier ajuste posterior
+    del pipeline. Estilo discreto de la misma familia que las cajas de fase.
+    """
+    zones = {}
+    for e in elements:
+        gi = e.get('_near_zone')
+        if gi is None or 'x' not in e or 'y' not in e:
+            continue
+        zones.setdefault(gi, []).append(e)
+
+    PAD = 16.0
+    LABEL_ROOM = 40.0     # sitio bajo el icono para su etiqueta
+    for gi, members in sorted(zones.items()):
+        if len(members) < 2:
+            continue
+        x1 = min(m['x'] for m in members) - PAD
+        y1 = min(m['y'] for m in members) - PAD
+        x2 = max(m['x'] + m.get('width', 80) for m in members) + PAD
+        y2 = max(m['y'] + m.get('height', 50) for m in members) + PAD + LABEL_ROOM
+        dwg.add(dwg.rect(
+            insert=(x1, y1), size=(x2 - x1, y2 - y1),
+            rx=10, ry=10, fill='#f7f6f2', fill_opacity=0.5,
+            stroke='#c9c4b6', stroke_width=1.2, stroke_dasharray='4,4'))
+        zlabel = next((m.get('_near_zone_label') for m in members
+                       if m.get('_near_zone_label')), None)
+        if zlabel:
+            dwg.add(dwg.text(
+                zlabel, insert=(x1 + 10, y1 + 16),
+                font_size='11px', font_weight='700',
+                font_family='Arial, sans-serif', fill='#8a8577'))

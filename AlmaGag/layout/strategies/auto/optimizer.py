@@ -216,6 +216,40 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         self._capture('contenedores', current,
                       'dimensiones + centrado con etiquetas + redistribución')
 
+        # 2.5.55. §N46: `near[]` como ZONA por construcción. Cada grupo near se
+        # clusteriza en grilla compacta en su centroide ANTES del canvas y el
+        # ruteo — el resto del pipeline trabaja con la zona ya armada, en vez
+        # del empujón blando post-hoc que dejaba miembros a ~730px (condestable).
+        considerations = getattr(layout, '_considerations', None) or []
+        n_zones = 0
+        if considerations:
+            from AlmaGag.layout.considerations import (
+                cluster_near_groups, evict_zone_intruders)
+            n_zones = cluster_near_groups(current, considerations)
+            if n_zones:
+                # intrusos: nodos ajenos que el placement dejó dentro de la
+                # zona provocan conectores que perforan el cluster
+                evicted = evict_zone_intruders(current)
+                # las etiquetas se calcularon con las posiciones pre-cluster
+                current.label_positions = {}
+                current.connection_labels = {}
+                self._calculate_initial_positions(current)
+                # Etiqueta de miembro de zona: SIEMPRE centrada bajo el icono
+                # (misma convención que §I27 en áreas) — el pitch del cluster ya
+                # reservó ese espacio; dejarlas al optimizador las entrevera
+                # entre miembros vecinos. Posición estructural, no negociable.
+                for e in current.elements:
+                    if ((e.get('_near_zone') is not None or e.get('_evicted'))
+                            and 'x' in e and e.get('label')):
+                        cx = e['x'] + e.get('width', ICON_WIDTH) / 2.0
+                        ly = e['y'] + e.get('height', ICON_HEIGHT) + 20
+                        current.label_positions[e['id']] = (cx, ly, 'middle', 'bottom')
+                self._log(f"§N46: {n_zones} grupo(s) near como zona"
+                          f" ({evicted} intruso(s) expulsado(s))")
+                self._capture('zonas-near', current,
+                              f'{n_zones} zona(s) near por construcción · '
+                              f'{evicted} intruso(s) fuera')
+
         # 2.5.6. CRÍTICO: Recalcular label_positions con las posiciones FINALES de los íconos.
         # Antes de este paso, los labels se calcularon en step 2 con coords originales,
         # pero los íconos se movieron en steps 2.5/2.5.4/2.5.5 (containers
@@ -463,15 +497,19 @@ class AutoLayoutOptimizer(LayoutOptimizer):
             logger.info(f"       Total iteraciones: {len(dumper.iterations) - 1}")
             logger.info(f"       Colisiones: {initial_collisions} -> {min_collisions}")
 
-        # Rescate ④: consideraciones BLANDAS del usuario (align/near/avoid). Son
+        # Rescate ④: consideraciones BLANDAS del usuario (align/avoid). Son
         # intención, no ley: cada una se aplica sólo si no aumenta las colisiones
         # (guarda); la que no se puede cumplir cede y se informa en el log (sin
         # el porqué). Sin `considerations` es un no-op.
+        # §N46: `near` ya NO pasa por aquí — se cumple por construcción como
+        # zona (paso 2.5.55); si se clusterizó, sólo align/avoid quedan blandas.
         considerations = getattr(layout, '_considerations', None)
         if considerations:
+            soft = ([c for c in considerations if c['kind'] != 'near']
+                    if n_zones else considerations)
             from AlmaGag.layout.considerations import apply_considerations, label
             best_layout, unmet = apply_considerations(
-                best_layout, considerations, self.evaluate, self.routing.route)
+                best_layout, soft, self.evaluate, self.routing.route)
             for cons in unmet:
                 logger.info(f"[CONSIDERACIONES] no se pudo cumplir: {label(cons)}")
             best_layout.invalidate_collision_cache()
@@ -479,10 +517,10 @@ class AutoLayoutOptimizer(LayoutOptimizer):
             self.routing.route(best_layout)
             self._calculate_canvas_from_bounds(best_layout)
             min_collisions = self.evaluate(best_layout)
-            met = len(considerations) - len(unmet)
+            met = len(soft) - len(unmet)
             self._capture('consideraciones', best_layout,
-                          f'{met}/{len(considerations)} consideraciones · '
-                          f'{min_collisions} colisiones')
+                          f'{met}/{len(soft)} consideraciones blandas · '
+                          f'{n_zones} zona(s) near · {min_collisions} colisiones')
 
         self._capture('final', best_layout,
                       f'normalizado + labels escalonados · {min_collisions} colisiones')
@@ -516,14 +554,22 @@ class AutoLayoutOptimizer(LayoutOptimizer):
             for ref in cont.get('contains', []):
                 contained_of[extract_item_id(ref)] = cont['id']
 
-        # Grupos: contenedor+contenido = bloque rígido; libres por fila visual.
+        # Grupos: contenedor+contenido = bloque rígido; §N46 zona near = bloque
+        # rígido (offsets por fila la cizallarían); libres por fila visual.
         row_h = ICON_HEIGHT
         groups: dict = {}
         for cont in containers:
             members = [cont['id']] + [extract_item_id(r) for r in cont.get('contains', [])]
             groups[('cont', cont['id'])] = [m for m in members if m in pos]
+        zone_of: dict = {}
+        for e in positioned:
+            gi = e.get('_near_zone')
+            if gi is not None and e['id'] not in contained_of:
+                zone_of[e['id']] = gi
+                groups.setdefault(('zone', gi), []).append(e['id'])
         for eid, (cx, cy) in pos.items():
-            if eid in contained_of or any(eid == c['id'] for c in containers):
+            if (eid in contained_of or eid in zone_of
+                    or any(eid == c['id'] for c in containers)):
                 continue
             groups.setdefault(('row', round(cy / row_h)), []).append(eid)
         if len(groups) < 2:
@@ -613,6 +659,10 @@ class AutoLayoutOptimizer(LayoutOptimizer):
 
         for elem in layout.elements:
             if not elem.get('label'):
+                continue
+            # §N46: la etiqueta de un miembro de zona es estructural (centrada
+            # bajo el icono, con espacio reservado por el pitch del cluster).
+            if elem.get('_near_zone') is not None or elem.get('_evicted'):
                 continue
 
             elem_id = elem['id']
@@ -923,6 +973,11 @@ class AutoLayoutOptimizer(LayoutOptimizer):
 
             # Ignorar elementos sin coordenadas
             if elem.get('x') is None or elem.get('y') is None:
+                continue
+
+            # §N46: los miembros de zona near no se mueven individualmente —
+            # la zona es un bloque por construcción (moverlos la desarma).
+            if elem.get('_near_zone') is not None:
                 continue
 
             # No mover HIGH priority

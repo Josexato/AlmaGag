@@ -108,6 +108,10 @@ class AutoSVGRenderer:
         if matrix:
             draw_matrix_grid(dwg, matrix)
 
+        # §N46: cajas de zona `near` (fondo, detrás de todo lo demás).
+        from AlmaGag.draw.primitives.phase_areas import draw_near_zones
+        draw_near_zones(dwg, normal_elements)
+
         # === Orden de dibujo ===
         # 1. Containers (rect de fondo, icono va inline)
         self._render_containers(dwg, containers, elements_by_id, ndfn_labels)
@@ -244,6 +248,11 @@ class AutoSVGRenderer:
 
         # Etiquetas de elementos normales
         for elem in elements:
+            # §N46: miembros de zona near quedan fuera del optimizador — su
+            # etiqueta es estructural (bajo el icono) y se dibuja del fallback
+            # layout.label_positions.
+            if elem.get('_near_zone') is not None or elem.get('_evicted'):
+                continue
             if ('contains' not in elem and elem['id'] not in contained_element_ids
                     and elem.get('label') and 'x' in elem and 'y' in elem):
                 elem_id = elem['id']
