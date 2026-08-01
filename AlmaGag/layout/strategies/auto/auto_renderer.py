@@ -136,9 +136,17 @@ class AutoSVGRenderer:
         self._render_container_labels(dwg, containers, elements_by_id)
 
         # §I30: leyenda de responsables (sólo roles usados).
+        role_legend_drawn = False
         if areas and roles:
             used = {e.get('role') for e in normal_elements if e.get('role')}
             draw_role_legend(dwg, roles, used, canvas_width, canvas_height)
+            role_legend_drawn = True
+
+        # §N48: leyenda de tipos de conexión (≥3 semantic_type distintos). Si la
+        # leyenda de roles ya ocupa la franja inferior, ésta sube una línea.
+        from AlmaGag.draw.primitives.svg import draw_connection_type_legend
+        draw_connection_type_legend(dwg, connections, canvas_width, canvas_height,
+                                    y_offset=24 if role_legend_drawn else 0)
 
         # 5. Debug visual
         if visualdebug:
