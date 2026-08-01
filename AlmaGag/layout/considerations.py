@@ -78,6 +78,49 @@ def label(cons: dict) -> str:
     return f"{cons['kind']} {cons['ids']}"
 
 
+def areas_to_near_seeds(data) -> int:
+    """§O53 (mediano plazo): representa `areas` en AUTO como zonas near (§N46).
+
+    Cuando una señal de mayor precedencia fuerza AUTO (considerations/
+    constraints), las cajas de fase declaradas en `areas` ya no se pierden:
+    cada área con 2+ miembros válidos se siembra como consideración `near`
+    con su rótulo — el cluster, la caja punteada rotulada (banda §O54) y la
+    expulsión de intrusos salen gratis de la maquinaria N46. Los miembros
+    contenedores se excluyen (la grilla near asume elementos normales).
+
+    Muta el arreglo activo (`considerations` o su alias `constraints`) sin
+    duplicar semillas near existentes. Devuelve cuántas áreas sembró.
+    """
+    areas = data.get('areas') or []
+    if not areas:
+        return 0
+    normal_ids = {e['id'] for e in data.get('elements', [])
+                  if 'contains' not in e}
+    if data.get('considerations') is not None:
+        target = data['considerations']
+    elif data.get('constraints') is not None:
+        target = data['constraints']
+    else:
+        target = data.setdefault('considerations', [])
+    if not isinstance(target, list):
+        return 0
+    seeded = [set(c.get('near') or []) for c in target if isinstance(c, dict)]
+    n = 0
+    for a in areas:
+        if not isinstance(a, dict):
+            continue
+        members = [m for m in (a.get('members') or []) if m in normal_ids]
+        if len(members) < 2 or set(members) in seeded:
+            continue
+        seed = {'near': members}
+        if a.get('label') or a.get('id'):
+            seed['label'] = str(a.get('label') or a.get('id'))
+        target.append(seed)
+        seeded.append(set(members))
+        n += 1
+    return n
+
+
 def _center(e) -> Tuple[float, float]:
     return (e['x'] + e.get('width', ICON_WIDTH) / 2.0,
             e['y'] + e.get('height', ICON_HEIGHT) / 2.0)
