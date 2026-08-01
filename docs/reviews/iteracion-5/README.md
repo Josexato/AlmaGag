@@ -76,11 +76,14 @@ Cada uno con su PNG generado por la vía SIN navegador (cairosvg, sin parche):
    recorte menos agresivo, nunca corta (regla sólo-contraer).
 3. **O52 `tinta` es proxy**: Σ de bboxes (iconos+etiquetas), no píxeles reales
    de tinta; sirve como guarda de lámina-vacía, no como medida tipográfica.
-4. **Layout de árboles chicos en `auto`** (no es de emisión): al armar el
-   organigrama sin coordenadas, `auto` promueve de nivel a un hijo hoja
-   (`jsis` quedó en la fila de gerencias) y reparte etiquetas ambiguas en la
-   fila inferior; por eso el fixture 4 usa coordenadas manuales. Candidato a
-   grupo futuro de layout jerárquico.
+4. **Layout de árboles chicos en `auto`** — ~~pendiente~~ **resuelto en el
+   seguimiento post-veredicto**, acotado a BOSQUES (todo nodo con ≤1 padre):
+   niveles estrictos (la corrección de hojas satélite ya no promueve a
+   `jsis`), paso de fila consciente del ancho de etiquetas y barycenter puro
+   sin tirón de centralidad. El organigrama sin coordenadas pasa de
+   niveles rotos + labels ambiguos a jerarquía correcta con cruces=1,
+   arista×nodo=0, labels=0. Métricas idénticas en los 36 fixtures (los
+   grafos con merges/ciclos conservan el comportamiento histórico).
 5. **Aspecto en topologías anchas**: `red-dual-homing-areas` da aspecto 4.85 →
    WARNING §O52; es inherente al contenido (3 sedes en fila), no un bug.
 

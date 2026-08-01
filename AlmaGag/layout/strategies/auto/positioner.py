@@ -366,7 +366,21 @@ class AutoLayoutPositioner:
             w, h = self.sizing.get_element_size(elem)
             widths[elem['id']] = w
 
+        # Ancho estimado de la ETIQUETA centrada bajo el icono: dos hermanos
+        # con etiquetas anchas necesitan paso suficiente para que sus labels
+        # no se pisen — si no, el optimizador de etiquetas las corre de su
+        # icono y la fila se vuelve ambigua (¿de quién es este label?).
+        # Cap a 3×ICON_WIDTH: los textos kilométricos ya los maneja el
+        # auto-callout, no el espaciado.
+        from AlmaGag.utils import calculate_label_dimensions
+        label_ws = {}
+        for elem in elements:
+            lbl = elem.get('label') or ''
+            lw = calculate_label_dimensions(lbl)[0] if lbl else 0
+            label_ws[elem['id']] = min(lw, ICON_WIDTH * 3)
+
         # Compute global X scale
+        LABEL_GAP = 12  # aire mínimo entre etiquetas vecinas
         global_x_scale = SPACING_XLARGE  # 120px minimum
         for level_num in sorted(by_level.keys()):
             level_elems = by_level[level_num]
@@ -380,7 +394,11 @@ class AutoLayoutPositioner:
                 gap = items[i + 1][0] - items[i][0]
                 if gap <= 0:
                     continue
-                required = items[i][1] + MIN_GAP
+                required = max(
+                    items[i][1] + MIN_GAP,
+                    (label_ws[items[i][2]] + label_ws[items[i + 1][2]]) / 2.0
+                    + LABEL_GAP,
+                )
                 global_x_scale = max(global_x_scale, required / gap)
 
         # Normalize abstract X to start at 0
@@ -430,6 +448,12 @@ class AutoLayoutPositioner:
         if len(sorted_levels) < 2:
             return
 
+        # En un BOSQUE (todo nodo con ≤1 padre) el barycenter PURO alinea cada
+        # hijo bajo su padre y da cero cruces; el tirón de centralidad hacia el
+        # centro de la fila (pensado para hubs de flujos densos) ahí sólo
+        # desordena hermanos y cruza ramas (caso organigrama).
+        is_forest = all(len(v) <= 1 for v in incoming.values())
+
         # Track positions (index within level)
         positions = {}
         for level_num in sorted_levels:
@@ -460,7 +484,8 @@ class AutoLayoutPositioner:
 
                     # Blend with centrality
                     score = centrality.get(eid, 0.0)
-                    alpha = min(0.6, score * 3.5) if score > 0 else 0.0
+                    alpha = 0.0 if is_forest else (
+                        min(0.6, score * 3.5) if score > 0 else 0.0)
                     barycenters[eid] = (1.0 - alpha) * bc_conn + alpha * center
 
                 level_elems.sort(key=lambda e: barycenters[e['id']])
@@ -489,7 +514,8 @@ class AutoLayoutPositioner:
                         bc_conn = center
 
                     score = centrality.get(eid, 0.0)
-                    alpha = min(0.6, score * 3.5) if score > 0 else 0.0
+                    alpha = 0.0 if is_forest else (
+                        min(0.6, score * 3.5) if score > 0 else 0.0)
                     barycenters[eid] = (1.0 - alpha) * bc_conn + alpha * center
 
                 level_elems.sort(key=lambda e: barycenters[e['id']])

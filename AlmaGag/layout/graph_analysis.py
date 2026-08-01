@@ -145,6 +145,17 @@ class GraphAnalyzer:
                 if co_parent_level is not None:
                     levels[src] = co_parent_level
 
+        # En un BOSQUE (todo nodo con ≤1 padre y sin self-loops), la jerarquía
+        # manda: hoja = padre + 1 SIEMPRE. La corrección de hojas satélite de
+        # abajo existe para flujos con merges (una hoja colgando de un nodo
+        # con subárbol se pega al padre para compactar), pero en un árbol puro
+        # —organigramas, taxonomías— promueve hijos al nivel del padre y
+        # rompe la semántica de niveles (caso `jsis` del organigrama).
+        is_forest = all(len(incoming[e]) <= 1 for e in elem_ids) and \
+            not any(c.get('from') == c.get('to') for c in connections)
+        if is_forest:
+            return levels          # longest-path ya es exacto en un árbol
+
         # Leaf correction: leaves align to dominant parent's level
         for e_id in elem_ids_sorted:
             if outgoing.get(e_id):
