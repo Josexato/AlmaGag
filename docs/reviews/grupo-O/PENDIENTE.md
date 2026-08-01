@@ -1,4 +1,10 @@
-# Grupo O — Emisión, portabilidad y contrato de estilo (PENDIENTE)
+# Grupo O — Emisión, portabilidad y contrato de estilo (CERRADO 1-ago-2026)
+
+> **Estado**: los 9 criterios implementados (un commit por criterio, con
+> test de regresión y verificación visual). Paquete de revisión en
+> `docs/reviews/iteracion-5/` — pendiente el veredicto de Claude Design.
+> Pendientes declarados en ese README (O53 mediano plazo: cajas de área
+> en AUTO).
 
 Nueva sección del review (1-ago-2026, aporte del skill creator). Cubre la
 etapa 12 (emit) y el contrato con rasterizadores/editores/Office/CI.

@@ -113,9 +113,9 @@ class CollisionDetector:
                     collision_count += 1
                     collision_pairs.append((id1, id2, f'{type1}_vs_{type2}'))
 
-        # Colisiones entre líneas y etiquetas de íconos
+        # Colisiones entre líneas y etiquetas (de íconos y §O54 de zonas)
         for bbox, bbox_type, bbox_id in bboxes:
-            if bbox_type != 'icon_label':
+            if bbox_type not in ('icon_label', 'zone_label'):
                 continue
 
             for segments, conn_key in lines:
@@ -248,6 +248,15 @@ class CollisionDetector:
             if bbox:
                 key = f"{conn['from']}->{conn['to']}"
                 bboxes.append((bbox, 'conn_label', key))
+
+        # §O54: rótulos de zona `near` — son etiquetas reales del diagrama y
+        # entran al contador labels. La banda reservada de 18px garantiza que
+        # los MIEMBROS no los pisen; esto detecta intrusos y líneas ajenas.
+        from AlmaGag.layout.considerations import near_zone_boxes
+        for zone in near_zone_boxes(layout.elements):
+            if zone['label_bbox']:
+                bboxes.append((zone['label_bbox'], 'zone_label',
+                               f"zone:{zone['zone']}"))
 
         return bboxes
 

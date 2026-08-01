@@ -25,13 +25,33 @@ def select_strategy(data, view='auto'):
     - nodos de decisión (rombos) → flowchart → hier
     - flujo CON CICLO, sin coords manuales → hier (niveles + arcos de ciclo)
     - en cualquier otro caso → AUTO (placement general)
+
+    §O53 — precedencia DECLARADA: cuando dos señales del JSON piden motores
+    distintos (p.ej. `considerations`→AUTO contra `areas`→hier, el conflicto
+    N46⇄I27), la de mayor precedencia gana pero la anulada se nombra en un
+    WARNING — nunca se pierde en silencio.
     """
     elements = data.get('elements', [])
+    soft = 'considerations' if data.get('considerations') else (
+        'constraints' if data.get('constraints') else None)
     if view and view != 'auto':
+        if soft:
+            logger.warning(
+                f"§O53: la vista '--view {view}' fuerza hier — señal anulada: "
+                f"'{soft}' (align/near/avoid, §④) sólo la aplica AUTO")
         return 'hier'                       # las vistas (areas/lanes/matrix) son de hier
-    if data.get('considerations') or data.get('constraints'):
+    if soft:
+        if data.get('areas'):
+            logger.warning(
+                f"§O53: '{soft}' fuerza AUTO — señal anulada: 'areas' (§I27): "
+                "las cajas de fase no se dibujarán como vista por ámbitos")
         return 'auto'                       # consideraciones (align/near/avoid): sólo AUTO
     if any('contains' in e for e in elements):
+        if data.get('areas'):
+            logger.warning(
+                "§O53: 'contains' (contenedores) fuerza AUTO — señal anulada: "
+                "'areas' (§I27): las cajas de fase no se dibujarán como vista "
+                "por ámbitos")
         return 'auto'                       # hier no maneja contenedores anidados
     if data.get('areas'):
         return 'hier'
@@ -100,6 +120,11 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     n_unions = expand_unions(data)
     if n_unions:
         logger.info(f"§H7: {n_unions} union(es) expandida(s) a nodo de barra")
+
+    # §O57: resolver tokens de tema (`theme` top-level + `"color": "<token>"`)
+    # sobre el JSON crudo — el resto del pipeline sólo ve hex/nombres CSS.
+    from AlmaGag.layout.theme import apply_theme
+    apply_theme(data)
 
     # Decidir la estrategia sobre el JSON CRUDO (antes de que el template inyecte
     # coords). Si el motor elegido es hier, hier hace su propio placement por
@@ -242,15 +267,27 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     # Mostrar resultados: §H6 tres contadores separados (no un único
     # 'colisiones' ambiguo) y con el nombre del motor real (no "AutoLayout"
     # cuando corrió hier/legacy).
-    from AlmaGag.layout.metrics import quality_counters
+    from AlmaGag.layout.metrics import (
+        quality_counters, emission_metrics, INK_WARN_PCT, ASPECT_RANGE)
     q = quality_counters(optimized_layout)
+    em = emission_metrics(optimized_layout)
     engine = getattr(optimizer, 'chosen', None) or resolved_strategy or 'auto'
+    # §O52: la línea de métricas incluye densidad de tinta y aspecto de la
+    # lámina estimada (bbox+margen, espejo del recorte §O51).
     line = (f"[{engine}] cruces(arista×arista)={q['edge_x_edge']} "
-            f"arista×nodo={q['edge_x_node']} labels={q['label_overlap']}")
+            f"arista×nodo={q['edge_x_node']} labels={q['label_overlap']} "
+            f"tinta={em['ink_pct']:.1f}% aspecto={em['aspect']:.2f}")
     if q['edge_x_edge'] + q['edge_x_node'] + q['label_overlap'] > 0:
         logger.warning(line)
     else:
         logger.info(line)
+    if em['ink_pct'] < INK_WARN_PCT:
+        logger.warning(f"§O52: tinta {em['ink_pct']:.1f}% < {INK_WARN_PCT:.0f}% "
+                       "— lámina mayormente vacía")
+    if not (ASPECT_RANGE[0] <= em['aspect'] <= ASPECT_RANGE[1]):
+        logger.warning(f"§O52: aspecto {em['aspect']:.2f} fuera de "
+                       f"[{ASPECT_RANGE[0]}, {ASPECT_RANGE[1]}] — lámina "
+                       "desproporcionada")
 
     logger.info(f"     - {num_levels} niveles, {num_groups} grupo(s)")
     logger.info(f"     - Prioridades: {high_priority} high, {normal_priority} normal, {low_priority} low")

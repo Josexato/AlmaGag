@@ -1,0 +1,142 @@
+{
+  "theme": {
+    "matriz": "#1F3864",
+    "direccion": "#2E75B6",
+    "gerencia": "#5B9BD5",
+    "tecnica": "#548B54",
+    "soporte": "#7030A0"
+  },
+  "elements": [
+    {
+      "id": "holding",
+      "type": "building",
+      "label": "AcmeCorp Holding",
+      "color": "matriz",
+      "x": 410,
+      "y": 30
+    },
+    {
+      "id": "ceo",
+      "type": "user",
+      "label": "D. General\nCEO",
+      "color": "direccion",
+      "x": 410,
+      "y": 170
+    },
+    {
+      "id": "gop",
+      "type": "user",
+      "label": "G. Ovalle\nGerencia de Operaciones",
+      "color": "gerencia",
+      "x": 150,
+      "y": 330
+    },
+    {
+      "id": "gfin",
+      "type": "user",
+      "label": "F. Ibarra\nGerencia de Finanzas",
+      "color": "gerencia",
+      "x": 410,
+      "y": 330
+    },
+    {
+      "id": "gti",
+      "type": "user",
+      "label": "T. Ilves\nGerencia de TI",
+      "color": "gerencia",
+      "x": 670,
+      "y": 330
+    },
+    {
+      "id": "jred",
+      "type": "user",
+      "label": "R. Duarte\nJef. Redes",
+      "color": "tecnica",
+      "x": 580,
+      "y": 500
+    },
+    {
+      "id": "jsis",
+      "type": "user",
+      "label": "S. Iglesias\nJef. Sistemas",
+      "color": "tecnica",
+      "x": 840,
+      "y": 500
+    },
+    {
+      "id": "jcon",
+      "type": "user",
+      "label": "C. Onetti\nJef. Contabilidad",
+      "color": "soporte",
+      "x": 320,
+      "y": 500
+    },
+    {
+      "id": "jlog",
+      "type": "user",
+      "label": "L. Ordoñez\nJef. Logística",
+      "color": "soporte",
+      "x": 60,
+      "y": 500
+    },
+    {
+      "id": "eqred",
+      "type": "document",
+      "label": "Equipo NOC\n4 analistas",
+      "color": "silver",
+      "x": 580,
+      "y": 680
+    }
+  ],
+  "connections": [
+    {
+      "from": "holding",
+      "to": "ceo",
+      "direction": "forward"
+    },
+    {
+      "from": "ceo",
+      "to": "gop",
+      "direction": "forward"
+    },
+    {
+      "from": "ceo",
+      "to": "gfin",
+      "direction": "forward"
+    },
+    {
+      "from": "ceo",
+      "to": "gti",
+      "direction": "forward"
+    },
+    {
+      "from": "gti",
+      "to": "jred",
+      "direction": "forward"
+    },
+    {
+      "from": "gti",
+      "to": "jsis",
+      "direction": "forward"
+    },
+    {
+      "from": "jred",
+      "to": "eqred",
+      "direction": "forward"
+    },
+    {
+      "from": "gfin",
+      "to": "jcon",
+      "direction": "forward"
+    },
+    {
+      "from": "gop",
+      "to": "jlog",
+      "direction": "forward"
+    }
+  ],
+  "canvas": {
+    "width": 1400,
+    "height": 900
+  }
+}

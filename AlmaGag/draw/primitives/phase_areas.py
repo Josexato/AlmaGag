@@ -7,7 +7,8 @@ Sólo se usa cuando el layout `hier` corrió en modo áreas (`layout.areas`).
 - Leyenda: franja inferior con un swatch + etiqueta por rol.
 """
 
-from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
+from AlmaGag.config import (ICON_WIDTH, ICON_HEIGHT, FONT_SIZE_NODE,
+                            FONT_SIZE_ZONE, FONT_WEIGHT_ZONE)
 
 _DECISION_TYPES = {'decision', 'diamond'}
 DEFAULT_AREA_COLOR = '#2a6fdb'
@@ -35,7 +36,7 @@ def draw_area_boxes(dwg, areas):
             stroke=color, stroke_width=1.3, stroke_dasharray='6,4'))
         dwg.add(dwg.text(
             a['label'], insert=(a['x'] + 12, a['y'] + 18),
-            font_size='12px', font_weight='700',
+            font_size=f'{FONT_SIZE_ZONE}px', font_weight=FONT_WEIGHT_ZONE,
             font_family='Arial, sans-serif', fill=color))
 
 
@@ -52,7 +53,7 @@ def draw_lane_strips(dwg, lanes):
         if ln.get('label'):
             dwg.add(dwg.text(
                 ln['label'], insert=(ln['x'] + ln['w'] / 2, ln['y'] + 18),
-                text_anchor='middle', font_size='12px', font_weight='700',
+                text_anchor='middle', font_size=f'{FONT_SIZE_ZONE}px', font_weight=FONT_WEIGHT_ZONE,
                 font_family='Arial, sans-serif', fill=color))
 
 
@@ -72,7 +73,7 @@ def draw_matrix_grid(dwg, matrix):
         if row.get('label'):
             dwg.add(dwg.text(
                 row['label'], insert=(left - 10, row['y'] + row['h'] / 2 + 4),
-                text_anchor='end', font_size='11px', font_weight='700',
+                text_anchor='end', font_size=f'{FONT_SIZE_ZONE}px', font_weight=FONT_WEIGHT_ZONE,
                 font_family='Arial, sans-serif', fill=color))
     # columnas (fase): separadores + rótulo arriba
     for col in matrix['cols']:
@@ -82,7 +83,7 @@ def draw_matrix_grid(dwg, matrix):
         if col.get('label'):
             dwg.add(dwg.text(
                 col['label'], insert=(col['x'] + col['w'] / 2, top - 14),
-                text_anchor='middle', font_size='11.5px', font_weight='700',
+                text_anchor='middle', font_size=f'{FONT_SIZE_ZONE}px', font_weight=FONT_WEIGHT_ZONE,
                 font_family="'JetBrains Mono', monospace", fill='#2a6fdb'))
     dwg.add(dwg.line(start=(right, top), end=(right, h - 8),
                      stroke='#c9c4b6', stroke_width=1.0, stroke_dasharray='4,4'))
@@ -118,7 +119,7 @@ def draw_area_node_labels(dwg, elements):
         for i, line in enumerate(lbl.split('\n')):
             dwg.add(dwg.text(
                 line, insert=(cx, top + i * 16), text_anchor='middle',
-                font_size='11.5px', font_family='Arial, sans-serif',
+                font_size=f'{FONT_SIZE_NODE}px', font_family='Arial, sans-serif',
                 fill='#1a1a1a'))
 
 
@@ -129,21 +130,25 @@ def draw_role_legend(dwg, roles, used_roles, canvas_width, canvas_height):
     order = [k for k in roles if k in used_roles]
     if not order:
         return
+    # §O51: anclada al borde inferior del canvas — el grupo se excluye del
+    # bbox de recorte del viewBox y se reancla tras contraer.
+    legend = dwg.g(class_='ag-bottom-anchored')
     y = canvas_height - 30
     x = 24
-    dwg.add(dwg.text('Responsable:', insert=(x, y + 11),
-                     font_size='11px', font_weight='700',
-                     font_family='Arial, sans-serif', fill='#5a5648'))
+    legend.add(dwg.text('Responsable:', insert=(x, y + 11),
+                        font_size='11px', font_weight='700',
+                        font_family='Arial, sans-serif', fill='#5a5648'))
     x += 96
     for k in order:
         spec = roles[k]
         color = _svg_color(spec.get('color'))
-        dwg.add(dwg.rect(insert=(x, y), size=(14, 14), rx=2, ry=2, fill=color))
+        legend.add(dwg.rect(insert=(x, y), size=(14, 14), rx=2, ry=2, fill=color))
         label = spec.get('label', k)
-        dwg.add(dwg.text(label, insert=(x + 20, y + 11),
-                         font_size='10.5px', font_family='Arial, sans-serif',
-                         fill='#3a362c'))
+        legend.add(dwg.text(label, insert=(x + 20, y + 11),
+                            font_size='10.5px', font_family='Arial, sans-serif',
+                            fill='#3a362c'))
         x += 40 + len(label) * 6.4
+    dwg.add(legend)
 
 
 def draw_near_zones(dwg, elements):
@@ -153,30 +158,21 @@ def draw_near_zones(dwg, elements):
     espacio de etiqueta), así la caja sobrevive a cualquier ajuste posterior
     del pipeline. Estilo discreto de la misma familia que las cajas de fase.
     """
-    zones = {}
-    for e in elements:
-        gi = e.get('_near_zone')
-        if gi is None or 'x' not in e or 'y' not in e:
-            continue
-        zones.setdefault(gi, []).append(e)
+    from AlmaGag.layout.considerations import near_zone_boxes
 
-    PAD = 16.0
-    LABEL_ROOM = 40.0     # sitio bajo el icono para su etiqueta
-    for gi, members in sorted(zones.items()):
-        if len(members) < 2:
-            continue
-        x1 = min(m['x'] for m in members) - PAD
-        y1 = min(m['y'] for m in members) - PAD
-        x2 = max(m['x'] + m.get('width', 80) for m in members) + PAD
-        y2 = max(m['y'] + m.get('height', 50) for m in members) + PAD + LABEL_ROOM
+    # §O54: la geometría (caja + banda de rótulo de 18px) viene del helper
+    # compartido con el detector de colisiones — una sola verdad. El rótulo:
+    # 11px bold #6b6558 (5.1:1 sobre el fondo de zona, AA; #8a8577 daba
+    # 3.7:1), anclado al borde superior-izquierdo de SU caja, centrado
+    # ópticamente en la banda reservada.
+    for zone in near_zone_boxes(elements):
+        x1, y1, x2, y2 = zone['bbox']
         dwg.add(dwg.rect(
             insert=(x1, y1), size=(x2 - x1, y2 - y1),
             rx=10, ry=10, fill='#f7f6f2', fill_opacity=0.5,
             stroke='#c9c4b6', stroke_width=1.2, stroke_dasharray='4,4'))
-        zlabel = next((m.get('_near_zone_label') for m in members
-                       if m.get('_near_zone_label')), None)
-        if zlabel:
+        if zone['label']:
             dwg.add(dwg.text(
-                zlabel, insert=(x1 + 10, y1 + 16),
-                font_size='11px', font_weight='700',
-                font_family='Arial, sans-serif', fill='#8a8577'))
+                zone['label'], insert=(x1 + 10, y1 + 14),
+                font_size=f'{FONT_SIZE_ZONE}px', font_weight=FONT_WEIGHT_ZONE,
+                font_family='Arial, sans-serif', fill='#6b6558'))

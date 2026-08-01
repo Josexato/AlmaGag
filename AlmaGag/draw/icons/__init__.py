@@ -20,9 +20,22 @@ from xml.etree import ElementTree as ET
 from AlmaGag.config import (
     ICON_WIDTH, ICON_HEIGHT,
     LABEL_OFFSET_BOTTOM, LABEL_OFFSET_SIDE,
-    TEXT_LINE_HEIGHT, TEXT_CHAR_WIDTH
+    TEXT_LINE_HEIGHT, TEXT_CHAR_WIDTH,
+    FONT_SIZE_NODE,
 )
 from AlmaGag.utils import calculate_label_dimensions
+
+
+# §O55: alias explícitos tipo→icono registrado. `inet`/`wan`/`internet` son
+# hubs para la topología de red (§N45 — HUB_TYPES se deriva de este mapa)
+# pero el único dibujo de nube es `cloud`: sin alias caían al BWT. Cualquier
+# otro tipo desconocido sigue cayendo al BWT VISIBLE con WARNING (§O55:
+# nunca fallback silencioso).
+ICON_TYPE_ALIASES = {
+    'inet': 'cloud',
+    'wan': 'cloud',
+    'internet': 'cloud',
+}
 
 
 # ============================================================================
@@ -346,13 +359,25 @@ def draw_icon_shape(dwg, element, embedded_icons=None):
         draw_embedded_icon(dwg, x, y, color, element_id, embedded_icons[elem_type])
         return
 
+    # §O55: alias explícitos tipo→icono. `inet`/`wan`/`internet` ya cuentan
+    # como hub para la topología de red (§N45 HUB_TYPES) pero draw/icons sólo
+    # tiene `cloud` — sin este mapa caían al plátano por defecto. Un embebido
+    # con el nombre del alias también vale (rama de arriba o esta).
+    resolved_type = ICON_TYPE_ALIASES.get(elem_type, elem_type)
+    if resolved_type != elem_type and embedded_icons and resolved_type in embedded_icons:
+        draw_embedded_icon(dwg, x, y, color, element_id, embedded_icons[resolved_type])
+        return
+
     # Prioridad 2: módulo Python (draw/icons/{type}.py)
     try:
-        module = importlib.import_module(f'AlmaGag.draw.icons.{elem_type}')
-        draw_func = getattr(module, f'draw_{elem_type}')
+        module = importlib.import_module(f'AlmaGag.draw.icons.{resolved_type}')
+        draw_func = getattr(module, f'draw_{resolved_type}')
         draw_func(dwg, x, y, color, element_id)
     except (ImportError, AttributeError) as e:
-        logger.warning(f"No se pudo dibujar '{elem_type}', se usará ícono por defecto. Error: {e}")
+        # §O55: fallo VISIBLE, nunca silencioso — WARNING con el tipo + BWT
+        # (plátano con cinta) en el render para que se note en la lámina.
+        logger.warning(f"§O55: type '{elem_type}' sin icono registrado — se "
+                       f"dibuja el BWT por defecto. Error: {e}")
         from AlmaGag.draw.icons.bwt import draw_bwt
         draw_bwt(dwg, x, y)
 
@@ -378,7 +403,7 @@ def draw_icon_label(dwg, element, position_info):
             line,
             insert=(text_x, text_y + (i * TEXT_LINE_HEIGHT)),
             text_anchor=anchor,
-            font_size="14px",
+            font_size=f"{FONT_SIZE_NODE}px",
             font_family="Arial, sans-serif",
             fill="black",
         ))

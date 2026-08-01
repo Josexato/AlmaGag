@@ -1,5 +1,10 @@
 # HANDOFF para la sesión que ataque el Grupo O
 
+> **CERRADO (1-ago-2026)**: O50–O58 implementados y mergeados a master
+> (rama `claude/grupo-o-emision-portabilidad-t14i54`, PRs #26+). Paquete
+> para el revisor: `docs/reviews/iteracion-5/README.md`. El parche
+> cairosvg del skill `almagag-diagramas` quedó innecesario (O50+O58).
+
 **Misión**: implementar O50–O58 (ver `PENDIENTE.md` en esta carpeta) en orden
 O50 → O58 → O51 → O53 → O54 → resto. O50+O58 juntos eliminan el parche
 cairosvg del skill `almagag-diagramas`.

@@ -29,7 +29,10 @@ from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 
 logger = logging.getLogger('AlmaGag')
 
-HUB_TYPES = {'cloud', 'inet', 'wan', 'internet'}
+# §O55: una sola verdad — los alias de nube (inet/wan/internet → cloud) viven
+# en draw/icons.ICON_TYPE_ALIASES; ser hub y dibujarse como nube van juntos.
+from AlmaGag.draw.icons import ICON_TYPE_ALIASES
+HUB_TYPES = {'cloud'} | {a for a, t in ICON_TYPE_ALIASES.items() if t == 'cloud'}
 HUB_MIN_DEGREE = 2   # las nubes con ≥2 enlaces son banda WAN (la
                      # detección ya exige 30% no-dirigido, sin FP)
 

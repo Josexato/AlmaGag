@@ -2,6 +2,16 @@
 WIDTH = 1400
 HEIGHT = 900
 
+# === §O56: ESCALA TIPOGRÁFICA DECLARADA (contrato de estilo) ===
+# Tres niveles de jerarquía — por tamaño, peso y color:
+#   nodo 14 (negro, peso normal) · conexión 12 (color semántico si lo hay) ·
+#   rótulo de zona/fase 11 bold (tinta apagada #6b6558, ver §O54).
+# Todo texto nuevo del render principal debe usar uno de estos niveles.
+FONT_SIZE_NODE = 14
+FONT_SIZE_CONNECTION = 12
+FONT_SIZE_ZONE = 11
+FONT_WEIGHT_ZONE = '700'
+
 # Icon base dimensions (reference size)
 ICON_WIDTH = 80  # Base reference for all proportional calculations
 ICON_HEIGHT = 50

@@ -221,6 +221,52 @@ def cluster_near_groups(layout, considerations: List[dict]) -> int:
 
 ZONE_PAD = 24.0
 
+# §O54: geometría del rótulo de zona — banda superior RESERVADA de 18px
+# dentro de la caja (los miembros nunca la pisan por construcción) y rótulo
+# 11px bold anclado al borde superior-izquierdo de SU caja.
+ZONE_LABEL_BAND = 18.0
+ZONE_BOX_PAD = 16.0
+ZONE_LABEL_ROOM = 40.0      # sitio bajo el último icono para su etiqueta
+_ZONE_LABEL_FS = 11.0
+
+
+def near_zone_boxes(elements):
+    """Cajas de zona `near` desde las posiciones FINALES de los miembros.
+
+    Geometría ÚNICA compartida por el render (§N46 `draw_near_zones`) y el
+    detector de colisiones (§O54: el rótulo entra al contador labels).
+    Devuelve, por zona con 2+ miembros posicionados, un dict:
+      {'zone': gi, 'bbox': (x1, y1, x2, y2), 'label': str|None,
+       'label_bbox': (lx1, ly1, lx2, ly2)|None}
+    El bbox incluye la banda de rótulo cuando la zona tiene label.
+    """
+    zones = {}
+    for e in elements:
+        gi = e.get('_near_zone')
+        if gi is None or 'x' not in e or 'y' not in e:
+            continue
+        zones.setdefault(gi, []).append(e)
+
+    boxes = []
+    for gi, members in sorted(zones.items()):
+        if len(members) < 2:
+            continue
+        x1 = min(m['x'] for m in members) - ZONE_BOX_PAD
+        y1 = min(m['y'] for m in members) - ZONE_BOX_PAD
+        x2 = max(m['x'] + m.get('width', ICON_WIDTH) for m in members) + ZONE_BOX_PAD
+        y2 = max(m['y'] + m.get('height', ICON_HEIGHT) for m in members) \
+            + ZONE_BOX_PAD + ZONE_LABEL_ROOM
+        label = next((m.get('_near_zone_label') for m in members
+                      if m.get('_near_zone_label')), None)
+        label_bbox = None
+        if label:
+            y1 -= ZONE_LABEL_BAND           # banda reservada: sólo del rótulo
+            lw = len(label) * _ZONE_LABEL_FS * 0.62
+            label_bbox = (x1 + 10, y1 + 3, x1 + 10 + lw, y1 + 3 + _ZONE_LABEL_FS)
+        boxes.append({'zone': gi, 'bbox': (x1, y1, x2, y2),
+                      'label': label, 'label_bbox': label_bbox})
+    return boxes
+
 
 def evict_zone_intruders(layout) -> int:
     """§N46: expulsa de cada zona `near` a los elementos que NO son miembros.
