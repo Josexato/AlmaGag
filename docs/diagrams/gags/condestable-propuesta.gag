@@ -142,7 +142,7 @@
     }
   ],
   "connections": [
-    { "from": "usuarios", "to": "router_oficina", "direction": "forward", "label": "LAN", "color": "#000000", "routing": { "type": "orthogonal" } },
+    { "from": "usuarios", "to": "router_oficina", "direction": "forward", "color": "#000000", "routing": { "type": "orthogonal" } },
     { "from": "router_oficina", "to": "internet", "direction": "bidirectional", "label": "Internet 50M", "color": "#F28C00", "routing": { "type": "orthogonal" } },
     { "from": "internet", "to": "router_internet_mina", "direction": "bidirectional", "label": "Internet 300M", "color": "#F28C00", "routing": { "type": "orthogonal" } },
     { "from": "internet", "to": "fortigate_vm", "direction": "bidirectional", "label": "2 WAN", "color": "#8B39D3", "routing": { "type": "orthogonal" } },
