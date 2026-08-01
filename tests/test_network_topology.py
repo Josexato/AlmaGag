@@ -61,3 +61,18 @@ def test_deterministic_between_files():
     ka = _site_of('docs/diagrams/gags/red-minera-antes.gag', 'camp_fg')
     kd = _site_of('docs/diagrams/gags/red-minera-despues.gag', 'camp_fg')
     assert ka is not None and ka == kd
+
+
+def test_n47_interzone_edges_orthogonal():
+    """§N47: los enlaces entre zonas distintas llevan routing ortogonal."""
+    import json
+    d = _load('docs/diagrams/gags/red-minera-antes.gag')
+    from AlmaGag.layout import Layout
+    from AlmaGag.layout.strategies.auto.network import apply_network_layout
+    cons = extract_considerations(d)
+    L = Layout(elements=d['elements'], connections=d['connections'],
+               canvas=d.get('canvas', {}))
+    assert apply_network_layout(L, cons) > 0
+    ortho = [c for c in L.connections
+             if (c.get('routing') or {}).get('type') == 'orthogonal']
+    assert len(ortho) >= 4

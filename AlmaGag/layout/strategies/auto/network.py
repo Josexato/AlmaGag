@@ -226,6 +226,26 @@ def apply_network_layout(layout, considerations) -> int:
             continue          # singletons no son zona; cubiertos ya tienen near
         considerations.append({'kind': 'near', 'ids': list(members), 'axis': 'x'})
 
+    # §N47: los enlaces INTER-ZONA viajan por el corredor con codos
+    # ortogonales (salir por el borde del sitio, viajar ortogonal, entrar por
+    # el borde del destino) — no en diagonal recta. Los intra-zona quedan
+    # rectos (son cortos, dentro de la caja). Se respeta un routing explícito.
+    zone_of = {}
+    for k, members in enumerate(ordered):
+        for m in members:
+            zone_of[m] = k
+    for h in hubs:
+        zone_of[h] = f'hub'
+    n_ortho = 0
+    for c in connections:
+        a, b = c.get('from'), c.get('to')
+        if zone_of.get(a) is not None and zone_of.get(a) != zone_of.get(b):
+            r = c.setdefault('routing', {})
+            if 'type' not in r:
+                r['type'] = 'orthogonal'
+                n_ortho += 1
+
     logger.info(f"§N45: topología de red — {len(hubs)} hub(s) en banda central, "
-                f"{len(ordered)} sitio(s) alrededor")
+                f"{len(ordered)} sitio(s) alrededor, "
+                f"{n_ortho} enlace(s) inter-zona por corredor ortogonal (§N47)")
     return len(ordered)

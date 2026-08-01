@@ -14,7 +14,7 @@ ficticio MinaCo, CIDs/SOTs ficticios; mismos ids entre archivos).
 |---|----------|--------|------|
 | N45 | Detectar red y conmutar a zonas + hub-and-spoke | ✅ v1 | detección = nubes de grado ≥2 **y** ≥30% enlaces no dirigidos (discriminador clave: 3 flujos con nube+ciclo eran falsos positivos con tus señales a/c solas); banda central de hubs en columna, sitios alrededor |
 | N46 | `near[]` → zonas | ✅ | cluster por construcción (grilla en el centroide ANTES del ruteo), zona = bloque rígido en compactación y lazo, caja punteada con rótulo opcional, intrusos expulsados, zona-vs-zona se separan como bloques. Los near del .gag se toman como SEMILLAS (vienen incompletos: los genera un chat) y se completan por conectividad — `rtr_rpv` se une a la oficina aunque ningún near lo mencione, como en tu render |
-| N47 | Corredores + misma plantilla antes/después | ◐ parcial | plantilla estable ✅ (asignación determinista por ids; test verifica que el cluster de mina cae en el mismo slot en ambos archivos). Ruteo ortogonal por corredores: **pendiente** — los enlaces hub↔sitio aún salen en diagonal recta |
+| N47 | Corredores + misma plantilla antes/después | ✅ | plantilla estable (min-hash por zona, ver N49) + enlaces inter-zona por corredor ortogonal con codos (obstacle-aware, arista×nodo=0 en ambos archivos); los intra-zona quedan rectos y cortos |
 | N48 | Semántica visual como contrato + leyenda | ✅ | colores/estilos/direcciones intactos (el layout nunca los toca) + leyenda de tipos al pie cuando hay ≥3 `semantic_type` |
 
 ## Diagramas a evaluar
@@ -32,7 +32,6 @@ ficticio MinaCo, CIDs/SOTs ficticios; mismos ids entre archivos).
 | M44 | Cruces como recta pura | ✅ | E→I/H→F son recta pura de 2 puntos borde a borde (el stub perpendicular QA-Q2 los convertía en híbridos; los cruces D13 quedan exentos de ese refuerzo) |
 
 ## Pendientes conocidos (no hace falta repetirlos)
-1. Corredores ortogonales inter-zona (N47): hoy diagonales rectas.
 2. Orden interno del sitio no es connection-aware (cruce en X dentro de mina).
 3. La banda de hubs no dibuja caja "WAN" rotulada propia.
 
