@@ -76,7 +76,7 @@ def _dash_for(connection):
         return '2,4'
     # §E/§L40: arista de retorno de un ciclo → arco punteado (a menos que el
     # usuario haya fijado un estilo explícito, ya cubierto arriba).
-    if connection.get('_cycle_return'):
+    if connection.get('_cycle_return') or connection.get('_cycle_arc'):
         return '6,4'
     return None
 

@@ -65,7 +65,11 @@ def extract_considerations(data: dict) -> List[dict]:
         axis = entry.get('axis', 'x')
         if axis not in ('x', 'y'):
             axis = 'x'
-        out.append({'kind': kind, 'ids': list(ids), 'axis': axis})
+        cons = {'kind': kind, 'ids': list(ids), 'axis': axis}
+        # §N46: un `near` puede llevar rótulo opcional para su zona.
+        if kind == 'near' and entry.get('label'):
+            cons['label'] = str(entry['label'])
+        out.append(cons)
     return out
 
 
@@ -121,6 +125,151 @@ def apply_considerations(
         else:
             unmet.append(cons)
     return current, unmet
+
+
+def cluster_near_groups(layout, considerations: List[dict]) -> int:
+    """§N46: promueve cada `near[]` a ZONA — cluster compacto por construcción.
+
+    En vez del empujón blando post-hoc (que en redes reales dejaba miembros a
+    ~730px, el hallazgo N46 de condestable), los miembros de cada `near` se
+    colocan en una grilla compacta centrada en su centroide ANTES del ruteo:
+    el resto del pipeline (contenedores, canvas, colisiones, rutas) trabaja ya
+    con la zona armada, así el `near` se cumple por construcción.
+
+    Marca cada miembro con `_near_zone` (índice de grupo) y `_near_zone_label`
+    (rótulo opcional) — los dicts de elemento sobreviven a `layout.copy()`,
+    a diferencia de los atributos del layout — para que el renderer dibuje la
+    caja de zona. Devuelve cuántos grupos clusterizó. Miembros contenidos en
+    un contenedor (`contains`) se saltan: su posición la manda el contenedor.
+    """
+    by_id = layout.elements_by_id
+    contained = set()
+    for e in layout.elements:
+        for ref in e.get('contains', []) or []:
+            contained.add(ref['id'] if isinstance(ref, dict) else ref)
+
+    n_groups = 0
+    for gi, cons in enumerate(c for c in considerations if c['kind'] == 'near'):
+        els = [by_id[i] for i in cons['ids']
+               if i in by_id and 'x' in by_id[i] and i not in contained]
+        if len(els) < 2:
+            continue
+
+        # pitch por grupo: sitio para el icono + su etiqueta estimada
+        def _est(e):
+            lines = str(e.get('label', '')).split('\n')
+            w = max((len(ln) for ln in lines), default=0) * 7.0
+            h = len(lines) * 17.0
+            return max(ICON_WIDTH, w) + 28.0, ICON_HEIGHT + h + 22.0
+        dims = [_est(e) for e in els]
+        pitch_x = max(d[0] for d in dims)
+        pitch_y = max(d[1] for d in dims)
+
+        # centroide actual → la zona se arma donde el placement la dejó
+        centers = [_center(e) for e in els]
+        gx = sum(c[0] for c in centers) / len(centers)
+        gy = sum(c[1] for c in centers) / len(centers)
+
+        # grilla compacta; orden por posición actual (estable entre corridas y
+        # entre archivos que comparten ids — ayuda a N47)
+        els.sort(key=lambda e: (e['y'], e['x']))
+        import math
+        cols = max(1, math.ceil(math.sqrt(len(els))))
+        rows = math.ceil(len(els) / cols)
+        x0 = gx - (cols - 1) * pitch_x / 2.0
+        y0 = gy - (rows - 1) * pitch_y / 2.0
+        for k, e in enumerate(els):
+            r, c = divmod(k, cols)
+            cx = x0 + c * pitch_x
+            cy = y0 + r * pitch_y
+            e['x'] = cx - e.get('width', ICON_WIDTH) / 2.0
+            e['y'] = cy - e.get('height', ICON_HEIGHT) / 2.0
+            e['_near_zone'] = gi
+            if cons.get('label'):
+                e['_near_zone_label'] = cons['label']
+        n_groups += 1
+    return n_groups
+
+
+ZONE_PAD = 24.0
+
+
+def evict_zone_intruders(layout) -> int:
+    """§N46: expulsa de cada zona `near` a los elementos que NO son miembros.
+
+    El clustering arma la zona en el centroide del grupo — una región que el
+    placement pudo haber poblado con otros nodos. Un intruso dentro del bbox de
+    la zona provoca conectores que perforan el cluster (arista×nodo). Se empuja
+    a cada intruso fuera por el eje de menor desplazamiento. Devuelve cuántos
+    intrusos movió."""
+    zones = {}
+    for e in layout.elements:
+        gi = e.get('_near_zone')
+        if gi is not None and 'x' in e:
+            zones.setdefault(gi, []).append(e)
+    if not zones:
+        return 0
+
+    def _bbox(members):
+        return (min(m['x'] for m in members) - ZONE_PAD,
+                min(m['y'] for m in members) - ZONE_PAD,
+                max(m['x'] + m.get('width', ICON_WIDTH) for m in members) + ZONE_PAD,
+                max(m['y'] + m.get('height', ICON_HEIGHT) for m in members) + ZONE_PAD)
+
+    moved = 0
+
+    # 1) Zona vs zona: si dos zonas se solapan se separan como BLOQUES (mover
+    #    un miembro individual desarmaría su grilla). Eje de menor penetración.
+    keys = sorted(zones)
+    for i in range(len(keys)):
+        for j in range(i + 1, len(keys)):
+            a, b = zones[keys[i]], zones[keys[j]]
+            ax1, ay1, ax2, ay2 = _bbox(a)
+            bx1, by1, bx2, by2 = _bbox(b)
+            ox = min(ax2, bx2) - max(ax1, bx1)
+            oy = min(ay2, by2) - max(ay1, by1)
+            if ox <= 0 or oy <= 0:
+                continue
+            if ox < oy:
+                shift = ox / 2.0 + 12.0
+                left, right = (a, b) if ax1 <= bx1 else (b, a)
+                for m in left:
+                    m['x'] -= shift
+                for m in right:
+                    m['x'] += shift
+            else:
+                shift = oy / 2.0 + 12.0
+                top, bottom = (a, b) if ay1 <= by1 else (b, a)
+                for m in top:
+                    m['y'] -= shift
+                for m in bottom:
+                    m['y'] += shift
+            moved += 1
+
+    # 2) Intrusos: sólo elementos SIN zona (un miembro de otra zona nunca se
+    #    empuja individualmente — eso lo resuelve el paso 1).
+    for gi, members in zones.items():
+        x1, y1, x2, y2 = _bbox(members)
+        for e in layout.elements:
+            if (e.get('_near_zone') is not None or 'x' not in e
+                    or 'contains' in e):
+                continue
+            ew = e.get('width', ICON_WIDTH)
+            eh = e.get('height', ICON_HEIGHT)
+            if e['x'] + ew <= x1 or e['x'] >= x2 or e['y'] + eh <= y1 or e['y'] >= y2:
+                continue                              # fuera de la zona
+            # desplazamiento mínimo hacia cada borde
+            candidates = [
+                (x1 - (e['x'] + ew), 'x'),            # izquierda (negativo)
+                (x2 - e['x'], 'x'),                   # derecha (positivo)
+                (y1 - (e['y'] + eh), 'y'),            # arriba (negativo)
+                (y2 - e['y'], 'y'),                   # abajo (positivo)
+            ]
+            d, axis = min(candidates, key=lambda t: abs(t[0]))
+            e[axis] += d + (12.0 if d > 0 else -12.0)
+            e['_evicted'] = True     # su etiqueta también se vuelve estructural
+            moved += 1
+    return moved
 
 
 def _apply_align(els, axis) -> None:

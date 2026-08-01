@@ -71,3 +71,24 @@ def test_containers_do_not_crash_routing():
     d = json.load(open('docs/diagrams/gags/07-containers.sdjf'))
     r = _optimize(d)  # no debe lanzar
     assert r is not None
+
+
+def test_m44_crossings_pure_straight():
+    """§M44: los cruces D13 (E→I, H→F del stresstest) son recta PURA de 2
+    puntos, borde a borde — sin stubs perpendiculares (híbrido codo+diagonal)."""
+    import json
+    from AlmaGag.layout import Layout
+    from AlmaGag.layout.strategies.hier.optimizer import HierLayoutOptimizer
+    d = json.load(open('docs/diagrams/gags/14-stresstest.sdjf'))
+    L = Layout(elements=d['elements'], connections=d['connections'],
+               canvas=d.get('canvas', {}))
+    L._diagram_name = 't'
+    r = HierLayoutOptimizer(verbose=False).optimize(L)
+    found = 0
+    for c in r.connections:
+        if (c['from'], c['to']) in (('ElemtE', 'ElemtI'), ('ElemtH', 'ElemtF')):
+            pts = c['computed_path']['points']
+            assert len(pts) == 2, f"{c['from']}→{c['to']}: {len(pts)} puntos (híbrido)"
+            assert c.get('_straight') is True
+            found += 1
+    assert found == 2

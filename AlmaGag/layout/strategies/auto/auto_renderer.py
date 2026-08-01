@@ -108,6 +108,10 @@ class AutoSVGRenderer:
         if matrix:
             draw_matrix_grid(dwg, matrix)
 
+        # §N46: cajas de zona `near` (fondo, detrás de todo lo demás).
+        from AlmaGag.draw.primitives.phase_areas import draw_near_zones
+        draw_near_zones(dwg, normal_elements)
+
         # === Orden de dibujo ===
         # 1. Containers (rect de fondo, icono va inline)
         self._render_containers(dwg, containers, elements_by_id, ndfn_labels)
@@ -136,9 +140,17 @@ class AutoSVGRenderer:
         self._render_container_labels(dwg, containers, elements_by_id)
 
         # §I30: leyenda de responsables (sólo roles usados).
+        role_legend_drawn = False
         if areas and roles:
             used = {e.get('role') for e in normal_elements if e.get('role')}
             draw_role_legend(dwg, roles, used, canvas_width, canvas_height)
+            role_legend_drawn = True
+
+        # §N48: leyenda de tipos de conexión (≥3 semantic_type distintos). Si la
+        # leyenda de roles ya ocupa la franja inferior, ésta sube una línea.
+        from AlmaGag.draw.primitives.svg import draw_connection_type_legend
+        draw_connection_type_legend(dwg, connections, canvas_width, canvas_height,
+                                    y_offset=24 if role_legend_drawn else 0)
 
         # 5. Debug visual
         if visualdebug:
@@ -236,6 +248,11 @@ class AutoSVGRenderer:
 
         # Etiquetas de elementos normales
         for elem in elements:
+            # §N46: miembros de zona near quedan fuera del optimizador — su
+            # etiqueta es estructural (bajo el icono) y se dibuja del fallback
+            # layout.label_positions.
+            if elem.get('_near_zone') is not None or elem.get('_evicted'):
+                continue
             if ('contains' not in elem and elem['id'] not in contained_element_ids
                     and elem.get('label') and 'x' in elem and 'y' in elem):
                 elem_id = elem['id']

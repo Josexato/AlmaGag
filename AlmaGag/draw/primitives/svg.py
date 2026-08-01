@@ -89,6 +89,69 @@ SEMANTIC_CONNECTION_COLORS = {
 }
 
 
+# §N48: etiquetas cortas para la leyenda de tipos de conexión.
+SEMANTIC_TYPE_LABELS = {
+    'data_flow':    'datos',
+    'control_flow': 'control',
+    'sync':         'sincronización',
+    'event':        'eventos',
+    'callback':     'callback',
+    'dependency':   'dependencia',
+    'error':        'error',
+}
+
+
+def draw_connection_type_legend(dwg, connections, canvas_width, canvas_height,
+                                y_offset=0):
+    """§N48: leyenda de tipos de conexión en la franja inferior.
+
+    La semántica visual del .gag es CONTRATO: cuando un diagrama usa ≥3
+    `semantic_type` distintos, el lector necesita el mapa tipo→color/estilo al
+    pie. Cada swatch es una línea corta con el color efectivo del tipo (si
+    todas sus conexiones comparten un override, ese; si no, el del mapa
+    semántico) y su patrón de guiones si es uniforme. Con <3 tipos es un no-op
+    (la leyenda estorbaría más de lo que aporta).
+    """
+    from AlmaGag.draw.primitives.connections import _dash_for
+
+    by_type = {}
+    for conn in connections:
+        st = conn.get('semantic_type')
+        if st:
+            by_type.setdefault(st, []).append(conn)
+    if len(by_type) < 3:
+        return
+
+    # Orden estable: primero los del mapa canónico, luego desconocidos (alfabético).
+    known = [t for t in SEMANTIC_CONNECTION_COLORS if t in by_type]
+    unknown = sorted(t for t in by_type if t not in SEMANTIC_CONNECTION_COLORS)
+    order = known + unknown
+
+    y = canvas_height - 30 - y_offset
+    x = 24
+    dwg.add(dwg.text('Enlaces:', insert=(x, y + 4),
+                     font_size='11px', font_weight='700',
+                     font_family='Arial, sans-serif', fill='#5a5648'))
+    x += 66
+    for st in order:
+        conns = by_type[st]
+        colors = {resolve_connection_color(c) for c in conns}
+        color = colors.pop() if len(colors) == 1 else SEMANTIC_CONNECTION_COLORS.get(st)
+        dashes = {_dash_for(c) for c in conns}
+        dash = dashes.pop() if len(dashes) == 1 else None
+
+        line_attrs = {'x1': x, 'y1': y, 'x2': x + 26, 'y2': y,
+                      'stroke': color or '#333', 'stroke_width': 2.5}
+        if dash:
+            line_attrs['stroke_dasharray'] = dash
+        dwg.add(dwg.line(**line_attrs))
+        label = SEMANTIC_TYPE_LABELS.get(st, st)
+        dwg.add(dwg.text(label, insert=(x + 32, y + 4),
+                         font_size='10.5px', font_family='Arial, sans-serif',
+                         fill='#3a362c'))
+        x += 58 + len(label) * 6.4
+
+
 def resolve_connection_color(conn):
     """
     Color de una conexión según WISH-LAYOUT-007.

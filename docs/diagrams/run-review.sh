@@ -33,3 +33,10 @@ echo "${COMMIT}" > "$OUT/.commit"
 echo "== listo. SVGs regenerados en $OUT (commit ${COMMIT}) =="
 echo "   Epifanía (flipbook por fase):  $PY <fuente> --epifania -o /tmp/x.svg"
 echo "   → un SVG por fase en debug/epifania/<diagrama>/ (+ index.html)"
+
+# Iteración 4 (sección N — topologías de red)
+OUT4="docs/reviews/iteracion-4"
+mkdir -p "$OUT4"
+$PY "$GAGS/red-minera-antes.gag"   -o "$OUT4/1-red-antes.svg"
+$PY "$GAGS/red-minera-despues.gag" -o "$OUT4/2-red-despues.svg"
+echo "${COMMIT}" > "$OUT4/.commit"

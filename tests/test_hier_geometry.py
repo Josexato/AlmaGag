@@ -77,7 +77,9 @@ def _check(r, check_obstacles=True):
         if _border_dist(pts[-1], t) > TOL:
             problems.append(f"{c['from']}->{c['to']}: destino flota ({_border_dist(pts[-1], t):.0f}px)")
         # (c) último segmento perpendicular al borde de llegada (sólo polilínea)
-        if cp['type'] == 'polyline' and len(pts) >= 2:
+        # §M44: los cruces D13 (`_straight`) están EXENTOS — son recta pura
+        # puerto a puerto por diseño, la única diagonal permitida (§H24).
+        if cp['type'] == 'polyline' and len(pts) >= 2 and not c.get('_straight'):
             side = _which_border(pts[-1], t)
             (px, py), (qx, qy) = pts[-2], pts[-1]
             seg = (qx - px, qy - py)
