@@ -157,6 +157,19 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         #    NOTA: Debe hacerse ANTES del análisis para que las prioridades
         #    se calculen correctamente y el posicionador las use
         self.analyze(current)  # Análisis preliminar para prioridades
+
+        # §N45: si el grafo es una TOPOLOGÍA DE RED (hubs de nubes + ciclos /
+        # bidireccionales) y no hay coords manuales, el placement macro es
+        # hub-and-spoke: banda central de nubes y sitios alrededor. Los sitios
+        # se sintetizan como `near` → §N46 hace el sub-layout de cada uno.
+        _net_considerations = getattr(layout, '_considerations', None)
+        if _net_considerations is not None:
+            from AlmaGag.layout.strategies.auto.network import apply_network_layout
+            n_sites = apply_network_layout(current, _net_considerations)
+            if n_sites:
+                self._capture('topologia-red', current,
+                              f'§N45: banda de hubs + {n_sites} sitio(s)')
+
         self.positioner.calculate_missing_positions(current)
 
         # 0.5. Calcular dimensiones de contenedores (v2.1 FIX)
