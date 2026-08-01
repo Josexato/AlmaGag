@@ -157,30 +157,21 @@ def draw_near_zones(dwg, elements):
     espacio de etiqueta), así la caja sobrevive a cualquier ajuste posterior
     del pipeline. Estilo discreto de la misma familia que las cajas de fase.
     """
-    zones = {}
-    for e in elements:
-        gi = e.get('_near_zone')
-        if gi is None or 'x' not in e or 'y' not in e:
-            continue
-        zones.setdefault(gi, []).append(e)
+    from AlmaGag.layout.considerations import near_zone_boxes
 
-    PAD = 16.0
-    LABEL_ROOM = 40.0     # sitio bajo el icono para su etiqueta
-    for gi, members in sorted(zones.items()):
-        if len(members) < 2:
-            continue
-        x1 = min(m['x'] for m in members) - PAD
-        y1 = min(m['y'] for m in members) - PAD
-        x2 = max(m['x'] + m.get('width', 80) for m in members) + PAD
-        y2 = max(m['y'] + m.get('height', 50) for m in members) + PAD + LABEL_ROOM
+    # §O54: la geometría (caja + banda de rótulo de 18px) viene del helper
+    # compartido con el detector de colisiones — una sola verdad. El rótulo:
+    # 11px bold #6b6558 (5.1:1 sobre el fondo de zona, AA; #8a8577 daba
+    # 3.7:1), anclado al borde superior-izquierdo de SU caja, centrado
+    # ópticamente en la banda reservada.
+    for zone in near_zone_boxes(elements):
+        x1, y1, x2, y2 = zone['bbox']
         dwg.add(dwg.rect(
             insert=(x1, y1), size=(x2 - x1, y2 - y1),
             rx=10, ry=10, fill='#f7f6f2', fill_opacity=0.5,
             stroke='#c9c4b6', stroke_width=1.2, stroke_dasharray='4,4'))
-        zlabel = next((m.get('_near_zone_label') for m in members
-                       if m.get('_near_zone_label')), None)
-        if zlabel:
+        if zone['label']:
             dwg.add(dwg.text(
-                zlabel, insert=(x1 + 10, y1 + 16),
+                zone['label'], insert=(x1 + 10, y1 + 14),
                 font_size='11px', font_weight='700',
-                font_family='Arial, sans-serif', fill='#8a8577'))
+                font_family='Arial, sans-serif', fill='#6b6558'))
