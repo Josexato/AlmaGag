@@ -16,7 +16,7 @@ import xml.etree.ElementTree as ET
 
 import svgwrite
 
-from AlmaGag.config import FONT_SIZE_CONNECTION
+from AlmaGag.config import FONT_SIZE_CONNECTION, FONT_SIZE_ZONE
 from AlmaGag.draw.primitives.connections import draw_connection_line, draw_connection_label
 
 logger = logging.getLogger('AlmaGag')
@@ -240,9 +240,9 @@ def draw_connection_type_legend(dwg, connections, canvas_width, canvas_height,
         legend.add(dwg.line(start=(x, y), end=(x + 26, y), **line_attrs))
         label = SEMANTIC_TYPE_LABELS.get(st, st)
         legend.add(dwg.text(label, insert=(x + 32, y + 4),
-                            font_size='10.5px', font_family='Arial, sans-serif',
+                            font_size=f'{FONT_SIZE_ZONE}px', font_family='Arial, sans-serif',
                             fill='#3a362c'))
-        x += 58 + len(label) * 6.4
+        x += 58 + len(label) * 6.8
     dwg.add(legend)
 
 

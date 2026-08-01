@@ -145,9 +145,9 @@ def draw_role_legend(dwg, roles, used_roles, canvas_width, canvas_height):
         legend.add(dwg.rect(insert=(x, y), size=(14, 14), rx=2, ry=2, fill=color))
         label = spec.get('label', k)
         legend.add(dwg.text(label, insert=(x + 20, y + 11),
-                            font_size='10.5px', font_family='Arial, sans-serif',
+                            font_size=f'{FONT_SIZE_ZONE}px', font_family='Arial, sans-serif',
                             fill='#3a362c'))
-        x += 40 + len(label) * 6.4
+        x += 40 + len(label) * 6.8
     dwg.add(legend)
 
 

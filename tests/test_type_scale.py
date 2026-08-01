@@ -53,3 +53,25 @@ def test_near_zone_label_at_zone_level(tmp_path):
     assert wan
     assert all(t.get('font-size') == f'{FONT_SIZE_ZONE}px' for t in wan)
     assert all(t.get('font-weight') == FONT_WEIGHT_ZONE for t in wan)
+
+
+def test_no_font_size_outside_declared_scale(tmp_path):
+    """Verifica O56 estricta (observación de la iteración 5): ningún
+    font-size fuera de {14, 12, 11} en TODO el SVG emitido, en las cuatro
+    clases de emisión (arquitectura, WAN, flowchart, organigrama)."""
+    allowed = {f'{FONT_SIZE_NODE}px', f'{FONT_SIZE_CONNECTION}px',
+               f'{FONT_SIZE_ZONE}px',
+               str(FONT_SIZE_NODE), str(FONT_SIZE_CONNECTION),
+               str(FONT_SIZE_ZONE)}
+    fixtures = ['05-arquitectura-gag.gag', 'red-minera-antes.gag',
+                'es-primo.gag', 'organigrama-empresa.sdjf']
+    for fx in fixtures:
+        out = tmp_path / (fx + '.svg')
+        assert generate_diagram(f'docs/diagrams/gags/{fx}',
+                                output_file=str(out),
+                                layout_algorithm='select')
+        root = ET.fromstring(out.read_text(encoding='utf-8'))
+        sizes = {t.get('font-size') for t in root.iter(f'{NS}text')
+                 if t.get('font-size')}
+        rogue = sizes - allowed
+        assert not rogue, f'{fx}: font-size fuera de escala: {rogue}'
