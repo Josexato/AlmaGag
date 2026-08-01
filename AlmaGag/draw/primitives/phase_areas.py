@@ -129,21 +129,25 @@ def draw_role_legend(dwg, roles, used_roles, canvas_width, canvas_height):
     order = [k for k in roles if k in used_roles]
     if not order:
         return
+    # §O51: anclada al borde inferior del canvas — el grupo se excluye del
+    # bbox de recorte del viewBox y se reancla tras contraer.
+    legend = dwg.g(class_='ag-bottom-anchored')
     y = canvas_height - 30
     x = 24
-    dwg.add(dwg.text('Responsable:', insert=(x, y + 11),
-                     font_size='11px', font_weight='700',
-                     font_family='Arial, sans-serif', fill='#5a5648'))
+    legend.add(dwg.text('Responsable:', insert=(x, y + 11),
+                        font_size='11px', font_weight='700',
+                        font_family='Arial, sans-serif', fill='#5a5648'))
     x += 96
     for k in order:
         spec = roles[k]
         color = _svg_color(spec.get('color'))
-        dwg.add(dwg.rect(insert=(x, y), size=(14, 14), rx=2, ry=2, fill=color))
+        legend.add(dwg.rect(insert=(x, y), size=(14, 14), rx=2, ry=2, fill=color))
         label = spec.get('label', k)
-        dwg.add(dwg.text(label, insert=(x + 20, y + 11),
-                         font_size='10.5px', font_family='Arial, sans-serif',
-                         fill='#3a362c'))
+        legend.add(dwg.text(label, insert=(x + 20, y + 11),
+                            font_size='10.5px', font_family='Arial, sans-serif',
+                            fill='#3a362c'))
         x += 40 + len(label) * 6.4
+    dwg.add(legend)
 
 
 def draw_near_zones(dwg, elements):

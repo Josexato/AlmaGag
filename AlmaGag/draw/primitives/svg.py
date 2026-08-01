@@ -55,16 +55,8 @@ TEXT_HALO_ATTRS = {
 _SVG_NS = 'http://www.w3.org/2000/svg'
 
 
-def inject_text_halos(svg_string):
-    """§O50: materializa el halo de texto como geometría SVG 1.1.
-
-    Por cada <text> del documento inserta, inmediatamente antes y en el mismo
-    padre, una copia con trazo blanco (TEXT_HALO_ATTRS). El apilado resultante
-    es idéntico al de `paint-order:stroke` (halo bajo el glifo, ambos sobre lo
-    ya dibujado), pero sin depender de SVG2: cairosvg y librsvg —que pintan el
-    stroke ENCIMA del fill— ya no borran las etiquetas al rasterizar.
-    """
-    root = ET.fromstring(svg_string)
+def _inject_text_halos_tree(root):
+    """§O50 sobre un árbol ElementTree ya parseado (ver inject_text_halos)."""
     text_tag = f'{{{_SVG_NS}}}text'
     defs_tag = f'{{{_SVG_NS}}}defs'
     for parent in list(root.iter()):
@@ -78,6 +70,29 @@ def inject_text_halos(svg_string):
             halo.attrib.pop('id', None)
             halo.attrib.update(TEXT_HALO_ATTRS)
             parent.insert(idx, halo)
+
+
+def inject_text_halos(svg_string):
+    """§O50: materializa el halo de texto como geometría SVG 1.1.
+
+    Por cada <text> del documento inserta, inmediatamente antes y en el mismo
+    padre, una copia con trazo blanco (TEXT_HALO_ATTRS). El apilado resultante
+    es idéntico al de `paint-order:stroke` (halo bajo el glifo, ambos sobre lo
+    ya dibujado), pero sin depender de SVG2: cairosvg y librsvg —que pintan el
+    stroke ENCIMA del fill— ya no borran las etiquetas al rasterizar.
+    """
+    root = ET.fromstring(svg_string)
+    _inject_text_halos_tree(root)
+    return _tostring_svg_default_ns(root)
+
+
+def finalize_svg(svg_string):
+    """Post-proceso único de emisión: halo portable (§O50) + viewBox al
+    contenido (§O51). Parsea una sola vez y devuelve el XML final."""
+    from AlmaGag.draw.primitives.viewbox import crop_viewbox
+    root = ET.fromstring(svg_string)
+    crop_viewbox(root)                 # antes del halo: menos nodos que medir
+    _inject_text_halos_tree(root)
     return _tostring_svg_default_ns(root)
 
 
@@ -103,14 +118,15 @@ def _tostring_svg_default_ns(root):
 
 
 class PortableHaloDrawing(svgwrite.Drawing):
-    """Drawing cuyo XML final lleva el halo de texto de §O50.
+    """Drawing cuyo XML final pasa por el post-proceso de emisión: halo de
+    texto §O50 + recorte de viewBox §O51.
 
     `save()`/`write()` de svgwrite pasan por `tostring()`, así que basta
-    interceptarlo aquí: todo el pipeline dibuja texto normalmente y el halo se
-    inyecta una única vez al emitir."""
+    interceptarlo aquí: todo el pipeline dibuja normalmente y el post-proceso
+    corre una única vez al emitir."""
 
     def tostring(self):
-        return inject_text_halos(super().tostring())
+        return finalize_svg(super().tostring())
 
 
 def create_canvas(output_path, canvas_width, canvas_height):
@@ -198,11 +214,14 @@ def draw_connection_type_legend(dwg, connections, canvas_width, canvas_height,
     unknown = sorted(t for t in by_type if t not in SEMANTIC_CONNECTION_COLORS)
     order = known + unknown
 
+    # §O51: la leyenda va anclada al borde inferior del CANVAS; el grupo con
+    # esta clase se excluye del bbox de recorte y se reancla tras contraer.
+    legend = dwg.g(class_='ag-bottom-anchored')
     y = canvas_height - 30 - y_offset
     x = 24
-    dwg.add(dwg.text('Enlaces:', insert=(x, y + 4),
-                     font_size='11px', font_weight='700',
-                     font_family='Arial, sans-serif', fill='#5a5648'))
+    legend.add(dwg.text('Enlaces:', insert=(x, y + 4),
+                        font_size='11px', font_weight='700',
+                        font_family='Arial, sans-serif', fill='#5a5648'))
     x += 66
     for st in order:
         conns = by_type[st]
@@ -217,12 +236,13 @@ def draw_connection_type_legend(dwg, connections, canvas_width, canvas_height,
         line_attrs = {'stroke': color or '#333', 'stroke_width': 2.5}
         if dash:
             line_attrs['stroke_dasharray'] = dash
-        dwg.add(dwg.line(start=(x, y), end=(x + 26, y), **line_attrs))
+        legend.add(dwg.line(start=(x, y), end=(x + 26, y), **line_attrs))
         label = SEMANTIC_TYPE_LABELS.get(st, st)
-        dwg.add(dwg.text(label, insert=(x + 32, y + 4),
-                         font_size='10.5px', font_family='Arial, sans-serif',
-                         fill='#3a362c'))
+        legend.add(dwg.text(label, insert=(x + 32, y + 4),
+                            font_size='10.5px', font_family='Arial, sans-serif',
+                            fill='#3a362c'))
         x += 58 + len(label) * 6.4
+    dwg.add(legend)
 
 
 def resolve_connection_color(conn):

@@ -145,6 +145,7 @@ def _png_via_chrome(chrome_exe, svg_path, png_path, width, height):
         '--headless',
         '--disable-gpu',
         '--no-sandbox',          # imprescindible en contenedores de CI (root)
+        '--hide-scrollbars',     # sin overlay gris sobre el borde inferior
         '--default-background-color=FFFFFFFF',
         f'--screenshot={os.path.abspath(png_path)}',
         f'--window-size={width},{height}',
