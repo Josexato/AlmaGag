@@ -14,10 +14,15 @@ pip install -e .
 ## Uso basico
 
 ```bash
-almagag mi-diagrama.sdjf                           # Generar SVG
-almagag mi-diagrama.sdjf --layout-algorithm=laf     # Layout avanzado (recomendado para diagramas complejos)
+almagag mi-diagrama.sdjf                            # Generar SVG (el motor elige la estrategia)
 almagag mi-diagrama.sdjf -o salida.svg              # Especificar archivo de salida
+almagag mi-diagrama.sdjf --view lanes               # Forzar una representación (carriles por rol)
 ```
+
+> **Nota (v3.x):** ya no se elige el algoritmo a mano. El motor único
+> (`LayoutEngine`) selecciona la estrategia (`auto`/`hier`) a partir del JSON —
+> ver [Guía de layout](docs/guides/LAYOUT-DECISION-GUIDE.md). El histórico
+> `laf` fue renombrado a `legacy` y está congelado (solo debug/Epifanía).
 
 ## Ejemplo minimo (.sdjf)
 
@@ -77,12 +82,13 @@ Resumen rapido:
 
 | Opcion | Descripcion |
 |--------|-------------|
-| `--layout-algorithm {auto\|laf}` | Algoritmo de layout. `auto` (default) o `laf` (avanzado, menos cruces) |
+| `--layout-algorithm {select\|auto\|hier\|legacy}` | Estrategia de layout. Default `select`: el motor elige (`auto`/`hier`) a partir del JSON. `legacy` es el histórico congelado (ex-`laf`) |
+| `--view {auto\|flow\|areas\|lanes\|matrix}` | Fuerza la representación (solo por CLI). `lanes`/`areas`/`matrix` son vistas de `hier` |
 | `-o, --output <ruta>` | Ruta del SVG de salida |
 | `--debug` | Logs detallados |
 | `--visualdebug` | Grilla y badge visual en el SVG |
 | `--exportpng` | Genera PNG ademas de SVG |
-| `--visualize-growth` | SVGs intermedios de cada fase LAF |
+| `--epifania` | Flipbook del layout naciendo por fase (SVG por fase + index.html) |
 | `--color-connections` | Colorea cada conexion distinto |
 
 ## Documentacion
@@ -94,7 +100,7 @@ Resumen rapido:
 | [Ejemplos](docs/guides/EXAMPLES.md) | Galeria con 12 ejemplos |
 | [CLI Reference](docs/guides/CLI-REFERENCE.md) | Todas las opciones de linea de comandos |
 | [Arquitectura](docs/architecture/ARCHITECTURE.md) | Diseno interno del codigo |
-| [AUTO vs LAF](docs/guides/LAYOUT-DECISION-GUIDE.md) | Guia para elegir algoritmo de layout |
+| [Estrategias de layout](docs/guides/LAYOUT-DECISION-GUIDE.md) | Cómo el motor elige `auto`/`hier` (y qué es `legacy`) |
 | [CHANGELOG](docs/CHANGELOG.md) | Historial de cambios |
 
 ## Ejemplos incluidos
@@ -105,8 +111,8 @@ Los diagramas de ejemplo estan en `docs/diagrams/gags/`:
 # Regenerar todos los ejemplos
 python scripts/generate_docs.py
 
-# Generar uno especifico
-almagag docs/diagrams/gags/05-arquitectura-gag.gag --layout-algorithm=laf -o docs/diagrams/svgs/05-arquitectura-gag.svg
+# Generar uno especifico (el motor elige la estrategia)
+almagag docs/diagrams/gags/05-arquitectura-gag.gag -o docs/diagrams/svgs/05-arquitectura-gag.svg
 ```
 
 ## Licencia
