@@ -25,7 +25,7 @@ jobs:
       - name: Unit tests
         run: python -m pytest tests/ -v
 
-      - name: Render smoke test (23 examples × 2 algorithms)
+      - name: Render smoke test (examples × 2 algorithms)
         run: |
           mkdir -p /tmp/svgs
           fail=0
@@ -33,10 +33,10 @@ jobs:
             base=$(basename "$f")
             almagag "$f" -o "/tmp/svgs/${base}.auto.svg" \
               || { echo "FAIL AUTO: $f"; fail=$((fail+1)); }
-            almagag "$f" --layout-algorithm=laf -o "/tmp/svgs/${base}.laf.svg" \
-              || { echo "FAIL LAF: $f"; fail=$((fail+1)); }
+            almagag "$f" --layout-algorithm=legacy -o "/tmp/svgs/${base}.legacy.svg" \
+              || { echo "FAIL LEGACY: $f"; fail=$((fail+1)); }
           done
-          echo "Generated: $(ls /tmp/svgs | wc -l) / 46 SVGs"
+          echo "Generated: $(ls /tmp/svgs | wc -l) SVGs"
           if [ $fail -gt 0 ]; then
             echo "FAILED: $fail renders failed"
             exit 1
@@ -50,7 +50,7 @@ jobs:
           for f in 08-auto-layout.sdjf 14-stresstest.sdjf 13-stresstest.gag; do
             for s in 0 1 2; do
               PYTHONHASHSEED=$s almagag "docs/diagrams/gags/$f" \
-                --layout-algorithm=laf -o "/tmp/det_${f}_${s}.svg"
+                --layout-algorithm=legacy -o "/tmp/det_${f}_${s}.svg"
             done
             unique=$(md5sum /tmp/det_${f}_*.svg | awk '{print $1}' | sort -u | wc -l)
             if [ "$unique" != "1" ]; then

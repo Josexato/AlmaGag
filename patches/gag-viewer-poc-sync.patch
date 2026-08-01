@@ -1,4 +1,4 @@
-From a0dfd06b1ec548135b8ed4d25e857778ec6f4810 Mon Sep 17 00:00:00 2001
+From f32aa55e80bf355aa42c78daef4e65a6b4395fac Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sat, 1 Aug 2026 19:25:42 +0000
 Subject: [PATCH] Sync vendored AlmaGag engine with latest upstream
@@ -75,7 +75,7 @@ Claude-Session: https://claude.ai/code/session_01Q2hcn6pJXmJi1Hj2kjxV8Z
  .../legacy/epifania}/phase8_inflated.py       |   6 +-
  .../legacy/epifania}/phase9_redistributed.py  |   6 +-
  .../{laf => strategies/legacy}/inflator.py    |   2 +-
- .../legacy}/laf_renderer.py                   |   8 +-
+ .../legacy}/laf_renderer.py                   |  10 +-
  .../{laf => strategies/legacy}/optimizer.py   |  22 +-
  .../legacy}/position_optimizer.py             |   2 +-
  .../legacy}/routing_policy.py                 |   0
@@ -89,7 +89,7 @@ Claude-Session: https://claude.ai/code/session_01Q2hcn6pJXmJi1Hj2kjxV8Z
  .../AlmaGag/routing/orthogonal_router.py      |  93 +++-
  .../AlmaGag/routing/visibility_graph.py       | 151 +++++-
  .../AlmaGag/validation/visual_quality.py      | 266 +++++++++--
- 72 files changed, 6647 insertions(+), 441 deletions(-)
+ 72 files changed, 6648 insertions(+), 442 deletions(-)
  create mode 100644 app/src/main/python/AlmaGag/draw/icons/decision.py
  create mode 100644 app/src/main/python/AlmaGag/draw/icons/diamond.py
  create mode 100644 app/src/main/python/AlmaGag/draw/primitives/phase_areas.py
@@ -136,7 +136,7 @@ Claude-Session: https://claude.ai/code/session_01Q2hcn6pJXmJi1Hj2kjxV8Z
  rename app/src/main/python/AlmaGag/layout/{laf/visualizer => strategies/legacy/epifania}/phase8_inflated.py (85%)
  rename app/src/main/python/AlmaGag/layout/{laf/visualizer => strategies/legacy/epifania}/phase9_redistributed.py (84%)
  rename app/src/main/python/AlmaGag/layout/{laf => strategies/legacy}/inflator.py (98%)
- rename app/src/main/python/AlmaGag/layout/{laf => strategies/legacy}/laf_renderer.py (98%)
+ rename app/src/main/python/AlmaGag/layout/{laf => strategies/legacy}/laf_renderer.py (97%)
  rename app/src/main/python/AlmaGag/layout/{laf => strategies/legacy}/optimizer.py (99%)
  rename app/src/main/python/AlmaGag/layout/{laf => strategies/legacy}/position_optimizer.py (99%)
  rename app/src/main/python/AlmaGag/layout/{laf => strategies/legacy}/routing_policy.py (100%)
@@ -7624,12 +7624,21 @@ index 5792856..3051d60 100644
  logger = logging.getLogger('AlmaGag')
  
 diff --git a/app/src/main/python/AlmaGag/layout/laf/laf_renderer.py b/app/src/main/python/AlmaGag/layout/strategies/legacy/laf_renderer.py
-similarity index 98%
+similarity index 97%
 rename from app/src/main/python/AlmaGag/layout/laf/laf_renderer.py
 rename to app/src/main/python/AlmaGag/layout/strategies/legacy/laf_renderer.py
-index c4a6760..46d8248 100644
+index c4a6760..64d815e 100644
 --- a/app/src/main/python/AlmaGag/layout/laf/laf_renderer.py
 +++ b/app/src/main/python/AlmaGag/layout/strategies/legacy/laf_renderer.py
+@@ -15,7 +15,7 @@ Características específicas de LAF:
+ import importlib
+ import logging
+ 
+-from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT, CONTAINER_PADDING, TEXT_LINE_HEIGHT
++from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT, CONTAINER_PADDING, TEXT_LINE_HEIGHT, FONT_SIZE_NODE
+ from AlmaGag.draw.primitives.container import draw_container as _draw_container, calculate_container_bounds
+ from AlmaGag.draw.icons import draw_icon_shape as _draw_icon_shape, draw_icon_label as _draw_icon_label
+ from AlmaGag.draw.primitives.svg import (
 @@ -80,7 +80,9 @@ class LAFSVGRenderer:
          normal_elements = [e for e in elements if 'contains' not in e]
  
