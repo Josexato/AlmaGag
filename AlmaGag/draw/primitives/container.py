@@ -15,7 +15,7 @@ import logging
 
 from AlmaGag.config import (
     ICON_WIDTH, ICON_HEIGHT, CONTAINER_PADDING, TEXT_CHAR_WIDTH, TEXT_LINE_HEIGHT,
-    CONTAINER_FILL_OPACITY, CONTAINER_STROKE_OPACITY,
+    CONTAINER_FILL_OPACITY, CONTAINER_STROKE_OPACITY, FONT_SIZE_NODE,
 )
 from AlmaGag.draw.icons import create_gradient
 
@@ -264,7 +264,7 @@ def draw_container(dwg, container, elements_by_id, draw_label=True, layout_algor
                     line,
                     insert=(label_x, label_y_base - (len(lines) - 1 - i) * TEXT_LINE_HEIGHT),
                     text_anchor="middle",
-                    font_size="16px",
+                    font_size=f"{FONT_SIZE_NODE}px",
                     font_family="Arial, sans-serif",
                     font_weight="bold",
                     fill="black"

@@ -7,7 +7,21 @@ medir → revertir si empeora) cada uno.
 
 - **Rama de trabajo:** `claude/grupo-o-emision-portabilidad-t14i54` (mergeada a `master`) · regenerable con `docs/diagrams/run-review.sh`
 - Base raw: `https://raw.githubusercontent.com/Josexato/AlmaGag/master/`
-- Suite: `python -m pytest -q --import-mode=importlib` → **380 verdes** (336 al abrir el grupo; +44 nuevos)
+- Suite: `python -m pytest -q --import-mode=importlib` → **384 verdes** (336 al abrir el grupo; +48 nuevos)
+
+## Veredicto del revisor (artifact, 1-ago noche) y seguimiento
+
+> «✓ Iteración 5 medida — grupo O implementado; una observación menor en O56»:
+> quedaban tamaños fuera de la escala declarada (10.5px en WAN, 13/16px en
+> arquitectura) — «los sitios canónicos se cablearon pero hay emisores
+> rezagados». Pendientes declarados aceptados.
+
+**Seguimiento O56 (cerrado en esta misma iteración):**
+- Etiquetas de contenedor 16px → **14px bold** (jerarquía por peso, no por salto de tamaño): auto_renderer, laf_renderer y container.py.
+- Ítems de leyenda (§N48 y §I30) 10.5px → **11px** (nivel rótulo; el encabezado sigue 11 bold — jerarquía por peso).
+- Iconos embebidos de los fixtures (`«abstract»` 13px) → **12px** en `05-arquitectura` y `15-architecture-template`.
+- SVGs huérfanos regenerados (lanes/matrix de activación-datacenter y red-edificios venían de emisiones pre-O56).
+- Verifica estricta nueva en `tests/test_type_scale.py`: **ningún `font-size` fuera de {14, 12, 11}** en todo el SVG emitido, en las cuatro clases de emisión.
 
 ## Estado del grupo O
 

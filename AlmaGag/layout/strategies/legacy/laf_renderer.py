@@ -330,7 +330,7 @@ class LAFSVGRenderer:
                 dwg.add(dwg.text(
                     line,
                     insert=(label_x, label_y + (i * 18)),
-                    text_anchor="start", font_size="16px",
+                    text_anchor="start", font_size=f"{FONT_SIZE_NODE}px",
                     font_family="Arial, sans-serif", font_weight="bold",
                     fill="black", filter='url(#text-glow)',
                 ))
