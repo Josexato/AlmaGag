@@ -182,3 +182,49 @@ def quality_counters(layout) -> Dict[str, int]:
         'edge_x_node': exn,
         'label_overlap': label_overlap,
     }
+
+
+# §O52 — umbrales de la guarda de emisión: por debajo de esta tinta la lámina
+# es mayormente aire; fuera de este rango de aspecto es una cinta/columna.
+INK_WARN_PCT = 4.0
+ASPECT_RANGE = (0.4, 3.0)
+
+
+def emission_metrics(layout) -> Dict[str, float]:
+    """§O52: densidad de tinta y aspecto estimados de la lámina emitida.
+
+    - tinta: Σ áreas de iconos/contenedores + etiquetas estimadas, sobre el
+      área de la lámina. La lámina se estima como bbox del contenido + 2×40px
+      de margen acotada al canvas — espejo del recorte §O51, así el número
+      refleja lo que realmente se emite.
+    - aspecto: ancho/alto de esa lámina.
+    """
+    boxes = []
+    for e in layout.elements:
+        if 'x' not in e or 'y' not in e:
+            continue
+        w = e.get('width', ICON_WIDTH)
+        h = e.get('height', ICON_HEIGHT)
+        boxes.append((e['x'], e['y'], w, h))
+        label = e.get('label')
+        if label:
+            lines = str(label).split('\n')
+            lw = max(len(ln) for ln in lines) * 7.0
+            lh = len(lines) * 16.0
+            boxes.append((e['x'] + w / 2.0 - lw / 2.0, e['y'] + h, lw, lh))
+    if not boxes:
+        return {'ink_pct': 0.0, 'aspect': 1.0}
+    minx = min(b[0] for b in boxes)
+    miny = min(b[1] for b in boxes)
+    maxx = max(b[0] + b[2] for b in boxes)
+    maxy = max(b[1] + b[3] for b in boxes)
+    canvas = getattr(layout, 'canvas', None) or {}
+    cw = canvas.get('width') or (maxx - minx)
+    ch = canvas.get('height') or (maxy - miny)
+    sheet_w = max(1.0, min(cw, (maxx - minx) + 80.0))
+    sheet_h = max(1.0, min(ch, (maxy - miny) + 80.0))
+    ink = sum(b[2] * b[3] for b in boxes)
+    return {
+        'ink_pct': 100.0 * ink / (sheet_w * sheet_h),
+        'aspect': sheet_w / sheet_h,
+    }

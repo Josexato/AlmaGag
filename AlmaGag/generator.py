@@ -262,15 +262,27 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     # Mostrar resultados: §H6 tres contadores separados (no un único
     # 'colisiones' ambiguo) y con el nombre del motor real (no "AutoLayout"
     # cuando corrió hier/legacy).
-    from AlmaGag.layout.metrics import quality_counters
+    from AlmaGag.layout.metrics import (
+        quality_counters, emission_metrics, INK_WARN_PCT, ASPECT_RANGE)
     q = quality_counters(optimized_layout)
+    em = emission_metrics(optimized_layout)
     engine = getattr(optimizer, 'chosen', None) or resolved_strategy or 'auto'
+    # §O52: la línea de métricas incluye densidad de tinta y aspecto de la
+    # lámina estimada (bbox+margen, espejo del recorte §O51).
     line = (f"[{engine}] cruces(arista×arista)={q['edge_x_edge']} "
-            f"arista×nodo={q['edge_x_node']} labels={q['label_overlap']}")
+            f"arista×nodo={q['edge_x_node']} labels={q['label_overlap']} "
+            f"tinta={em['ink_pct']:.1f}% aspecto={em['aspect']:.2f}")
     if q['edge_x_edge'] + q['edge_x_node'] + q['label_overlap'] > 0:
         logger.warning(line)
     else:
         logger.info(line)
+    if em['ink_pct'] < INK_WARN_PCT:
+        logger.warning(f"§O52: tinta {em['ink_pct']:.1f}% < {INK_WARN_PCT:.0f}% "
+                       "— lámina mayormente vacía")
+    if not (ASPECT_RANGE[0] <= em['aspect'] <= ASPECT_RANGE[1]):
+        logger.warning(f"§O52: aspecto {em['aspect']:.2f} fuera de "
+                       f"[{ASPECT_RANGE[0]}, {ASPECT_RANGE[1]}] — lámina "
+                       "desproporcionada")
 
     logger.info(f"     - {num_levels} niveles, {num_groups} grupo(s)")
     logger.info(f"     - Prioridades: {high_priority} high, {normal_priority} normal, {low_priority} low")
