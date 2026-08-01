@@ -40,3 +40,21 @@ mkdir -p "$OUT4"
 $PY "$GAGS/red-minera-antes.gag"   -o "$OUT4/1-red-antes.svg"
 $PY "$GAGS/red-minera-despues.gag" -o "$OUT4/2-red-despues.svg"
 echo "${COMMIT}" > "$OUT4/.commit"
+
+# Iteración 5 (grupo O — emisión/portabilidad): una lámina por clase de
+# diagrama + su PNG SIN navegador (vía cairosvg, §O50+§O58) — regenerable
+# desde CI sin Chrome.
+OUT5="docs/reviews/iteracion-5"
+mkdir -p "$OUT5"
+$PY "$GAGS/05-arquitectura-gag.gag"    -o "$OUT5/1-arquitectura.svg"
+$PY "$GAGS/red-minera-antes.gag"       -o "$OUT5/2-wan.svg"
+$PY "$GAGS/es-primo.gag"               -o "$OUT5/3-flowchart.svg"
+$PY "$GAGS/organigrama-empresa.sdjf"   -o "$OUT5/4-organigrama.svg"
+python3 - <<'PYEOF'
+from AlmaGag.debug import _png_via_cairosvg
+for n in ('1-arquitectura', '2-wan', '3-flowchart', '4-organigrama'):
+    ok = _png_via_cairosvg(f'docs/reviews/iteracion-5/{n}.svg',
+                           f'docs/reviews/iteracion-5/{n}.png', scale=1.0)
+    print(('   PNG ok  ' if ok else '   PNG FALLÓ') + f' {n}.png')
+PYEOF
+echo "${COMMIT}" > "$OUT5/.commit"

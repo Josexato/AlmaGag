@@ -3,18 +3,24 @@
 El skill de claude.ai que genera diagramas con AlmaGag. Este doc fija el
 **contrato** entre el skill y el repo, para mantenerlos sincronizados.
 
-## Qué asume el skill del repo (v3.4+, grupo N)
+## Qué asume el skill del repo (v3.5+, grupos N y O)
 
 | Capacidad | Cómo la usa el skill |
 |---|---|
 | Motor único (`select`) | Comando normal SIN `--layout-algorithm`; se influye vía el JSON |
-| Reglas `select_strategy` | view→hier · considerations→auto · contains→auto · areas→hier · decision→hier · ciclo sin coords→hier · resto→auto |
-| **Topología de red (§N45)** | nubes `cloud/inet` grado ≥2 + ≥30% enlaces `bidirectional`/`none`, sin coords → hub-and-spoke (banda «WAN» + sitios) |
-| **Zonas `near` (§N46)** | `{"near":[...], "label":"..."}` = caja punteada rotulada; semillas parciales se completan por conectividad; near se cumple por construcción |
+| Reglas `select_strategy` | view→hier · considerations→auto · contains→auto · areas→hier · decision→hier · ciclo sin coords→hier · resto→auto. **§O53**: la señal anulada por la precedencia se nombra en un WARNING |
+| **Topología de red (§N45)** | nubes `cloud/inet/wan/internet` grado ≥2 + ≥30% enlaces `bidirectional`/`none`, sin coords → hub-and-spoke (banda «WAN» + sitios) |
+| **Zonas `near` (§N46)** | `{"near":[...], "label":"..."}` = caja punteada rotulada; semillas parciales se completan por conectividad; near se cumple por construcción. Rótulo AA #6b6558 en banda reservada de 18px (§O54) |
 | **Antes/después (§N47/N49)** | dos archivos con ids compartidos ⇒ misma plantilla de zonas (slots min-hash) |
 | Leyenda (§N48) | automática con ≥3 `semantic_type` |
 | `unions` (§H7) | genealogías: un tronco por hijo |
-| Métricas (§H6) | línea `[motor] cruces=… arista×nodo=… labels=…` como control de calidad |
+| Métricas (§H6+§O52) | línea `[motor] cruces=… arista×nodo=… labels=… tinta=X% aspecto=Y` como control de calidad; WARNING con tinta<4% o aspecto fuera de [0.4, 3.0] |
+| **Halo portable (§O50)** | el halo de texto es GEOMETRÍA SVG 1.1 (copia con trazo blanco bajo cada `<text>`, `class="ag-text-halo"`), nunca `paint-order`. **El parche cairosvg del skill quedó obsoleto**: rasterizar directo |
+| **viewBox al contenido (§O51)** | la lámina emitida se recorta al bbox + 40px (sólo contrae); las leyendas se reanclan al nuevo borde inferior |
+| **Alias de iconos (§O55)** | `inet`/`wan`/`internet` dibujan `cloud`; un `type` desconocido → BWT visible + WARNING (nunca silencioso) |
+| **Escala tipográfica (§O56)** | nodo 14 · conexión 12 (color semántico) · rótulo zona/fase 11 bold (constantes en `config.py`) |
+| **Tokens de tema (§O57)** | sección `theme` top-level + `"color": "<token>"` en elements/connections/areas/lanes/roles; hex literal gana |
+| **PNG sin navegador (§O58)** | `--exportpng`: Chrome/Chromium/Edge si hay (multiplataforma), cairosvg si no; `ALMAGAG_CHROME` como override |
 | Epifanía | `--epifania`: flipbook por fase con colisiones marcadas |
 
 ## Mantenimiento
