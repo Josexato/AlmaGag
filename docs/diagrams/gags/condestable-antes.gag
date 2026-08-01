@@ -1,0 +1,234 @@
+{
+  "canvas": {
+    "width": 1900,
+    "height": 1250
+  },
+  "elements": [
+    {
+      "id": "of_surco",
+      "type": "building",
+      "label": "OFICINA SURCO - Manuel Olguin 501",
+      "color": "#1F3864",
+      "x": 70,
+      "y": 330,
+      "contains": [
+        {
+          "id": "usuarios"
+        },
+        {
+          "id": "rtr_inet"
+        },
+        {
+          "id": "rtr_rpv"
+        }
+      ]
+    },
+    {
+      "id": "usuarios",
+      "type": "grupo",
+      "label": "~70 usuarios\nen oficina"
+    },
+    {
+      "id": "rtr_inet",
+      "type": "router",
+      "label": "Router Internet 50M\nCID 24072602",
+      "color": "#5B9BD5"
+    },
+    {
+      "id": "rtr_rpv",
+      "type": "router",
+      "label": "Router RPV 100M\nCID 25245086",
+      "color": "#5B9BD5"
+    },
+    {
+      "id": "internet",
+      "type": "mundo",
+      "label": "Internet Claro",
+      "x": 640,
+      "y": 120
+    },
+    {
+      "id": "rpv_mpls",
+      "type": "cloud",
+      "label": "RPV / MPLS Claro\nVRF Condestable",
+      "color": "#548B54",
+      "x": 640,
+      "y": 640
+    },
+    {
+      "id": "campamento",
+      "type": "building",
+      "label": "CAMPAMENTO MINA MALA (en despliegue)",
+      "color": "#C55A11",
+      "x": 1080,
+      "y": 120,
+      "contains": [
+        {
+          "id": "camp_rtr_inet"
+        },
+        {
+          "id": "camp_fg"
+        },
+        {
+          "id": "camp_rtr_rpv"
+        },
+        {
+          "id": "camp_red"
+        }
+      ]
+    },
+    {
+      "id": "camp_red",
+      "type": "hub",
+      "label": "Red de mina"
+    },
+    {
+      "id": "camp_fg",
+      "type": "firewall",
+      "label": "FortiGate 200F\nSOT 82966134",
+      "color": "#C00000"
+    },
+    {
+      "id": "camp_rtr_inet",
+      "type": "router",
+      "label": "Router Internet 300M\nSOT 82966015",
+      "color": "#F4B183"
+    },
+    {
+      "id": "camp_rtr_rpv",
+      "type": "router",
+      "label": "Router RPV 100M\nSOT 82966081",
+      "color": "#F4B183"
+    },
+    {
+      "id": "cirion",
+      "type": "building",
+      "label": "DATA CENTER CIRION (en despliegue)",
+      "color": "#C55A11",
+      "x": 1080,
+      "y": 720,
+      "contains": [
+        {
+          "id": "cir_rtr"
+        },
+        {
+          "id": "cir_fw"
+        },
+        {
+          "id": "cir_srv"
+        }
+      ]
+    },
+    {
+      "id": "cir_rtr",
+      "type": "router",
+      "label": "Router RPV 100M\nSOT 83544670",
+      "color": "#F4B183"
+    },
+    {
+      "id": "cir_fw",
+      "type": "firewall",
+      "label": "Firewall del cliente\nequipo propio",
+      "color": "gray"
+    },
+    {
+      "id": "cir_srv",
+      "type": "database",
+      "label": "Servidores\nCondestable",
+      "color": "#F4B183"
+    },
+    {
+      "id": "spm",
+      "type": "building",
+      "label": "SPM Peru - baja razon social\nSBC/PBX CID 24809938",
+      "color": "gray",
+      "x": 640,
+      "y": 1020
+    }
+  ],
+  "connections": [
+    {
+      "from": "usuarios",
+      "to": "rtr_inet",
+      "direction": "forward",
+      "label": "LAN"
+    },
+    {
+      "from": "usuarios",
+      "to": "rtr_rpv",
+      "direction": "forward",
+      "semantic_type": "control_flow"
+    },
+    {
+      "from": "rtr_inet",
+      "to": "internet",
+      "direction": "bidirectional",
+      "semantic_type": "data_flow"
+    },
+    {
+      "from": "rtr_rpv",
+      "to": "rpv_mpls",
+      "direction": "bidirectional",
+      "semantic_type": "control_flow"
+    },
+    {
+      "from": "camp_red",
+      "to": "camp_fg",
+      "direction": "forward"
+    },
+    {
+      "from": "camp_fg",
+      "to": "camp_rtr_inet",
+      "direction": "forward"
+    },
+    {
+      "from": "camp_red",
+      "to": "camp_rtr_rpv",
+      "direction": "forward"
+    },
+    {
+      "from": "camp_rtr_inet",
+      "to": "internet",
+      "direction": "bidirectional",
+      "label": "Internet 300M",
+      "semantic_type": "data_flow"
+    },
+    {
+      "from": "camp_rtr_rpv",
+      "to": "rpv_mpls",
+      "direction": "bidirectional",
+      "label": "RPV 100M",
+      "semantic_type": "control_flow"
+    },
+    {
+      "from": "cir_rtr",
+      "to": "cir_fw",
+      "direction": "forward"
+    },
+    {
+      "from": "cir_fw",
+      "to": "cir_srv",
+      "direction": "forward"
+    },
+    {
+      "from": "cir_rtr",
+      "to": "rpv_mpls",
+      "direction": "bidirectional",
+      "label": "RPV 100M",
+      "semantic_type": "control_flow"
+    },
+    {
+      "from": "spm",
+      "to": "rpv_mpls",
+      "direction": "none",
+      "style": "dashed",
+      "label": "consolidar",
+      "semantic_type": "dependency"
+    }
+  ],
+  "icons": {
+    "grupo": "<svg viewBox='0 0 80 50'><circle cx='24' cy='16' r='7' fill='#5B9BD5' stroke='#173d5e' stroke-width='2'/><path d='M12 42 v-6 a12 12 0 0 1 24 0 v6 Z' fill='#5B9BD5' stroke='#173d5e' stroke-width='2'/><circle cx='56' cy='16' r='7' fill='#5B9BD5' stroke='#173d5e' stroke-width='2'/><path d='M44 42 v-6 a12 12 0 0 1 24 0 v6 Z' fill='#5B9BD5' stroke='#173d5e' stroke-width='2'/><circle cx='40' cy='13' r='8' fill='#2E75B6' stroke='#173d5e' stroke-width='2'/><path d='M26 46 v-7 a14 14 0 0 1 28 0 v7 Z' fill='#2E75B6' stroke='#173d5e' stroke-width='2'/></svg>",
+    "mundo": "<svg viewBox='0 0 80 50'><circle cx='40' cy='25' r='19' fill='#2E75B6' stroke='#173d5e' stroke-width='2.5'/><ellipse cx='40' cy='25' rx='7.5' ry='19' fill='none' stroke='#cfe3f5' stroke-width='1.6'/><line x1='21' y1='25' x2='59' y2='25' stroke='#cfe3f5' stroke-width='1.6'/><path d='M24 16 H56 M24 34 H56' fill='none' stroke='#cfe3f5' stroke-width='1.3'/></svg>",
+    "hub": "<svg viewBox='0 0 80 50'><rect x='22' y='19' width='36' height='12' rx='2.5' fill='#2E75B6' stroke='#173d5e' stroke-width='2.5'/><circle cx='29' cy='25' r='1.8' fill='#F6C445'/><circle cx='36' cy='25' r='1.8' fill='#F6C445'/><circle cx='43' cy='25' r='1.8' fill='#F6C445'/><circle cx='50' cy='25' r='1.8' fill='#F6C445'/><line x1='28' y1='19' x2='16' y2='7' stroke='#173d5e' stroke-width='1.8'/><line x1='40' y1='19' x2='40' y2='5' stroke='#173d5e' stroke-width='1.8'/><line x1='52' y1='19' x2='64' y2='7' stroke='#173d5e' stroke-width='1.8'/><rect x='11' y='3' width='9' height='6' fill='#5B9BD5' stroke='#173d5e' stroke-width='1.5'/><rect x='35.5' y='1' width='9' height='6' fill='#5B9BD5' stroke='#173d5e' stroke-width='1.5'/><rect x='60' y='3' width='9' height='6' fill='#5B9BD5' stroke='#173d5e' stroke-width='1.5'/><line x1='28' y1='31' x2='16' y2='43' stroke='#173d5e' stroke-width='1.8'/><line x1='40' y1='31' x2='40' y2='45' stroke='#173d5e' stroke-width='1.8'/><line x1='52' y1='31' x2='64' y2='43' stroke='#173d5e' stroke-width='1.8'/><rect x='11' y='41' width='9' height='6' fill='#5B9BD5' stroke='#173d5e' stroke-width='1.5'/><rect x='35.5' y='43' width='9' height='6' fill='#5B9BD5' stroke='#173d5e' stroke-width='1.5'/><rect x='60' y='41' width='9' height='6' fill='#5B9BD5' stroke='#173d5e' stroke-width='1.5'/></svg>"
+  }
+}
