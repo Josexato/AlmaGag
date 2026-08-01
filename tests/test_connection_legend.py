@@ -32,6 +32,19 @@ def test_legend_with_three_types():
     assert '>datos<' in svg and '>control<' in svg and '>dependencia<' in svg
 
 
+def test_legend_swatches_have_real_geometry():
+    """Los swatches son líneas visibles, no puntos en el origen (bug svgwrite:
+    Line sobrescribe x1..y2 extra con start/end por defecto)."""
+    import xml.etree.ElementTree as ET
+    root = ET.fromstring(_render(_net(3)))
+    swatches = [ln for ln in root.iter('{http://www.w3.org/2000/svg}line')
+                if ln.get('stroke-width') == '2.5']
+    assert len(swatches) == 3
+    for ln in swatches:
+        assert float(ln.get('x2')) - float(ln.get('x1')) == 26
+        assert float(ln.get('y1')) > 0
+
+
 def test_no_legend_with_two_types():
     svg = _render(_net(2))
     assert 'Enlaces:' not in svg

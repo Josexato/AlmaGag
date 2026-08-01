@@ -211,11 +211,13 @@ def draw_connection_type_legend(dwg, connections, canvas_width, canvas_height,
         dashes = {_dash_for(c) for c in conns}
         dash = dashes.pop() if len(dashes) == 1 else None
 
-        line_attrs = {'x1': x, 'y1': y, 'x2': x + 26, 'y2': y,
-                      'stroke': color or '#333', 'stroke_width': 2.5}
+        # start/end posicionales: svgwrite.Line SOBRESCRIBE x1..y2 pasados como
+        # extra con sus defaults (0,0) — pasarlos sueltos deja el swatch en el
+        # origen con longitud cero (invisible).
+        line_attrs = {'stroke': color or '#333', 'stroke_width': 2.5}
         if dash:
             line_attrs['stroke_dasharray'] = dash
-        dwg.add(dwg.line(**line_attrs))
+        dwg.add(dwg.line(start=(x, y), end=(x + 26, y), **line_attrs))
         label = SEMANTIC_TYPE_LABELS.get(st, st)
         dwg.add(dwg.text(label, insert=(x + 32, y + 4),
                          font_size='10.5px', font_family='Arial, sans-serif',
