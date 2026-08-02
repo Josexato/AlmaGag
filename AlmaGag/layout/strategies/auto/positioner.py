@@ -1094,12 +1094,27 @@ class AutoLayoutPositioner:
             # angostos (≤2 columnas): en grids anchos, ensanchar cada columna
             # explotaría el contenedor y descuadraría el layout externo. Ancho
             # POR COLUMNA (no máximo global). El contenedor crece para alojarlo.
+            #
+            # §P59: la celda se dimensiona además al tamaño REAL del hijo — un
+            # contenedor anidado ya resuelto puede medir cientos de px y el
+            # pitch fijo de icono lo encimaba con sus hermanos. Ancho por
+            # columna y alto por FILA; con hijos tamaño-icono esto se reduce
+            # exactamente al comportamiento anterior.
             widen = cols <= 2
+
+            def _child_w(e):
+                w = float(e.get('width', ICON_WIDTH))
+                if widen:
+                    w = max(w, self._est_contained_label_width(e))
+                return w
+
             col_w = {}
+            row_h = {}
             for i, elem in enumerate(full_elements):
-                c = i % cols
-                w = self._est_contained_label_width(elem) if widen else float(ICON_WIDTH)
-                col_w[c] = max(col_w.get(c, float(ICON_WIDTH)), w)
+                c, r = i % cols, i // cols
+                col_w[c] = max(col_w.get(c, float(ICON_WIDTH)), _child_w(elem))
+                row_h[r] = max(row_h.get(r, float(ICON_HEIGHT)),
+                               float(elem.get('height', ICON_HEIGHT)))
             col_left = {}
             xacc = padding
             for c in range(cols):
@@ -1107,13 +1122,19 @@ class AutoLayoutPositioner:
                 xacc += col_w.get(c, float(ICON_WIDTH)) + spacing
             label_h = max((self._est_contained_label_height(e) for e in full_elements),
                           default=0.0) if widen else 0.0
-            row_pitch = ICON_HEIGHT + max(CONTAINER_GRID_ROW_SPACING, label_h + spacing)
+            row_extra = max(CONTAINER_GRID_ROW_SPACING, label_h + spacing)
+            row_top = {}
+            yacc = start_y
+            for r in range(max(row_h) + 1):
+                row_top[r] = yacc
+                yacc += row_h[r] + row_extra
 
             for i, elem in enumerate(full_elements):
                 row = i // cols
                 col = i % cols
-                elem['_local_x'] = col_left[col] + (col_w[col] - ICON_WIDTH) / 2.0
-                elem['_local_y'] = start_y + row * row_pitch
+                ew = float(elem.get('width', ICON_WIDTH))
+                elem['_local_x'] = col_left[col] + (col_w[col] - ew) / 2.0
+                elem['_local_y'] = row_top[row]
 
     @staticmethod
     def _est_contained_label_width(elem: dict) -> float:
