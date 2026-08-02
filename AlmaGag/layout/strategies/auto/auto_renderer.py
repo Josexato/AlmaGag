@@ -130,7 +130,24 @@ class AutoSVGRenderer:
         # 4. Optimizar y dibujar etiquetas
         label_optimizer = LabelPositionOptimizer(self.geometry, canvas_width, canvas_height, debug=debug)
         labels_to_optimize = self._collect_labels(elements, connections, containers, conn_centers, layout.label_positions)
-        optimized_label_positions = label_optimizer.optimize_labels(labels_to_optimize, elements, connections)
+        # §P61: las etiquetas de miembros CONTENIDOS se dibujan tal cual desde
+        # label_positions (no pasan por este optimizador) — se le entregan como
+        # bboxes pre-ocupados para que no aterrice rótulos encima de ellas.
+        from AlmaGag.layout.geometry import GeometryCalculator
+        _geo = GeometryCalculator(getattr(layout, 'sizing', None))
+        contained_ids = {extract_item_id(item)
+                         for c in containers for item in c.get('contains', [])}
+        contained_label_bboxes = []
+        for eid in contained_ids:
+            e = elements_by_id.get(eid)
+            pos = layout.label_positions.get(eid)
+            if e and pos and e.get('label') and 'contains' not in e:
+                bb = _geo.get_label_bbox_stored(e, pos)
+                if bb:
+                    contained_label_bboxes.append(bb)
+        optimized_label_positions = label_optimizer.optimize_labels(
+            labels_to_optimize, elements, connections,
+            extra_obstacles=contained_label_bboxes)
         # §I27/§I28: en modos agrupados las etiquetas de nodo van centradas bajo
         # el icono (placement propio); en modo normal usa el optimizador.
         if grouped:

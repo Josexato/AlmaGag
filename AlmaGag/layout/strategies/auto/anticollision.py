@@ -1,0 +1,274 @@
+"""
+§P61 — Pasada anticolisión GLOBAL post-layout sobre el árbol completo.
+
+El pipeline reubica etiquetas en varios momentos, pero cada paso mira un
+subconjunto (labels bottom de hijos directos, labels con colisiones según
+el optimizador…) y ninguno re-verifica el resultado de los demás. Esta
+etapa corre AL FINAL, cuando ya nada se mueve, sobre TODAS las etiquetas
+a cualquier profundidad de contención:
+
+- etiquetas de icono: candidatos por ancla (posición actual primero —
+  estabilidad —, luego bottom con escalones de una línea, top, right,
+  left); una etiqueta de miembro no puede salirse de su contenedor.
+- etiquetas de conexión: se deslizan por su propia polilínea (fracciones
+  de longitud de arco) buscando un punto sin fusión.
+
+Sólo se mueven ETIQUETAS: iconos y paths quedan intactos, así que esta
+pasada no puede alterar cruces, arista×nodo, tinta ni aspecto — sólo el
+contador `labels`. Determinista: orden (y, x, id) para iconos, orden de
+aparición para conexiones. Separación texto↔texto exigida: ≥8px.
+"""
+
+import logging
+from typing import Dict, List, Optional, Tuple
+
+from AlmaGag.utils import extract_item_id
+
+logger = logging.getLogger('AlmaGag')
+
+TEXT_GAP = 8.0            # separación mínima texto↔texto (criterio §P61)
+STAGGER_STEP = 18.0       # un renglón (TEXT_LINE_HEIGHT)
+LINE_FRACTIONS = (0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8)
+
+
+def _inflate(b, d):
+    return (b[0] - d, b[1] - d, b[2] + d, b[3] + d)
+
+
+def _intersect(a, b) -> bool:
+    return not (a[2] < b[0] or b[2] < a[0] or a[3] < b[1] or b[3] < a[1])
+
+
+def _seg_hits(bb, segs) -> int:
+    x1, y1, x2, y2 = bb
+    n = 0
+    for (ax, ay, bx, by) in segs:
+        if max(ax, bx) < x1 or min(ax, bx) > x2 \
+                or max(ay, by) < y1 or min(ay, by) > y2:
+            continue
+        # muestreo fino: suficiente para tramos ortogonales y diagonales cortas
+        for t in (0.0, 0.2, 0.4, 0.5, 0.6, 0.8, 1.0):
+            px, py = ax + (bx - ax) * t, ay + (by - ay) * t
+            if x1 < px < x2 and y1 < py < y2:
+                n += 1
+                break
+    return n
+
+
+def _conn_segments(conn, layout, geometry):
+    cp = conn.get('computed_path')
+    pts = cp.get('points') if isinstance(cp, dict) else None
+    if pts and len(pts) >= 2:
+        xy = [((p[0], p[1]) if not hasattr(p, 'x') else (p.x, p.y)) for p in pts]
+        return [(xy[i][0], xy[i][1], xy[i + 1][0], xy[i + 1][1])
+                for i in range(len(xy) - 1)]
+    ep = geometry.get_connection_endpoints(layout, conn)
+    return [ep] if ep else []
+
+
+def _parent_boxes(layout) -> Dict[str, Tuple[float, float, float, float]]:
+    """id de miembro → bbox de su contenedor directo (si está resuelto)."""
+    out = {}
+    for c in layout.elements:
+        if 'contains' not in c or 'x' not in c:
+            continue
+        cb = (c['x'], c['y'],
+              c['x'] + c.get('width', 0), c['y'] + c.get('height', 0))
+        for r in c['contains']:
+            out[extract_item_id(r)] = cb
+    return out
+
+
+def _conn_label_bbox_at(label: str, cx: float, cy: float):
+    """Espejo de geometry.get_connection_label_bbox con centro explícito."""
+    w = len(label) * 7
+    return (cx - w // 2, cy - 10 - 16, cx + w // 2, cy - 10)
+
+
+def global_label_anticollision(layout, geometry) -> int:
+    """Reubica etiquetas fundidas sobre el árbol completo. Devuelve cuántas
+    etiquetas se movieron. No toca iconos ni paths."""
+    els = [e for e in layout.elements
+           if 'contains' not in e and 'x' in e and 'y' in e]
+    icon_box = {e['id']: geometry.get_icon_bbox(e) for e in els}
+    parent_box = _parent_boxes(layout)
+    segs_by_conn = {f"{c['from']}->{c['to']}": _conn_segments(c, layout, geometry)
+                    for c in layout.connections}
+
+    zone_labels: List[Tuple[float, float, float, float]] = []
+    from AlmaGag.layout.considerations import near_zone_boxes
+    for zone in near_zone_boxes(layout.elements):
+        if zone.get('label_bbox'):
+            zone_labels.append(zone['label_bbox'])
+    # el ENCABEZADO de cada contenedor también es texto dibujado: banda
+    # superior de la caja (rótulo multilínea) — sin esto, un candidato `top`
+    # se monta sobre el título del contenedor y el detector no lo ve
+    for c in layout.elements:
+        if 'contains' in c and c.get('label') and 'x' in c:
+            header_h = len(c['label'].split('\n')) * 18 + 10
+            zone_labels.append((c['x'], c['y'],
+                                c['x'] + c.get('width', 0), c['y'] + header_h))
+
+    # Sólo etiquetas de MIEMBROS CONTENIDOS (a toda profundidad): se dibujan
+    # tal cual desde label_positions. Las de elementos libres pasan por el
+    # optimizador de etiquetas del renderer (auto_renderer) DESPUÉS de esta
+    # etapa — moverlas aquí pelea con ese optimizador y el resultado dibujado
+    # diverge del modelo. Unificar los dos sistemas queda anotado en PENDIENTE.
+    labeled = [e for e in els
+               if e.get('label') and e['id'] in layout.label_positions
+               and e['id'] in parent_box
+               and e.get('_near_zone') is None and not e.get('_evicted')]
+    labeled.sort(key=lambda e: (e['y'], e['x'], e['id']))
+
+    # TODAS las etiquetas actuales son obstáculo desde el inicio (al procesar
+    # una se quita su propia entrada): el barrido ve también a las que aún no
+    # tocan su turno, no sólo a las ya procesadas.
+    label_bbox: Dict[str, Tuple[float, float, float, float]] = {}
+    for e in labeled:
+        bb = geometry.get_label_bbox_stored(e, layout.label_positions[e['id']])
+        if bb:
+            label_bbox[e['id']] = bb
+    conn_bbox: Dict[str, Tuple[float, float, float, float]] = {}
+    conn_by_key: Dict[str, dict] = {}
+    for c in layout.connections:
+        if c.get('label'):
+            key = f"{c['from']}->{c['to']}"
+            conn_by_key[key] = c
+            cx, cy = layout.connection_labels.get(
+                key, geometry.get_connection_center(layout, c))
+            conn_bbox[key] = _conn_label_bbox_at(c['label'], cx, cy)
+
+    def _score(bb, own_id, own_conns) -> int:
+        s = 0
+        for eid, ib in icon_box.items():
+            if eid != own_id and ib and _intersect(bb, ib):
+                s += 1
+        gb = _inflate(bb, TEXT_GAP / 2)
+        for zb in zone_labels:
+            if _intersect(gb, _inflate(zb, TEXT_GAP / 2)):
+                s += 1
+        for eid, lb in label_bbox.items():
+            if eid != own_id and _intersect(gb, _inflate(lb, TEXT_GAP / 2)):
+                s += 1
+        for key, cb in conn_bbox.items():
+            if key not in own_conns and _intersect(gb, _inflate(cb, TEXT_GAP / 2)):
+                s += 1
+        for key, segs in segs_by_conn.items():
+            if key in own_conns:
+                continue
+            s += _seg_hits(bb, segs)
+        return s
+
+    moved = 0
+    for _sweep in range(2):
+        sweep_moved = 0
+
+        # --- Pasada A: etiquetas de icono, a toda profundidad ---------------
+        for e in labeled:
+            eid = e['id']
+            if eid not in label_bbox:
+                continue
+            own_conns = {f"{c['from']}->{c['to']}" for c in layout.connections
+                         if eid in (c['from'], c['to'])}
+            cur = layout.label_positions[eid]
+            num_lines = len(e['label'].split('\n'))
+            pbox = parent_box.get(eid)
+
+            # (posición, escalón, corrimiento horizontal). bottom escalona
+            # hasta 3 renglones (una etiqueta de 2 líneas sólo libra a su
+            # vecina con 36+8px de descenso) y admite corrimiento ±40px:
+            # dos vecinas a 100px de pitch con labels de 152px sólo caben
+            # separándose en horizontal, como lo haría un humano.
+            candidates: List[Optional[Tuple[str, int, float]]] = [None]
+            for p in ('bottom', 'top', 'right', 'left'):
+                stags = (0, 1, 2, 3) if p == 'bottom' else (0,)
+                dxs = (0.0, -40.0, 40.0) if p in ('bottom', 'top') else (0.0,)
+                for stag in stags:
+                    for dx in dxs:
+                        candidates.append((p, stag, dx))
+
+            own_bb = label_bbox.pop(eid)
+            best = None      # (score, idx, pos_tuple, bbox)
+            for idx, cand in enumerate(candidates):
+                if cand is None:
+                    pos = cur
+                    bb = own_bb
+                else:
+                    p, stag, dx = cand
+                    tx, ty, anchor, _ = geometry.get_text_coords(e, p, num_lines)
+                    pos = (tx + dx, ty + stag * STAGGER_STEP, anchor, p)
+                    bb = geometry.get_label_bbox_stored(e, pos)
+                if not bb:
+                    break
+                if (cand is not None and pbox
+                        and not (bb[0] >= pbox[0] - 2 and bb[2] <= pbox[2] + 2
+                                 and bb[1] >= pbox[1] - 2 and bb[3] <= pbox[3] + 2)):
+                    continue      # un candidato nuevo no saca la etiqueta de su caja
+                s = _score(bb, eid, own_conns)
+                if best is None or s < best[0]:
+                    best = (s, idx, pos, bb)
+                if s == 0:
+                    break         # el primer candidato limpio gana (estabilidad)
+
+            if best is None:
+                label_bbox[eid] = own_bb
+                continue
+            _, idx, pos, bb = best
+            if idx != 0:
+                layout.label_positions[eid] = pos
+                sweep_moved += 1
+            label_bbox[eid] = bb
+
+        # --- Pasada B: etiquetas de conexión, deslizables por su polilínea --
+        for key, c in conn_by_key.items():
+            label = c['label']
+            segs = segs_by_conn.get(key) or []
+            if not segs:
+                continue
+            own = {key}
+            cx, cy = layout.connection_labels.get(
+                key, geometry.get_connection_center(layout, c))
+
+            # candidatos: posición actual + puntos por fracción de arco
+            lens = [((bx - ax) ** 2 + (by - ay) ** 2) ** 0.5
+                    for (ax, ay, bx, by) in segs]
+            total = sum(lens) or 1.0
+            points = [(cx, cy)]
+            for f in LINE_FRACTIONS:
+                d = f * total
+                for (ax, ay, bx, by), L in zip(segs, lens):
+                    if d <= L or L == lens[-1]:
+                        t = 0.0 if L == 0 else min(1.0, d / L)
+                        px, py = ax + (bx - ax) * t, ay + (by - ay) * t
+                        points.append((px, py))
+                        # variante bajo la línea (el bbox ancla ARRIBA del
+                        # punto): dos rótulos gemelos en polilíneas paralelas
+                        # no caben ambos arriba — uno puede colgar debajo
+                        points.append((px, py + 30))
+                        break
+                    d -= L
+
+            del conn_bbox[key]    # no chocar contra mi propia posición vieja
+            best = None      # (score, idx, center, bbox)
+            for idx, (px, py) in enumerate(points):
+                bb = _conn_label_bbox_at(label, px, py)
+                s = _score(bb, None, own)
+                if best is None or s < best[0]:
+                    best = (s, idx, (px, py), bb)
+                if s == 0:
+                    break
+
+            _, idx, center, bb = best
+            if idx != 0:
+                layout.connection_labels[key] = center
+                sweep_moved += 1
+            conn_bbox[key] = bb
+
+        moved += sweep_moved
+        if not sweep_moved:
+            break
+
+    if moved:
+        logger.info(f"§P61: pasada global anticolisión — "
+                    f"{moved} etiqueta(s) reubicada(s)")
+    return moved

@@ -572,6 +572,19 @@ class AutoLayoutOptimizer(LayoutOptimizer):
             best_layout.invalidate_collision_cache()
             min_collisions = self.evaluate(best_layout)
 
+        # §P61: pasada anticolisión GLOBAL sobre el árbol completo — última
+        # etapa, con la geometría definitiva (nada se mueve después). Sólo
+        # reubica etiquetas: cruces/arista×nodo/tinta no pueden cambiar. A
+        # partir de aquí el detector mide las etiquetas donde se DIBUJAN
+        # (posición almacenada): la métrica reportada es la verdad visual.
+        from AlmaGag.layout.strategies.auto.anticollision import (
+            global_label_anticollision)
+        best_layout._measure_stored_labels = True
+        if global_label_anticollision(best_layout, self.geometry):
+            best_layout.invalidate_collision_cache()
+        best_layout.invalidate_collision_cache()
+        min_collisions = self.evaluate(best_layout)
+
         self._capture('final', best_layout,
                       f'normalizado + labels escalonados · {min_collisions} colisiones')
 
@@ -1187,16 +1200,14 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         """
         layout.elements_by_id = {e['id']: e for e in layout.elements}
 
-        # CRÍTICO: Recalcular routing PRIMERO (antes de contenedores y etiquetas)
-        # Las conexiones deben reflejar las nuevas posiciones de elementos
-        self.routing.route(layout)
+        # §P61: contenedores PRIMERO, ruteo y etiquetas DESPUÉS. El orden viejo
+        # ruteaba primero "para reflejar las nuevas posiciones" y luego la
+        # re-resolución de contenedores volvía a mover a los contenidos: cada
+        # iteración del loop dejaba rancios los paths (y etiquetas) de todo
+        # miembro de contenedor, y el guardado H3 comparaba rutas frescas
+        # contra ese material rancio.
 
-        self.analyze(layout)
-        layout.label_positions = {}
-        layout.connection_labels = {}
-        self._calculate_initial_positions(layout)
-
-        # CRÍTICO: Recalcular contenedores con centrado (igual que en optimize())
+        # Recalcular contenedores con centrado (igual que en optimize())
         # Limpiar flag _resolved para forzar re-cálculo con centrado
         for elem in layout.elements:
             if 'contains' in elem and elem.get('_resolved'):
@@ -1218,6 +1229,13 @@ class AutoLayoutOptimizer(LayoutOptimizer):
 
         # Propagar coordenadas locales actualizadas (centrado)
         self.positioner._propagate_coordinates_to_contained(layout)
+
+        # Ruteo y etiquetas sobre las posiciones DEFINITIVAS de esta iteración
+        self.routing.route(layout)
+        self.analyze(layout)
+        layout.label_positions = {}
+        layout.connection_labels = {}
+        self._calculate_initial_positions(layout)
 
     def _stagger_overlapping_contained_labels(self, layout: Layout) -> None:
         """
