@@ -583,6 +583,53 @@ El alza de R1 es **correcta**: al detectar ahora los iconos custom, el validador
 
 ## 🌟 WISH
 
+### WISH-DRAW-002: Flujos de información resaltados («highlighter» sobre el diagrama) 🆕 ABIERTO
+**Reportado**: 2026-08-02 (idea del autor, al cierre del review grupos O–R)
+**Componente**: formato SDJF/.gag + `draw/` (capa nueva de anotación)
+
+**Idea original (verbatim del autor)**: «aparte de las conexiones hay flujos
+de información, me interesa que esos flujos se dibujen como si hubiesen sido
+pintados con un resaltador pasando por elementos concretos del diagrama. Sé
+que es un feature completamente nuevo, pero es necesario.»
+
+**Concepto**: capa de ANOTACIÓN, no de topología. Un flujo narra un recorrido
+sobre el diagrama ya tendido — el camino de un paquete, un trámite, una
+cadena de aprobación — sin agregar aristas ni alterar el layout.
+
+Boceto de diseño (a validar cuando se implemente):
+
+- **Formato**: sección top-level `flows`, secuencia ORDENADA de ids
+  existentes:
+  ```json
+  "flows": [
+    {"id": "scada", "label": "Datos SCADA", "color": "#f7e017",
+     "path": ["cpe_mina", "est2", "dc_mina", "cco"]}
+  ]
+  ```
+- **Render**: trazo ancho (~28px) semitransparente (opacity ~0.3,
+  linecap/linejoin round), colores de resaltador (amarillo/verde/rosa/
+  celeste), pasando por los CENTROS de los elementos del path. Capa: sobre
+  fondos/zonas y bajo iconos+textos (el resaltador real pinta encima, pero
+  con alfa debajo se lee mejor — decidir con verificación visual).
+- **Ruteo del trazo**: entre dos elementos consecutivos, si existe conexión
+  dibujada entre ambos → seguir su `computed_path` (el flujo recorre las
+  rutas reales, troncales §P60 incluidas); si no hay arista → tramo directo
+  u ortogonal. La geometría es del motor (§R); el skill sólo declara.
+- **No es conexión**: no cuenta en cruces/labels (clase `ag-flow` excluida
+  de detectores, como `ag-text-halo`), no participa del ruteo ni del
+  posicionamiento.
+- **Varios flujos**: leyenda propia («Flujos:») análoga a §N48; solapes
+  entre flujos legibles por transparencia.
+- **Casos de uso**: fixture minero — flujo SCADA cpe→est→DC→CCO, flujo de
+  facturación contratista→externos; organigramas — cadena de aprobación.
+- **Retos anotados**: legibilidad del alfa sobre zonas coloreadas; flujo
+  cruzando flujo; interacción con el recorte §O51 (el trazo entra al bbox);
+  esquinas del trazo en las troncales ortogonales.
+
+**Prioridad**: Media-alta — pedido explícito del autor («es necesario»).
+
+---
+
 ### WISH-ARCH-002: Convergencia a un solo algoritmo (auto-selección) 🚧 EN CURSO
 **Componente**: `AlmaGag/generator.py` (`select_strategy`), `main.py`, `AlmaGag/layout/`
 **Contexto**: la intención original del autor NO es tener tres algoritmos (auto/laf/hier).
