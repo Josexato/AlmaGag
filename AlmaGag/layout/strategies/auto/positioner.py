@@ -254,6 +254,24 @@ class AutoLayoutPositioner:
         if len(containers) < 2:
             return
 
+        # BUGS-AUTO-008 (hermano): un contenedor ANIDADO solapa a su ancestro
+        # POR DISEÑO — empujarlo "debajo" lo saca de su padre y rompe la
+        # contención P59. Sólo se separan pares sin relación de ancestría.
+        def _closure(c):
+            acc, stack = set(), [extract_item_id(r) for r in c.get('contains', [])]
+            by = layout.elements_by_id
+            while stack:
+                i = stack.pop()
+                acc.add(i)
+                ch = by.get(i)
+                if ch and 'contains' in ch:
+                    stack.extend(extract_item_id(r) for r in ch['contains'])
+            return acc
+        descendants = {c['id']: _closure(c) for c in containers}
+
+        def _related(a, b):
+            return b['id'] in descendants[a['id']] or a['id'] in descendants[b['id']]
+
         for _ in range(len(containers)):  # iterar varias veces por cascada
             changed = False
             sorted_c = sorted(containers, key=lambda c: c.get('y', 0))
@@ -271,7 +289,7 @@ class AutoLayoutPositioner:
                     c2y2 = c2y1 + c2.get('height', ICON_HEIGHT)
                     overlap_x = c1x1 < c2x2 and c2x1 < c1x2
                     overlap_y = c1y1 < c2y2 and c2y1 < c1y2
-                    if overlap_x and overlap_y:
+                    if overlap_x and overlap_y and not _related(c1, c2):
                         # Mover c2 (el más bajo) debajo de c1
                         dy = (c1y2 + margin) - c2y1
                         if dy > 0:

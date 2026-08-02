@@ -262,7 +262,7 @@ copy() debe preservar el contexto declarado.
 
 ---
 
-### BUGS-AUTO-008: `_compact_horizontal` puede cizallar contenedores anidados (doble membresía) 🆕 ABIERTO
+### BUGS-AUTO-008: `_compact_horizontal` puede cizallar contenedores anidados (doble membresía) ✅ RESUELTO (2026-08-02)
 **Componente**: `AlmaGag/layout/strategies/auto/optimizer.py::_compact_horizontal`
 **Reportado**: 2026-08-02 (auditoría arquitectónica)
 
@@ -275,9 +275,14 @@ sus propios hijos y al del bloque del padre → cizalla que rompe la
 contención P59. Hoy no se manifiesta en fixtures (la guarda de adopción lo
 enmascara), pero es una bomba latente con P59 fomentando anidamiento.
 
-**Fix**: membresía por CIERRE transitivo — un elemento pertenece sólo al
-bloque de su contenedor top-level (como ya hace `_shift_container_subtree`).
-Test: fixture anidado + offsets forzados distintos → contención intacta.
+**Fix aplicado**: membresía por CIERRE transitivo — cada contenedor
+TOP-LEVEL forma un solo bloque con su subárbol completo. El test con
+offsets forzados (mock) verifica la contención. BONUS descubierto por el
+test: `_resolve_container_overlaps` empujaba al contenedor ANIDADO fuera
+de su ancestro (el solape ancestro↔descendiente es por diseño) — sólo se
+manifestaba con elementos libres presentes; ahora los pares con relación
+de ancestría se saltan. Tests: `tests/test_auto008_compaction_blocks.py`.
+Guarda: 34 fixtures byte-idénticos.
 
 ---
 
