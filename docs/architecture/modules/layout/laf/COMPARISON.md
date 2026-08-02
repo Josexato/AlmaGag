@@ -1,5 +1,12 @@
 # Comparación: Sistema Actual vs LAF (Layout Abstracto Primero)
 
+> **⚠️ HISTÓRICO — motor LAF congelado como `legacy` (nunca se auto-elige).**
+> Rutas y comandos de este documento son previos a la reorg
+> `layout/strategies/` y ya no ejecutan. Estado real: `docs/architecture/…`
+> queda superado por el código (`AlmaGag/layout/engine.py::_STRATEGIES`);
+> auditoría con detalle: `docs/reviews/auditoria-2026-08-02/` (BUGS-DOCS-002).
+
+
 **Fecha**: 2026-01-17
 **Versión LAF**: v1.3.0
 **Diagramas de prueba**: red-edificios.gag, 05-arquitectura-gag.gag

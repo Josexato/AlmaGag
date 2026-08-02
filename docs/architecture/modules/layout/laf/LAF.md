@@ -1,5 +1,12 @@
 # Algoritmo LAF
 
+> **⚠️ HISTÓRICO — motor LAF congelado como `legacy` (nunca se auto-elige).**
+> Rutas y comandos de este documento son previos a la reorg
+> `layout/strategies/` y ya no ejecutan. Estado real: `docs/architecture/…`
+> queda superado por el código (`AlmaGag/layout/engine.py::_STRATEGIES`);
+> auditoría con detalle: `docs/reviews/auditoria-2026-08-02/` (BUGS-DOCS-002).
+
+
 **L**ayout **A**bstracto **F**irst (Layout Abstracto Primero). Sistema de layout jerárquico inspirado en Sugiyama/Graphviz que minimiza cruces de conectores procesando primero el grafo en una representación abstracta y aplicando geometría real recién al final del pipeline.
 
 📍 `AlmaGag/layout/laf/optimizer.py` · clase `LAFOptimizer`

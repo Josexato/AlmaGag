@@ -97,7 +97,7 @@ top-level.
 
 ---
 
-### BUGS-DOCS-002: Los docs de arquitectura describen un paquete que no existe 🆕 ABIERTO
+### BUGS-DOCS-002: Los docs de arquitectura describen un paquete que no existe ◐ MITIGADO (2026-08-02)
 **Componente**: `docs/architecture/ARCHITECTURE.md`, `docs/architecture/modules/**`
 **Reportado**: 2026-08-02 (auditoría)
 
@@ -121,13 +121,16 @@ top-level.
   `test_visual_quality.py` listado y no existe; constantes
   `DEFAULT_CANVAS_WIDTH` inventadas — reales `WIDTH`/`HEIGHT`).
 
-**Fix**: regenerar el árbol desde disco; documentar `LayoutEngine`/
-`select_strategy`/`hier`; estampar los docs de `laf/` como HISTÓRICOS
-(banner) en vez de reescribirlos.
+**Mitigado**: banners de estado en TODOS los docs afectados (laf/* como
+HISTÓRICO con la recomendación invertida anulada; ARCHITECTURE/README/
+AUTO/ROUTING como DESACTUALIZADO con el pipeline real resumido y puntero
+a la auditoría). **Resta** (la parte grande): reescribir ARCHITECTURE.md
+con el árbol real y documentar `LayoutEngine`/`select_strategy`/`hier` —
+buen candidato para una sesión propia.
 
 ---
 
-### BUGS-DOCS-003: FLUJO_EJECUCION.md narra un pipeline que ya no existe 🆕 ABIERTO
+### BUGS-DOCS-003: FLUJO_EJECUCION.md narra un pipeline que ya no existe ◐ MITIGADO (2026-08-02)
 **Componente**: `docs/FLUJO_EJECUCION.md`
 **Reportado**: 2026-08-02 (auditoría)
 
@@ -140,12 +143,13 @@ y CERO mención de los pasos reales de `generate_diagram`: `expand_unions`
 anticolisión global §P61 → re-ruteo final → métricas §H6/§O52. Cabecera
 declara «v3.3.0 (LAF 11 fases)».
 
-**Fix**: reescribir sobre el pipeline actual o degradar a histórico y
-enlazar al código como fuente.
+**Mitigado**: banner DESACTUALIZADO con el pipeline real resumido en 4
+líneas + puntero a la auditoría. **Resta**: la reescritura completa (o
+degradación definitiva a histórico) — junto con BUGS-DOCS-002.
 
 ---
 
-### BUGS-DOCS-004: CONCEPTS.md, INDEX.md y ROADMAP.md fósiles (v3.3/feb-2026) 🆕 ABIERTO
+### BUGS-DOCS-004: CONCEPTS.md, INDEX.md y ROADMAP.md fósiles (v3.3/feb-2026) ◐ MITIGADO (2026-08-02)
 **Componente**: `docs/CONCEPTS.md`, `docs/INDEX.md`, `docs/ROADMAP.md`
 **Reportado**: 2026-08-02 (auditoría)
 
@@ -164,13 +168,16 @@ enlazar al código como fuente.
   entregado, contradicho 150 líneas después, y **cero ocurrencias en el
   código**; 4 links rotos (`CONTRIBUTING.md`, rutas `docs/docs/…`).
 
-**Fix**: actualización de estado + regeneración del árbol de INDEX; decidir
-si `avoid_elements` se implementa o se borra del roadmap y de
-`SDJF_v2.1_PROPOSAL.md`.
+**Mitigado**: INDEX.md refrescado COMPLETO (v3.5, motor único, árbol real,
+licencia MIT, roadmap-resumen); ROADMAP con banner + checkbox
+`avoid_elements` desmarcado y anotado como nunca-implementado; CONCEPTS
+con banner. **Resta**: reescribir el cuerpo de ROADMAP (estado v3.4/v3.5)
+y el glosario de CONCEPTS (vocabulario del motor actual); decidir el
+destino de `avoid_elements` en `SDJF_v2.1_PROPOSAL.md`.
 
 ---
 
-### BUGS-DOCS-005: Guías con comandos que fallan hoy (QUICKSTART/EXAMPLES/CLI-REFERENCE/INDEX) 🆕 ABIERTO
+### BUGS-DOCS-005: Guías con comandos que fallan hoy (QUICKSTART/EXAMPLES/CLI-REFERENCE/INDEX) ✅ RESUELTO (2026-08-02)
 **Componente**: `docs/guides/QUICKSTART.md`, `docs/guides/EXAMPLES.md`, `docs/guides/CLI-REFERENCE.md`, `docs/INDEX.md`, `README.md`
 **Reportado**: 2026-08-02 (auditoría)
 
@@ -188,9 +195,13 @@ si `avoid_elements` se implementa o se borra del roadmap y de
   `pip install -e .` falla si ya estás en el clon (el paquete no tiene
   pyproject); README omite 6 flags reales.
 
-**Fix**: purga mecánica de los 13 `laf`, corrección de rutas/extensiones,
-catálogo de iconos real, dependencias reales. Es el ticket de mayor daño a
-usuario nuevo: TODO comando copiado de QUICKSTART §layout falla.
+**Fix aplicado**: 0 ocurrencias de `--layout-algorithm=laf` fuera de docs
+históricos con banner; rutas/extensiones de ejemplos corregidas y
+verificadas contra disco; catálogo de 13 iconos + alias + BWT rotulado;
+deps reales (svgwrite); `--exportpng` según §O58; secciones 11/12 de
+EXAMPLES reescritas (legacy congelado, Epifanía real); instalación
+desambiguada; comparación AUTO-vs-LAF reemplazada por las reglas de
+`select_strategy`.
 
 ---
 

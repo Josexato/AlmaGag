@@ -1,6 +1,14 @@
 # AlmaGag - Roadmap de Desarrollo
 
-**Versión Actual**: v3.3.0 (código) + SDJF v2.1 (estándar)
+> **⚠️ DESACTUALIZADO (pre-reorg `strategies/`, ≤jun-2026).** El pipeline
+> real es: `generator.py` (expand_unions §H7 → semantics §Q63 → theme §O57 →
+> `select_strategy` → templates) → `LayoutEngine` (`auto`/`hier`/`legacy`) →
+> banding §P60 → anticolisión §P61 → re-ruteo → métricas §O52. Ver el código
+> y `docs/reviews/auditoria-2026-08-02/` (BUGS-DOCS-002/003/004); este
+> documento se conserva por su valor histórico hasta su reescritura.
+
+
+**Versión Actual**: v3.5.0 (ver banner: el cuerpo del roadmap está congelado en feb-2026)
 **Actualizado**: 2026-02-27
 
 ---
@@ -365,7 +373,7 @@ def calculate_path_visibility_graph(from_elem, to_elem, elements):
 - [x] Implementación A* básica
 - [x] Grid discretization
 - [x] Path simplification
-- [x] Propiedad `avoid_elements` funcional
+- [ ] ~~Propiedad `avoid_elements`~~ NUNCA implementada (cero ocurrencias en el código; el obstacle-avoidance real es incondicional vía visibility graph — BUGS-DOCS-004)
 - [x] Tests con casos complejos
 
 **Riesgo**: Alto
