@@ -299,7 +299,7 @@ intra-zona del fixture minero cuando el revert gana.
 
 ---
 
-### BUGS-DRAW-001: `convert_svg_to_png` con Chrome captura a `scale`× sin escalar el contenido 🆕 ABIERTO
+### BUGS-DRAW-001: `convert_svg_to_png` con Chrome captura a `scale`× sin escalar el contenido ✅ RESUELTO (2026-08-02)
 **Componente**: `AlmaGag/debug.py::_png_via_chrome`
 **Reportado**: 2026-08-02 (observado en toda verificación visual del grupo P)
 
@@ -308,8 +308,10 @@ La ventana se dimensiona `width*scale × height*scale` pero no se pasa
 superior-izquierda y el resto del PNG queda en blanco (a 2×, tres cuartos
 de la imagen son aire). El camino cairosvg escala bien (`scale=scale`).
 
-**Fix**: añadir `--force-device-scale-factor={scale}` al comando de Chrome.
-Un solo argumento; verificar con un PNG de fixture.
+**Fix aplicado**: ventana al tamaño NATURAL del SVG +
+`--force-device-scale-factor={scale}` (la primera variante — escalar la
+ventana Y el dsf — cuadruplicaba). Verificado: mina a 2× = 3044×2398 px con
+el contenido llenando la lámina (92-95%; resto = margen §O51).
 
 ---
 

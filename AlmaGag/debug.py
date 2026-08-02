@@ -135,8 +135,14 @@ def _find_chrome_executable():
     return None
 
 
-def _png_via_chrome(chrome_exe, svg_path, png_path, width, height):
-    """Rasteriza con Chrome headless. True si el PNG quedó escrito."""
+def _png_via_chrome(chrome_exe, svg_path, png_path, width, height, scale=1.0):
+    """Rasteriza con Chrome headless. True si el PNG quedó escrito.
+
+    BUGS-DRAW-001: la ventana va al tamaño NATURAL del SVG (CSS px) y la
+    resolución la pone `--force-device-scale-factor=scale` — el PNG sale a
+    width×scale píxeles con el contenido llenando la lámina. El bug previo
+    escalaba la ventana sin device-scale-factor: el SVG se pintaba a 1× en
+    la esquina y ¾ del PNG quedaban en blanco."""
     import subprocess
 
     svg_abs_path = os.path.abspath(svg_path)
@@ -147,6 +153,7 @@ def _png_via_chrome(chrome_exe, svg_path, png_path, width, height):
         '--no-sandbox',          # imprescindible en contenedores de CI (root)
         '--hide-scrollbars',     # sin overlay gris sobre el borde inferior
         '--default-background-color=FFFFFFFF',
+        f'--force-device-scale-factor={scale}',
         f'--screenshot={os.path.abspath(png_path)}',
         f'--window-size={width},{height}',
         f'file:///{svg_abs_path.replace(chr(92), "/")}'  # Convertir \ a /
@@ -212,13 +219,14 @@ def convert_svg_to_png(svg_path: str, scale: float = 2.0, png_path: str = None):
 
         # Dimensiones del SVG escaladas para la captura de Chrome.
         root = ET.parse(svg_path).getroot()
-        width = int(float(root.get('width', '800')) * scale)
-        height = int(float(root.get('height', '600')) * scale)
+        width = int(float(root.get('width', '800')))
+        height = int(float(root.get('height', '600')))
 
         chrome_exe = _find_chrome_executable()
         done = False
         if chrome_exe:
-            done = _png_via_chrome(chrome_exe, svg_path, png_path, width, height)
+            done = _png_via_chrome(chrome_exe, svg_path, png_path, width,
+                                   height, scale=scale)
         if not done:
             done = _png_via_cairosvg(svg_path, png_path, scale)
 
