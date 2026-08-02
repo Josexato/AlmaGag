@@ -31,7 +31,7 @@ Veredicto del revisor: la topología y agrupación del SDJF sin posiciones son
 | # | Criterio | Resumen |
 |---|---|---|
 | Q63 ✅ | `semantic_type` declarado, no inferido del label | 7 clases de enlace distinguidas solo por texto. Autoría: declararlo (contrato N48). Motor: fallback por palabras clave PERMITIDO con `WARNING [semantic] inferido de label`, nunca en silencio; sin match → clase neutra. **REDEFINIDO por el autor**: la tabla texto→clase NUNCA vive en el código de AlmaGag — viaja embebida en el archivo (sección `semantics`, como `icons{}`) o la pone el skill al declarar |
-| Q64 ◐ | Types nuevos: BWT deliberado primero, catálogo cuando recurren | REFINADO (v3 del artifact): usar un type nuevo con BWT es USO VÁLIDO del estándar — nombra lo que aún no tiene forma visual. Exigible: nombre semánticamente claro, porque **el BWT muestra ese nombre** (✅ implementado: rótulo 11 bold sobre el plátano) y **el audit lista los BWT activos** (✅ implementado: línea `§Q64: N type(s) en BWT (inventario…)`). Pendiente del motor: promover al catálogo los types que recurren (señal: mismo type en BWT en ≥2 fixtures) — el paquete de red torre/antena, unidad móvil, generador, vehículo, CPE, red eléctrica es el candidato natural |
+| Q64 ✅ | Types nuevos: BWT deliberado primero, catálogo cuando recurren | REFINADO (v3 del artifact): usar un type nuevo con BWT es USO VÁLIDO del estándar — nombra lo que aún no tiene forma visual. Exigible: nombre semánticamente claro, porque **el BWT muestra ese nombre** (✅: rótulo 11 bold sobre el plátano) y **el audit lista los BWT activos** (✅: línea `§Q64: N type(s) en BWT`). **CERRADO por decisión del autor (2-ago): el catálogo NO se promueve al motor — vive en el SKILL** (`references/iconos-negocio.md`: 16 iconos filled-outline, incl. el paquete minero/energía tower·cow·truck·cpe·generator·powergrid ya dibujado). Documentado en `docs/guides/SKILL-ALMAGAG.md` §Recomendaciones; de paso se corrigió la spec (`FORMATO_ARCHIVOS.md`): el motor NO resuelve `currentColor` en iconos embebidos |
 | Q65 ✅ | Afinidad y orden entre áreas (opcional + derivación) | opcional `considerations.near[areaA, areaB]` a nivel de áreas (sintaxis N46). Sin declarar: áreas unidas por transporte → adyacentes en banda central; solo-administrativas → periferia (P60); desempate por orden de aparición; determinista |
 
 ## Sección R — Reparto de responsabilidades motor ⇄ skill (v3 del artifact)
@@ -159,7 +159,14 @@ WAN {11,12,14}, el test estricto congela la escala {14,12,11}»).
      orden de aparición. Determinista (test de doble corrida).
    Fixture minero: sin afinidad declarada, orden idéntico a P60 (guarda
    con diff cero). Verifica en `tests/test_q65_zone_affinity.py`.
-7. Orden restante: Q64 (paquete de red — último del review).
+7. ~~Q64~~ CERRADO por decisión del autor: el catálogo de iconos vive en
+   el SKILL, no en el motor (mismo principio que Q63: el vocabulario de
+   dominio nunca entra al código). El paquete minero/energía ya está
+   dibujado en el catálogo del skill; el motor conserva sólo el
+   mecanismo (BWT deliberado rotulado + inventario `§Q64`). Ver
+   `docs/guides/SKILL-ALMAGAG.md` §Recomendaciones.
+
+**REVIEW COMPLETO**: grupos O, P (59–62) y Q (63–65) cerrados.
 8. Convenciones de siempre: un criterio por commit, test de regresión,
    guarda anti-regresión con la línea `[motor]`, verificación visual PNG,
    `python -m pytest -q --import-mode=importlib` (hoy: 435 verdes).
