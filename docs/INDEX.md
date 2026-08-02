@@ -1,7 +1,7 @@
 # Índice de Documentación - AlmaGag
 
-**Versión**: v3.3.0 (código) + SDJF v2.1 (estándar)
-**Actualizado**: 2026-02-28
+**Versión**: v3.5.0 (código)
+**Actualizado**: 2026-08-02
 
 ---
 
@@ -17,7 +17,7 @@ Esta es la guía completa de documentación de AlmaGag, organizada por tipo de d
 
 1. **[README.md](../README.md)** - Visión general y ejemplo mínimo
 2. **[Quickstart Guide](guides/QUICKSTART.md)** - Instalación paso a paso
-3. **[Galería de Ejemplos](guides/EXAMPLES.md)** - 10 ejemplos visuales
+3. **[Galería de Ejemplos](guides/EXAMPLES.md)** - 12 ejemplos visuales
 
 **Para entender el vocabulario:**
 
@@ -37,6 +37,7 @@ Esta es la guía completa de documentación de AlmaGag, organizada por tipo de d
 | [SDJF v2.0](spec/SDJF_v2.0_SPEC.md) | 2.0 | ✅ Estable | Auto-layout + sizing proporcional |
 | [SDJF v2.0 Features](spec/SDJF_v2.0_FEATURES.md) | 2.0 | ✅ Referencia | Documento original de features v2.0 |
 | [SDJF v2.1](spec/SDJF_v2.1_PROPOSAL.md) | 2.1 | ✅ Implementado | Routing declarativo + waypoints automáticos |
+| [**FORMATO_ARCHIVOS.md**](spec/FORMATO_ARCHIVOS.md) | **vigente** | ★ Referencia | La spec viva del formato — empezar por aquí |
 
 ### ¿Qué versión debo usar?
 
@@ -53,7 +54,7 @@ Esta es la guía completa de documentación de AlmaGag, organizada por tipo de d
 | Documento | Nivel | Descripción |
 |-----------|-------|-------------|
 | [Quickstart](guides/QUICKSTART.md) | Principiante | Instalación y primer diagrama |
-| [Galería de Ejemplos](guides/EXAMPLES.md) | Todos | 10 ejemplos con explicaciones |
+| [Galería de Ejemplos](guides/EXAMPLES.md) | Todos | 12 ejemplos con explicaciones |
 
 ### Temas por Feature
 
@@ -67,59 +68,26 @@ Esta es la guía completa de documentación de AlmaGag, organizada por tipo de d
 
 ---
 
-## 🧠 Algoritmos de Layout
+## 🧠 Motor de layout (el motor elige solo)
 
-**Para elegir entre AUTO y LAF** ✨ NUEVO v3.0
+Desde v3.4 **no se elige algoritmo**: el default `select` decide la
+estrategia desde el JSON (`contains`/`considerations` → `auto`; `areas`,
+`decision` o ciclo sin coordenadas → `hier`; `legacy` ex-LAF, congelado,
+sólo debug).
 
 | Documento | Nivel | Descripción |
 |-----------|-------|-------------|
-| [Guía de Decisión](guides/LAYOUT-DECISION-GUIDE.md) | Todos | ¿Cuándo usar AUTO vs LAF? Árbol de decisión simple |
-| [Módulo `layout/`](architecture/modules/layout/README.md) ✨ | Desarrolladores | README de la capa: decisión arquitectónica + tabla AUTO/LAF |
-| [AUTO en detalle](architecture/modules/layout/auto/AUTO.md) ✨ | Desarrolladores | Algoritmo AUTO: pipeline, coords manuales, workaround Dashboard |
-| [LAF en detalle](architecture/modules/layout/laf/LAF.md) ✨ | Desarrolladores | Algoritmo LAF: 11 fases, hiperparámetros, limitaciones |
-| [Biblioteca routing](architecture/modules/routing/ROUTING.md) ✨ | Desarrolladores | 5 tipos declarativos: straight, orthogonal, bezier, arc, manual |
-| [Comparación Técnica LAF](architecture/modules/layout/laf/COMPARISON.md) | Avanzado | Análisis profundo con métricas y benchmarks |
-| [Progreso LAF](architecture/modules/layout/laf/PROGRESS.md) | Técnico | Historia de desarrollo en 8 sprints |
-| [Referencia CLI](guides/CLI-REFERENCE.md) | Todos | Documentación completa de opciones de línea de comandos |
-
-### ¿Cuándo usar qué?
-
-#### Usa AUTO cuando:
-- Diagrama simple (<10 elementos)
-- Necesitas preservar coordenadas x,y manuales
-- Prototipado rápido
-- Pocas conexiones (<10)
+| [Guía de decisión](guides/LAYOUT-DECISION-GUIDE.md) | Todos | Cómo decide el motor y cómo influir desde el JSON |
+| [Referencia CLI](guides/CLI-REFERENCE.md) | Todos | Flags reales (`--view`, `--exportpng`, `--epifania`…) |
+| [Contrato del skill](guides/SKILL-ALMAGAG.md) | Autores | Capacidades v3.5 (grupos N–R) que el skill puede asumir |
+| [Biblioteca routing](architecture/modules/routing/ROUTING.md) | Desarrolladores | Tipos declarativos de línea |
+| Histórico LAF | Técnico | `architecture/modules/layout/laf/` (motor congelado como `legacy`) |
 
 ```bash
-almagag diagrama.gag
-# o explícitamente:
-almagag diagrama.gag --layout-algorithm=auto
+almagag diagrama.sdjf                 # el motor elige
+almagag diagrama.sdjf --view lanes    # forzar una REPRESENTACIÓN (hier)
+almagag diagrama.sdjf --epifania      # ver el proceso por fases
 ```
-
-#### Usa LAF cuando:
-- Diagrama complejo (>20 elementos)
-- Contenedores anidados (3+ niveles)
-- Muchas conexiones (>20)
-- Minimizar cruces es crítico
-- Producción / Presentaciones
-
-```bash
-almagag diagrama.gag --layout-algorithm=laf
-```
-
-**Quick Start LAF**:
-```bash
-# Generar con LAF
-almagag arquitectura.gag --layout-algorithm=laf --exportpng
-
-# Ver proceso LAF paso a paso
-almagag complejo.gag --layout-algorithm=laf --visualize-growth
-
-# Debug LAF completo
-almagag arch.gag --layout-algorithm=laf --debug --dump-iterations
-```
-
-**Mejoras de LAF vs AUTO**: -87% cruces, -24% colisiones, -80% routing calls, -87% expansiones canvas
 
 ---
 
@@ -152,9 +120,11 @@ almagag arch.gag --layout-algorithm=laf --debug --dump-iterations
 
 ### Resumen del Roadmap
 
-- **✅ Completado**: v1.0, v1.5, v2.0, v2.1 (código y estándar)
-- **🔄 En desarrollo**: v2.2 (collision avoidance)
-- **📅 Planificado**: v2.3 (optimizaciones avanzadas), v3.0 (temas)
+- **✅ Completado**: v1.0 → v3.5 (motor único `select`, estrategias auto/hier,
+  zonas anidadas §P59/§P60, anticolisión global §P61, semántica §Q63,
+  tokens de tema §O57, emisión §O50-O58, review de Claude Design completo)
+- **📅 Siguiente**: `TECHNICAL_DEBT.md` — WISH-DRAW-002 (flujos resaltados),
+  WISH-LAYOUT-008 (unificación de etiquetas)
 
 ---
 
@@ -163,75 +133,36 @@ almagag arch.gag --layout-algorithm=laf --debug --dump-iterations
 ```
 docs/
 ├── INDEX.md                      # Este archivo
-├── CONCEPTS.md                   # ✨ Glosario unificado (punto de entrada conceptual)
+├── CONCEPTS.md                   # Glosario
 ├── ROADMAP.md                    # Plan de desarrollo
-├── TECHNICAL_DEBT.md             # Deuda técnica conocida (BUGS-*, WISH-*)
-├── DIAGRAM_REVIEW.md             # Revisión visual de diagramas (BUGS-DIAG-*)
+├── TECHNICAL_DEBT.md             # Deuda técnica (BUGS-*, WISH-*)
+├── DIAGRAM_REVIEW.md             # HISTÓRICO: revisión visual jun-2026
+├── FLUJO_EJECUCION.md            # Flujo del pipeline (en actualización)
+├── CHANGELOG.md · RELEASE_v3.0.0.md
 │
-├── spec/                         # Especificaciones SDJF
-│   ├── SDJF_v1.0_SPEC.md
-│   ├── SDJF_v2.0_SPEC.md
-│   ├── SDJF_v2.0_FEATURES.md
-│   └── SDJF_v2.1_PROPOSAL.md
+├── spec/
+│   ├── FORMATO_ARCHIVOS.md       # ★ Spec vigente de .sdjf/.gag
+│   ├── SDJF_v1.0_SPEC.md · SDJF_v2.0_SPEC.md · SDJF_v2.1_PROPOSAL.md
+│   └── SDJF_UNION_TYPE.md · SVG_TO_BWT_SPEC.md · CONTAINER_GROUPING_STRATEGY.md
 │
-├── guides/                       # Guías de uso
-│   ├── QUICKSTART.md
-│   ├── EXAMPLES.md
-│   ├── CLI-REFERENCE.md          # Referencia completa CLI
-│   └── LAYOUT-DECISION-GUIDE.md  # Guía de decisión AUTO vs LAF
+├── guides/
+│   ├── QUICKSTART.md · EXAMPLES.md · CLI-REFERENCE.md
+│   ├── LAYOUT-DECISION-GUIDE.md  # Cómo decide el motor
+│   └── SKILL-ALMAGAG.md          # ★ Contrato del skill (v3.5, grupos N–R)
 │
-├── architecture/                 # Arquitectura del código
-│   ├── ARCHITECTURE.md           # Visión general del sistema
-│   ├── EVOLUTION.md              # Historial de evolución
-│   ├── IMPLEMENTATION_STRATEGY.md
-│   ├── modules/                  # ✨ Docs por módulo
-│   │   ├── layout/
-│   │   │   ├── README.md         # Decisión arquitectónica + tabla AUTO/LAF
-│   │   │   ├── auto/
-│   │   │   │   ├── AUTO.md       # Algoritmo AUTO en detalle
-│   │   │   │   └── routing.md    # AutoRoutingPolicy
-│   │   │   └── laf/
-│   │   │       ├── LAF.md        # Algoritmo LAF (11 fases)
-│   │   │       ├── routing.md    # LAFRoutingPolicy
-│   │   │       ├── PROGRESS.md   # Historia de desarrollo LAF
-│   │   │       └── COMPARISON.md # Comparación LAF vs AUTO
-│   │   └── routing/
-│   │       └── ROUTING.md        # Biblioteca compartida (5 routers)
-│   └── history/                  # Diagramas históricos
+├── architecture/
+│   ├── ARCHITECTURE.md · EVOLUTION.md · WISH-ARCH-004-el-mapa.md
+│   └── modules/                  # layout/ (auto·hier·legacy) · routing/
+│       └── layout/laf/           # HISTÓRICO (motor congelado como legacy)
 │
-└── diagrams/                     # Diagramas y ejemplos visuales
-    ├── gags/                     # Archivos fuente .gag
-    │   ├── 01-iconos-registrados.gag
-    │   ├── 02-iconos-no-registrados.gag
-    │   ├── 03-conexiones.gag
-    │   ├── 04-gradientes-colores.gag
-    │   ├── 05-arquitectura-gag.gag  # ✨ Actualizado con componentes LAF
-    │   ├── 06-waypoints.gag
-    │   ├── 07-containers.gag
-    │   ├── 08-auto-layout.gag
-    │   ├── 09-proportional-sizing.gag
-    │   ├── 10-hybrid-layout.gag
-    │   ├── execution-flow.gag
-    │   ├── layout-optimization-flow.gag
-    │   ├── roadmap-versions.gag
-    │   ├── routing-architecture.gag
-    │   └── system-architecture.gag
-    └── svgs/                     # SVG generados
-        ├── 01-iconos-registrados.svg
-        ├── 02-iconos-no-registrados.svg
-        ├── 03-conexiones.svg
-        ├── 04-gradientes-colores.svg
-        ├── 05-arquitectura-gag.svg   # ✨ Regenerado con LAF
-        ├── 06-waypoints.svg
-        ├── 07-containers.svg
-        ├── 08-auto-layout.svg
-        ├── 09-proportional-sizing.svg
-        ├── 10-hybrid-layout.svg
-        ├── execution-flow.svg
-        ├── layout-optimization-flow.svg
-        ├── roadmap-versions.svg
-        ├── routing-architecture.svg
-        └── system-architecture.svg
+├── reviews/                      # Reviews de Claude Design por iteración
+│   ├── iteracion-3/ · iteracion-4/ · iteracion-5/
+│   ├── grupo-O/ · grupo-P/       # criterios O50–O58 · P59–P62 + Q63–Q65
+│   └── auditoria-2026-08-02/     # Auditoría docs⇄código
+│
+└── diagrams/
+    ├── gags/                     # 34 fixtures fuente (.sdjf y .gag)
+    └── svgs/                     # SVG generados (scripts/generate_docs.py)
 ```
 
 ---
@@ -318,17 +249,15 @@ Diagrama auto-documentado del flujo de ejecución actual.
 3. [Implementation Strategy](architecture/IMPLEMENTATION_STRATEGY.md) - Guía técnica
 
 **Áreas prioritarias:**
-- [ ] Implementación v2.2 (collision avoidance con A*)
-- [ ] Tests visuales automáticos
-- [ ] Nuevos tipos de íconos
-- [ ] Documentación de ejemplos
-- [ ] Optimizaciones de performance
+- [ ] Tickets abiertos de `TECHNICAL_DEBT.md` (tanda auditoría 2026-08-02)
+- [ ] WISH-DRAW-002: flujos de información resaltados
+- [ ] WISH-LAYOUT-008: unificar los sistemas de etiquetas
 
 ---
 
 ## 📄 Licencia
 
-[Especificar licencia aquí]
+MIT — ver [LICENSE](../LICENSE).
 
 ---
 

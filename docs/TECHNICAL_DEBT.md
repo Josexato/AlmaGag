@@ -17,9 +17,9 @@ Cada entrada tiene un código con estructura uniforme `<CATEGORÍA>-<COMPONENTE>
 
 ### Componentes
 
-- **`LAYOUT`** — Issues transversales del módulo `AlmaGag/layout/` que afectan a ambos algoritmos.
-- **`LAF`** — Issues exclusivos del algoritmo LAF (`AlmaGag/layout/laf/`).
-- **`AUTO`** — Issues exclusivos del algoritmo AUTO (`AlmaGag/layout/auto/`).
+- **`LAYOUT`** — Issues transversales del módulo `AlmaGag/layout/`.
+- **`LAF`** — (histórico) issues del ex-algoritmo LAF, hoy congelado como `AlmaGag/layout/strategies/legacy/`.
+- **`AUTO`** — Issues exclusivos de la estrategia AUTO (`AlmaGag/layout/strategies/auto/`).
 - **`ROUT`** — Issues del módulo de routing (`AlmaGag/routing/`): cálculo de paths, port assignment, visibility graph, simplificación.
 - **`TPL`** — Issues del módulo de templates (`AlmaGag/layout/templates/`): detección semántica, scorers, aplicación de patrones, calibración del clasificador.
 - **`VAL`** — Issues del módulo de validación (`AlmaGag/validation/`): reglas de calidad visual (R1/R2/R3) y sus heurísticas.
@@ -58,7 +58,7 @@ El código de runtime usa identificadores como `LAF_PHASE_6_NDPR_EXPANDED` para 
 > BUGS-VAL-003, BUGS-ARCH-001, BUGS-AUTO-008/009, BUGS-DRAW-001/002,
 > WISH-LAYOUT-008 (en la sección WISH).
 
-### BUGS-DOCS-001: La spec de formato omite secciones enteras y miente en defaults 🆕 ABIERTO
+### BUGS-DOCS-001: La spec de formato omite secciones enteras y miente en defaults ✅ RESUELTO (2026-08-02)
 **Componente**: `docs/spec/FORMATO_ARCHIVOS.md`
 **Reportado**: 2026-08-02 (auditoría)
 
@@ -86,13 +86,18 @@ obligatorios sin validación real; «ids duplicados: sólo uno se dibuja» —
 falso, se dibujan ambos superpuestos; «`.gag` = icons al inicio» — la
 extensión y posición son irrelevantes (`generator.py:110-115`).
 
-**Fix**: reescritura por secciones con verificación contra código (regla de
-oro). Detalle completo con líneas exactas en el reporte de auditoría de esta
-fecha (20 hallazgos numerados).
+**Fix aplicado**: los 20 hallazgos corregidos en el mismo día — secciones
+nuevas (`theme` §O57, `semantics` §Q63, zonas §P59/§P60/§Q65, `unions`
+§H7, alias §O55, clases custom + leyenda, waypoints raíz, apéndice CLI,
+`width`/`height`, `callout`) y verdades restauradas (corner_radius 25,
+preference auto, areas auto-enrutadas, contenedor→building/rect, actor
+reservado-inerte, connections opcional, ids duplicados se dibujan ambos,
+extensión irrelevante). Árbol-resumen final con todas las secciones
+top-level.
 
 ---
 
-### BUGS-DOCS-002: Los docs de arquitectura describen un paquete que no existe 🆕 ABIERTO
+### BUGS-DOCS-002: Los docs de arquitectura describen un paquete que no existe ◐ MITIGADO (2026-08-02)
 **Componente**: `docs/architecture/ARCHITECTURE.md`, `docs/architecture/modules/**`
 **Reportado**: 2026-08-02 (auditoría)
 
@@ -116,13 +121,16 @@ fecha (20 hallazgos numerados).
   `test_visual_quality.py` listado y no existe; constantes
   `DEFAULT_CANVAS_WIDTH` inventadas — reales `WIDTH`/`HEIGHT`).
 
-**Fix**: regenerar el árbol desde disco; documentar `LayoutEngine`/
-`select_strategy`/`hier`; estampar los docs de `laf/` como HISTÓRICOS
-(banner) en vez de reescribirlos.
+**Mitigado**: banners de estado en TODOS los docs afectados (laf/* como
+HISTÓRICO con la recomendación invertida anulada; ARCHITECTURE/README/
+AUTO/ROUTING como DESACTUALIZADO con el pipeline real resumido y puntero
+a la auditoría). **Resta** (la parte grande): reescribir ARCHITECTURE.md
+con el árbol real y documentar `LayoutEngine`/`select_strategy`/`hier` —
+buen candidato para una sesión propia.
 
 ---
 
-### BUGS-DOCS-003: FLUJO_EJECUCION.md narra un pipeline que ya no existe 🆕 ABIERTO
+### BUGS-DOCS-003: FLUJO_EJECUCION.md narra un pipeline que ya no existe ◐ MITIGADO (2026-08-02)
 **Componente**: `docs/FLUJO_EJECUCION.md`
 **Reportado**: 2026-08-02 (auditoría)
 
@@ -135,12 +143,13 @@ y CERO mención de los pasos reales de `generate_diagram`: `expand_unions`
 anticolisión global §P61 → re-ruteo final → métricas §H6/§O52. Cabecera
 declara «v3.3.0 (LAF 11 fases)».
 
-**Fix**: reescribir sobre el pipeline actual o degradar a histórico y
-enlazar al código como fuente.
+**Mitigado**: banner DESACTUALIZADO con el pipeline real resumido en 4
+líneas + puntero a la auditoría. **Resta**: la reescritura completa (o
+degradación definitiva a histórico) — junto con BUGS-DOCS-002.
 
 ---
 
-### BUGS-DOCS-004: CONCEPTS.md, INDEX.md y ROADMAP.md fósiles (v3.3/feb-2026) 🆕 ABIERTO
+### BUGS-DOCS-004: CONCEPTS.md, INDEX.md y ROADMAP.md fósiles (v3.3/feb-2026) ◐ MITIGADO (2026-08-02)
 **Componente**: `docs/CONCEPTS.md`, `docs/INDEX.md`, `docs/ROADMAP.md`
 **Reportado**: 2026-08-02 (auditoría)
 
@@ -159,13 +168,16 @@ enlazar al código como fuente.
   entregado, contradicho 150 líneas después, y **cero ocurrencias en el
   código**; 4 links rotos (`CONTRIBUTING.md`, rutas `docs/docs/…`).
 
-**Fix**: actualización de estado + regeneración del árbol de INDEX; decidir
-si `avoid_elements` se implementa o se borra del roadmap y de
-`SDJF_v2.1_PROPOSAL.md`.
+**Mitigado**: INDEX.md refrescado COMPLETO (v3.5, motor único, árbol real,
+licencia MIT, roadmap-resumen); ROADMAP con banner + checkbox
+`avoid_elements` desmarcado y anotado como nunca-implementado; CONCEPTS
+con banner. **Resta**: reescribir el cuerpo de ROADMAP (estado v3.4/v3.5)
+y el glosario de CONCEPTS (vocabulario del motor actual); decidir el
+destino de `avoid_elements` en `SDJF_v2.1_PROPOSAL.md`.
 
 ---
 
-### BUGS-DOCS-005: Guías con comandos que fallan hoy (QUICKSTART/EXAMPLES/CLI-REFERENCE/INDEX) 🆕 ABIERTO
+### BUGS-DOCS-005: Guías con comandos que fallan hoy (QUICKSTART/EXAMPLES/CLI-REFERENCE/INDEX) ✅ RESUELTO (2026-08-02)
 **Componente**: `docs/guides/QUICKSTART.md`, `docs/guides/EXAMPLES.md`, `docs/guides/CLI-REFERENCE.md`, `docs/INDEX.md`, `README.md`
 **Reportado**: 2026-08-02 (auditoría)
 
@@ -183,13 +195,17 @@ si `avoid_elements` se implementa o se borra del roadmap y de
   `pip install -e .` falla si ya estás en el clon (el paquete no tiene
   pyproject); README omite 6 flags reales.
 
-**Fix**: purga mecánica de los 13 `laf`, corrección de rutas/extensiones,
-catálogo de iconos real, dependencias reales. Es el ticket de mayor daño a
-usuario nuevo: TODO comando copiado de QUICKSTART §layout falla.
+**Fix aplicado**: 0 ocurrencias de `--layout-algorithm=laf` fuera de docs
+históricos con banner; rutas/extensiones de ejemplos corregidas y
+verificadas contra disco; catálogo de 13 iconos + alias + BWT rotulado;
+deps reales (svgwrite); `--exportpng` según §O58; secciones 11/12 de
+EXAMPLES reescritas (legacy congelado, Epifanía real); instalación
+desambiguada; comparación AUTO-vs-LAF reemplazada por las reglas de
+`select_strategy`.
 
 ---
 
-### BUGS-DOCS-006: TECHNICAL_DEBT.md auto-inconsistente (este archivo) 🆕 ABIERTO
+### BUGS-DOCS-006: TECHNICAL_DEBT.md auto-inconsistente (este archivo) ✅ RESUELTO (2026-08-02)
 **Componente**: `docs/TECHNICAL_DEBT.md`, `docs/DIAGRAM_REVIEW.md`
 **Reportado**: 2026-08-02 (auditoría)
 
@@ -212,12 +228,16 @@ usuario nuevo: TODO comando copiado de QUICKSTART §layout falla.
   recorta), rutas de módulo viejas y una recomendación de habilitar un motor
   congelado.
 
-**Fix**: renumeración + cierre de estados + regenerar métricas/backlog +
-banner de histórico en DIAGRAM_REVIEW.
+**Fix aplicado**: el duplicado del renderer renumerado a **WISH-ARCH-005**
+(con nota de mapeo); el de convergencia cerrado ✅ (alcance completo en el
+código; «afinar clasificador» queda como mejora continua); follow-up de
+WISH-LAYOUT-002 marcado hecho (near/avoid); el bloque de métricas ahora es
+un puntero vivo (grep) en vez de tablas que caducan; tabla de componentes
+con rutas `strategies/`; banner de HISTÓRICO en DIAGRAM_REVIEW.md.
 
 ---
 
-### BUGS-VAL-003: `validate_svg` standalone no ve iconos dibujados sólo con `<path>` (firewall) 🆕 ABIERTO
+### BUGS-VAL-003: `validate_svg` standalone no ve iconos dibujados sólo con `<path>` (firewall) ✅ RESUELTO (2026-08-02)
 **Componente**: `AlmaGag/validation/visual_quality.py`
 **Reportado**: 2026-08-02 (auditoría; re-verifica la nota del skill sobre R3/FortiGate)
 
@@ -232,14 +252,16 @@ falso positivo R3 («conector en el aire») en el camino standalone
 del optimizer), por eso los tests no lo ven. El ticket `BUGS-VAL-001 ✅` no
 documenta esta limitación.
 
-**Fix**: extender `_group_children_bbox` a `<path>` (bbox por anclas de
-comandos, como hace `draw/primitives/viewbox.py::_path_points`) o mover el
-transform/id al grupo externo en `firewall.py`. Añadir la limitación a
-BUGS-VAL-001 mientras tanto.
+**Fix aplicado**: (a) si el `<g id>` no tiene transform, se busca el
+translate/scale en un `<g>` DESCENDIENTE (el firewall envuelve así); (b)
+`scale(sx, sy)` no uniforme soportado; (c) `_group_children_bbox` ahora
+también recorre `<path>` (vía `viewbox._path_points`) y `<line>`.
+Verificado: firewall detectado en (500,100)-(625,158). Test:
+`tests/test_val003_path_icons.py`.
 
 ---
 
-### BUGS-ARCH-001: `Layout.copy()` pierde todos los atributos ad-hoc 🆕 ABIERTO
+### BUGS-ARCH-001: `Layout.copy()` pierde todos los atributos ad-hoc ✅ RESUELTO (2026-08-02)
 **Componente**: `AlmaGag/layout/layout.py:70-96`, `AlmaGag/generator.py:221-252`
 **Reportado**: 2026-08-02 (auditoría; mordió en la práctica al implementar §Q65)
 
@@ -253,14 +275,17 @@ default — contrato implícito, invisible y fácil de romper (§Q65 falló en e
 primer intento exactamente por esto; quedó nota en
 `zones.py::zone_affinity_groups`).
 
-**Fix**: o `copy()` preserva una lista REGISTRADA de atributos de contexto,
-o el contexto se saca del Layout a un objeto de sólo-lectura que viaja
-aparte (opción alineada con WISH-ARCH-004 «el mapa»). Test de regresión:
-copy() debe preservar el contexto declarado.
+**Fix aplicado**: registro explícito `Layout.CONTEXT_ATTRS` (10 atributos)
+que `copy()` preserva POR REFERENCIA — contexto compartido, no clonado
+(las marcas sobre `_considerations`, p.ej. `_zone_affinity`, se ven en
+todas las copias). Todo atributo de contexto nuevo debe registrarse ahí.
+Test: `tests/test_arch001_layout_copy.py`. Guarda: 34 fixtures
+byte-idénticos (comportamiento neutro; el contrato deja de ser implícito).
+La extracción del contexto a un objeto aparte queda para WISH-ARCH-004.
 
 ---
 
-### BUGS-AUTO-008: `_compact_horizontal` puede cizallar contenedores anidados (doble membresía) 🆕 ABIERTO
+### BUGS-AUTO-008: `_compact_horizontal` puede cizallar contenedores anidados (doble membresía) ✅ RESUELTO (2026-08-02)
 **Componente**: `AlmaGag/layout/strategies/auto/optimizer.py::_compact_horizontal`
 **Reportado**: 2026-08-02 (auditoría arquitectónica)
 
@@ -273,9 +298,14 @@ sus propios hijos y al del bloque del padre → cizalla que rompe la
 contención P59. Hoy no se manifiesta en fixtures (la guarda de adopción lo
 enmascara), pero es una bomba latente con P59 fomentando anidamiento.
 
-**Fix**: membresía por CIERRE transitivo — un elemento pertenece sólo al
-bloque de su contenedor top-level (como ya hace `_shift_container_subtree`).
-Test: fixture anidado + offsets forzados distintos → contención intacta.
+**Fix aplicado**: membresía por CIERRE transitivo — cada contenedor
+TOP-LEVEL forma un solo bloque con su subárbol completo. El test con
+offsets forzados (mock) verifica la contención. BONUS descubierto por el
+test: `_resolve_container_overlaps` empujaba al contenedor ANIDADO fuera
+de su ancestro (el solape ancestro↔descendiente es por diseño) — sólo se
+manifestaba con elementos libres presentes; ahora los pares con relación
+de ancestría se saltan. Tests: `tests/test_auto008_compaction_blocks.py`.
+Guarda: 34 fixtures byte-idénticos.
 
 ---
 
@@ -299,7 +329,7 @@ intra-zona del fixture minero cuando el revert gana.
 
 ---
 
-### BUGS-DRAW-001: `convert_svg_to_png` con Chrome captura a `scale`× sin escalar el contenido 🆕 ABIERTO
+### BUGS-DRAW-001: `convert_svg_to_png` con Chrome captura a `scale`× sin escalar el contenido ✅ RESUELTO (2026-08-02)
 **Componente**: `AlmaGag/debug.py::_png_via_chrome`
 **Reportado**: 2026-08-02 (observado en toda verificación visual del grupo P)
 
@@ -308,8 +338,10 @@ La ventana se dimensiona `width*scale × height*scale` pero no se pasa
 superior-izquierda y el resto del PNG queda en blanco (a 2×, tres cuartos
 de la imagen son aire). El camino cairosvg escala bien (`scale=scale`).
 
-**Fix**: añadir `--force-device-scale-factor={scale}` al comando de Chrome.
-Un solo argumento; verificar con un PNG de fixture.
+**Fix aplicado**: ventana al tamaño NATURAL del SVG +
+`--force-device-scale-factor={scale}` (la primera variante — escalar la
+ventana Y el dsf — cuadruplicaba). Verificado: mina a 2× = 3044×2398 px con
+el contenido llenando la lámina (92-95%; resto = margen §O51).
 
 ---
 
@@ -942,7 +974,14 @@ cerrar «0 fusiones» (§P61) y del pitch label-aware (§P61/K35).
 
 ---
 
-### WISH-ARCH-002: Convergencia a un solo algoritmo (auto-selección) 🚧 EN CURSO
+### WISH-ARCH-002: Convergencia a un solo algoritmo (auto-selección) ✅ RESUELTO (cierre 2026-08-02)
+
+> Cerrado por BUGS-DOCS-006: todo el alcance está en el código —
+> `select_strategy` (generator.py), `LayoutEngine` + `_STRATEGIES`
+> (engine.py), reorg `layout/strategies/{auto,hier,legacy}`, rescates ①
+> (`offset_optimizer.py`) y ② (`hier/scc.py`) integrados, default CLI
+> `select`. Lo único no hecho — «afinar el clasificador con más señales» —
+> es mejora continua, no trabajo en curso.
 **Componente**: `AlmaGag/generator.py` (`select_strategy`), `main.py`, `AlmaGag/layout/`
 **Contexto**: la intención original del autor NO es tener tres algoritmos (auto/laf/hier).
 AUTO fue el algoritmo original; LAF nació como **lente de debug por fases** de AUTO (mismo
@@ -1142,11 +1181,15 @@ Registro: `--layout-algorithm=hier` en `main.py` + `generator.OPTIMIZERS`. Reusa
 5. `generator.py` ahora usa **factoría** (`OPTIMIZERS = {'auto': ..., 'laf': ...}`) en lugar de `if/elif`. Una sola llamada a `optimizer.optimize(...)` para ambos.
 
 **Lo que NO se hizo en este fix** (queda como deuda separada):
-- `layout_algorithm` sigue propagándose a `render_containers()` y `draw_container()` para decidir si dibujar el icono inline (AUTO) o como elemento separado (LAF). Es una decisión de **renderizado**, no de optimizer. Registrado como **WISH-ARCH-002**.
+- `layout_algorithm` sigue propagándose a `render_containers()` y `draw_container()` para decidir si dibujar el icono inline (AUTO) o como elemento separado (LAF). Es una decisión de **renderizado**, no de optimizer. Registrado como **WISH-ARCH-005**.
 
 ---
 
-### WISH-ARCH-002: Eliminar `layout_algorithm` del Renderer ✅ RESUELTO
+### WISH-ARCH-005: Eliminar `layout_algorithm` del Renderer ✅ RESUELTO
+
+> (Renumerado el 2026-08-02 — era un `WISH-ARCH-002` DUPLICADO, colisión con
+> el ticket de convergencia. Referencias históricas a «WISH-ARCH-002 del
+> renderer» apuntan aquí; BUGS-DOCS-006.)
 **Componente**: `AlmaGag/renderer.py` (eliminado) → `layout/auto/renderer.py` + `layout/laf/renderer.py`
 **Severidad**: Media
 **Reportado**: 2026-06-18 (follow-up explícito de WISH-ARCH-001)
@@ -1881,39 +1924,13 @@ Ambos son válidos UML pero el diamante es más universal en diagramas arquitect
 
 ## 📊 Métricas
 
-### Conteo por categoría
+Los conteos por categoría se sacan grep-eando este archivo (`grep -c '^### BUGS-'`
+/ `'^### WISH-'`) — las tablas estáticas de conteo quedaban obsoletas al primer
+ticket nuevo (BUGS-DOCS-006). Estado al 2026-08-02: tanda de auditoría con
+BUGS-DOCS-001…006, BUGS-VAL-003 ✅, BUGS-ARCH-001 ✅, BUGS-AUTO-008 ✅,
+BUGS-AUTO-009, BUGS-DRAW-001 ✅, BUGS-DRAW-002; WISH abiertos: WISH-DRAW-002
+(flujos resaltados), WISH-LAYOUT-008 (unificación de etiquetas, iteración 6).
 
-| | BUGS | WISH | Total |
-|---|---:|---:|---:|
-| **LAYOUT** | 3 (3 resueltos ✅) | 4 (3 resueltos ✅) | 7 |
-| **LAF** | 2 (ambos resueltos ✅) | 1 (resuelto ✅) | 3 |
-| **ARCH** | 0 | 3 (3 resueltos ✅) | 3 |
-| **AUTO** | 7 (7 resueltos ✅) | 0 | 7 |
-| **DOCS** | 0 | 2 (2 resueltos ✅) | 2 |
-| **DIAG** | 8 (8 resueltos ✅) | 0 | 8 |
-| **Total** | **20** | **10** | **30** |
-
-Conteos DIAG viven en `DIAGRAM_REVIEW.md` — **los 8 BUGS-DIAG están RESUELTOS al 2026-06-15**.
-**Al 2026-06-18, 0 BUGS funcionales pendientes.** Resueltos en este ciclo:
-WISH-ARCH-001/002, BUGS-LAYOUT-001/002, BUGS-LAF-001/002.
-
-Problemas visuales DIAG (8 entradas) viven en `DIAGRAM_REVIEW.md`.
-
-### Priorización sugerida
-
-**Backlog activo (al 2026-06-19)**:
-
-| Prioridad | Código | Resumen |
-|---|---|---|
-| Baja | `WISH-LAYOUT-002` follow-up | Implementar `constraints.near` y `constraints.avoid` (v1 cerró `align`). Sigue siendo válido aunque WISH-LAYOUT-004 ya entregó los semantic hints. |
-| Baja | `WISH-LAYOUT-004` follow-up | Refinamientos: más templates específicos, calibración con corpus etiquetado más grande, constraint solver `above/below/between`. No bloquea uso del sistema. |
-| Baja | `WISH-LAF-001` follow-up | Edge straightening post-procesamiento + heurística por tipo de diagrama (v1 cerró pesos dinámicos). **Subsumido por WISH-LAYOUT-004**. |
-| Baja | `WISH-LAYOUT-003` v2 | Smart placement de callouts vía `CollisionDetector` (v1 usa fallback derecha→abajo). |
-
-**Tickets cerrados al 2026-06-19**: 20 BUGS resueltos + 9 WISH cerrados/parciales.
-**Pendiente como norte estratégico**: `WISH-LAYOUT-004` (auto-distribución semántica).
-
----
 
 ## Mapeo desde códigos anteriores
 

@@ -614,20 +614,40 @@ class AutoLayoutOptimizer(LayoutOptimizer):
                          e['y'] + e.get('height', ICON_HEIGHT) / 2.0)
                for e in positioned}
 
-        # Membresía en contenedores.
+        # Membresía en contenedores — BUGS-AUTO-008: por CIERRE transitivo
+        # hacia el contenedor TOP-LEVEL. Con la membresía directa, un
+        # contenedor anidado quedaba en DOS bloques (el de su padre y el
+        # suyo) y `node_group` resolvía por último-gana: offsets distintos
+        # para el anidado, sus hijos y el bloque del padre → cizalla que
+        # rompe la contención P59.
         containers = [e for e in layout.elements if 'contains' in e]
+        parent_of: dict = {}
+        for cont in containers:
+            for ref in cont.get('contains', []):
+                parent_of[extract_item_id(ref)] = cont['id']
+
+        def _top_container(eid):
+            seen = set()
+            while eid in parent_of and eid not in seen:
+                seen.add(eid)
+                eid = parent_of[eid]
+            return eid
+
         contained_of: dict = {}
         for cont in containers:
             for ref in cont.get('contains', []):
-                contained_of[extract_item_id(ref)] = cont['id']
+                contained_of[extract_item_id(ref)] = _top_container(cont['id'])
 
-        # Grupos: contenedor+contenido = bloque rígido; §N46 zona near = bloque
-        # rígido (offsets por fila la cizallarían); libres por fila visual.
+        # Grupos: cada contenedor TOP-LEVEL + su subárbol COMPLETO = un solo
+        # bloque rígido (BUGS-AUTO-008); §N46 zona near = bloque rígido
+        # (offsets por fila la cizallarían); libres por fila visual.
         row_h = ICON_HEIGHT
         groups: dict = {}
-        for cont in containers:
-            members = [cont['id']] + [extract_item_id(r) for r in cont.get('contains', [])]
-            groups[('cont', cont['id'])] = [m for m in members if m in pos]
+        top_containers = [c for c in containers if c['id'] not in parent_of]
+        for cont in top_containers:
+            tid = cont['id']
+            members = [tid] + [m for m, top in contained_of.items() if top == tid]
+            groups[('cont', tid)] = [m for m in members if m in pos]
         zone_of: dict = {}
         for e in positioned:
             gi = e.get('_near_zone')

@@ -7,7 +7,7 @@ AlmaGag genera diagramas SVG a partir de archivos JSON. Define elementos y conex
 ## Instalacion
 
 ```bash
-cd AlmaGag
+cd /ruta/del/clon/AlmaGag   # la RAÍZ del repo (donde está pyproject.toml)
 pip install -e .
 ```
 

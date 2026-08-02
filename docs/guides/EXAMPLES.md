@@ -4,14 +4,14 @@ Esta galería muestra las capacidades de AlmaGag con ejemplos prácticos.
 
 ## 01 - Íconos Registrados
 
-**Archivo**: `docs/diagrams/gags/01-iconos-registrados.gag`
+**Archivo**: `docs/diagrams/gags/01-iconos-registrados.sdjf`
 
 Demostración de los tipos de íconos disponibles con gradientes automáticos.
 
 ![Íconos registrados](../diagrams/svgs/01-iconos-registrados.svg)
 
 **Características:**
-- ✅ Tipos disponibles: `server`, `building`, `cloud`, `firewall`
+- ✅ 10 de los 13 tipos built-in: `server`, `cloud`, `building`, `firewall`, `database`, `router`, `computer`, `laptop`, `document`, `user`
 - ✅ Gradientes automáticos basados en color
 - ✅ Colores CSS y hexadecimales
 
@@ -30,26 +30,26 @@ Demostración de los tipos de íconos disponibles con gradientes automáticos.
 
 ## 02 - Íconos No Registrados (Fallback)
 
-**Archivo**: `docs/diagrams/gags/02-iconos-no-registrados.gag`
+**Archivo**: `docs/diagrams/gags/02-iconos-no-registrados.sdjf`
 
 Cuando un tipo de ícono no existe, se muestra el **Banana With Tape** (BWT) como indicador visual de ambigüedad.
 
 ![Íconos no registrados](../diagrams/svgs/02-iconos-no-registrados.svg)
 
 **Características:**
-- ⚠️ Tipos no existentes: `router`, `database`, `switch`, `laptop`
-- ✅ Fallback automático a BWT (plátano con cinta)
-- ✅ Warning en consola indicando el problema
+- ⚠️ Tipo sin icono en el fixture: `switch` (los demás — `router`, `database`, `laptop` — ya son built-in)
+- ✅ Fallback automático a BWT (plátano con cinta) **rotulado con el nombre del type** (§Q64)
+- ✅ WARNING §O55 en consola + inventario `§Q64: N type(s) en BWT`
 
 ```
-[WARN] No se pudo dibujar 'router', se usará ícono por defecto
+WARNING §O55: type 'switch' sin icono registrado — se dibuja el BWT por defecto
 ```
 
 ---
 
 ## 03 - Tipos de Conexiones
 
-**Archivo**: `docs/diagrams/gags/03-conexiones.gag`
+**Archivo**: `docs/diagrams/gags/03-conexiones.sdjf`
 
 Demostración de las cuatro direcciones de flechas disponibles.
 
@@ -74,7 +74,7 @@ Demostración de las cuatro direcciones de flechas disponibles.
 
 ## 04 - Gradientes y Colores
 
-**Archivo**: `docs/diagrams/gags/04-gradientes-colores.gag`
+**Archivo**: `docs/diagrams/gags/04-gradientes-colores.sdjf`
 
 Variedad de colores CSS y hexadecimales con gradientes automáticos.
 
@@ -116,7 +116,7 @@ Diagrama del propio AlmaGag, mostrando su arquitectura interna.
 
 ## 06 - Waypoints (SDJF v1.5)
 
-**Archivo**: `docs/diagrams/gags/06-waypoints.gag`
+**Archivo**: `docs/diagrams/gags/06-waypoints.sdjf`
 
 Routing complejo usando puntos intermedios explícitos.
 
@@ -143,7 +143,7 @@ Routing complejo usando puntos intermedios explícitos.
 
 ## 07 - Contenedores (SDJF v2.0)
 
-**Archivo**: `docs/diagrams/gags/07-containers.gag`
+**Archivo**: `docs/diagrams/gags/07-containers.sdjf`
 
 Agrupación visual de elementos relacionados con contenedores.
 
@@ -169,7 +169,7 @@ Agrupación visual de elementos relacionados con contenedores.
 
 ## 08 - Auto-Layout Completo (SDJF v2.0)
 
-**Archivo**: `docs/diagrams/gags/08-auto-layout.gag`
+**Archivo**: `docs/diagrams/gags/08-auto-layout.sdjf`
 
 Sin coordenadas: el sistema posiciona automáticamente todos los elementos.
 
@@ -208,7 +208,7 @@ Sin coordenadas: el sistema posiciona automáticamente todos los elementos.
 
 ## 09 - Sizing Proporcional (SDJF v2.0)
 
-**Archivo**: `docs/diagrams/gags/09-proportional-sizing.gag`
+**Archivo**: `docs/diagrams/gags/09-proportional-sizing.sdjf`
 
 Control de tamaños con propiedades `hp` (height) y `wp` (width).
 
@@ -242,7 +242,7 @@ Control de tamaños con propiedades `hp` (height) y `wp` (width).
 
 ## 10 - Layout Híbrido (SDJF v2.0)
 
-**Archivo**: `docs/diagrams/gags/10-hybrid-layout.gag`
+**Archivo**: `docs/diagrams/gags/10-hybrid-layout.sdjf`
 
 Combinación de auto-layout, sizing proporcional y prioridades.
 
@@ -287,148 +287,51 @@ Combinación de auto-layout, sizing proporcional y prioridades.
 
 ---
 
-## 11 - Layout con LAF (SDJF v3.0) ✨ NUEVO
+## 11 - Estrategias del motor (histórico: LAF → `legacy`)
 
 **Archivo**: `docs/diagrams/gags/05-arquitectura-gag.gag`
 
-Demostración del algoritmo LAF (Layout Algorithm Framework) con minimización de cruces.
+El antiguo algoritmo LAF vive congelado como estrategia `legacy` y **nunca
+se auto-elige**; el motor (`select`) decide entre `auto` y `hier` desde el
+JSON. Forzar una estrategia es territorio de debug:
 
-![Arquitectura GAG](../diagrams/svgs/05-arquitectura-gag.svg)
-
-**Características**:
-- ✅ Algoritmo LAF optimiza cruces de conexiones (-87%)
-- ✅ 4 fases especializadas: Structure → Abstract → Inflate → Grow
-- ✅ Menos colisiones (-24%) y expansiones de canvas (-87%)
-- ✅ Routing dual (2 pasadas) para máxima precisión
-
-**Comando**:
 ```bash
-# Generar con LAF
-almagag docs/diagrams/gags/05-arquitectura-gag.gag --layout-algorithm=laf
+# Uso normal: el motor elige
+almagag docs/diagrams/gags/05-arquitectura-gag.gag
 
-# Generar con AUTO (para comparar)
+# Forzar una estrategia (debug)
 almagag docs/diagrams/gags/05-arquitectura-gag.gag --layout-algorithm=auto
 ```
 
-**Comparación AUTO vs LAF para este diagrama:**
+## 12 - Epifanía: visualizar el proceso del motor
 
-| Métrica | AUTO | LAF | Mejora |
-|---------|------|-----|--------|
-| **Cruces de conexiones** | 15 | 2 | -87% ✅ |
-| **Colisiones** | 8 | 6 | -25% ✅ |
-| **Llamadas a routing** | 25 | 5 | -80% ✅ |
-| **Tiempo de ejecución** | 1.2s | 0.7s | -42% ✅ |
+**Flag `--epifania`** (alias históricos: `--debug-phases`, `--visualize-growth`)
 
-**¿Cuándo usar LAF?**
-- Diagramas complejos (>20 elementos)
-- Contenedores anidados (3+ niveles)
-- Muchas conexiones (>20)
-- Minimizar cruces es crítico
+La Epifanía genera un SVG por FASE del pipeline (agnóstica del motor desde
+§ii-b) en `debug/epifania/<diagrama>/` + un `index.html` tipo flipbook, con
+las colisiones marcadas en cada foto:
 
-Ver [LAYOUT-DECISION-GUIDE.md](../guides/LAYOUT-DECISION-GUIDE.md) para más detalles.
-
----
-
-## 12 - Visualización del Proceso LAF (SDJF v3.0) ✨ NUEVO
-
-**Uso educativo del flag `--visualize-growth`**
-
-El algoritmo LAF trabaja en 4 fases secuenciales. Puedes visualizar cada fase usando el flag `--visualize-growth`:
-
-**Comando**:
 ```bash
-almagag docs/diagrams/gags/05-arquitectura-gag.gag \
-  --layout-algorithm=laf \
-  --visualize-growth
+almagag docs/diagrams/gags/05-arquitectura-gag.gag --epifania
 ```
 
-**Salida generada**:
-Se crean 5 SVGs en `debug/iterations/`:
+Fases típicas del motor `auto`: posicionamiento (barycenter + contenedores
++ ruteo inicial) → contenedores (dimensiones + centrado) → zonas
+(near §N46 / banda-periferia §P60) → compactación → iteraciones →
+re-ruteo final → final. Es la herramienta para responder «¿por qué salió
+así?».
 
-1. **`fase1_structure_TIMESTAMP.svg`**
-   - Análisis de topología y jerarquía del grafo
-   - Identifica niveles y grupos de elementos
+## ¿Qué estrategia va a elegir el motor?
 
-2. **`fase2_abstract_TIMESTAMP.svg`**
-   - Posicionamiento abstracto minimizando cruces
-   - Aplica algoritmo Sugiyama-like
-
-3. **`fase3_inflate_TIMESTAMP.svg`**
-   - Aplicación de dimensiones reales a elementos
-   - Transforma posiciones abstractas a coordenadas finales
-
-4. **`fase4_grow_TIMESTAMP.svg`**
-   - Expansión bottom-up de contenedores
-   - Ajusta tamaños de contenedores para envolver elementos
-
-5. **`final_TIMESTAMP.svg`**
-   - Resultado final con routing de conexiones
-   - Layout optimizado completo
-
-**Uso típico**:
-- Entender cómo funciona LAF internamente
-- Presentaciones educativas
-- Debugging de problemas de layout
-- Comparar estrategias de optimización
-
-**Combinar con otros flags**:
-```bash
-# Visualización completa con debug
-almagag complejo.gag \
-  --layout-algorithm=laf \
-  --visualize-growth \
-  --debug \
-  --dump-iterations
-```
-
----
-
-## Comparación de Algoritmos
-
-AlmaGag v3.0 ofrece dos algoritmos de layout. Esta sección te ayuda a elegir el correcto.
-
-### Mismo Diagrama, Dos Algoritmos
-
-**Ejemplo**: `05-arquitectura-gag.gag` (18 elementos, 22 conexiones)
-
-#### Generar con AUTO:
-```bash
-almagag docs/diagrams/gags/05-arquitectura-gag.gag \
-  --layout-algorithm=auto \
-  --dump-iterations \
-  -o output/arquitectura-auto.svg
-```
-
-#### Generar con LAF:
-```bash
-almagag docs/diagrams/gags/05-arquitectura-gag.gag \
-  --layout-algorithm=laf \
-  --dump-iterations \
-  -o output/arquitectura-laf.svg
-```
-
-### Tabla Comparativa Completa
-
-| Aspecto | AUTO | LAF |
-|---------|------|-----|
-| **Velocidad (diagrama simple)** | Rápido (0.2s) | Overhead (0.4s) |
-| **Velocidad (diagrama complejo)** | Lento (1.5s) | Rápido (0.8s) |
-| **Cruces de conexiones** | Muchos | Minimizados (-87%) |
-| **Colisiones** | Iterativo | Optimizado (-24%) |
-| **Coordenadas manuales** | ✅ Preserva | ❌ Ignora |
-| **Contenedores anidados** | ⚠️ Limitado | ✅ Excelente |
-| **Producción** | ✅ Bueno | ✅ Mejor |
-| **Prototipos** | ✅ Ideal | ⚠️ Overkill |
-
-### Decisión Rápida
+Ya no se comparan algoritmos: el default `select` decide desde el JSON.
+Reglas (en orden; la primera que aplica gana, con WARNING §O53 si una señal
+anula a otra):
 
 ```
-¿Diagrama > 20 elementos? → LAF
-¿Contenedores anidados (3+ niveles)? → LAF
-¿> 20 conexiones? → LAF
-¿Minimizar cruces es crítico? → LAF
-¿Tienes coordenadas x,y manuales? → AUTO
-¿Prototipo rápido? → AUTO
+1. --view ≠ auto   → hier      5. decision/diamond → hier
+2. considerations  → auto      6. ciclo sin x/y    → hier
+3. contains        → auto      7. resto            → auto
+4. areas           → hier
 ```
 
 **Para más información**: [LAYOUT-DECISION-GUIDE.md](./LAYOUT-DECISION-GUIDE.md)
@@ -439,15 +342,15 @@ almagag docs/diagrams/gags/05-arquitectura-gag.gag \
 
 ```bash
 # Generar todos
-for file in docs/examples/*.gag; do
+for file in docs/diagrams/gags/*.sdjf docs/diagrams/gags/*.gag; do
     echo "Generando $file..."
     almagag "$file"
 done
 
 # O individualmente
-almagag docs/examples/01-iconos-registrados.gag
-almagag docs/examples/08-auto-layout.gag
-almagag docs/examples/10-hybrid-layout.gag
+almagag docs/diagrams/gags/01-iconos-registrados.sdjf
+almagag docs/diagrams/gags/08-auto-layout.sdjf
+almagag docs/diagrams/gags/10-hybrid-layout.sdjf
 ```
 
 ---
@@ -567,9 +470,7 @@ Para evitar cruces de líneas:
 - **Release SDJF v3.0**: `docs/RELEASE_v3.0.0.md`
 
 ### Algoritmos de Layout ✨ NUEVO
-- **Guía de Decisión AUTO vs LAF**: `docs/guides/LAYOUT-DECISION-GUIDE.md`
-- **Comparación Técnica LAF**: `docs/architecture/modules/layout/laf/COMPARISON.md`
-- **Progreso LAF**: `docs/architecture/modules/layout/laf/PROGRESS.md`
+- **Cómo decide el motor**: `docs/guides/LAYOUT-DECISION-GUIDE.md`
 - **Referencia CLI**: `docs/guides/CLI-REFERENCE.md`
 
 ### Arquitectura y Uso
@@ -578,5 +479,5 @@ Para evitar cruces de líneas:
 
 ---
 
-**Actualizado**: 2026-01-21
-**Versión**: AlmaGag v3.0.0 + SDJF v3.0
+**Actualizado**: 2026-08-02
+**Versión**: AlmaGag v3.5.0

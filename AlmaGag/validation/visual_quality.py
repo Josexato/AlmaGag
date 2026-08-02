@@ -155,13 +155,14 @@ _ICON_W = 80
 _ICON_H = 50
 
 _TRANSLATE_RE = _re.compile(r'translate\(\s*([-\d.]+)[ ,]+([-\d.]+)\s*\)')
-_SCALE_RE = _re.compile(r'scale\(\s*([-\d.]+)')
+_SCALE_RE = _re.compile(r'scale\(\s*([-\d.]+)(?:[ ,]+([-\d.]+))?')
 
 
 def _group_transform_bbox(g):
     """
     Bbox de un icono custom renderizado como <g transform="translate(x,y) scale(s)">
-    (factory, gear, contract, iconos SVG embebidos). Devuelve (x1,y1,x2,y2) o None.
+    (factory, gear, contract, iconos SVG embebidos). BUGS-VAL-003: soporta
+    scale(sx, sy) no uniforme. Devuelve (x1,y1,x2,y2) o None.
     """
     tr = g.get('transform', '')
     m = _TRANSLATE_RE.search(tr)
@@ -169,17 +170,29 @@ def _group_transform_bbox(g):
         return None
     tx, ty = float(m.group(1)), float(m.group(2))
     sm = _SCALE_RE.search(tr)
-    s = float(sm.group(1)) if sm else 1.0
-    return (tx, ty, tx + _ICON_W * s, ty + _ICON_H * s)
+    sx = float(sm.group(1)) if sm else 1.0
+    sy = float(sm.group(2)) if sm and sm.group(2) else sx
+    return (tx, ty, tx + _ICON_W * sx, ty + _ICON_H * sy)
 
 
 def _group_children_bbox(g):
     """
     Bbox a partir de las formas hijas de un <g> sin transform: <rect>,
-    <polygon>, <circle>, <ellipse> (cubre diamond y built-ins con coords
-    absolutas). Devuelve (x1,y1,x2,y2) o None.
+    <polygon>, <circle>, <ellipse>, <path> y <line> (BUGS-VAL-003: el
+    firewall se dibuja SOLO con <path> y quedaba invisible → falso
+    positivo R3). Devuelve (x1,y1,x2,y2) o None.
     """
     xs, ys = [], []
+    from AlmaGag.draw.primitives.viewbox import _path_points
+    for path in g.iter(f'{{{SVG_NS}}}path'):
+        for px, py in _path_points(path.get('d', '')):
+            xs.append(px); ys.append(py)
+    for line in g.iter(f'{{{SVG_NS}}}line'):
+        try:
+            xs += [float(line.get('x1', 0)), float(line.get('x2', 0))]
+            ys += [float(line.get('y1', 0)), float(line.get('y2', 0))]
+        except (TypeError, ValueError):
+            pass
     for rect in g.iter(f'{{{SVG_NS}}}rect'):
         try:
             x, y = float(rect.get('x', 0)), float(rect.get('y', 0))
@@ -248,6 +261,13 @@ def _collect_icon_bboxes(root):
         if not _is_icon_group_id(gid):
             continue
         bb = _group_transform_bbox(g)
+        if bb is None:
+            # BUGS-VAL-003: el id puede vivir en un <g> envoltorio SIN
+            # transform cuyo HIJO lleva el translate/scale (caso firewall)
+            for child in g.iter(f'{{{SVG_NS}}}g'):
+                bb = _group_transform_bbox(child)
+                if bb is not None:
+                    break
         if bb is None:
             bb = _group_children_bbox(g)
         if bb is None:

@@ -1,5 +1,12 @@
 # LAF (Layout Abstracto Primero) - Progreso de Implementación
 
+> **⚠️ HISTÓRICO — motor LAF congelado como `legacy` (nunca se auto-elige).**
+> Rutas y comandos de este documento son previos a la reorg
+> `layout/strategies/` y ya no ejecutan. Estado real: `docs/architecture/…`
+> queda superado por el código (`AlmaGag/layout/engine.py::_STRATEGIES`);
+> auditoría con detalle: `docs/reviews/auditoria-2026-08-02/` (BUGS-DOCS-002).
+
+
 ## Resumen Ejecutivo
 
 Reorganización completa del sistema de layout de AlmaGag para minimizar cruces de conectores mediante un enfoque jerárquico inspirado en Sugiyama.

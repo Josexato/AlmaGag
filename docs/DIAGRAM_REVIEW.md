@@ -1,5 +1,12 @@
 # Revisión de calidad de diagramas
 
+> **⚠️ HISTÓRICO (congelado al 2026-06-15).** Este checklist cubrió los
+> BUGS-DIAG-001…008, todos resueltos. La actividad de revisión visual
+> posterior vive en `docs/reviews/` (iteraciones 3-5, grupos N/O/P/Q y la
+> auditoría 2026-08-02). Las métricas de canvas citadas abajo son previas
+> al recorte §O51 y las rutas `layout/auto|laf/` previas a la reorg
+> `strategies/` — no corresponden al código actual (BUGS-DOCS-006).
+
 Checklist vivo de problemas visuales detectados en los SVGs renderizados de AlmaGag. A diferencia de `TECHNICAL_DEBT.md` (que trata bugs del código), este documento trata problemas **específicos del render visual** de cada `.sdjf`/`.gag`.
 
 Sigue la misma convención de códigos que `TECHNICAL_DEBT.md`: `<CATEGORÍA>-DIAG-<NNN>`. Todas las entradas son `BUGS-DIAG-NNN` por definición (un diagrama mal renderizado siempre es "no funciona como debería"). Se resuelven marcando el checkbox.

@@ -1,5 +1,13 @@
 # Flujo de Ejecución de AlmaGag
 
+> **⚠️ DESACTUALIZADO (pre-reorg `strategies/`, ≤jun-2026).** El pipeline
+> real es: `generator.py` (expand_unions §H7 → semantics §Q63 → theme §O57 →
+> `select_strategy` → templates) → `LayoutEngine` (`auto`/`hier`/`legacy`) →
+> banding §P60 → anticolisión §P61 → re-ruteo → métricas §O52. Ver el código
+> y `docs/reviews/auditoria-2026-08-02/` (BUGS-DOCS-002/003/004); este
+> documento se conserva por su valor histórico hasta su reescritura.
+
+
 Este documento describe el flujo de ejecución completo del sistema AlmaGag cuando se genera un diagrama.
 
 ## Diagrama Visual
