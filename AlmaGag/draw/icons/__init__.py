@@ -38,6 +38,32 @@ ICON_TYPE_ALIASES = {
 }
 
 
+def unresolved_icon_types(elements, embedded_icons=None):
+    """§Q64: inventario de types que caerán al BWT (sin icono resoluble).
+
+    Un type nuevo con BWT deliberado es uso VÁLIDO del estándar; este
+    inventario alimenta el audit: la señal para promover un type al catálogo
+    es verlo en BWT en ≥2 fixtures. Devuelve la lista ordenada de types
+    distintos sin módulo, sin alias y sin embebido ('union' se dibuja
+    aparte y no cuenta).
+    """
+    import importlib.util
+    embedded = embedded_icons or {}
+    out = set()
+    for e in elements:
+        t = e.get('type', 'unknown')
+        if t == 'union' or 'contains' in e:
+            continue
+        if t in embedded:
+            continue
+        resolved = ICON_TYPE_ALIASES.get(t, t)
+        if resolved in embedded:
+            continue
+        if importlib.util.find_spec(f'AlmaGag.draw.icons.{resolved}') is None:
+            out.add(t)
+    return sorted(out)
+
+
 # ============================================================================
 # SOPORTE PARA ICONOS SVG EMBEBIDOS (.gag format)
 # ============================================================================
@@ -380,6 +406,15 @@ def draw_icon_shape(dwg, element, embedded_icons=None):
                        f"dibuja el BWT por defecto. Error: {e}")
         from AlmaGag.draw.icons.bwt import draw_bwt
         draw_bwt(dwg, x, y)
+        # §Q64: el BWT MUESTRA el nombre del type — usar un type nuevo con
+        # BWT deliberado es legítimo (nombrar lo que aún no tiene forma
+        # visual); el nombre a la vista vuelve la lámina auto-explicativa.
+        from AlmaGag.config import FONT_SIZE_ZONE, FONT_WEIGHT_ZONE
+        dwg.add(dwg.text(
+            elem_type, insert=(x + ICON_WIDTH / 2, y - 5),
+            text_anchor='middle', font_size=f'{FONT_SIZE_ZONE}px',
+            font_weight=FONT_WEIGHT_ZONE,
+            font_family="'JetBrains Mono', monospace", fill='#8a1c1c'))
 
 
 def draw_icon_label(dwg, element, position_info):
