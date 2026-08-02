@@ -10,7 +10,7 @@
 ### Instalar AlmaGag
 
 ```bash
-cd AlmaGag
+cd /ruta/del/clon/AlmaGag   # la RAÍZ del repo (donde está pyproject.toml)
 pip install -e .
 ```
 
@@ -92,44 +92,21 @@ Abre `mi-diagrama.svg` en tu navegador o editor de imágenes.
 
 ## Uso Avanzado
 
-### Algoritmos de Layout ✨ NUEVO v3.0
+### Motor de layout (v3.4+: el motor elige solo)
 
-AlmaGag v3.0 ofrece dos algoritmos de layout automático:
-
-#### 🔹 AUTO (por defecto)
-Layout jerárquico iterativo, rápido para diagramas simples.
+Ya **no se elige algoritmo**. El comando normal no lleva flags de layout: el
+motor (`LayoutEngine`) selecciona la estrategia a partir del JSON —
+`contains`/`considerations` → `auto`; `areas`, nodos `decision` o un ciclo
+sin coordenadas → `hier`; el histórico `legacy` (ex-LAF) está congelado y
+sólo sirve para debug.
 
 ```bash
 almagag diagrama.gag
-# o explícitamente:
-almagag diagrama.gag --layout-algorithm=auto
 ```
 
-**Ventajas**:
-- ✅ Rápido en diagramas pequeños
-- ✅ Preserva coordenadas x,y manuales
-- ✅ Ideal para prototipos
-
-#### 🔹 LAF (opcional)
-Layout optimizado con minimización de cruces, ideal para diagramas complejos.
-
-```bash
-almagag diagrama.gag --layout-algorithm=laf
-```
-
-**Ventajas**:
-- ✅ -87% cruces de conexiones
-- ✅ -24% colisiones
-- ✅ Optimizado para >20 elementos
-- ✅ Excelente con contenedores anidados
-
-**¿Cuándo usar LAF?**
-- Diagrama complejo (>20 elementos)
-- Contenedores anidados (3+ niveles)
-- Muchas conexiones (>20)
-- Minimizar cruces es crítico
-
-Ver [LAYOUT-DECISION-GUIDE.md](./LAYOUT-DECISION-GUIDE.md) para elegir el algoritmo correcto.
+La forma de influir en el resultado es el **JSON** (declarar `areas`,
+`contains`, `considerations`, `semantic_type`, `layout_template`), no un
+flag. Ver [LAYOUT-DECISION-GUIDE.md](./LAYOUT-DECISION-GUIDE.md).
 
 ---
 
@@ -223,7 +200,7 @@ almagag archivo.gag
 
 | Opción | Descripción |
 |--------|-------------|
-| `--layout-algorithm {auto\|laf}` | Selecciona algoritmo de layout |
+| `--layout-algorithm {select\|auto\|hier\|legacy}` | Forzar estrategia (debug; el default `select` decide solo) |
 | `--debug` | Logs detallados |
 | `--visualdebug` | Grilla + badge en SVG |
 | `--exportpng` | Genera PNG además de SVG |
@@ -232,7 +209,7 @@ almagag archivo.gag
 **Ejemplos**:
 ```bash
 # Layout con LAF
-almagag diagrama.gag --layout-algorithm=laf
+almagag diagrama.gag   # el motor elige la estrategia solo
 
 # Debug completo
 almagag diagrama.gag --debug --visualdebug
@@ -258,35 +235,45 @@ python -m AlmaGag.main archivo.gag
 
 ```bash
 # Íconos disponibles
-almagag docs/examples/01-iconos-registrados.gag
+almagag docs/diagrams/gags/01-iconos-registrados.sdjf
 
 # Tipos de conexiones
-almagag docs/examples/03-conexiones.gag
+almagag docs/diagrams/gags/03-conexiones.sdjf
 
 # Auto-layout completo
-almagag docs/examples/08-auto-layout.gag
+almagag docs/diagrams/gags/08-auto-layout.sdjf
 
 # Sizing proporcional
-almagag docs/examples/09-proportional-sizing.gag
+almagag docs/diagrams/gags/09-proportional-sizing.sdjf
 
 # Layout híbrido (auto + manual)
-almagag docs/examples/10-hybrid-layout.gag
+almagag docs/diagrams/gags/10-hybrid-layout.sdjf
 ```
 
 ---
 
 ## Tipos de Íconos Disponibles
 
-| Tipo | Forma | Uso Típico |
-|------|-------|------------|
-| `server` | Rectángulo | Servidores, APIs |
-| `building` | Rectángulo | Bases de datos, storage |
-| `cloud` | Elipse | Servicios cloud, cache |
-| `firewall` | Rectángulo | Firewalls, gateways |
+Built-in (13): `server`, `cloud`, `building`, `firewall`, `database`,
+`router`, `laptop`, `computer`, `document`, `user`, `diamond`, `decision`
+(+ `bwt`, el fallback). Alias §O55: `inet`/`wan`/`internet` dibujan `cloud`.
 
-Si un tipo no existe, se muestra **Banana With Tape** (plátano con cinta) como indicador visual.
+| Tipo | Uso típico |
+|------|------------|
+| `server` | Servidores, APIs, servicios |
+| `database` | Bases de datos, storage |
+| `cloud` | Internet, WAN, nubes (también `inet`/`wan`/`internet`) |
+| `building` | Sedes, datacenters, edificios |
+| `firewall` | Seguridad perimetral |
+| `router` | Equipos de red |
+| `laptop` / `computer` | Puestos de trabajo, terminales |
+| `document` | Documentos, equipos agrupados |
+| `user` | Personas, roles |
+| `diamond` / `decision` | Rombo: interfaz (UML) / decisión (flowchart → fuerza `hier`) |
 
----
+Un `type` desconocido dibuja la banana con cinta (BWT) **rotulada con el
+nombre del type** + WARNING (§O55/§Q64) — usable a propósito mientras un
+concepto no tiene forma. Iconos custom: sección `"icons"` en un `.gag`.
 
 ## Direcciones de Conexión
 
@@ -336,17 +323,17 @@ O usa Python directamente:
 python -m AlmaGag.main archivo.gag
 ```
 
-### Warning: "No se pudo dibujar 'router'"
+### Aparece una banana con cinta (BWT)
 
-El tipo de ícono no existe. Opciones:
-1. Usar un tipo disponible: `server`, `building`, `cloud`, `firewall`
-2. Crear tu propio tipo en `draw/mi_tipo.py`
-3. Aceptar el fallback BWT (Banana With Tape)
+El `type` no existe — el rótulo sobre la banana dice cuál. Opciones:
+1. Usar uno de los 13 built-in (tabla de arriba) o un alias (`inet`→`cloud`)
+2. Definir el icono en la sección `"icons"` de un `.gag`
+3. Dejar el BWT a propósito (§Q64) mientras el concepto no tiene forma
 
 ### Warning: "N colisiones detectadas"
 
 El auto-layout no pudo resolver todas las colisiones. Opciones:
-1. **Probar LAF**: `almagag diagrama.gag --layout-algorithm=laf` (reduce colisiones en 24%)
+1. **Dejar que el motor elija**: `almagag diagrama.gag` (el default `select` aplica la mejor estrategia)
 2. Aumentar tamaño del canvas
 3. Especificar coordenadas manualmente para elementos problemáticos
 4. Ajustar prioridades con `label_priority`
@@ -356,9 +343,8 @@ El auto-layout no pudo resolver todas las colisiones. Opciones:
 
 ## Siguientes Pasos
 
-### Algoritmos de Layout ✨ NUEVO
-- **Guía de decisión AUTO vs LAF**: Ver `docs/guides/LAYOUT-DECISION-GUIDE.md`
-- **Comparación técnica**: Ver `docs/architecture/modules/layout/laf/COMPARISON.md`
+### Motor de layout
+- **Cómo decide el motor**: Ver `docs/guides/LAYOUT-DECISION-GUIDE.md`
 - **Referencia CLI completa**: Ver `docs/guides/CLI-REFERENCE.md`
 
 ### Especificaciones SDJF
@@ -372,5 +358,5 @@ El auto-layout no pudo resolver todas las colisiones. Opciones:
 
 ---
 
-**Versión**: AlmaGag v3.0.0 + SDJF v3.0
-**Actualizado**: 2026-01-21
+**Versión**: AlmaGag v3.5.0 · **Actualizado**: 2026-08-02
+**Actualizado**: 2026-08-02

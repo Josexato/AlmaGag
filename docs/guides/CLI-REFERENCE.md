@@ -1,4 +1,4 @@
-# Referencia Completa CLI - AlmaGag v3.1
+# Referencia Completa CLI - AlmaGag v3.5
 
 Esta guía documenta todas las opciones de línea de comandos disponibles en AlmaGag.
 
@@ -320,9 +320,10 @@ almagag diagrama.sdjf --visualdebug --guide-lines 186 236 -o diagrama.svg
 
 Exporta el SVG generado a PNG en la carpeta `debug/outputs/`, además del SVG.
 
-**Requisitos**:
-- Requiere `cairosvg` instalado: `pip install cairosvg`
-- En Windows, puede requerir dependencias adicionales de Cairo
+**Requisitos (§O58)**: ninguno si hay Chrome/Chromium/Edge en el sistema
+(multiplataforma; override con la variable `ALMAGAG_CHROME`). Sin navegador,
+cae a `cairosvg` (`pip install cairosvg`) — fiel desde §O50 (el halo de
+texto es geometría SVG, no CSS).
 
 **Salida**:
 ```bash
@@ -597,20 +598,11 @@ done
 
 ## Troubleshooting
 
-### Error: "cairosvg no encontrado"
+### `--exportpng` no genera PNG
 
-```bash
-# Windows
-pip install cairosvg
-
-# Linux (Ubuntu/Debian)
-sudo apt-get install libcairo2-dev
-pip install cairosvg
-
-# macOS
-brew install cairo
-pip install cairosvg
-```
+No hay Chrome/Chromium/Edge ni `cairosvg`. Opciones:
+1. Instalar cairosvg: `pip install cairosvg` (Linux: antes `sudo apt-get install libcairo2-dev`)
+2. Apuntar a un Chrome existente: `export ALMAGAG_CHROME=/ruta/al/chrome`
 
 ### El motor eligió una estrategia que no esperaba
 
@@ -670,7 +662,7 @@ almagag diagrama.sdjf --epifania --debug -o diagrama.svg
 ### Compatibilidad
 
 - Python 3.8+
-- Requiere `svgwrite`, `networkx`, `scipy`
+- Única dependencia: `svgwrite` (opcional: `cairosvg` para PNG sin navegador)
 - Opcionalmente `cairosvg` para `--exportpng`
 
 ### Más Información
@@ -681,4 +673,4 @@ almagag diagrama.sdjf --epifania --debug -o diagrama.svg
 
 ---
 
-**AlmaGag v3.1.0** - Sistema de Diagramas de Arquitectura
+**AlmaGag v3.5.0** - Sistema de Diagramas de Arquitectura
