@@ -193,8 +193,14 @@ def cluster_near_groups(layout, considerations: List[dict]) -> int:
 
     n_groups = 0
     for gi, cons in enumerate(c for c in considerations if c['kind'] == 'near'):
+        # §Q65: un near de ÁREAS es afinidad de zonas (consumido por el
+        # banding P60), no un cluster de miembros — y un contenedor jamás se
+        # clusteriza como icono (movería la caja sin su subárbol).
+        if cons.get('_zone_affinity'):
+            continue
         els = [by_id[i] for i in cons['ids']
-               if i in by_id and 'x' in by_id[i] and i not in contained]
+               if i in by_id and 'x' in by_id[i] and i not in contained
+               and 'contains' not in by_id[i]]
         if len(els) < 2:
             continue
 
