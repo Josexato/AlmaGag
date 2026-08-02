@@ -17,9 +17,9 @@ Cada entrada tiene un código con estructura uniforme `<CATEGORÍA>-<COMPONENTE>
 
 ### Componentes
 
-- **`LAYOUT`** — Issues transversales del módulo `AlmaGag/layout/` que afectan a ambos algoritmos.
-- **`LAF`** — Issues exclusivos del algoritmo LAF (`AlmaGag/layout/laf/`).
-- **`AUTO`** — Issues exclusivos del algoritmo AUTO (`AlmaGag/layout/auto/`).
+- **`LAYOUT`** — Issues transversales del módulo `AlmaGag/layout/`.
+- **`LAF`** — (histórico) issues del ex-algoritmo LAF, hoy congelado como `AlmaGag/layout/strategies/legacy/`.
+- **`AUTO`** — Issues exclusivos de la estrategia AUTO (`AlmaGag/layout/strategies/auto/`).
 - **`ROUT`** — Issues del módulo de routing (`AlmaGag/routing/`): cálculo de paths, port assignment, visibility graph, simplificación.
 - **`TPL`** — Issues del módulo de templates (`AlmaGag/layout/templates/`): detección semántica, scorers, aplicación de patrones, calibración del clasificador.
 - **`VAL`** — Issues del módulo de validación (`AlmaGag/validation/`): reglas de calidad visual (R1/R2/R3) y sus heurísticas.
@@ -189,7 +189,7 @@ usuario nuevo: TODO comando copiado de QUICKSTART §layout falla.
 
 ---
 
-### BUGS-DOCS-006: TECHNICAL_DEBT.md auto-inconsistente (este archivo) 🆕 ABIERTO
+### BUGS-DOCS-006: TECHNICAL_DEBT.md auto-inconsistente (este archivo) ✅ RESUELTO (2026-08-02)
 **Componente**: `docs/TECHNICAL_DEBT.md`, `docs/DIAGRAM_REVIEW.md`
 **Reportado**: 2026-08-02 (auditoría)
 
@@ -212,8 +212,12 @@ usuario nuevo: TODO comando copiado de QUICKSTART §layout falla.
   recorta), rutas de módulo viejas y una recomendación de habilitar un motor
   congelado.
 
-**Fix**: renumeración + cierre de estados + regenerar métricas/backlog +
-banner de histórico en DIAGRAM_REVIEW.
+**Fix aplicado**: el duplicado del renderer renumerado a **WISH-ARCH-005**
+(con nota de mapeo); el de convergencia cerrado ✅ (alcance completo en el
+código; «afinar clasificador» queda como mejora continua); follow-up de
+WISH-LAYOUT-002 marcado hecho (near/avoid); el bloque de métricas ahora es
+un puntero vivo (grep) en vez de tablas que caducan; tabla de componentes
+con rutas `strategies/`; banner de HISTÓRICO en DIAGRAM_REVIEW.md.
 
 ---
 
@@ -954,7 +958,14 @@ cerrar «0 fusiones» (§P61) y del pitch label-aware (§P61/K35).
 
 ---
 
-### WISH-ARCH-002: Convergencia a un solo algoritmo (auto-selección) 🚧 EN CURSO
+### WISH-ARCH-002: Convergencia a un solo algoritmo (auto-selección) ✅ RESUELTO (cierre 2026-08-02)
+
+> Cerrado por BUGS-DOCS-006: todo el alcance está en el código —
+> `select_strategy` (generator.py), `LayoutEngine` + `_STRATEGIES`
+> (engine.py), reorg `layout/strategies/{auto,hier,legacy}`, rescates ①
+> (`offset_optimizer.py`) y ② (`hier/scc.py`) integrados, default CLI
+> `select`. Lo único no hecho — «afinar el clasificador con más señales» —
+> es mejora continua, no trabajo en curso.
 **Componente**: `AlmaGag/generator.py` (`select_strategy`), `main.py`, `AlmaGag/layout/`
 **Contexto**: la intención original del autor NO es tener tres algoritmos (auto/laf/hier).
 AUTO fue el algoritmo original; LAF nació como **lente de debug por fases** de AUTO (mismo
@@ -1154,11 +1165,15 @@ Registro: `--layout-algorithm=hier` en `main.py` + `generator.OPTIMIZERS`. Reusa
 5. `generator.py` ahora usa **factoría** (`OPTIMIZERS = {'auto': ..., 'laf': ...}`) en lugar de `if/elif`. Una sola llamada a `optimizer.optimize(...)` para ambos.
 
 **Lo que NO se hizo en este fix** (queda como deuda separada):
-- `layout_algorithm` sigue propagándose a `render_containers()` y `draw_container()` para decidir si dibujar el icono inline (AUTO) o como elemento separado (LAF). Es una decisión de **renderizado**, no de optimizer. Registrado como **WISH-ARCH-002**.
+- `layout_algorithm` sigue propagándose a `render_containers()` y `draw_container()` para decidir si dibujar el icono inline (AUTO) o como elemento separado (LAF). Es una decisión de **renderizado**, no de optimizer. Registrado como **WISH-ARCH-005**.
 
 ---
 
-### WISH-ARCH-002: Eliminar `layout_algorithm` del Renderer ✅ RESUELTO
+### WISH-ARCH-005: Eliminar `layout_algorithm` del Renderer ✅ RESUELTO
+
+> (Renumerado el 2026-08-02 — era un `WISH-ARCH-002` DUPLICADO, colisión con
+> el ticket de convergencia. Referencias históricas a «WISH-ARCH-002 del
+> renderer» apuntan aquí; BUGS-DOCS-006.)
 **Componente**: `AlmaGag/renderer.py` (eliminado) → `layout/auto/renderer.py` + `layout/laf/renderer.py`
 **Severidad**: Media
 **Reportado**: 2026-06-18 (follow-up explícito de WISH-ARCH-001)
@@ -1893,39 +1908,13 @@ Ambos son válidos UML pero el diamante es más universal en diagramas arquitect
 
 ## 📊 Métricas
 
-### Conteo por categoría
+Los conteos por categoría se sacan grep-eando este archivo (`grep -c '^### BUGS-'`
+/ `'^### WISH-'`) — las tablas estáticas de conteo quedaban obsoletas al primer
+ticket nuevo (BUGS-DOCS-006). Estado al 2026-08-02: tanda de auditoría con
+BUGS-DOCS-001…006, BUGS-VAL-003 ✅, BUGS-ARCH-001 ✅, BUGS-AUTO-008 ✅,
+BUGS-AUTO-009, BUGS-DRAW-001 ✅, BUGS-DRAW-002; WISH abiertos: WISH-DRAW-002
+(flujos resaltados), WISH-LAYOUT-008 (unificación de etiquetas, iteración 6).
 
-| | BUGS | WISH | Total |
-|---|---:|---:|---:|
-| **LAYOUT** | 3 (3 resueltos ✅) | 4 (3 resueltos ✅) | 7 |
-| **LAF** | 2 (ambos resueltos ✅) | 1 (resuelto ✅) | 3 |
-| **ARCH** | 0 | 3 (3 resueltos ✅) | 3 |
-| **AUTO** | 7 (7 resueltos ✅) | 0 | 7 |
-| **DOCS** | 0 | 2 (2 resueltos ✅) | 2 |
-| **DIAG** | 8 (8 resueltos ✅) | 0 | 8 |
-| **Total** | **20** | **10** | **30** |
-
-Conteos DIAG viven en `DIAGRAM_REVIEW.md` — **los 8 BUGS-DIAG están RESUELTOS al 2026-06-15**.
-**Al 2026-06-18, 0 BUGS funcionales pendientes.** Resueltos en este ciclo:
-WISH-ARCH-001/002, BUGS-LAYOUT-001/002, BUGS-LAF-001/002.
-
-Problemas visuales DIAG (8 entradas) viven en `DIAGRAM_REVIEW.md`.
-
-### Priorización sugerida
-
-**Backlog activo (al 2026-06-19)**:
-
-| Prioridad | Código | Resumen |
-|---|---|---|
-| Baja | `WISH-LAYOUT-002` follow-up | Implementar `constraints.near` y `constraints.avoid` (v1 cerró `align`). Sigue siendo válido aunque WISH-LAYOUT-004 ya entregó los semantic hints. |
-| Baja | `WISH-LAYOUT-004` follow-up | Refinamientos: más templates específicos, calibración con corpus etiquetado más grande, constraint solver `above/below/between`. No bloquea uso del sistema. |
-| Baja | `WISH-LAF-001` follow-up | Edge straightening post-procesamiento + heurística por tipo de diagrama (v1 cerró pesos dinámicos). **Subsumido por WISH-LAYOUT-004**. |
-| Baja | `WISH-LAYOUT-003` v2 | Smart placement de callouts vía `CollisionDetector` (v1 usa fallback derecha→abajo). |
-
-**Tickets cerrados al 2026-06-19**: 20 BUGS resueltos + 9 WISH cerrados/parciales.
-**Pendiente como norte estratégico**: `WISH-LAYOUT-004` (auto-distribución semántica).
-
----
 
 ## Mapeo desde códigos anteriores
 
