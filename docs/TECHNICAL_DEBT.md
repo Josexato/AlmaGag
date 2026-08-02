@@ -217,7 +217,7 @@ banner de histórico en DIAGRAM_REVIEW.
 
 ---
 
-### BUGS-VAL-003: `validate_svg` standalone no ve iconos dibujados sólo con `<path>` (firewall) 🆕 ABIERTO
+### BUGS-VAL-003: `validate_svg` standalone no ve iconos dibujados sólo con `<path>` (firewall) ✅ RESUELTO (2026-08-02)
 **Componente**: `AlmaGag/validation/visual_quality.py`
 **Reportado**: 2026-08-02 (auditoría; re-verifica la nota del skill sobre R3/FortiGate)
 
@@ -232,10 +232,12 @@ falso positivo R3 («conector en el aire») en el camino standalone
 del optimizer), por eso los tests no lo ven. El ticket `BUGS-VAL-001 ✅` no
 documenta esta limitación.
 
-**Fix**: extender `_group_children_bbox` a `<path>` (bbox por anclas de
-comandos, como hace `draw/primitives/viewbox.py::_path_points`) o mover el
-transform/id al grupo externo en `firewall.py`. Añadir la limitación a
-BUGS-VAL-001 mientras tanto.
+**Fix aplicado**: (a) si el `<g id>` no tiene transform, se busca el
+translate/scale en un `<g>` DESCENDIENTE (el firewall envuelve así); (b)
+`scale(sx, sy)` no uniforme soportado; (c) `_group_children_bbox` ahora
+también recorre `<path>` (vía `viewbox._path_points`) y `<line>`.
+Verificado: firewall detectado en (500,100)-(625,158). Test:
+`tests/test_val003_path_icons.py`.
 
 ---
 
