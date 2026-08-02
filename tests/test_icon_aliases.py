@@ -57,3 +57,37 @@ def test_embedded_icon_with_alias_name_wins(tmp_path):
                     embedded_icons={'inet': marker})
     svg = dwg.tostring()
     assert '#123456' in svg and BWT_YELLOW not in svg
+
+
+def test_bwt_shows_type_name(tmp_path):
+    """§Q64: el BWT muestra el nombre del type — la lámina se explica sola."""
+    svg = _render_icon(tmp_path, 'sensor-lidar')
+    assert BWT_YELLOW in svg
+    assert '>sensor-lidar<' in svg
+
+
+def test_unresolved_inventory():
+    """§Q64: inventario de types sin icono (alias y embebidos no cuentan)."""
+    from AlmaGag.draw.icons import unresolved_icon_types
+    els = [{'id': 'a', 'type': 'server'},          # módulo → no
+           {'id': 'b', 'type': 'inet'},            # alias → no
+           {'id': 'c', 'type': 'tower'},           # sin icono → sí
+           {'id': 'd', 'type': 'tower'},           # repetido → una vez
+           {'id': 'e', 'type': 'cow'},             # sin icono → sí
+           {'id': 'f', 'type': 'custom', 'contains': ['a']},  # contenedor → no
+           {'id': 'g', 'type': 'emb'}]             # embebido → no
+    assert unresolved_icon_types(els, {'emb': '<svg/>'}) == ['cow', 'tower']
+
+
+def test_generator_logs_bwt_inventory(tmp_path, caplog):
+    """La línea §Q64 lista los BWT activos del fixture minero."""
+    import logging
+    from AlmaGag.generator import generate_diagram
+    with caplog.at_level(logging.INFO, logger='AlmaGag'):
+        generate_diagram('docs/diagrams/gags/mina-arquitectura-fisica.sdjf',
+                         output_file=str(tmp_path / 'm.svg'),
+                         layout_algorithm='select')
+    text = '\n'.join(r.message for r in caplog.records)
+    assert '§Q64' in text
+    for t in ('tower', 'cow', 'generator', 'truck', 'cpe', 'powergrid'):
+        assert t in text

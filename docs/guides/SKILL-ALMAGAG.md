@@ -17,7 +17,8 @@ El skill de claude.ai que genera diagramas con AlmaGag. Este doc fija el
 | Métricas (§H6+§O52) | línea `[motor] cruces=… arista×nodo=… labels=… tinta=X% aspecto=Y` como control de calidad; WARNING con tinta<4% o aspecto fuera de [0.4, 3.0] |
 | **Halo portable (§O50)** | el halo de texto es GEOMETRÍA SVG 1.1 (copia con trazo blanco bajo cada `<text>`, `class="ag-text-halo"`), nunca `paint-order`. **El parche cairosvg del skill quedó obsoleto**: rasterizar directo |
 | **viewBox al contenido (§O51)** | la lámina emitida se recorta al bbox + 40px (sólo contrae); las leyendas se reanclan al nuevo borde inferior |
-| **Alias de iconos (§O55)** | `inet`/`wan`/`internet` dibujan `cloud`; un `type` desconocido → BWT visible + WARNING (nunca silencioso) |
+| **Alias de iconos (§O55+§Q64)** | `inet`/`wan`/`internet` dibujan `cloud`; un `type` desconocido → BWT visible CON EL NOMBRE DEL TYPE rotulado + WARNING; la línea `§Q64` inventaría los BWT activos. Usar un type nuevo a BWT deliberado es LEGÍTIMO mientras se decide su forma — el nombre debe explicarse solo |
+| **Frontera motor⇄skill (§R)** | el skill declara intención/semántica; el motor decide TODA la geometría. Prohibido en el skill: coordenadas fijas para compensar defectos de layout (eso es bug del motor), semántica duplicada en el texto del label, types crípticos |
 | **Escala tipográfica (§O56)** | nodo 14 · conexión 12 (color semántico) · rótulo zona/fase 11 bold (constantes en `config.py`) |
 | **Tokens de tema (§O57)** | sección `theme` top-level + `"color": "<token>"` en elements/connections/areas/lanes/roles; hex literal gana |
 | **PNG sin navegador (§O58)** | `--exportpng`: Chrome/Chromium/Edge si hay (multiplataforma), cairosvg si no; `ALMAGAG_CHROME` como override |

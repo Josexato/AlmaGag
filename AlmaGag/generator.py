@@ -165,6 +165,16 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     if embedded_icons:
         logger.info(f"{len(embedded_icons)} icono(s) SVG embebido(s) detectado(s)")
 
+    # §Q64: inventario de BWTs activos — types sin icono resoluble. Usarlos
+    # es legítimo (BWT deliberado mientras se decide su representación); el
+    # inventario es la señal de promoción al catálogo (mismo type en ≥2
+    # fixtures). El detalle por elemento lo avisa §O55 al dibujar.
+    from AlmaGag.draw.icons import unresolved_icon_types
+    bwt_types = unresolved_icon_types(data.get('elements', []), embedded_icons)
+    if bwt_types:
+        logger.info(f"§Q64: {len(bwt_types)} type(s) en BWT (inventario para "
+                    f"el catálogo): {', '.join(bwt_types)}")
+
     # Determinar ruta de salida
     if output_file:
         # Usar la ruta proporcionada

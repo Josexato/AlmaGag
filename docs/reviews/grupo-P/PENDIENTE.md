@@ -31,8 +31,28 @@ Veredicto del revisor: la topología y agrupación del SDJF sin posiciones son
 | # | Criterio | Resumen |
 |---|---|---|
 | Q63 | `semantic_type` declarado, no inferido del label | 7 clases de enlace distinguidas solo por texto. Autoría: declararlo (contrato N48). Motor: fallback por palabras clave PERMITIDO con `WARNING [semantic] inferido de label`, nunca en silencio; sin match → clase neutra |
-| Q64 | Vocabulario de iconos de red como built-ins | el fixture usa tower/cow/generator/truck/cpe/powergrid — ninguno existe. Motor: añadir el paquete de red al catálogo (torre/antena, unidad móvil, generador, vehículo, CPE, red eléctrica); mientras no exista: BWT visible (O55). Verifica: fixture sin ningún BWT usando solo el catálogo |
+| Q64 ◐ | Types nuevos: BWT deliberado primero, catálogo cuando recurren | REFINADO (v3 del artifact): usar un type nuevo con BWT es USO VÁLIDO del estándar — nombra lo que aún no tiene forma visual. Exigible: nombre semánticamente claro, porque **el BWT muestra ese nombre** (✅ implementado: rótulo 11 bold sobre el plátano) y **el audit lista los BWT activos** (✅ implementado: línea `§Q64: N type(s) en BWT (inventario…)`). Pendiente del motor: promover al catálogo los types que recurren (señal: mismo type en BWT en ≥2 fixtures) — el paquete de red torre/antena, unidad móvil, generador, vehículo, CPE, red eléctrica es el candidato natural |
 | Q65 | Afinidad y orden entre áreas (opcional + derivación) | opcional `considerations.near[areaA, areaB]` a nivel de áreas (sintaxis N46). Sin declarar: áreas unidas por transporte → adyacentes en banda central; solo-administrativas → periferia (P60); desempate por orden de aparición; determinista |
+
+## Sección R — Reparto de responsabilidades motor ⇄ skill (v3 del artifact)
+
+**Regla de frontera**: el skill declara intención y semántica; el motor decide
+TODA la geometría. «Si el skill necesita posiciones fijas para que un diagrama
+se vea bien, eso es un bug del motor (grupos A–P), no una tarea de autoría.»
+
+- **Motor** (repo): A–F niveles/ruteo/etiquetas · G–H formas/canvas ·
+  I27–I30 áreas/carriles/roles · J densidad · K renderer compartido ·
+  M arcos · N45–N48 topología y contrato semántico · O50–O58 emisión ·
+  P59–P61 contención/servicio/anticolisión · Q63–Q65 los FALLBACKS ·
+  L39/P62 proceso de repo.
+- **Skill** (autoría): estructura (`area`+`contains` anidado), semántica
+  (`direction`, `semantic_type`, `role`), iconografía (catálogo, `icons{}`,
+  o type nuevo a BWT deliberado con nombre claro), afinidad
+  (`considerations` solo con lectura preferida), redacción (≤3 líneas,
+  anonimizar fixtures).
+- **Prohibido en el skill**: coordenadas fijas para compensar defectos de
+  layout; duplicar semántica en el texto del label en vez de declararla;
+  types con nombres crípticos (el BWT muestra el nombre: debe explicarse solo).
 
 ## Checklist del autor (del propio artifact)
 
