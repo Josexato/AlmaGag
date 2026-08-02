@@ -2,7 +2,7 @@
 
 Este documento registra problemas conocidos y áreas de mejora del proyecto.
 
-**Última actualización**: 2026-06-15
+**Última actualización**: 2026-08-02 (auditoría de congruencia docs⇄código)
 
 ---
 
@@ -50,6 +50,287 @@ El código de runtime usa identificadores como `LAF_PHASE_6_NDPR_EXPANDED` para 
 ---
 
 ## 🐛 BUGS
+
+> **Tanda 2026-08-02 — auditoría de congruencia docs⇄código** (tres barridos
+> completos: spec, arquitectura, docs raíz/guías/estados + revisión
+> arquitectónica del pipeline). Todos los hallazgos siguientes están
+> VERIFICADOS contra el código en master v3.5.0. Tickets: BUGS-DOCS-001…006,
+> BUGS-VAL-003, BUGS-ARCH-001, BUGS-AUTO-008/009, BUGS-DRAW-001/002,
+> WISH-LAYOUT-008 (en la sección WISH).
+
+### BUGS-DOCS-001: La spec de formato omite secciones enteras y miente en defaults 🆕 ABIERTO
+**Componente**: `docs/spec/FORMATO_ARCHIVOS.md`
+**Reportado**: 2026-08-02 (auditoría)
+
+La spec declara «si algo no está aquí, no existe en el formato» y sin embargo:
+
+**No documenta** (existen y tienen tests): sección `semantics` §Q63
+(`layout/semantics.py`), sección `theme` §O57 (`layout/theme.py`),
+`type: "area"` + macro-layout banda/periferia §P59/§P60/§Q65
+(`strategies/auto/zones.py`), sección `unions` §H7 (`layout/unions.py`),
+campo `callout` (override de `draw/primitives/callout.py`), `width`/`height`
+explícitos (ganan a `hp`/`wp`, `sizing.py:37`), alias `inet`/`wan`/`internet`
+→ `cloud` (§O55), clases CUSTOM de `semantic_type` + leyenda ≥3 (§N48),
+`waypoints`/`routing_type` a nivel raíz (compat v1.5,
+`router_manager.py:135-147`), `label` en `near` (§N46) y 10 de los 13 flags
+del CLI.
+
+**Miente en defaults medibles**: `corner_radius` real = 25 no 0
+(`config.py:91`); `preference` real = `auto` por eje dominante, no
+`horizontal` (`orthogonal_router.py:80,258`); «`areas` sólo con hier» —
+falso en ambas direcciones (`generator.py:57` auto-selección;
+`areas_to_near_seeds` §O53 en AUTO); contenedor con `type` desconocido cae a
+`building`/rect, no a banana (`container.py:219,240`); `role: "actor"`
+inerte (ningún template lo lee); `elements`/`connections` marcados
+obligatorios sin validación real; «ids duplicados: sólo uno se dibuja» —
+falso, se dibujan ambos superpuestos; «`.gag` = icons al inicio» — la
+extensión y posición son irrelevantes (`generator.py:110-115`).
+
+**Fix**: reescritura por secciones con verificación contra código (regla de
+oro). Detalle completo con líneas exactas en el reporte de auditoría de esta
+fecha (20 hallazgos numerados).
+
+---
+
+### BUGS-DOCS-002: Los docs de arquitectura describen un paquete que no existe 🆕 ABIERTO
+**Componente**: `docs/architecture/ARCHITECTURE.md`, `docs/architecture/modules/**`
+**Reportado**: 2026-08-02 (auditoría)
+
+- El árbol «Estructura de Directorios» (`ARCHITECTURE.md:862-957`) lista
+  `layout/auto/`, `layout/laf/`, `laf/visualizer/`, `renderer.py`,
+  `draw/svg.py`, `draw/bwt.py` — ninguno existe; faltan `strategies/{auto,
+  hier,legacy}/`, `engine.py`, `zones.py`, `anticollision.py`,
+  `semantics.py`, `theme.py`, `unions.py`, `considerations.py`,
+  `metrics.py`, `epifania.py`, `viewbox.py` y los 12 módulos de `hier/`.
+- La factoría `OPTIMIZERS` citada 4 veces no existe: el despacho real es
+  `LayoutEngine` + `_STRATEGIES` (`engine.py:36-40`); el import de ejemplo
+  (`from AlmaGag.layout.laf.optimizer import`) rompe.
+- `modules/layout/laf/{PROGRESS,COMPARISON,LAF}.md` recomiendan LAF como
+  default — **invertido**: `legacy` está congelado y nunca se auto-elige
+  (`engine.py:12-17`, `DEFAULT_STRATEGY='auto'`).
+- `select_strategy` — el mecanismo central de decisión — no aparece en
+  NINGÚN doc de arquitectura; la estrategia `hier` tampoco.
+- 8 links rotos (concentrados en `laf/PROGRESS.md` y `laf/LAF.md`, incluida
+  una ruta absoluta `C:\Users\…` de otra máquina); conteos falsos
+  (`generator.py` «190 líneas» → 360; «70 tests» → ~435;
+  `test_visual_quality.py` listado y no existe; constantes
+  `DEFAULT_CANVAS_WIDTH` inventadas — reales `WIDTH`/`HEIGHT`).
+
+**Fix**: regenerar el árbol desde disco; documentar `LayoutEngine`/
+`select_strategy`/`hier`; estampar los docs de `laf/` como HISTÓRICOS
+(banner) en vez de reescribirlos.
+
+---
+
+### BUGS-DOCS-003: FLUJO_EJECUCION.md narra un pipeline que ya no existe 🆕 ABIERTO
+**Componente**: `docs/FLUJO_EJECUCION.md`
+**Reportado**: 2026-08-02 (auditoría)
+
+14 rutas de archivo inválidas (`layout/laf/*`), funciones citadas que no
+existen (`main.py:load_gag_file()`, `generator.py:generate_svg()`),
+directorio de debug equivocado (`debug/growth/` → real `debug/epifania/`),
+y CERO mención de los pasos reales de `generate_diagram`: `expand_unions`
+§H7 → `apply_embedded_semantics` §Q63 → `apply_theme` §O57 →
+`select_strategy` → templates → `areas_to_near_seeds` §O53 → banding §P60 →
+anticolisión global §P61 → re-ruteo final → métricas §H6/§O52. Cabecera
+declara «v3.3.0 (LAF 11 fases)».
+
+**Fix**: reescribir sobre el pipeline actual o degradar a histórico y
+enlazar al código como fuente.
+
+---
+
+### BUGS-DOCS-004: CONCEPTS.md, INDEX.md y ROADMAP.md fósiles (v3.3/feb-2026) 🆕 ABIERTO
+**Componente**: `docs/CONCEPTS.md`, `docs/INDEX.md`, `docs/ROADMAP.md`
+**Reportado**: 2026-08-02 (auditoría)
+
+- CONCEPTS: sólo AUTO y LAF como algoritmos (rutas muertas), cita
+  `AlmaGag/renderer.py` (eliminado en WISH-ARCH-002 — contradicción entre
+  docs), `draw/bwt.py` (movido), y el glosario no define nada del motor
+  actual (unions, semantics, theme, considerations, zonas near, banding,
+  Epifanía, métricas).
+- INDEX: «v3.3.0 · 2026-02-28»; guía «AUTO vs LAF» contradiciendo a
+  `LAYOUT-DECISION-GUIDE.md` («ya no eliges algoritmo»); árbol con archivos
+  inexistentes (`execution-flow.gag`, extensiones `.gag` que son `.sdjf`) y
+  sin nada de `reviews/`, `SKILL-ALMAGAG.md`, spec; «[Especificar licencia
+  aquí]» cuando `LICENSE` MIT existe.
+- ROADMAP: «Versión actual v3.3.0»; anuncia como futuro lo ya entregado
+  (temas §O57, clustering/templates); checkbox `avoid_elements` marcado
+  entregado, contradicho 150 líneas después, y **cero ocurrencias en el
+  código**; 4 links rotos (`CONTRIBUTING.md`, rutas `docs/docs/…`).
+
+**Fix**: actualización de estado + regeneración del árbol de INDEX; decidir
+si `avoid_elements` se implementa o se borra del roadmap y de
+`SDJF_v2.1_PROPOSAL.md`.
+
+---
+
+### BUGS-DOCS-005: Guías con comandos que fallan hoy (QUICKSTART/EXAMPLES/CLI-REFERENCE/INDEX) 🆕 ABIERTO
+**Componente**: `docs/guides/QUICKSTART.md`, `docs/guides/EXAMPLES.md`, `docs/guides/CLI-REFERENCE.md`, `docs/INDEX.md`, `README.md`
+**Reportado**: 2026-08-02 (auditoría)
+
+- `--layout-algorithm=laf` en **13 lugares** — argparse lo rechaza
+  (`main.py:68`: choices `select|auto|hier|legacy`).
+- `docs/examples/*.gag` no existe: es `docs/diagrams/gags/` y los fuentes
+  citados son `.sdjf` (doble fallo, 7 comandos).
+- QUICKSTART/EXAMPLES: catálogo de «4 tipos» de icono (reales: 13) y
+  troubleshooting de un warning `'router'` que ya no ocurre (router.py
+  existe); EXAMPLES afirma que `router`/`database`/`laptop` «no existen».
+- CLI-REFERENCE: dependencias inventadas (`networkx`, `scipy` — la única
+  real es `svgwrite`); `--exportpng` descrito cairosvg-only (§O58 prueba
+  Chrome primero); cabecera «v3.1».
+- QUICKSTART presenta el modelo de dos algoritmos retirado; `cd AlmaGag` +
+  `pip install -e .` falla si ya estás en el clon (el paquete no tiene
+  pyproject); README omite 6 flags reales.
+
+**Fix**: purga mecánica de los 13 `laf`, corrección de rutas/extensiones,
+catálogo de iconos real, dependencias reales. Es el ticket de mayor daño a
+usuario nuevo: TODO comando copiado de QUICKSTART §layout falla.
+
+---
+
+### BUGS-DOCS-006: TECHNICAL_DEBT.md auto-inconsistente (este archivo) 🆕 ABIERTO
+**Componente**: `docs/TECHNICAL_DEBT.md`, `docs/DIAGRAM_REVIEW.md`
+**Reportado**: 2026-08-02 (auditoría)
+
+- **Identificador duplicado**: hay DOS `WISH-ARCH-002` («Convergencia a un
+  solo algoritmo 🚧 EN CURSO» y «Eliminar layout_algorithm del Renderer ✅
+  RESUELTO») — toda referencia externa es ambigua. Renumerar uno y dejar
+  nota de mapeo.
+- El `WISH-ARCH-002` «EN CURSO» tiene TODO su alcance implementado
+  (`select_strategy`, `LayoutEngine`, reorg `strategies/`, ①
+  `offset_optimizer.py`, ② `hier/scc.py`) y se contradice: la tabla marca
+  ①②③④ «INTEGRADA» y el texto dice «pendiente portar ①/②». Cerrarlo dejando
+  «afinar clasificador» como wish aparte si se desea.
+- `WISH-LAYOUT-002` follow-up pide implementar `near`/`avoid` — implementados
+  hace tiempo (`considerations.py:38 _KINDS`) y `near` promovido a zona §N46.
+- Bloque «📊 Métricas» y «Backlog activo» congelados en junio: no cuentan
+  BUGS-ROUT/TPL/VAL ni WISH-DRAW-001/002.
+- Tabla de componentes con rutas viejas (`layout/laf/`, `layout/auto/`).
+- `DIAGRAM_REVIEW.md` se autodefine «checklist vivo» pero está congelado en
+  junio, con métricas de canvas desmentidas por los SVG actuales (§O51
+  recorta), rutas de módulo viejas y una recomendación de habilitar un motor
+  congelado.
+
+**Fix**: renumeración + cierre de estados + regenerar métricas/backlog +
+banner de histórico en DIAGRAM_REVIEW.
+
+---
+
+### BUGS-VAL-003: `validate_svg` standalone no ve iconos dibujados sólo con `<path>` (firewall) 🆕 ABIERTO
+**Componente**: `AlmaGag/validation/visual_quality.py`
+**Reportado**: 2026-08-02 (auditoría; re-verifica la nota del skill sobre R3/FortiGate)
+
+Verificado hoy sobre `docs/diagrams/svgs/01-iconos-registrados.svg`: de 11
+iconos, `_collect_icon_bboxes` devuelve 9 — `firewall1` invisible. Causa
+triple: `firewall.py:14` emite el `<g id=…>` SIN transform (el transform
+vive en un hijo sin id), `_group_transform_bbox` no encuentra `translate` y
+`_group_children_bbox` (`:176-210`) sólo recorre
+`rect/polygon/circle/ellipse` — el firewall es 100% `<path>`. Consecuencia:
+falso positivo R3 («conector en el aire») en el camino standalone
+`validate_svg(svg)`. El camino `validate_gag()` no se afecta (inyecta bboxes
+del optimizer), por eso los tests no lo ven. El ticket `BUGS-VAL-001 ✅` no
+documenta esta limitación.
+
+**Fix**: extender `_group_children_bbox` a `<path>` (bbox por anclas de
+comandos, como hace `draw/primitives/viewbox.py::_path_points`) o mover el
+transform/id al grupo externo en `firewall.py`. Añadir la limitación a
+BUGS-VAL-001 mientras tanto.
+
+---
+
+### BUGS-ARCH-001: `Layout.copy()` pierde todos los atributos ad-hoc 🆕 ABIERTO
+**Componente**: `AlmaGag/layout/layout.py:70-96`, `AlmaGag/generator.py:221-252`
+**Reportado**: 2026-08-02 (auditoría; mordió en la práctica al implementar §Q65)
+
+El generator cuelga del layout al menos 7 atributos ad-hoc
+(`_considerations`, `_areas`, `_roles`, `_lanes`, `_strategy`,
+`_diagram_name`, `_layout_view`; más `_measure_stored_labels` del
+optimizer) y `Layout.copy()` no copia NINGUNO. El pipeline entero trabaja
+sobre copias (`current = layout.copy()`, candidatos del loop), así que todo
+consumidor debe acordarse de leer del layout ORIGINAL vía `getattr` con
+default — contrato implícito, invisible y fácil de romper (§Q65 falló en el
+primer intento exactamente por esto; quedó nota en
+`zones.py::zone_affinity_groups`).
+
+**Fix**: o `copy()` preserva una lista REGISTRADA de atributos de contexto,
+o el contexto se saca del Layout a un objeto de sólo-lectura que viaja
+aparte (opción alineada con WISH-ARCH-004 «el mapa»). Test de regresión:
+copy() debe preservar el contexto declarado.
+
+---
+
+### BUGS-AUTO-008: `_compact_horizontal` puede cizallar contenedores anidados (doble membresía) 🆕 ABIERTO
+**Componente**: `AlmaGag/layout/strategies/auto/optimizer.py::_compact_horizontal`
+**Reportado**: 2026-08-02 (auditoría arquitectónica)
+
+Los bloques rígidos se arman POR CONTENEDOR con sus hijos DIRECTOS
+(`groups[('cont', id)] = [cont] + hijos`). Un contenedor anidado (p.ej.
+`dc_mina` dentro de `z_mina`) queda en DOS grupos — el de su padre y el
+suyo — y `node_group = {n: k for k, members in …}` resuelve por
+último-gana: el contenedor anidado puede recibir un offset distinto al de
+sus propios hijos y al del bloque del padre → cizalla que rompe la
+contención P59. Hoy no se manifiesta en fixtures (la guarda de adopción lo
+enmascara), pero es una bomba latente con P59 fomentando anidamiento.
+
+**Fix**: membresía por CIERRE transitivo — un elemento pertenece sólo al
+bloque de su contenedor top-level (como ya hace `_shift_container_subtree`).
+Test: fixture anidado + offsets forzados distintos → contención intacta.
+
+---
+
+### BUGS-AUTO-009: el guardado del re-ruteo final (H3) compara rutas frescas contra rutas rancias 🆕 ABIERTO
+**Componente**: `AlmaGag/layout/strategies/auto/optimizer.py` (bloque H3, ~:501-524)
+**Reportado**: 2026-08-02 (hallazgo §P60/§P61, generalización pendiente)
+
+`pre_reroute_conns` conserva paths calculados ANTES de los últimos
+movimientos (stagger, re-resolución de contenedores del loop); el guardado
+«revertir si empeora» evalúa esos paths rancios — que el renderer luego
+re-ancla en los extremos, dibujando diagonales que ningún evaluador midió.
+La comparación está viciada a favor del material viejo. En el camino §P60
+(troncales) ya se hizo incondicional el re-ruteo; y §P61 reordenó
+`_recalculate_structures` (contenedores→ruteo). Falta generalizar: que el
+guardado compare SIEMPRE dos estados medidos con geometría vigente.
+
+**Fix**: re-rutear el estado «previo» sobre la geometría final antes de
+comparar (o eliminar el revert y confiar en el re-ruteo obstacle-aware).
+Medir con la guarda de fixtures: hoy los offenders conocidos son 6 aristas
+intra-zona del fixture minero cuando el revert gana.
+
+---
+
+### BUGS-DRAW-001: `convert_svg_to_png` con Chrome captura a `scale`× sin escalar el contenido 🆕 ABIERTO
+**Componente**: `AlmaGag/debug.py::_png_via_chrome`
+**Reportado**: 2026-08-02 (observado en toda verificación visual del grupo P)
+
+La ventana se dimensiona `width*scale × height*scale` pero no se pasa
+`--force-device-scale-factor={scale}`: el SVG se pinta a 1× en la esquina
+superior-izquierda y el resto del PNG queda en blanco (a 2×, tres cuartos
+de la imagen son aire). El camino cairosvg escala bien (`scale=scale`).
+
+**Fix**: añadir `--force-device-scale-factor={scale}` al comando de Chrome.
+Un solo argumento; verificar con un PNG de fixture.
+
+---
+
+### BUGS-DRAW-002: `draw_embedded_icon` recibe `color` y nunca lo usa 🆕 ABIERTO
+**Componente**: `AlmaGag/draw/icons/__init__.py::draw_embedded_icon`
+**Reportado**: 2026-08-02 (denunciado por el catálogo del skill; spec ya corregida)
+
+La firma acepta `color` (intención original: resolver `currentColor` del
+SVG embebido con el color del elemento — así lo prometía la spec) pero el
+cuerpo inserta el SVG tal cual: el parámetro es vestigial y `currentColor`
+rasteriza negro. La spec ya fue corregida el 2-ago para decir la verdad
+(«colores FIJOS»), y el skill duplica entradas de icono por variante de
+color como workaround.
+
+**Fix (decisión pendiente del autor)**: (a) implementar el reemplazo
+`currentColor→color` (un `replace` — cumpliría la promesa original y
+eliminaría los duplicados del skill; re-verificar fixtures con embebidos), o
+(b) retirar el parámetro y cerrar como «tal cual por diseño». En ambos
+casos, alinear spec + skill.
+
+---
 
 ### BUGS-LAYOUT-001: Etiquetas de Debug Solapadas en Modo VisualDebug ✅ RESUELTO
 **Componente**: `layout/auto/auto_renderer.py` + `layout/laf/laf_renderer.py` — `_render_debug_levels` / `_render_debug_ndfn`
@@ -627,6 +908,37 @@ Boceto de diseño (a validar cuando se implemente):
   esquinas del trazo en las troncales ortogonales.
 
 **Prioridad**: Media-alta — pedido explícito del autor («es necesario»).
+
+---
+
+### WISH-LAYOUT-008: Unificar los TRES sistemas de etiquetas + medición veraz total 🆕 ABIERTO
+**Componente**: `layout/label_optimizer.py`, `strategies/auto/{optimizer,anticollision,auto_renderer}.py`, `layout/collision.py`
+**Reportado**: 2026-08-02 (deuda estructural descubierta al cerrar §P61)
+
+Hoy conviven TRES sistemas que colocan etiquetas sin verse entre sí:
+(1) `layout.label_positions` + la pasada global §P61 (verdad para miembros
+CONTENIDOS, dibujados tal cual); (2) el stagger de contenedores
+(BUGS-AUTO-006) dentro del optimizer; (3) el `LabelPositionOptimizer` del
+RENDERER, que re-optimiza en tiempo de dibujo las etiquetas de elementos
+LIBRES y las de conexión — o sea, lo dibujado ≠ lo medido para esos casos.
+§P61 los hizo convivir (obstáculos pre-ocupados `extra_obstacles`, headers
+como obstáculo), pero la unificación real es: el renderer DIBUJA la verdad
+del layout y hay UN solo optimizador, corriendo en la etapa global.
+
+Segunda mitad: la medición veraz (`_measure_stored_labels`, bbox desde la
+posición ALMACENADA) hoy sólo rige en la etapa final — las heurísticas
+intermedias siguen midiendo la posición canónica del ancla porque migrarlas
+re-baraja fixtures calibrados (probado 2-ago: 06-flujo a×n 0→8, git 3→9 —
+revertido con evidencia). Migrar TODO el pipeline a medición veraz requiere
+recalibrar esas heurísticas con la guarda de fixtures en la mano.
+
+También desbloquea: el resto de fusiones del fixture minero (~5 pares en la
+fila de torres — congestión de pitch que exige espaciado consciente de
+etiquetas, dos veces intentado y revertido por la guarda; diagnósticos en
+`docs/reviews/grupo-P/PENDIENTE.md`).
+
+**Prioridad**: Alta para la iteración 6 — es el precursor declarado de
+cerrar «0 fusiones» (§P61) y del pitch label-aware (§P61/K35).
 
 ---
 
