@@ -169,16 +169,23 @@ class CollisionDetector:
                 continue
             other_elem = layout.elements_by_id.get(other_id)
             if other_elem:
-                label_bbox = self.geometry.get_label_bbox(other_elem, pos_info[3])
+                if getattr(layout, '_measure_stored_labels', False):
+                    label_bbox = self.geometry.get_label_bbox_stored(
+                        other_elem, pos_info)
+                else:
+                    label_bbox = self.geometry.get_label_bbox(
+                        other_elem, pos_info[3])
                 if self.geometry.rectangles_intersect(icon_bbox, label_bbox):
                     count += 1
 
         # Colisiones de mi etiqueta con otros íconos y líneas
         if element_id in layout.label_positions:
-            my_label_bbox = self.geometry.get_label_bbox(
-                elem,
-                layout.label_positions[element_id][3]
-            )
+            if getattr(layout, '_measure_stored_labels', False):
+                my_label_bbox = self.geometry.get_label_bbox_stored(
+                    elem, layout.label_positions[element_id])
+            else:
+                my_label_bbox = self.geometry.get_label_bbox(
+                    elem, layout.label_positions[element_id][3])
 
             # Con otros íconos. BUGS-AUTO-005: excluir containers — son fondos
             # semi-transparentes, los labels viven dentro de ellos (mismo fix
@@ -233,12 +240,20 @@ class CollisionDetector:
             bbox = self.geometry.get_icon_bbox(elem)
             bboxes.append((bbox, 'icon', elem['id']))
 
-        # Bboxes de etiquetas de íconos
+        # Bboxes de etiquetas de íconos. §P61: con `_measure_stored_labels`
+        # (etapa final del pipeline) se miden en su posición ALMACENADA — lo
+        # que se dibuja —, si no los escalones anti-fusión son invisibles para
+        # el contador. Las evaluaciones intermedias del optimizador siguen
+        # midiendo la posición canónica del ancla: sus heurísticas están
+        # calibradas contra ella (cambiarlas re-baraja fixtures enteros).
+        stored = getattr(layout, '_measure_stored_labels', False)
         for elem in normal_elements:
             if elem['id'] in layout.label_positions:
                 pos_info = layout.label_positions[elem['id']]
-                position = pos_info[3]  # (x, y, anchor, position)
-                bbox = self.geometry.get_label_bbox(elem, position)
+                if stored:
+                    bbox = self.geometry.get_label_bbox_stored(elem, pos_info)
+                else:
+                    bbox = self.geometry.get_label_bbox(elem, pos_info[3])
                 if bbox:
                     bboxes.append((bbox, 'icon_label', elem['id']))
 

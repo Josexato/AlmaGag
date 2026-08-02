@@ -160,6 +160,35 @@ class GeometryCalculator:
 
         return (x1, y1, x2, y2)
 
+    def get_label_bbox_stored(
+        self,
+        element: dict,
+        pos_info: Tuple[float, float, str, str]
+    ) -> Optional[Tuple[float, float, float, float]]:
+        """§P61: bounding box de la etiqueta en su posición ALMACENADA
+        (label_positions), no en la canónica del ancla. Es lo que el renderer
+        dibuja (draw_icon_label: primera línea con baseline en (x, y), líneas
+        apiladas a +18px) — el detector debe medir lo que se dibuja, si no los
+        escalones anti-fusión resultan invisibles para el contador."""
+        label = element.get('label', '')
+        if not label or not pos_info:
+            return None
+        text_x, text_y, anchor, _ = pos_info
+        lines = label.split('\n')
+        text_width = max(len(line) for line in lines) * 8
+        text_height = len(lines) * 18
+
+        if anchor == 'middle':
+            x1 = text_x - text_width // 2
+            x2 = text_x + text_width // 2
+        elif anchor == 'start':
+            x1 = text_x
+            x2 = text_x + text_width
+        else:  # 'end'
+            x1 = text_x - text_width
+            x2 = text_x
+        return (x1, text_y - 14, x2, text_y - 14 + text_height)
+
     def get_connection_endpoints(
         self,
         layout,

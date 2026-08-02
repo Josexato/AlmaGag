@@ -338,7 +338,8 @@ class LabelPositionOptimizer:
         self,
         labels: List[Label],
         elements: List[dict],
-        connections: List[dict] = None
+        connections: List[dict] = None,
+        extra_obstacles: List[tuple] = None
     ) -> Dict[str, LabelPosition]:
         """
         Optimiza posiciones de todas las etiquetas minimizando colisiones.
@@ -362,6 +363,12 @@ class LabelPositionOptimizer:
         fixed_labels = [lbl for lbl in labels if lbl.fixed]
         optimizable = [lbl for lbl in labels if not lbl.fixed]
 
+        # §P61: bboxes pre-ocupados por texto que este optimizador NO coloca
+        # (etiquetas de miembros contenidos, dibujadas tal cual desde
+        # label_positions). Sin esto, el optimizador es ciego a ellas y
+        # aterriza rótulos de conexión encima.
+        extra = list(extra_obstacles or [])
+
         logger.debug(f"\nOptimizando {len(labels)} etiquetas:")
         logger.debug(f"  - Fijas: {len(fixed_labels)}")
         logger.debug(f"  - Optimizables: {len(optimizable)}")
@@ -378,8 +385,8 @@ class LabelPositionOptimizer:
         # Resultado
         best_positions = {}
 
-        # Etiquetas ya colocadas (bboxes)
-        placed_bboxes = []
+        # Etiquetas ya colocadas (bboxes) — arranca con los pre-ocupados §P61
+        placed_bboxes = list(extra)
 
         # Procesar etiquetas fijas primero
         for label in fixed_labels:

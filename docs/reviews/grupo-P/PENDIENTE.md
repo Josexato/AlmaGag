@@ -20,7 +20,7 @@ cruzando zonas. Aplican K35/N47 ya escritos; esto cubre lo nuevo.
 |---|---|---|
 | P59 ✅ | Contención anidada reserva espacio real | layout bottom-up: caja del contenedor = bbox(hijos + etiquetas + banda de rótulo O54); el nivel superior la posiciona como super-nodo RÍGIDO; ningún elemento ∉ contains puede intersectarla. Recursivo a cualquier profundidad. Verifica: bbox(hijos+labels) ⊆ caja y cero intrusos |
 | P60 ✅ | Zonas de servicio a la periferia + troncal por zona destino | clasificar zonas: operativas (tráfico inter-zona) en banda principal; servicio/soporte (solo enlaces administrativos salientes) en periferia. Enlaces a una misma zona destino agrupados en UNA troncal ortogonal hasta el borde (I29); cero diagonales inter-zona (H24) |
-| P61 | Pasada anticolisión a TODA profundidad | el camino de áreas I27 con sub-layout no ejecuta F18/J31 ni colisiones sobre miembros. La pasada (etiqueta↔etiqueta/icono, arista↔etiqueta) debe ser etapa GLOBAL post-layout sobre el árbol completo; pitch dentro de área ≥ icono + 3×11px + holgura para labels de 3 líneas. Verifica: contador labels incluye miembros anidados; 0 fusiones (hoy ≥6); separación texto↔texto ≥8px |
+| P61 ✅ | Pasada anticolisión a TODA profundidad | el camino de áreas I27 con sub-layout no ejecuta F18/J31 ni colisiones sobre miembros. La pasada (etiqueta↔etiqueta/icono, arista↔etiqueta) debe ser etapa GLOBAL post-layout sobre el árbol completo; pitch dentro de área ≥ icono + 3×11px + holgura para labels de 3 líneas. Verifica: contador labels incluye miembros anidados; 0 fusiones (hoy ≥6); separación texto↔texto ≥8px |
 | P62 ✅ | Higiene de fixtures: anonimizar antes de commitear | reemplazar empresas/proyectos/personas por genéricos conservando estructura, tipos, LONGITUDES de label (para reproducir colisiones) y semántica. Verifica: grep de términos sensibles vacío; labels ±10% de longitud original |
 
 ## Grupo Q — suficiencia del SDJF (guía de autoría + fallback del motor)
@@ -100,10 +100,35 @@ WAN {11,12,14}, el test estricto congela la escala {14,12,11}»).
    trabajo de P61; (c) `convert_svg_to_png` con Chrome captura la
    ventana a `scale`× sin `--force-device-scale-factor` → PNG con aire a
    la derecha/abajo (cosmético, sólo el helper §O58).
-4. Orden restante: P61 → Q63 → Q64 (paquete de red) → Q65.
-5. Convenciones de siempre: un criterio por commit, test de regresión,
+4. ~~P61~~ CERRADO (`AlmaGag/layout/strategies/auto/anticollision.py`):
+   etapa GLOBAL post-layout, última del pipeline (nada se mueve después),
+   en dos barridas informadas: (A) etiquetas de MIEMBROS CONTENIDOS a toda
+   profundidad — candidatos por ancla, escalones de hasta 3 renglones y
+   corrimiento horizontal ±40px, sin salirse de su contenedor y con
+   separación texto↔texto ≥8px; (B) etiquetas de conexión deslizables por
+   su polilínea (fracciones de arco + variante bajo-la-línea). Sólo mueve
+   etiquetas: cruces/arista×nodo/tinta/aspecto quedan intactos por
+   construcción. Además: (i) el detector ahora mide las etiquetas donde se
+   DIBUJAN (`_measure_stored_labels`, sólo en la etapa final — las
+   heurísticas intermedias siguen calibradas contra la posición canónica:
+   cambiarlas re-baraja fixtures enteros, probado y descartado); (ii) el
+   optimizador de etiquetas del renderer recibe las etiquetas contenidas
+   como bboxes pre-ocupados (era ciego a ellas y aterrizaba rótulos de
+   conexión encima); (iii) el encabezado de cada contenedor es obstáculo.
+   Métricas (columna labels, resto idéntico): mina 55→22 · git 60→25 ·
+   06-flujo 30→9 · cheatsheet 38→23 · continentes 20→11 · 15-arch 6→4 ·
+   cakephp 5→3 · cuatro fixtures a 0. Verifica en
+   `tests/test_p61_global_anticollision.py`. RESIDUAL: ~5 pares en mina
+   (fila de 4 torres + 5 enlaces: congestión real de pitch — el ensanche
+   horizontal y la reserva vertical de fila fueron probados y REVERTIDOS
+   por la guarda, 2 intentos). HALLAZGO estructural: hay TRES sistemas de
+   etiquetas (layout, stagger de contenedores, optimizador del renderer);
+   la unificación total (el renderer dibuja la verdad del layout, un solo
+   optimizador) queda como deuda para la siguiente iteración.
+5. Orden restante: Q63 → Q64 (paquete de red) → Q65.
+6. Convenciones de siempre: un criterio por commit, test de regresión,
    guarda anti-regresión con la línea `[motor]`, verificación visual PNG,
-   `python -m pytest -q --import-mode=importlib` (hoy: 416 verdes).
+   `python -m pytest -q --import-mode=importlib` (hoy: 423 verdes).
    La guarda ahora tiene medidor versionado: `scripts/measure_fixtures.py`
    (una línea estable por fixture; aborta ruidosamente si mide 0).
 
