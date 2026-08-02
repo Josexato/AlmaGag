@@ -81,6 +81,41 @@ WAN {11,12,14}, el test estricto congela la escala {14,12,11}»).
    (los nodos des-apilados ahora exponen las diagonales de la zona de
    servicios — es el defecto que ataca P60).
 3. Orden restante: P61 → P60 → Q63 → Q64 (paquete de red) → Q65.
-3. Convenciones de siempre: un criterio por commit, test de regresión,
+4. Convenciones de siempre: un criterio por commit, test de regresión,
    guarda anti-regresión con la línea `[motor]`, verificación visual PNG,
-   `python -m pytest -q --import-mode=importlib` (hoy: 394 verdes).
+   `python -m pytest -q --import-mode=importlib` (hoy: 407 verdes).
+   La guarda ahora tiene medidor versionado: `scripts/measure_fixtures.py`
+   (una línea estable por fixture; aborta ruidosamente si mide 0).
+
+## P61 — primer intento REVERTIDO (diagnóstico para retomar)
+
+Se intentó (2-ago-2026) espaciado consciente de etiquetas en las grillas
+locales de `positioner.py`: cap del ensanche a 2.2×ICON en grids anchos,
+pitch vertical por fila sumando `LABEL_OFFSET_VERTICAL`, alineación a la
+izquierda sin ensanche, y cobertura cruda del bbox en
+`_calculate_container_bounds` (flag `_grid_raw_cover`). Resultado global:
+labels mejoraban en casi todos los fixtures, PERO la guarda anti-regresión
+(probar → medir → revertir si empeora) detectó dos intercambios malos:
+
+- `06-flujo-ejecucion`: cruces 11→17, arista×nodo 0→3 (labels 30→16) —
+  visual confirmó intrusos nuevos dentro del box Generator y fusiones
+  nuevas en la 4ª columna.
+- `git.sdjf`: labels 60→27 pero arista×nodo 3→5.
+
+Causa raíz: `recalculate_positions_with_expanded_containers` y el
+optimizador de labels NO acompañan el crecimiento de las celdas — al
+ensanchar la grilla, los vecinos externos no se reubican y las aristas
+atraviesan las cajas crecidas. Camino sugerido para el reintento: gatear
+los cambios de grid ancho por presencia de hijo-contenedor o labels
+multilínea, y/o implementar primero la pasada anticolisión GLOBAL
+post-layout que el propio P61 pide (etiqueta↔etiqueta/icono,
+arista↔etiqueta sobre el árbol completo), en vez de tocar la grilla local.
+
+Nota de proceso (near-miss): el medidor de la guarda vivía en el
+scratchpad y falló EN SILENCIO durante un bloque entero
+(`ModuleNotFoundError` con stderr descartado → archivos de métricas
+vacíos → diffs vacuamente «limpios»). Se re-validó todo contra worktrees
+de los commits base (item-4 `029f0d7`, P59 `ea8edcd`/`5f847de`): master
+está limpio (solo las mejoras conocidas: 11-stresstest labels 1→0,
+system-architecture 13→1, + fixture minero nuevo). De ahí el medidor
+versionado con abort ruidoso.
