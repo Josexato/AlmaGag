@@ -18,7 +18,7 @@ cruzando zonas. Aplican K35/N47 ya escritos; esto cubre lo nuevo.
 
 | # | Criterio | Resumen |
 |---|---|---|
-| P59 | Contención anidada reserva espacio real | layout bottom-up: caja del contenedor = bbox(hijos + etiquetas + banda de rótulo O54); el nivel superior la posiciona como super-nodo RÍGIDO; ningún elemento ∉ contains puede intersectarla. Recursivo a cualquier profundidad. Verifica: bbox(hijos+labels) ⊆ caja y cero intrusos |
+| P59 ✅ | Contención anidada reserva espacio real | layout bottom-up: caja del contenedor = bbox(hijos + etiquetas + banda de rótulo O54); el nivel superior la posiciona como super-nodo RÍGIDO; ningún elemento ∉ contains puede intersectarla. Recursivo a cualquier profundidad. Verifica: bbox(hijos+labels) ⊆ caja y cero intrusos |
 | P60 | Zonas de servicio a la periferia + troncal por zona destino | clasificar zonas: operativas (tráfico inter-zona) en banda principal; servicio/soporte (solo enlaces administrativos salientes) en periferia. Enlaces a una misma zona destino agrupados en UNA troncal ortogonal hasta el borde (I29); cero diagonales inter-zona (H24) |
 | P61 | Pasada anticolisión a TODA profundidad | el camino de áreas I27 con sub-layout no ejecuta F18/J31 ni colisiones sobre miembros. La pasada (etiqueta↔etiqueta/icono, arista↔etiqueta) debe ser etapa GLOBAL post-layout sobre el árbol completo; pitch dentro de área ≥ icono + 3×11px + holgura para labels de 3 líneas. Verifica: contador labels incluye miembros anidados; 0 fusiones (hoy ≥6); separación texto↔texto ≥8px |
 | P62 ✅ | Higiene de fixtures: anonimizar antes de commitear | reemplazar empresas/proyectos/personas por genéricos conservando estructura, tipos, LONGITUDES de label (para reproducir colisiones) y semántica. Verifica: grep de términos sensibles vacío; labels ±10% de longitud original |
@@ -72,7 +72,15 @@ WAN {11,12,14}, el test estricto congela la escala {14,12,11}»).
 ## Para arrancar
 
 1. ~~Conseguir el SDJF fuente y anonimizarlo (P62)~~ HECHO.
-2. Orden sugerido: P59 → P61 → P60 → Q63/Q64 → Q65.
+2. ~~P59~~ CERRADO: la grilla local dimensiona celdas al tamaño REAL del
+   hijo (ancho por columna, alto por fila) — con hijos tamaño-icono se
+   reduce al comportamiento anterior (métricas idénticas en el resto de
+   fixtures). Verifica en `tests/test_p59_nested_containment.py`: hijos ⊆
+   caja a toda profundidad, cero iconos intrusos, cajas hermanas sin
+   solape. Fixture minero: labels 112→54, arista×nodo 12→12, cruces 41→52
+   (los nodos des-apilados ahora exponen las diagonales de la zona de
+   servicios — es el defecto que ataca P60).
+3. Orden restante: P61 → P60 → Q63 → Q64 (paquete de red) → Q65.
 3. Convenciones de siempre: un criterio por commit, test de regresión,
    guarda anti-regresión con la línea `[motor]`, verificación visual PNG,
    `python -m pytest -q --import-mode=importlib` (hoy: 394 verdes).
