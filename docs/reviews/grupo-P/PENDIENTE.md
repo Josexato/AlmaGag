@@ -30,7 +30,7 @@ Veredicto del revisor: la topología y agrupación del SDJF sin posiciones son
 
 | # | Criterio | Resumen |
 |---|---|---|
-| Q63 | `semantic_type` declarado, no inferido del label | 7 clases de enlace distinguidas solo por texto. Autoría: declararlo (contrato N48). Motor: fallback por palabras clave PERMITIDO con `WARNING [semantic] inferido de label`, nunca en silencio; sin match → clase neutra |
+| Q63 ✅ | `semantic_type` declarado, no inferido del label | 7 clases de enlace distinguidas solo por texto. Autoría: declararlo (contrato N48). Motor: fallback por palabras clave PERMITIDO con `WARNING [semantic] inferido de label`, nunca en silencio; sin match → clase neutra. **REDEFINIDO por el autor**: la tabla texto→clase NUNCA vive en el código de AlmaGag — viaja embebida en el archivo (sección `semantics`, como `icons{}`) o la pone el skill al declarar |
 | Q64 ◐ | Types nuevos: BWT deliberado primero, catálogo cuando recurren | REFINADO (v3 del artifact): usar un type nuevo con BWT es USO VÁLIDO del estándar — nombra lo que aún no tiene forma visual. Exigible: nombre semánticamente claro, porque **el BWT muestra ese nombre** (✅ implementado: rótulo 11 bold sobre el plátano) y **el audit lista los BWT activos** (✅ implementado: línea `§Q64: N type(s) en BWT (inventario…)`). Pendiente del motor: promover al catálogo los types que recurren (señal: mismo type en BWT en ≥2 fixtures) — el paquete de red torre/antena, unidad móvil, generador, vehículo, CPE, red eléctrica es el candidato natural |
 | Q65 | Afinidad y orden entre áreas (opcional + derivación) | opcional `considerations.near[areaA, areaB]` a nivel de áreas (sintaxis N46). Sin declarar: áreas unidas por transporte → adyacentes en banda central; solo-administrativas → periferia (P60); desempate por orden de aparición; determinista |
 
@@ -125,10 +125,31 @@ WAN {11,12,14}, el test estricto congela la escala {14,12,11}»).
    etiquetas (layout, stagger de contenedores, optimizador del renderer);
    la unificación total (el renderer dibuja la verdad del layout, un solo
    optimizador) queda como deuda para la siguiente iteración.
-5. Orden restante: Q63 → Q64 (paquete de red) → Q65.
-6. Convenciones de siempre: un criterio por commit, test de regresión,
+5. ~~Q63~~ CERRADO (`AlmaGag/layout/semantics.py` + fixture). Decisión de
+   diseño del autor (2-ago): el vocabulario texto→clase es juicio
+   editorial y NUNCA vive en el código del motor — ni idioma ni dominio
+   hardcodeados. Dos caminos:
+   - **Camino 1 (preferido, cero motor)**: el skill/autor DECLARA
+     `semantic_type` por conexión; colores por tokens de tema §O57; con
+     ≥3 clases la leyenda §N48 sale sola (ya soportaba clases custom:
+     nombre tal cual + color efectivo). El fixture minero es el ejemplo
+     canónico: 26 conexiones declaradas en 7 clases del dominio
+     (backhaul·interconexion·acceso·energia·soporte·gestion-remota·
+     administrativo) con tokens `c-*` — log limpio, leyenda al pie,
+     métricas byte-idénticas (la semántica no toca geometría).
+   - **Camino 2 (mecanismo nuevo)**: sección opcional `semantics`
+     embebida en el .gag/.sdjf (como `icons{}`): clase → keywords
+     (+color opcional); el motor la aplica MECÁNICAMENTE a conexiones
+     sin `semantic_type` (subcadena case-insensitive, primera clase del
+     archivo gana) con `WARNING §Q63 [semantic] … inferido` — nunca en
+     silencio; sin match → neutra; lo declarado jamás se pisa. El test
+     `test_engine_ships_no_vocabulary` vigila que el motor no acumule
+     vocabulario.
+   Verifica en `tests/test_q63_semantics.py`.
+6. Orden restante: Q64 (paquete de red) → Q65.
+7. Convenciones de siempre: un criterio por commit, test de regresión,
    guarda anti-regresión con la línea `[motor]`, verificación visual PNG,
-   `python -m pytest -q --import-mode=importlib` (hoy: 423 verdes).
+   `python -m pytest -q --import-mode=importlib` (hoy: 429 verdes).
    La guarda ahora tiene medidor versionado: `scripts/measure_fixtures.py`
    (una línea estable por fixture; aborta ruidosamente si mide 0).
 

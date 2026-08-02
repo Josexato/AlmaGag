@@ -12,7 +12,8 @@ El skill de claude.ai que genera diagramas con AlmaGag. Este doc fija el
 | **Topología de red (§N45)** | nubes `cloud/inet/wan/internet` grado ≥2 + ≥30% enlaces `bidirectional`/`none`, sin coords → hub-and-spoke (banda «WAN» + sitios) |
 | **Zonas `near` (§N46)** | `{"near":[...], "label":"..."}` = caja punteada rotulada; semillas parciales se completan por conectividad; near se cumple por construcción. Rótulo AA #6b6558 en banda reservada de 18px (§O54) |
 | **Antes/después (§N47/N49)** | dos archivos con ids compartidos ⇒ misma plantilla de zonas (slots min-hash) |
-| Leyenda (§N48) | automática con ≥3 `semantic_type` |
+| Leyenda (§N48) | automática con ≥3 `semantic_type` (clases custom válidas: nombre tal cual + color efectivo) |
+| **Semántica de enlaces (§Q63)** | `semantic_type` SE DECLARA por conexión (clases del dominio, colores por tokens `theme`); el vocabulario texto→clase NUNCA vive en el motor. Opcional: sección `semantics` embebida (clase→keywords+color, como `icons{}`) que el motor aplica con WARNING a conexiones sin declarar; sin match → neutra |
 | `unions` (§H7) | genealogías: un tronco por hijo |
 | Métricas (§H6+§O52) | línea `[motor] cruces=… arista×nodo=… labels=… tinta=X% aspecto=Y` como control de calidad; WARNING con tinta<4% o aspecto fuera de [0.4, 3.0] |
 | **Halo portable (§O50)** | el halo de texto es GEOMETRÍA SVG 1.1 (copia con trazo blanco bajo cada `<text>`, `class="ag-text-halo"`), nunca `paint-order`. **El parche cairosvg del skill quedó obsoleto**: rasterizar directo |

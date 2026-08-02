@@ -373,157 +373,218 @@
       "from": "est1",
       "to": "dc_mina",
       "label": "MW/FO >=300 Mbps",
-      "direction": "bidirectional"
+      "direction": "bidirectional",
+      "semantic_type": "backhaul",
+      "color": "c-backhaul"
     },
     {
       "from": "est2",
       "to": "dc_mina",
       "label": "MW/FO",
-      "direction": "bidirectional"
+      "direction": "bidirectional",
+      "semantic_type": "backhaul",
+      "color": "c-backhaul"
     },
     {
       "from": "est3",
       "to": "dc_mina",
       "label": "MW/FO",
-      "direction": "bidirectional"
+      "direction": "bidirectional",
+      "semantic_type": "backhaul",
+      "color": "c-backhaul"
     },
     {
       "from": "est4",
       "to": "dc_mina",
       "label": "MW/FO",
-      "direction": "bidirectional"
+      "direction": "bidirectional",
+      "semantic_type": "backhaul",
+      "color": "c-backhaul"
     },
     {
       "from": "cow1",
       "to": "est1",
       "label": "MW",
-      "direction": "bidirectional"
+      "direction": "bidirectional",
+      "semantic_type": "backhaul",
+      "color": "c-backhaul"
     },
     {
       "from": "est5",
       "to": "cco",
       "label": "MW/FO >=300 Mbps",
-      "direction": "bidirectional"
+      "direction": "bidirectional",
+      "semantic_type": "backhaul",
+      "color": "c-backhaul"
     },
     {
       "from": "est6",
       "to": "cco",
       "label": "MW/FO",
-      "direction": "bidirectional"
+      "direction": "bidirectional",
+      "semantic_type": "backhaul",
+      "color": "c-backhaul"
     },
     {
       "from": "cow2",
       "to": "est5",
       "label": "MW",
-      "direction": "bidirectional"
+      "direction": "bidirectional",
+      "semantic_type": "backhaul",
+      "color": "c-backhaul"
     },
     {
       "from": "dc_mina",
       "to": "cco",
       "label": "FO inter-DC (MinaCo C1/C2)\ngeo-redundancia",
-      "direction": "bidirectional"
+      "direction": "bidirectional",
+      "semantic_type": "interconexion",
+      "color": "c-interconexion"
     },
     {
       "from": "flota",
       "to": "est1",
       "label": "acceso 4G",
-      "direction": "bidirectional"
+      "direction": "bidirectional",
+      "semantic_type": "acceso",
+      "color": "c-acceso"
     },
     {
       "from": "cpe_mina",
       "to": "est2",
       "label": "acceso 5G SA FDD",
-      "direction": "bidirectional"
+      "direction": "bidirectional",
+      "semantic_type": "acceso",
+      "color": "c-acceso"
     },
     {
       "from": "cpe_pila",
       "to": "est5",
       "label": "acceso 5G SA FDD",
-      "direction": "bidirectional"
+      "direction": "bidirectional",
+      "semantic_type": "acceso",
+      "color": "c-acceso"
     },
     {
       "from": "ge_mina",
       "to": "est1",
       "label": "energia provisional",
-      "direction": "forward"
+      "direction": "forward",
+      "semantic_type": "energia",
+      "color": "c-energia"
     },
     {
       "from": "ge_pila",
       "to": "est5",
       "label": "energia provisional",
-      "direction": "forward"
+      "direction": "forward",
+      "semantic_type": "energia",
+      "color": "c-energia"
     },
     {
       "from": "energia_cliente",
       "to": "ge_mina",
       "label": "reemplaza al energizar",
-      "direction": "forward"
+      "direction": "forward",
+      "semantic_type": "energia",
+      "color": "c-energia"
     },
     {
       "from": "cuadrillas",
       "to": "est1",
       "label": "soporte en sitio",
-      "direction": "forward"
+      "direction": "forward",
+      "semantic_type": "soporte",
+      "color": "c-soporte"
     },
     {
       "from": "almacen",
       "to": "cpe_mina",
       "label": "reposicion inmediata",
-      "direction": "forward"
+      "direction": "forward",
+      "semantic_type": "soporte",
+      "color": "c-soporte"
     },
     {
       "from": "noc",
       "to": "fw_sra",
       "label": "acceso remoto",
-      "direction": "forward"
+      "direction": "forward",
+      "semantic_type": "gestion-remota",
+      "color": "c-gestion-remota"
     },
     {
       "from": "fw_sra",
       "to": "nms",
       "label": "tunel seguro SRA",
-      "direction": "forward"
+      "direction": "forward",
+      "semantic_type": "gestion-remota",
+      "color": "c-gestion-remota"
     },
     {
       "from": "cliente_ot",
       "to": "nms",
       "label": "solo lectura",
-      "direction": "forward"
+      "direction": "forward",
+      "semantic_type": "gestion-remota",
+      "color": "c-gestion-remota"
     },
     {
       "from": "fabricante",
       "to": "noc",
       "label": "soporte fabricante",
-      "direction": "forward"
+      "direction": "forward",
+      "semantic_type": "soporte",
+      "color": "c-soporte"
     },
     {
       "from": "lab",
       "to": "cpe_mina",
       "label": "FAT/SAT",
-      "direction": "forward"
+      "direction": "forward",
+      "semantic_type": "soporte",
+      "color": "c-soporte"
     },
     {
       "from": "alojamiento",
       "to": "cuadrillas",
       "label": "traslados diarios",
-      "direction": "forward"
+      "direction": "forward",
+      "semantic_type": "soporte",
+      "color": "c-soporte"
     },
     {
       "from": "oficinas",
       "to": "sede_costa",
       "label": "valorizaciones y facturas",
-      "direction": "forward"
+      "direction": "forward",
+      "semantic_type": "administrativo",
+      "color": "c-administrativo"
     },
     {
       "from": "cliente_ot",
       "to": "fw_sra",
       "label": "acceso via SRA",
-      "direction": "forward"
+      "direction": "forward",
+      "semantic_type": "gestion-remota",
+      "color": "c-gestion-remota"
     },
     {
       "from": "energia_cliente",
       "to": "ge_pila",
       "label": "reemplaza al energizar",
-      "direction": "forward"
+      "direction": "forward",
+      "semantic_type": "energia",
+      "color": "c-energia"
     }
-  ]
+  ],
+  "theme": {
+    "c-backhaul": "#1f6fd0",
+    "c-interconexion": "#1aa64b",
+    "c-acceso": "#e8820c",
+    "c-energia": "#b8860b",
+    "c-soporte": "#0e8a8a",
+    "c-gestion-remota": "#8e44ad",
+    "c-administrativo": "#888888"
+  }
 }
