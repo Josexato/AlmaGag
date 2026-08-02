@@ -18,7 +18,7 @@ El skill de claude.ai que genera diagramas con AlmaGag. Este doc fija el
 | Métricas (§H6+§O52) | línea `[motor] cruces=… arista×nodo=… labels=… tinta=X% aspecto=Y` como control de calidad; WARNING con tinta<4% o aspecto fuera de [0.4, 3.0] |
 | **Halo portable (§O50)** | el halo de texto es GEOMETRÍA SVG 1.1 (copia con trazo blanco bajo cada `<text>`, `class="ag-text-halo"`), nunca `paint-order`. **El parche cairosvg del skill quedó obsoleto**: rasterizar directo |
 | **viewBox al contenido (§O51)** | la lámina emitida se recorta al bbox + 40px (sólo contrae); las leyendas se reanclan al nuevo borde inferior |
-| **Alias de iconos (§O55+§Q64)** | `inet`/`wan`/`internet` dibujan `cloud`; un `type` desconocido → BWT visible CON EL NOMBRE DEL TYPE rotulado + WARNING; la línea `§Q64` inventaría los BWT activos. Usar un type nuevo a BWT deliberado es LEGÍTIMO mientras se decide su forma — el nombre debe explicarse solo |
+| **Alias de iconos (§O55+§Q64)** | `inet`/`wan`/`internet` dibujan `cloud`; un `type` desconocido → BWT visible CON EL NOMBRE DEL TYPE rotulado + WARNING; la línea `§Q64` inventaría los BWT activos. Usar un type nuevo a BWT deliberado es LEGÍTIMO mientras se decide su forma — el nombre debe explicarse solo. **El catálogo de iconos custom vive en el SKILL** (decisión del autor, 2-ago): el motor NO suma built-ins de dominio; un type que recurre en BWT se promueve al catálogo del skill (`references/`) como icono embebido |
 | **Zonas anidadas (§P59+§P60)** | `area`+`contains` anidado SIN coordenadas: la contención reserva espacio real a toda profundidad; zonas con transporte inter-zona (`bidirectional`/`none`) van a la banda principal y las de sólo-soporte a la periferia; los enlaces inter-zona viajan por troncales ortogonales (una espina por par origen→destino). El skill declara estructura y `direction`; la geometría es del motor |
 | **Afinidad entre áreas (§Q65)** | opcional `{"near": ["areaA", "areaB"]}` en `considerations` con ids de ÁREAS = bloque adyacente en su fila. Sin declarar, el orden se DERIVA: banda encadenada por transporte, periferia por baricentro, desempate por aparición — declarar sólo cuando hay lectura preferida |
 | **Frontera motor⇄skill (§R)** | el skill declara intención/semántica; el motor decide TODA la geometría. Prohibido en el skill: coordenadas fijas para compensar defectos de layout (eso es bug del motor), semántica duplicada en el texto del label, types crípticos |
@@ -26,6 +26,46 @@ El skill de claude.ai que genera diagramas con AlmaGag. Este doc fija el
 | **Tokens de tema (§O57)** | sección `theme` top-level + `"color": "<token>"` en elements/connections/areas/lanes/roles; hex literal gana |
 | **PNG sin navegador (§O58)** | `--exportpng`: Chrome/Chromium/Edge si hay (multiplataforma), cairosvg si no; `ALMAGAG_CHROME` como override |
 | Epifanía | `--epifania`: flipbook por fase con colisiones marcadas |
+
+## Recomendaciones para construir un skill de Claude sobre AlmaGag
+
+Lo aprendido con `almagag-diagramas`, aplicable a cualquier skill que
+genere diagramas con este motor. Principio rector (§R + Q63/Q64): **el
+motor entrega MECANISMO; todo vocabulario de dominio — iconos, clases
+semánticas, palabras clave — viaja en el skill o embebido en el archivo.**
+
+1. **Iconografía (§Q64 — el catálogo vive en el skill).** El motor trae
+   ~12 built-ins genéricos y NO va a sumar iconos de dominio. El skill
+   mantiene su catálogo (p. ej. `references/iconos-negocio.md`: 16
+   filled-outline, incl. el paquete minero/energía `tower`, `cow`,
+   `truck`, `cpe`, `generator`, `powergrid`) y copia a la sección
+   `icons{}` de cada .gag SOLO las entradas usadas — los archivos son
+   autocontenidos.
+2. **Colores FIJOS en los SVG embebidos.** El motor inserta el SVG tal
+   cual: NO resuelve `currentColor` (rasteriza negro) y el `color` del
+   elemento no afecta al icono embebido. Para variantes de color,
+   duplicar la entrada con otro nombre y otros hex. (La spec del repo
+   decía lo contrario; corregida el 2-ago — el código gana a los docs.)
+3. **BWT deliberado como etapa legítima.** Un `type` sin icono todavía
+   se usa igual: el plátano con el nombre rotulado es un placeholder
+   honesto. Regla: el nombre debe explicarse solo. La línea de log
+   `§Q64: N type(s) en BWT` es la señal de promoción — al catálogo del
+   SKILL, no al motor.
+4. **Semántica declarada (§Q63).** El skill declara `semantic_type` por
+   conexión (clases del dominio) + colores por tokens `theme`; con ≥3
+   clases la leyenda sale sola. Si prefiere inferencia, emite la sección
+   `semantics` embebida (clase→keywords) — el motor la aplica con
+   WARNING. Jamás pedir/esperar vocabulario dentro del motor.
+5. **Geometría: declarar intención, nunca coordenadas.** Estructura con
+   `area`+`contains` anidado, `direction` en toda conexión (el
+   transporte `bidirectional` manda zonas a la banda §P60), afinidad
+   `near` de áreas sólo con lectura preferida (§Q65). Si un diagrama
+   "necesita" coords fijas para verse bien, eso es un bug del motor:
+   reportarlo, no parchearlo en el skill.
+6. **Verificar contra el código, no contra los docs.** Regla de oro
+   vigente: ante duda, `main.py`/`select_strategy`/el módulo — este
+   contrato se actualiza cuando el motor cambia, y a veces la spec
+   miente (caso `currentColor`).
 
 ## Mantenimiento
 - El skill vive en el perfil de claude.ai del autor (`SKILL.md` + `references/`).

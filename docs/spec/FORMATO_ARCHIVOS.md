@@ -559,8 +559,8 @@ Si necesitas un tipo de icono que AlmaGag no trae, puedes definirlo inline con S
 ```json
 {
   "icons": {
-    "sensor": "<svg viewBox='0 0 80 50'><rect x='10' y='5' width='60' height='40' rx='8' fill='currentColor' stroke='black' stroke-width='2'/><circle cx='30' cy='25' r='6' fill='white'/><circle cx='50' cy='25' r='6' fill='white'/></svg>",
-    "antena": "<svg viewBox='0 0 80 50'><line x1='40' y1='5' x2='40' y2='35' stroke='black' stroke-width='3'/><circle cx='40' cy='5' r='4' fill='red'/><rect x='20' y='35' width='40' height='12' rx='3' fill='currentColor' stroke='black'/></svg>"
+    "sensor": "<svg viewBox='0 0 80 50'><rect x='10' y='5' width='60' height='40' rx='8' fill='#2E75B6' stroke='black' stroke-width='2'/><circle cx='30' cy='25' r='6' fill='white'/><circle cx='50' cy='25' r='6' fill='white'/></svg>",
+    "antena": "<svg viewBox='0 0 80 50'><line x1='40' y1='5' x2='40' y2='35' stroke='black' stroke-width='3'/><circle cx='40' cy='5' r='4' fill='red'/><rect x='20' y='35' width='40' height='12' rx='3' fill='#2E75B6' stroke='black'/></svg>"
   },
   "elements": [
     { "id": "s1", "type": "sensor", "label": "Temp Sensor", "color": "gold" },
@@ -587,7 +587,7 @@ Si necesitas un tipo de icono que AlmaGag no trae, puedes definirlo inline con S
 | Regla | Detalle |
 |-------|---------|
 | **viewBox** | Usa `viewBox='0 0 80 50'` para que el icono escale bien al tamano base (80x50 px). |
-| **currentColor** | Usa `fill='currentColor'` en tu SVG. AlmaGag lo reemplaza con el `color` del elemento. |
+| **Colores FIJOS** | AlmaGag inserta el SVG **tal cual** (no resuelve `currentColor`: rasteriza negro y el `color` del elemento NO afecta al icono embebido). Usa hex fijos; para variantes de color, duplica la entrada en `icons` con otro nombre y otros hex. |
 | **Comillas** | El SVG va entre comillas dobles `"`. Dentro del SVG usa comillas simples `'`. |
 | **Sin saltos de linea** | Todo el SVG debe ir en una sola linea (es un string JSON). |
 | **Mezcla con built-in** | Puedes usar iconos custom y built-in en el mismo archivo. En el ejemplo, `"sensor"` es custom pero `"server"` es built-in. |
@@ -791,7 +791,7 @@ Tambien puedes usar cualquier color hex: `"#3498DB"`, `"#E74C3C"`, `"#2ECC71"`, 
 ```json
 {
   "icons": {
-    "sensor": "<svg viewBox='0 0 80 50'><rect x='10' y='5' width='60' height='40' rx='8' fill='currentColor' stroke='black' stroke-width='2'/><circle cx='30' cy='25' r='6' fill='white'/><circle cx='50' cy='25' r='6' fill='white'/></svg>"
+    "sensor": "<svg viewBox='0 0 80 50'><rect x='10' y='5' width='60' height='40' rx='8' fill='#2E75B6' stroke='black' stroke-width='2'/><circle cx='30' cy='25' r='6' fill='white'/><circle cx='50' cy='25' r='6' fill='white'/></svg>"
   },
   "elements": [
     { "id": "s1", "type": "sensor", "label": "Temp Sensor", "color": "gold" },
