@@ -58,7 +58,7 @@ El código de runtime usa identificadores como `LAF_PHASE_6_NDPR_EXPANDED` para 
 > BUGS-VAL-003, BUGS-ARCH-001, BUGS-AUTO-008/009, BUGS-DRAW-001/002,
 > WISH-LAYOUT-008 (en la sección WISH).
 
-### BUGS-DOCS-001: La spec de formato omite secciones enteras y miente en defaults 🆕 ABIERTO
+### BUGS-DOCS-001: La spec de formato omite secciones enteras y miente en defaults ✅ RESUELTO (2026-08-02)
 **Componente**: `docs/spec/FORMATO_ARCHIVOS.md`
 **Reportado**: 2026-08-02 (auditoría)
 
@@ -86,9 +86,14 @@ obligatorios sin validación real; «ids duplicados: sólo uno se dibuja» —
 falso, se dibujan ambos superpuestos; «`.gag` = icons al inicio» — la
 extensión y posición son irrelevantes (`generator.py:110-115`).
 
-**Fix**: reescritura por secciones con verificación contra código (regla de
-oro). Detalle completo con líneas exactas en el reporte de auditoría de esta
-fecha (20 hallazgos numerados).
+**Fix aplicado**: los 20 hallazgos corregidos en el mismo día — secciones
+nuevas (`theme` §O57, `semantics` §Q63, zonas §P59/§P60/§Q65, `unions`
+§H7, alias §O55, clases custom + leyenda, waypoints raíz, apéndice CLI,
+`width`/`height`, `callout`) y verdades restauradas (corner_radius 25,
+preference auto, areas auto-enrutadas, contenedor→building/rect, actor
+reservado-inerte, connections opcional, ids duplicados se dibujan ambos,
+extensión irrelevante). Árbol-resumen final con todas las secciones
+top-level.
 
 ---
 

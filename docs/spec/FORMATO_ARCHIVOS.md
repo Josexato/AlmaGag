@@ -13,7 +13,9 @@ AlmaGag lee un archivo JSON y genera un diagrama SVG. Ese archivo JSON puede ten
 | `.sdjf` | JSON puro con elementos y conexiones | Siempre que uses iconos ya incluidos en AlmaGag |
 | `.gag` | Mismo JSON pero con una seccion extra `"icons"` donde defines iconos SVG custom | Cuando necesitas iconos que AlmaGag no trae |
 
-**Ambos son JSON valido.** La unica diferencia es que `.gag` tiene la key `"icons"` al inicio.
+**Ambos son JSON valido y el motor los trata IGUAL** (no mira la extension
+ni la posicion de las keys): la convencion es usar `.gag` cuando el archivo
+embebe iconos custom en `"icons"`, y `.sdjf` cuando no.
 
 ---
 
@@ -113,7 +115,7 @@ Valores reconocidos:
 | `spoke` | Satelite | hub_and_spoke |
 | `abstract` | Clase base abstracta | architecture |
 | `state` | Estado de máquina | state |
-| `actor` | Actor de secuencia | sequence |
+| `actor` | (reservado — hoy NINGUN template lo lee; declararlo no hace nada) | — |
 
 Los `role` sobreescriben la heuristica por label/topologia. Si no los declaras, la heuristica decide.
 
@@ -152,7 +154,10 @@ Ver `tests/test_template_fase4.py` y `AlmaGag/layout/templates/` para detalles.
 
 ## 0.3. Vistas del algoritmo `hier` — `layout_view`, `areas`, `lanes`, `roles` (§I)
 
-Sólo las usa `--layout-algorithm=hier`. Separan **el dato** (qué fase / quién es
+Declarar `areas` ya enruta el archivo a `hier` automaticamente (el default
+`select` decide; no hace falta ningun flag). Y si otra señal fuerza `auto`
+(p.ej. `considerations`, con WARNING §O53), las areas no se pierden: se
+siembran como zonas punteadas §N46 (`areas_to_near_seeds`). Separan **el dato** (qué fase / quién es
 responsable de cada nodo) de **la vista** (cómo se agrupa visualmente). Un SDJF
 sin estos campos se comporta igual que hoy.
 
@@ -228,13 +233,15 @@ enruta el diagrama a AUTO). Si no las declaras, no cambia nada.
 | Consideración | Efecto | `axis` |
 |---|---|---|
 | `align` | Lleva los elementos a una coordenada común (la media del grupo) | `"x"` (misma columna, default) o `"y"` (misma fila) |
-| `near`  | Acerca los elementos hacia su centroide (reduce la caja que los contiene) | — |
+| `near`  | ZONA por construccion (§N46): los miembros se clusterizan en grilla compacta ANTES del ruteo, con caja punteada; acepta `"label"` opcional para rotular la zona. **Si TODOS los ids son areas top-level** → afinidad entre zonas (§Q65): bloque adyacente en su fila | — |
 | `avoid` | Si dos elementos se solapan, los separa por el eje de menor penetración | — |
 
 - Cada consideración necesita **≥2 ids**; las entradas inválidas se descartan con
   un warning (no rompen el render).
-- Son best-effort y **guardadas**: se prueban una por una y sólo se conservan si
-  no suben las colisiones. Combínalas: `align` para formar una columna, `avoid`
+- `align`/`avoid` son best-effort y **guardadas** (se conservan solo si no
+  suben las colisiones). `near` es DURA desde §N46: se cumple por
+  construccion como zona (con expulsion de intrusos). Combínalas: `align`
+  para formar una columna, `avoid`
   para que dos cajas no se pisen.
 - Alias retrocompatible: también se acepta la clave `constraints`.
 
@@ -263,7 +270,7 @@ Define el tamano del area de dibujo en pixeles. Si lo omites, AlmaGag usa 1400x9
 
 ---
 
-## 2. elements (obligatorio)
+## 2. elements
 
 Es un array de objetos. Cada objeto es un nodo/icono del diagrama.
 
@@ -289,7 +296,7 @@ Es un array de objetos. Cada objeto es un nodo/icono del diagrama.
 | Campo | Tipo | Obligatorio | Default | Que hace |
 |-------|------|:-----------:|---------|----------|
 | `id` | string | **SI** | — | Identificador unico. Debe ser unico en todo el archivo. Se usa en `connections` para referenciar este elemento. |
-| `type` | string | no | `"unknown"` (banana) | Tipo de icono a dibujar. Ver seccion "Tipos de iconos" mas abajo. Si pones un tipo que no existe, se dibuja una banana con cinta. |
+| `type` | string | no | `"unknown"` (banana) | Tipo de icono. Ver "Tipos de iconos". Un tipo inexistente dibuja la banana con cinta ROTULADA con el nombre (§Q64) + WARNING. **Excepcion**: en un elemento con `contains` (contenedor) el default es `building` y un tipo desconocido cae a un rectangulo simple, no a la banana. |
 | `label` | string | no | sin texto | Texto que aparece junto al icono. Usa `\n` para salto de linea. Ejemplo: `"Linea 1\nLinea 2"` |
 | `color` | string | no | `"gray"` | Color del icono. Acepta nombres CSS (`"gold"`, `"tomato"`) o hexadecimal (`"#3498DB"`). Ver seccion "Colores" mas abajo. |
 | `x` | numero | no | automatico | Posicion horizontal en pixeles. **Si lo omites, AlmaGag calcula la posicion automaticamente.** |
@@ -298,6 +305,8 @@ Es un array de objetos. Cada objeto es un nodo/icono del diagrama.
 | `wp` | numero | no | `1.0` | Multiplicador de ancho. El icono base mide 80px de ancho. Con `wp: 1.5` medira 120px. |
 | `label_priority` | string | no | automatico | Prioridad del label: `"high"`, `"normal"`, `"low"`. Afecta donde se coloca el elemento en auto-layout: high = centro, low = periferia. |
 | `label_position` | string | no | automatico | Donde poner el texto: `"bottom"`, `"top"`, `"left"`, `"right"`. Si lo omites, AlmaGag elige la posicion que no tape otros elementos. |
+| `width` / `height` | numero | no | por `hp`/`wp` | Tamano EXPLICITO en px. Si estan ambos, **ganan** sobre `hp`/`wp`. |
+| `callout` | booleano | no | automatico | Fuerza (`true`) o desactiva (`false`) el render como callout (caja de texto aparte con linea guia). Sin declarar, se auto-activa con labels de ≥6 lineas o ≥150 caracteres. |
 
 ### Reglas importantes
 
@@ -307,7 +316,7 @@ Es un array de objetos. Cada objeto es un nodo/icono del diagrama.
 
 ---
 
-## 3. connections (obligatorio)
+## 3. connections (opcional — un archivo solo con elements renderiza)
 
 Es un array de objetos. Cada objeto es una linea que conecta dos elementos.
 
@@ -359,6 +368,30 @@ color a mano. `connection.color` lo sobreescribe si quieres un color exacto.
 ```
 
 Funciona sin el flag `--color-connections` (ese flag colorea cada conexion con
+
+**Clases CUSTOM (§Q63)**: cualquier nombre de clase vale (`backhaul`,
+`energia`, `soporte`…). Las custom no traen color de fabrica — darles color
+con tokens del `theme` en el campo `color` de la conexion. Con **≥3 clases
+distintas** aparece automaticamente la leyenda «Enlaces:» al pie (§N48);
+las clases custom se listan con su nombre tal cual. Con menos de 3, no hay
+leyenda.
+
+**Seccion `semantics` embebida (§Q63, opcional, top-level)** — el archivo
+puede traer su propio mapa texto→clase, como los iconos embebidos:
+
+```json
+"semantics": {
+  "transporte": {"keywords": ["FO", "MW", "Mbps"], "color": "#1f6fd0"},
+  "soporte":    ["soporte", "reposicion", "FAT"]
+}
+```
+
+El motor lo aplica MECANICAMENTE a conexiones SIN `semantic_type`:
+subcadena case-insensitive contra el label, la primera clase del archivo
+que matchea gana, `color` opcional (respeta uno ya presente; puede ser
+token del theme), WARNING `§Q63 [semantic] … inferido` — nunca en
+silencio; sin match → clase neutra; lo declarado jamas se pisa. **El
+vocabulario viaja en el archivo, nunca en el codigo del motor.**
 un color unico arcoiris; `semantic_type` agrupa por significado). Ver canonical
 `docs/diagrams/gags/17-semantic-connections.gag`.
 
@@ -403,8 +436,8 @@ Linea con angulos rectos (horizontal-vertical). Ideal para diagramas de arquitec
 
 | Campo | Tipo | Default | Que hace |
 |-------|------|---------|----------|
-| `corner_radius` | numero | 0 | Radio de las esquinas en pixeles. 0 = esquinas cuadradas. |
-| `preference` | string | `"horizontal"` | `"horizontal"` = sale horizontal primero. `"vertical"` = sale vertical primero. |
+| `corner_radius` | numero | **25** (`CORNER_RADIUS_DEFAULT`) | Radio de las esquinas en pixeles. Poner `0` explicito para esquinas cuadradas. |
+| `preference` | string | `"auto"` | `"auto"` = sale por el eje dominante (horizontal si |dx|>|dy|). `"horizontal"`/`"vertical"` lo fuerzan. |
 
 ### Tipo: bezier
 
@@ -469,6 +502,30 @@ Puntos intermedios explicitos. Tu defines por donde pasa la linea.
 ## 5. Contenedores (agrupacion visual)
 
 Un contenedor es un elemento normal que tiene el campo `contains`. Dibuja un rectangulo alrededor de sus hijos.
+
+**Compatibilidad v1.5**: `waypoints` y `routing_type` tambien se aceptan en
+la RAIZ de la conexion (sin envolver en `routing`): `waypoints` sueltos se
+convierten automaticamente a routing manual, y `routing_type: "X"` equivale
+a `routing: {"type": "X"}`.
+
+### Zonas fisicas anidadas (§P59/§P60/§Q65)
+
+Con `type: "area"` + `contains` anidado y SIN coordenadas del autor, el
+motor AUTO aplica un macro-layout de zonas:
+
+- **§P59 — contencion real**: la celda de la grilla usa el tamano REAL de
+  cada hijo (un edificio ya resuelto no aplasta a sus hermanos); recursivo
+  a cualquier profundidad; las cajas son super-nodos rigidos.
+- **§P60 — banda/periferia**: las zonas con enlaces inter-zona de
+  TRANSPORTE (`direction: "bidirectional"`/`"none"`) van adyacentes a la
+  banda principal; las de solo enlaces administrativos (dirigidos) bajan a
+  la fila periferica. Los enlaces inter-zona viajan por TRONCALES
+  ortogonales (una espina compartida por par de zonas). El `direction` es
+  la señal de clasificacion: declararlo bien importa.
+- **§Q65 — orden**: `{"near": ["zonaA", "zonaB"]}` en `considerations` con
+  ids de AREAS = bloque adyacente (afinidad declarada). Sin declarar, la
+  banda se encadena por transporte y la periferia por baricentro;
+  desempate por orden de aparicion. Determinista.
 
 ### Ejemplo
 
@@ -550,6 +607,21 @@ Ver canonical `docs/diagrams/gags/16-contract-band.gag`.
 
 ---
 
+## 5.9. `unions` — punto de union (genealogias, §H7)
+
+Seccion top-level opcional para "dos progenitores con hijos comunes": genera
+un nodo sintetico de barra (type `union`) y aristas padre→union→hijos — un
+tronco por pareja, no un enredo de aristas cruzadas.
+
+```json
+"unions": [{"id": "u1", "between": ["jose", "daria"]}]
+```
+
+Los hijos se conectan al id de la union (`{"from": "u1", "to": "hijo"}`).
+Se expande ANTES de elegir estrategia; sin `unions` es no-op.
+
+---
+
 ## 6. Formato .gag (iconos SVG embebidos)
 
 Si necesitas un tipo de icono que AlmaGag no trae, puedes definirlo inline con SVG.
@@ -611,13 +683,40 @@ Estos tipos vienen incluidos en AlmaGag. Solo pon el nombre en `"type"`:
 | `document` | Pagina con esquina doblada | Hoja de papel |
 | `user` | Silueta de persona | Cabeza + torso |
 | `diamond` | Rombo (abstract/interfaz) | Diamante UML |
+| `area` | ZONA fisica (contenedor §P59/§P60) | Caja de zona; ver seccion Contenedores |
 | `decision` | Rombo (alias de `diamond`) | Diamante BPMN |
 
 **Si pones un tipo que no existe** (ej: `"type": "xyz"`), AlmaGag dibuja una banana con cinta (BWT) como indicador de tipo no reconocido.
 
 ---
 
+### Alias de iconos (§O55)
+
+`inet`, `wan` e `internet` son ALIAS de `cloud`: dibujan la misma nube y
+cuentan como hub para la deteccion de topologia §N45. Un `type` realmente
+desconocido dibuja la banana con cinta (BWT) **rotulada con el nombre del
+type** + WARNING §O55, y el log inventaria los BWT activos (`§Q64: N
+type(s) en BWT`). Usar un type nuevo a BWT deliberado es legitimo mientras
+el concepto no tiene forma — el nombre debe explicarse solo.
+
 ## 8. Colores validos
+
+### Tokens de tema — seccion `theme` (§O57, top-level)
+
+Ademas de nombres CSS y hex, cualquier campo `color` puede referenciar un
+TOKEN declarado en la seccion `theme`:
+
+```json
+"theme": {"c-backhaul": "#1f6fd0", "acento": "#e8820c"},
+"connections": [{"from": "a", "to": "b", "color": "c-backhaul"}]
+```
+
+La resolucion es un pre-proceso: un `color` cuyo valor coincida EXACTO con
+una clave del theme se sustituye por su hex antes del render. Aplica a
+`elements`, `connections`, `areas`, `lanes` y a los valores de `roles`. Un
+hex/nombre CSS literal sigue valiendo tal cual (y gana: solo se sustituyen
+coincidencias exactas).
+
 
 ### Nombres CSS (puedes usar directamente)
 
@@ -659,7 +758,9 @@ Tambien puedes usar cualquier color hex: `"#3498DB"`, `"#E74C3C"`, `"#2ECC71"`, 
   { "id": "srv", "type": "cloud" }
 ]
 ```
-**Problema:** Dos elementos con el mismo `id`. Solo uno se dibuja.
+**Problema:** Dos elementos con el mismo `id`. Se dibujan AMBOS
+(superpuestos); las conexiones apuntan solo al ultimo — el primero queda
+con lineas colgantes. No hay validacion: evitarlo.
 **Solucion:** Cada `id` debe ser unico: `"srv1"`, `"srv2"`.
 
 ### Error 2: Conexion a un ID que no existe
@@ -816,7 +917,7 @@ Archivo .sdjf o .gag
   |
   +-- "icons" (solo .gag, opcional): { "nombre": "<svg>...</svg>" }
   |
-  +-- "elements" (obligatorio): [
+  +-- "elements": [
   |     {
   |       "id": OBLIGATORIO,
   |       "type": icono a usar,
@@ -828,13 +929,41 @@ Archivo .sdjf o .gag
   |     }
   |   ]
   |
-  +-- "connections" (obligatorio): [
-        {
-          "from": OBLIGATORIO (id origen),
-          "to": OBLIGATORIO (id destino),
-          "label": texto,
-          "direction": forward|backward|bidirectional|none,
-          "routing": { "type": straight|orthogonal|bezier|arc|manual, ... }
-        }
-      ]
+  +-- "connections" (opcional): [
+  |     {
+  |       "from": OBLIGATORIO (id origen),
+  |       "to": OBLIGATORIO (id destino),
+  |       "label": texto,
+  |       "direction": forward|backward|bidirectional|none,
+  |       "semantic_type": clase del enlace (canonica o custom),
+  |       "routing": { "type": straight|orthogonal|bezier|arc|manual, ... }
+  |     }
+  |   ]
+  |
+  +-- "icons" (opcional): { "nombre": "<svg …>" }         # iconos embebidos
+  +-- "theme" (opcional): { "token": "#hex" }             # §O57
+  +-- "semantics" (opcional): { "clase": ["keywords"] }   # §Q63
+  +-- "unions" (opcional): [ { "id", "between": [a, b] } ]  # §H7
+  +-- "considerations" (opcional): [ align | near | avoid ]
+  +-- "areas" / "lanes" / "roles" (opcional)              # vistas §I
 ```
+
+---
+
+## Apendice: flags del CLI
+
+La spec describe el ARCHIVO; el comando se documenta completo en
+`docs/guides/CLI-REFERENCE.md`. Resumen real (main.py):
+
+| Flag | Que hace |
+|------|----------|
+| `-o` / `--output` | Ruta del SVG de salida |
+| `--view {auto\|flow\|areas\|lanes\|matrix}` | Forzar REPRESENTACION (hier) |
+| `--layout-algorithm {select\|auto\|hier\|legacy}` | Forzar estrategia (debug; default `select` = el motor decide) |
+| `--exportpng` | PNG ademas del SVG (§O58: Chrome→cairosvg; `ALMAGAG_CHROME`) |
+| `--epifania` (alias `--debug-phases`, `--visualize-growth`) | Un SVG por fase + index.html |
+| `--debug` / `--visualdebug` | Logs verbosos / overlay visual de niveles |
+| `--dump-iterations` | Snapshots JSON de cada iteracion del optimizador |
+| `--guide-lines N,M,…` | Lineas guia horizontales en px |
+| `--color-connections` | Paleta arcoiris por conexion (sin semantica) |
+| `--centrality-{alpha,beta,gamma,max-score}` | Hiperparametros del scoring de centralidad |
