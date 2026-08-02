@@ -244,7 +244,8 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         if _p60_eligible:
             from AlmaGag.layout.strategies.auto.zones import apply_zone_banding
             n_svc = apply_zone_banding(
-                current, self.positioner._shift_container_subtree)
+                current, self.positioner._shift_container_subtree,
+                considerations=getattr(layout, '_considerations', None))
             if n_svc:
                 # la periferia pudo dejar elementos libres pisando zonas
                 self.positioner.recalculate_positions_with_expanded_containers(current)
@@ -546,8 +547,11 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         # zona (paso 2.5.55); si se clusterizó, sólo align/avoid quedan blandas.
         considerations = getattr(layout, '_considerations', None)
         if considerations:
-            soft = ([c for c in considerations if c['kind'] != 'near']
-                    if n_zones else considerations)
+            # §Q65: la afinidad de áreas ya fue consumida por el banding P60 —
+            # aplicarla blanda movería la caja de zona sin su subárbol.
+            live = [c for c in considerations if not c.get('_zone_affinity')]
+            soft = ([c for c in live if c['kind'] != 'near']
+                    if n_zones else live)
             from AlmaGag.layout.considerations import apply_considerations, label
             best_layout, unmet = apply_considerations(
                 best_layout, soft, self.evaluate, self.routing.route)

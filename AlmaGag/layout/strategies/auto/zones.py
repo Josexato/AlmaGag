@@ -103,10 +103,59 @@ def _classify(layout) -> Optional[dict]:
             'operational': operational, 'service': service}
 
 
-def apply_zone_banding(layout, shift_subtree) -> int:
+def zone_affinity_groups(considerations, zone_ids) -> List[List[str]]:
+    """§Q65: consideraciones `near` cuyos ids son TODOS zonas top-level se
+    consumen como AFINIDAD entre áreas (adyacencia en su fila), no como
+    cluster de miembros. Se marcan `_zone_affinity` para que §N46
+    (cluster_near_groups) no intente clusterizar contenedores. NOTA: debe
+    recibir la lista ORIGINAL del layout de entrada (Layout.copy() no copia
+    `_considerations`) para que la marca la vean los pasos posteriores."""
+    groups = []
+    for cons in considerations or []:
+        if cons.get('kind') != 'near':
+            continue
+        ids = cons.get('ids') or []
+        if len(ids) >= 2 and all(i in zone_ids for i in ids):
+            cons['_zone_affinity'] = True
+            groups.append(list(ids))
+    return groups
+
+
+def _blocks_for_row(row_zones, affinity) -> List[List[dict]]:
+    """Agrupa las zonas de una fila en bloques indivisibles según la afinidad
+    declarada (subconjunto de la fila); el resto, bloques unitarios. Orden
+    interno y de descubrimiento: aparición (determinista)."""
+    by_id = {z['id']: z for z in row_zones}
+    joined: Dict[str, set] = {z['id']: {z['id']} for z in row_zones}
+    for group in affinity:
+        members = [i for i in group if i in by_id]
+        if len(members) < 2:
+            continue
+        merged = set()
+        for m in members:
+            merged |= joined[m]
+        for m in merged:
+            joined[m] = merged
+    blocks, seen = [], set()
+    for z in row_zones:
+        if z['id'] in seen:
+            continue
+        block = [by_id[i] for i in by_id if i in joined[z['id']]]
+        seen |= joined[z['id']]
+        blocks.append(block)
+    return blocks
+
+
+def apply_zone_banding(layout, shift_subtree, considerations=None) -> int:
     """Reordena las zonas ya resueltas (P59: super-nodos rígidos): banda
     operativa arriba, fila de servicio abajo, corredor entre ambas. Marca
     los enlaces inter-zona con `_zone_trunk` para el ruteo por troncales.
+
+    §Q65 — orden dentro de cada fila: la afinidad declarada
+    (`considerations.near` con ids de áreas) forma bloques indivisibles;
+    sin declarar, la banda se encadena por adyacencia de TRANSPORTE
+    (zonas unidas por enlaces bidirectional/none quedan contiguas) y la
+    periferia por baricentro; desempate siempre por orden de aparición.
 
     `shift_subtree(container, layout, dx, dy)` mueve una zona con todo su
     contenido. Devuelve el número de zonas de servicio movidas (0 = no aplicó).
@@ -119,12 +168,39 @@ def apply_zone_banding(layout, shift_subtree) -> int:
 
     operational, service = info['operational'], info['service']
     zone_of, inter = info['zone_of'], info['inter']
+    affinity = zone_affinity_groups(considerations,
+                                    {z['id'] for z in info['zones']})
 
-    # --- banda operativa: orden de aparición (Q65 refinará), centros alineados
+    # --- banda operativa: bloques de afinidad encadenados por transporte ----
+    transport_links: Dict[Tuple[str, str], int] = {}
+    for c in inter:
+        if c.get('direction') in TRANSPORT_DIRECTIONS:
+            zf, zt = zone_of[c['from']], zone_of[c['to']]
+            key = (min(zf, zt), max(zf, zt))
+            transport_links[key] = transport_links.get(key, 0) + 1
+
+    blocks = _blocks_for_row(operational, affinity)
+
+    def _links_between(a, b) -> int:
+        return sum(transport_links.get((min(za['id'], zb['id']),
+                                        max(za['id'], zb['id'])), 0)
+                   for za in a for zb in b)
+
+    ordered_blocks = [blocks[0]] if blocks else []
+    pending = blocks[1:]
+    while pending:
+        tail = ordered_blocks[-1]
+        best = max(pending, key=lambda blk: _links_between(tail, blk))
+        if _links_between(tail, best) == 0:
+            best = pending[0]          # sin enlace al final: orden de aparición
+        pending.remove(best)
+        ordered_blocks.append(best)
+    band_order = [z for blk in ordered_blocks for z in blk]
+
     band_h = max(_box(z)[3] - _box(z)[1] for z in operational)
     x = ZONE_MARGIN
     band_cx: Dict[str, float] = {}
-    for z in operational:
+    for z in band_order:
         x1, y1, x2, y2 = _box(z)
         w, h = x2 - x1, y2 - y1
         shift_subtree(z, layout, x - x1, (ZONE_MARGIN + (band_h - h) / 2.0) - y1)
@@ -153,7 +229,12 @@ def apply_zone_banding(layout, shift_subtree) -> int:
             xs = [v for v in xs if v is not None]
             bary[z['id']] = sum(xs) / len(xs) if xs else default_cx
     order = {z['id']: i for i, z in enumerate(service)}
-    service_sorted = sorted(service, key=lambda z: (bary[z['id']], order[z['id']]))
+    svc_blocks = _blocks_for_row(service, affinity)
+    svc_blocks.sort(key=lambda blk: (sum(bary[z['id']] for z in blk) / len(blk),
+                                     min(order[z['id']] for z in blk)))
+    for blk in svc_blocks:
+        blk.sort(key=lambda z: order[z['id']])
+    service_sorted = [z for blk in svc_blocks for z in blk]
 
     periph_w = (sum(_box(z)[2] - _box(z)[0] for z in service_sorted)
                 + ZONE_BAND_GAP * (len(service_sorted) - 1))
@@ -174,6 +255,9 @@ def apply_zone_banding(layout, shift_subtree) -> int:
     logger.info(f"§P60: {len(operational)} zona(s) operativas en banda, "
                 f"{len(service)} de servicio a periferia, "
                 f"{len(pairs)} troncal(es) inter-zona")
+    if affinity:
+        logger.info(f"§Q65: {len(affinity)} afinidad(es) de área declaradas "
+                    f"— bloques adyacentes en su fila")
     return len(service)
 
 

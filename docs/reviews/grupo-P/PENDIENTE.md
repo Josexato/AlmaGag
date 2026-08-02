@@ -32,7 +32,7 @@ Veredicto del revisor: la topología y agrupación del SDJF sin posiciones son
 |---|---|---|
 | Q63 ✅ | `semantic_type` declarado, no inferido del label | 7 clases de enlace distinguidas solo por texto. Autoría: declararlo (contrato N48). Motor: fallback por palabras clave PERMITIDO con `WARNING [semantic] inferido de label`, nunca en silencio; sin match → clase neutra. **REDEFINIDO por el autor**: la tabla texto→clase NUNCA vive en el código de AlmaGag — viaja embebida en el archivo (sección `semantics`, como `icons{}`) o la pone el skill al declarar |
 | Q64 ◐ | Types nuevos: BWT deliberado primero, catálogo cuando recurren | REFINADO (v3 del artifact): usar un type nuevo con BWT es USO VÁLIDO del estándar — nombra lo que aún no tiene forma visual. Exigible: nombre semánticamente claro, porque **el BWT muestra ese nombre** (✅ implementado: rótulo 11 bold sobre el plátano) y **el audit lista los BWT activos** (✅ implementado: línea `§Q64: N type(s) en BWT (inventario…)`). Pendiente del motor: promover al catálogo los types que recurren (señal: mismo type en BWT en ≥2 fixtures) — el paquete de red torre/antena, unidad móvil, generador, vehículo, CPE, red eléctrica es el candidato natural |
-| Q65 | Afinidad y orden entre áreas (opcional + derivación) | opcional `considerations.near[areaA, areaB]` a nivel de áreas (sintaxis N46). Sin declarar: áreas unidas por transporte → adyacentes en banda central; solo-administrativas → periferia (P60); desempate por orden de aparición; determinista |
+| Q65 ✅ | Afinidad y orden entre áreas (opcional + derivación) | opcional `considerations.near[areaA, areaB]` a nivel de áreas (sintaxis N46). Sin declarar: áreas unidas por transporte → adyacentes en banda central; solo-administrativas → periferia (P60); desempate por orden de aparición; determinista |
 
 ## Sección R — Reparto de responsabilidades motor ⇄ skill (v3 del artifact)
 
@@ -146,10 +146,23 @@ WAN {11,12,14}, el test estricto congela la escala {14,12,11}»).
      `test_engine_ships_no_vocabulary` vigila que el motor no acumule
      vocabulario.
    Verifica en `tests/test_q63_semantics.py`.
-6. Orden restante: Q64 (paquete de red) → Q65.
-7. Convenciones de siempre: un criterio por commit, test de regresión,
+6. ~~Q65~~ CERRADO (en `zones.py`, sobre el banding P60):
+   - **Declarado**: un `considerations.near` cuyos ids son TODOS
+     zonas-área top-level se consume como AFINIDAD (bloque indivisible,
+     adyacente en su fila) — marcado `_zone_affinity` para que §N46 no
+     lo clusterice como miembros ni el rescate ④ lo aplique blando
+     (movería la caja sin su subárbol).
+   - **Derivación sin declarar**: la banda operativa se encadena por
+     adyacencia de TRANSPORTE (greedy desde el primer bloque por
+     aparición, siguiente = más enlaces bidirectional/none con la cola);
+     la periferia ordena bloques por baricentro; desempate SIEMPRE por
+     orden de aparición. Determinista (test de doble corrida).
+   Fixture minero: sin afinidad declarada, orden idéntico a P60 (guarda
+   con diff cero). Verifica en `tests/test_q65_zone_affinity.py`.
+7. Orden restante: Q64 (paquete de red — último del review).
+8. Convenciones de siempre: un criterio por commit, test de regresión,
    guarda anti-regresión con la línea `[motor]`, verificación visual PNG,
-   `python -m pytest -q --import-mode=importlib` (hoy: 429 verdes).
+   `python -m pytest -q --import-mode=importlib` (hoy: 435 verdes).
    La guarda ahora tiene medidor versionado: `scripts/measure_fixtures.py`
    (una línea estable por fixture; aborta ruidosamente si mide 0).
 
