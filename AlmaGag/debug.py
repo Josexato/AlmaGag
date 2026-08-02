@@ -29,7 +29,7 @@ def get_gag_version() -> str:
         return version("AlmaGag")
     except ImportError:
         # Fallback si no se puede obtener desde metadata
-        return "3.0.0"
+        return "3.5.0"
 
 
 def add_debug_badge(dwg, canvas_width: int, canvas_height: int) -> None:
