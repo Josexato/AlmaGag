@@ -1,0 +1,529 @@
+{
+  "canvas": {
+    "background": "#FFFFFF"
+  },
+  "elements": [
+    {
+      "id": "z_mina",
+      "type": "area",
+      "label": "ZONA MINA - TAJO NORTE\n~15 km2 - 350 msnm\n(distribucion 4+2 estaciones: supuesto)",
+      "color": "lightyellow",
+      "contains": [
+        {
+          "id": "dc_mina",
+          "scope": "full"
+        },
+        {
+          "id": "est1",
+          "scope": "full"
+        },
+        {
+          "id": "est2",
+          "scope": "full"
+        },
+        {
+          "id": "est3",
+          "scope": "full"
+        },
+        {
+          "id": "est4",
+          "scope": "full"
+        },
+        {
+          "id": "cow1",
+          "scope": "full"
+        },
+        {
+          "id": "ge_mina",
+          "scope": "full"
+        },
+        {
+          "id": "flota",
+          "scope": "full"
+        },
+        {
+          "id": "cpe_mina",
+          "scope": "full"
+        },
+        {
+          "id": "chancado",
+          "scope": "full"
+        },
+        {
+          "id": "garita",
+          "scope": "full"
+        }
+      ]
+    },
+    {
+      "id": "dc_mina",
+      "type": "building",
+      "label": "DC MINA (MinaCo)\nespacio + energia 220V\nshelter Claro en interior",
+      "color": "#1F3864",
+      "contains": [
+        {
+          "id": "core_p",
+          "scope": "full"
+        },
+        {
+          "id": "nms",
+          "scope": "full"
+        }
+      ]
+    },
+    {
+      "id": "core_p",
+      "type": "server",
+      "label": "Core principal\n4G + 5G SA en paralelo\n(flota 4G / servicios 5G)",
+      "color": "#5B9BD5"
+    },
+    {
+      "id": "nms",
+      "type": "computer",
+      "label": "NMS on-site\ngestion y monitoreo\nsin cloud / sin internet",
+      "color": "#5B9BD5"
+    },
+    {
+      "id": "est1",
+      "type": "tower",
+      "label": "Estacion Fija 1\ntorre 70 m + gNodeB",
+      "color": "#F4B183"
+    },
+    {
+      "id": "est2",
+      "type": "tower",
+      "label": "Estacion Fija 2\ntorre 70 m + gNodeB",
+      "color": "#F4B183"
+    },
+    {
+      "id": "est3",
+      "type": "tower",
+      "label": "Estacion Fija 3\ntorre 70 m + gNodeB",
+      "color": "#F4B183"
+    },
+    {
+      "id": "est4",
+      "type": "tower",
+      "label": "Estacion Fija 4\ntorre 70 m + gNodeB",
+      "color": "#F4B183"
+    },
+    {
+      "id": "cow1",
+      "type": "cow",
+      "label": "COW-1\nreubicable - autonoma\nen energia",
+      "color": "#F4B183"
+    },
+    {
+      "id": "ge_mina",
+      "type": "generator",
+      "label": "GE duales 24/7\n+ tanques combustible\n(hasta energizacion ~2027)",
+      "color": "#F4B183"
+    },
+    {
+      "id": "flota",
+      "type": "truck",
+      "label": "Flota minera\nswitches a bordo (M12/IP68)\nteleoperacion via 4G",
+      "color": "gray"
+    },
+    {
+      "id": "cpe_mina",
+      "type": "cpe",
+      "label": "CPEs industriales\nventa a costo - propiedad MinaCo\nstock emergencia 20%",
+      "color": "#F4B183"
+    },
+    {
+      "id": "chancado",
+      "type": "building",
+      "label": "Chancado primario\npolvo y vibracion\nequipos 24/365",
+      "color": "gray"
+    },
+    {
+      "id": "garita",
+      "type": "building",
+      "label": "Garita CobreSur\nKm 99 Carret. Sur\ncontrol de accesos SSO",
+      "color": "gray"
+    },
+    {
+      "id": "z_pila",
+      "type": "area",
+      "label": "ZONA PILA - PAMPA COLORADA\n~4.6 km2 - 1,000 msnm",
+      "color": "lightyellow",
+      "contains": [
+        {
+          "id": "cco",
+          "scope": "full"
+        },
+        {
+          "id": "est5",
+          "scope": "full"
+        },
+        {
+          "id": "est6",
+          "scope": "full"
+        },
+        {
+          "id": "cow2",
+          "scope": "full"
+        },
+        {
+          "id": "ge_pila",
+          "scope": "full"
+        },
+        {
+          "id": "planta",
+          "scope": "full"
+        },
+        {
+          "id": "cpe_pila",
+          "scope": "full"
+        }
+      ]
+    },
+    {
+      "id": "cco",
+      "type": "building",
+      "label": "CCO - DC-204 (MinaCo)\nDC redundante\nespacio + energia 220V",
+      "color": "#1F3864",
+      "contains": [
+        {
+          "id": "core_r",
+          "scope": "full"
+        }
+      ]
+    },
+    {
+      "id": "core_r",
+      "type": "server",
+      "label": "Core redundante\n4G + 5G SA\nalta disponibilidad",
+      "color": "#5B9BD5"
+    },
+    {
+      "id": "est5",
+      "type": "tower",
+      "label": "Estacion Fija 5\ntorre 70 m + gNodeB",
+      "color": "#F4B183"
+    },
+    {
+      "id": "est6",
+      "type": "tower",
+      "label": "Estacion Fija 6\ntorre 70 m + gNodeB",
+      "color": "#F4B183"
+    },
+    {
+      "id": "cow2",
+      "type": "cow",
+      "label": "COW-2\nreubicable - autonoma\nen energia",
+      "color": "#F4B183"
+    },
+    {
+      "id": "ge_pila",
+      "type": "generator",
+      "label": "GE duales 24/7\n+ tanques combustible",
+      "color": "#F4B183"
+    },
+    {
+      "id": "planta",
+      "type": "building",
+      "label": "Planta de proceso\nzona de pila",
+      "color": "gray"
+    },
+    {
+      "id": "cpe_pila",
+      "type": "cpe",
+      "label": "CPEs fijos zona pila\nventa a costo\npropiedad MinaCo",
+      "color": "#F4B183"
+    },
+    {
+      "id": "z_contratista",
+      "type": "area",
+      "label": "INSTALACIONES DEL CONTRATISTA\n(en faena)",
+      "color": "lavender",
+      "contains": [
+        {
+          "id": "oficinas",
+          "scope": "full"
+        },
+        {
+          "id": "almacen",
+          "scope": "full"
+        },
+        {
+          "id": "lab",
+          "scope": "full"
+        },
+        {
+          "id": "cuadrillas",
+          "scope": "full"
+        }
+      ]
+    },
+    {
+      "id": "oficinas",
+      "type": "building",
+      "label": "Oficinas en campamento\nlider (5a) + supervisor (3a)\nprograma SSO unico",
+      "color": "#5B9BD5"
+    },
+    {
+      "id": "almacen",
+      "type": "building",
+      "label": "Almacen SPARE\nstock CPEs 20% + repuestos\nreemplazo inmediato",
+      "color": "#5B9BD5"
+    },
+    {
+      "id": "lab",
+      "type": "computer",
+      "label": "Laboratorio C&D\nFAT/SAT - homologacion\nintegrador (InteCo)",
+      "color": "#5B9BD5"
+    },
+    {
+      "id": "cuadrillas",
+      "type": "user",
+      "label": "Cuadrillas soporte en sitio\ndistribuidas por zonas\nSLA 99.99% - matriz criticidad",
+      "color": "#548B54"
+    },
+    {
+      "id": "z_remoto",
+      "type": "area",
+      "label": "SOPORTE REMOTO - LIMA (CLARO)",
+      "color": "lavender",
+      "contains": [
+        {
+          "id": "noc",
+          "scope": "full"
+        },
+        {
+          "id": "fabricante",
+          "scope": "full"
+        }
+      ]
+    },
+    {
+      "id": "noc",
+      "type": "computer",
+      "label": "NOC Claro 24/7\nsoporte remoto\nescalamiento a fabricante",
+      "color": "#2E75B6"
+    },
+    {
+      "id": "fabricante",
+      "type": "building",
+      "label": "NetVendor SA\noficina local\nsoporte vigente 100% contrato",
+      "color": "gray"
+    },
+    {
+      "id": "z_externos",
+      "type": "area",
+      "label": "ENTORNO Y SERVICIOS EXTERNOS",
+      "color": "lightyellow",
+      "contains": [
+        {
+          "id": "fw_sra",
+          "scope": "full"
+        },
+        {
+          "id": "cliente_ot",
+          "scope": "full"
+        },
+        {
+          "id": "energia_cliente",
+          "scope": "full"
+        },
+        {
+          "id": "alojamiento",
+          "scope": "full"
+        },
+        {
+          "id": "sede_costa",
+          "scope": "full"
+        }
+      ]
+    },
+    {
+      "id": "fw_sra",
+      "type": "firewall",
+      "label": "Bastion SRA (MinaCo)\nacceso remoto seguro\nsin internet / sin cloud",
+      "color": "#1F3864"
+    },
+    {
+      "id": "cliente_ot",
+      "type": "user",
+      "label": "MinaCo OT-SCADA\nacceso solo lectura\nal sistema de gestion",
+      "color": "#1F3864"
+    },
+    {
+      "id": "energia_cliente",
+      "type": "powergrid",
+      "label": "Red electrica MinaCo\nenergizacion estimada\n~mediados 2027",
+      "color": "gray"
+    },
+    {
+      "id": "alojamiento",
+      "type": "building",
+      "label": "Alojamiento del personal\nValleverde / Puertosol\n(a cargo del postor)",
+      "color": "#5B9BD5"
+    },
+    {
+      "id": "sede_costa",
+      "type": "building",
+      "label": "MinaCo Sede\ncontabilidad\nrecepcion de facturas",
+      "color": "gray"
+    }
+  ],
+  "connections": [
+    {
+      "from": "est1",
+      "to": "dc_mina",
+      "label": "MW/FO >=300 Mbps",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "est2",
+      "to": "dc_mina",
+      "label": "MW/FO",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "est3",
+      "to": "dc_mina",
+      "label": "MW/FO",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "est4",
+      "to": "dc_mina",
+      "label": "MW/FO",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "cow1",
+      "to": "est1",
+      "label": "MW",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "est5",
+      "to": "cco",
+      "label": "MW/FO >=300 Mbps",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "est6",
+      "to": "cco",
+      "label": "MW/FO",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "cow2",
+      "to": "est5",
+      "label": "MW",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "dc_mina",
+      "to": "cco",
+      "label": "FO inter-DC (MinaCo C1/C2)\ngeo-redundancia",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "flota",
+      "to": "est1",
+      "label": "acceso 4G",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "cpe_mina",
+      "to": "est2",
+      "label": "acceso 5G SA FDD",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "cpe_pila",
+      "to": "est5",
+      "label": "acceso 5G SA FDD",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "ge_mina",
+      "to": "est1",
+      "label": "energia provisional",
+      "direction": "forward"
+    },
+    {
+      "from": "ge_pila",
+      "to": "est5",
+      "label": "energia provisional",
+      "direction": "forward"
+    },
+    {
+      "from": "energia_cliente",
+      "to": "ge_mina",
+      "label": "reemplaza al energizar",
+      "direction": "forward"
+    },
+    {
+      "from": "cuadrillas",
+      "to": "est1",
+      "label": "soporte en sitio",
+      "direction": "forward"
+    },
+    {
+      "from": "almacen",
+      "to": "cpe_mina",
+      "label": "reposicion inmediata",
+      "direction": "forward"
+    },
+    {
+      "from": "noc",
+      "to": "fw_sra",
+      "label": "acceso remoto",
+      "direction": "forward"
+    },
+    {
+      "from": "fw_sra",
+      "to": "nms",
+      "label": "tunel seguro SRA",
+      "direction": "forward"
+    },
+    {
+      "from": "cliente_ot",
+      "to": "nms",
+      "label": "solo lectura",
+      "direction": "forward"
+    },
+    {
+      "from": "fabricante",
+      "to": "noc",
+      "label": "soporte fabricante",
+      "direction": "forward"
+    },
+    {
+      "from": "lab",
+      "to": "cpe_mina",
+      "label": "FAT/SAT",
+      "direction": "forward"
+    },
+    {
+      "from": "alojamiento",
+      "to": "cuadrillas",
+      "label": "traslados diarios",
+      "direction": "forward"
+    },
+    {
+      "from": "oficinas",
+      "to": "sede_costa",
+      "label": "valorizaciones y facturas",
+      "direction": "forward"
+    },
+    {
+      "from": "cliente_ot",
+      "to": "fw_sra",
+      "label": "acceso via SRA",
+      "direction": "forward"
+    },
+    {
+      "from": "energia_cliente",
+      "to": "ge_pila",
+      "label": "reemplaza al energizar",
+      "direction": "forward"
+    }
+  ]
+}
