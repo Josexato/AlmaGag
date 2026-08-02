@@ -122,6 +122,13 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     if n_unions:
         logger.info(f"§H7: {n_unions} union(es) expandida(s) a nodo de barra")
 
+    # §Q63: mapa `semantics` embebido en el archivo (como `icons{}`) — el
+    # motor lo aplica mecánicamente a conexiones SIN semantic_type, con
+    # WARNING; el vocabulario nunca vive en el código. Corre ANTES del tema
+    # para que los colores del mapa puedan ser tokens §O57.
+    from AlmaGag.layout.semantics import apply_embedded_semantics
+    apply_embedded_semantics(data)
+
     # §O57: resolver tokens de tema (`theme` top-level + `"color": "<token>"`)
     # sobre el JSON crudo — el resto del pipeline sólo ve hex/nombres CSS.
     from AlmaGag.layout.theme import apply_theme
