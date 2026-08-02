@@ -170,6 +170,13 @@ class AutoLayoutOptimizer(LayoutOptimizer):
                 self._capture('topologia-red', current,
                               f'§N45: banda de hubs + {n_sites} sitio(s)')
 
+        # §P60 (gate temprano): el macro-layout banda/periferia sólo aplica si
+        # las zonas-área top-level NO traen coordenadas del autor. Se evalúa
+        # ANTES del posicionamiento (después todo tiene coords) y se ejecuta
+        # en 2.5.55, con las zonas ya resueltas como super-nodos rígidos.
+        from AlmaGag.layout.strategies.auto.zones import zones_lack_author_coords
+        _p60_eligible = zones_lack_author_coords(current.elements)
+
         self.positioner.calculate_missing_positions(current)
 
         # 0.5. Calcular dimensiones de contenedores (v2.1 FIX)
@@ -228,6 +235,22 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         self._log("Elementos primarios redistribuidos con contenedores expandidos")
         self._capture('contenedores', current,
                       'dimensiones + centrado con etiquetas + redistribución')
+
+        # 2.5.52. §P60: zonas de servicio a la periferia. Con las zonas ya
+        # resueltas y dimensionadas (super-nodos rígidos, P59), la banda
+        # principal queda para las operativas (transporte inter-zona) y las
+        # de servicio bajan a la fila periférica; los enlaces inter-zona se
+        # marcan para rutear por troncales (una por par origen→destino).
+        if _p60_eligible:
+            from AlmaGag.layout.strategies.auto.zones import apply_zone_banding
+            n_svc = apply_zone_banding(
+                current, self.positioner._shift_container_subtree)
+            if n_svc:
+                # la periferia pudo dejar elementos libres pisando zonas
+                self.positioner.recalculate_positions_with_expanded_containers(current)
+                self._capture('zonas-servicio', current,
+                              f'§P60: banda operativa + {n_svc} zona(s) de '
+                              f'servicio a periferia')
 
         # 2.5.55. §N46: `near[]` como ZONA por construcción. Cada grupo near se
         # clusteriza en grilla compacta en su centroide ANTES del canvas y el
@@ -490,7 +513,12 @@ class AutoLayoutOptimizer(LayoutOptimizer):
             if not self._try_relocate_labels(best_layout):
                 break
             best_layout.invalidate_collision_cache()
-        if self.evaluate(best_layout) > cols_before_reroute:
+        # §P60: con troncales inter-zona el macro-layout se re-armó (banda +
+        # periferia) y las rutas pre-reruteo son geometría vieja garantizada —
+        # la comparación del guardado sería contra material rancio. El re-ruteo
+        # final es incondicional en ese camino.
+        _has_trunks = any(c.get('_zone_trunk') for c in best_layout.connections)
+        if not _has_trunks and self.evaluate(best_layout) > cols_before_reroute:
             # el re-ruteo (con reubicación) empeoró: revertir a las rutas previas
             for c, saved in zip(best_layout.connections, pre_reroute_conns):
                 c.clear()
@@ -534,6 +562,15 @@ class AutoLayoutOptimizer(LayoutOptimizer):
             self._capture('consideraciones', best_layout,
                           f'{met}/{len(soft)} consideraciones blandas · '
                           f'{n_zones} zona(s) near · {min_collisions} colisiones')
+
+        # §P60: las troncales inter-zona son ESTRUCTURALES (cero diagonales,
+        # H24) — se recalculan sobre la geometría definitiva aunque el guardado
+        # H3 haya revertido el re-ruteo general a rutas previas (esas rutas
+        # revertidas son pre-normalización: para las troncales serían rancias).
+        from AlmaGag.layout.strategies.auto.zones import route_zone_trunks
+        if route_zone_trunks(best_layout):
+            best_layout.invalidate_collision_cache()
+            min_collisions = self.evaluate(best_layout)
 
         self._capture('final', best_layout,
                       f'normalizado + labels escalonados · {min_collisions} colisiones')

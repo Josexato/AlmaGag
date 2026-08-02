@@ -19,7 +19,7 @@ cruzando zonas. Aplican K35/N47 ya escritos; esto cubre lo nuevo.
 | # | Criterio | Resumen |
 |---|---|---|
 | P59 ✅ | Contención anidada reserva espacio real | layout bottom-up: caja del contenedor = bbox(hijos + etiquetas + banda de rótulo O54); el nivel superior la posiciona como super-nodo RÍGIDO; ningún elemento ∉ contains puede intersectarla. Recursivo a cualquier profundidad. Verifica: bbox(hijos+labels) ⊆ caja y cero intrusos |
-| P60 | Zonas de servicio a la periferia + troncal por zona destino | clasificar zonas: operativas (tráfico inter-zona) en banda principal; servicio/soporte (solo enlaces administrativos salientes) en periferia. Enlaces a una misma zona destino agrupados en UNA troncal ortogonal hasta el borde (I29); cero diagonales inter-zona (H24) |
+| P60 ✅ | Zonas de servicio a la periferia + troncal por zona destino | clasificar zonas: operativas (tráfico inter-zona) en banda principal; servicio/soporte (solo enlaces administrativos salientes) en periferia. Enlaces a una misma zona destino agrupados en UNA troncal ortogonal hasta el borde (I29); cero diagonales inter-zona (H24) |
 | P61 | Pasada anticolisión a TODA profundidad | el camino de áreas I27 con sub-layout no ejecuta F18/J31 ni colisiones sobre miembros. La pasada (etiqueta↔etiqueta/icono, arista↔etiqueta) debe ser etapa GLOBAL post-layout sobre el árbol completo; pitch dentro de área ≥ icono + 3×11px + holgura para labels de 3 líneas. Verifica: contador labels incluye miembros anidados; 0 fusiones (hoy ≥6); separación texto↔texto ≥8px |
 | P62 ✅ | Higiene de fixtures: anonimizar antes de commitear | reemplazar empresas/proyectos/personas por genéricos conservando estructura, tipos, LONGITUDES de label (para reproducir colisiones) y semántica. Verifica: grep de términos sensibles vacío; labels ±10% de longitud original |
 
@@ -80,10 +80,30 @@ WAN {11,12,14}, el test estricto congela la escala {14,12,11}»).
    solape. Fixture minero: labels 112→54, arista×nodo 12→12, cruces 41→52
    (los nodos des-apilados ahora exponen las diagonales de la zona de
    servicios — es el defecto que ataca P60).
-3. Orden restante: P61 → P60 → Q63 → Q64 (paquete de red) → Q65.
-4. Convenciones de siempre: un criterio por commit, test de regresión,
+3. ~~P60~~ CERRADO (`AlmaGag/layout/strategies/auto/zones.py`): con
+   zonas-área top-level sin coordenadas del autor, el macro-layout
+   clasifica por `direction` de los enlaces inter-zona (transporte =
+   `bidirectional`/`none` → operativa; sólo dirigidos → servicio), pone
+   las operativas adyacentes en banda y las de servicio en fila
+   periférica (orden por baricentro, determinista), y rutea cada par
+   origen→destino por UNA espina ortogonal compartida en el corredor que
+   se recalcula en cada re-ruteo (marca `_zone_trunk`). Gate: sólo el
+   fixture minero lo dispara; los otros 33 fixtures quedaron
+   byte-idénticos. Métricas mina: cruces 52→34, arista×nodo 12→12,
+   labels 54→55, tinta 46→93.5%. Verifica en
+   `tests/test_p60_service_zones.py`. Hallazgos para P61 salidos de acá:
+   (a) `_recalculate_structures` re-rutea ANTES de re-resolver
+   contenedores — todo path intra-contenedor queda rancio en cada
+   iteración del loop; (b) el guardado H3 compara el re-ruteo fresco
+   contra ese material rancio (comparación viciada) — en el camino §P60
+   el re-ruteo final se hizo incondicional; generalizarlo es parte del
+   trabajo de P61; (c) `convert_svg_to_png` con Chrome captura la
+   ventana a `scale`× sin `--force-device-scale-factor` → PNG con aire a
+   la derecha/abajo (cosmético, sólo el helper §O58).
+4. Orden restante: P61 → Q63 → Q64 (paquete de red) → Q65.
+5. Convenciones de siempre: un criterio por commit, test de regresión,
    guarda anti-regresión con la línea `[motor]`, verificación visual PNG,
-   `python -m pytest -q --import-mode=importlib` (hoy: 407 verdes).
+   `python -m pytest -q --import-mode=importlib` (hoy: 416 verdes).
    La guarda ahora tiene medidor versionado: `scripts/measure_fixtures.py`
    (una línea estable por fixture; aborta ruidosamente si mide 0).
 

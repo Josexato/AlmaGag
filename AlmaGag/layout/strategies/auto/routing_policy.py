@@ -32,3 +32,8 @@ class AutoRoutingPolicy:
         """
         layout.sizing = self._sizing
         self._router_manager.calculate_all_paths(layout)
+        # §P60: las conexiones inter-zona marcadas viajan por troncal
+        # compartida (una por par de zonas) — se recalculan sobre la
+        # geometría vigente en cada re-ruteo, pisando el path individual.
+        from AlmaGag.layout.strategies.auto.zones import route_zone_trunks
+        route_zone_trunks(layout)
