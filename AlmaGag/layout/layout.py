@@ -62,6 +62,15 @@ class Layout:
     _collision_count: Optional[int] = field(default=None, repr=False)
     _collision_pairs: Optional[List[Tuple]] = field(default=None, repr=False)
 
+    # BUGS-ARCH-001 — registro EXPLÍCITO de los atributos de contexto ad-hoc
+    # que generator/engine cuelgan del layout y que copy() debe preservar
+    # (por referencia). Agregar aquí todo atributo nuevo de este estilo.
+    CONTEXT_ATTRS = (
+        '_diagram_name', '_areas', '_roles', '_lanes', '_layout_view',
+        '_considerations', '_strategy', '_measure_stored_labels',
+        '_resolved_primary_connections', '_hierarchical_layout_applied',
+    )
+
     def __post_init__(self):
         """Construye índices después de inicialización."""
         if not self.elements_by_id:
@@ -83,7 +92,7 @@ class Layout:
             >>> candidate = original.copy()
             >>> candidate.elements[0]['x'] += 10  # No afecta a original
         """
-        return Layout(
+        new = Layout(
             elements=deepcopy(self.elements),
             connections=self.connections.copy(),  # Shallow copy - no se modifican
             canvas=self.canvas.copy(),
@@ -94,6 +103,17 @@ class Layout:
             groups=[g.copy() for g in self.groups],
             priorities=self.priorities.copy()
         )
+        # BUGS-ARCH-001: los atributos de CONTEXTO que el generator/engine
+        # cuelgan del layout deben sobrevivir a copy() — antes se perdían
+        # todos y cada consumidor debía acordarse de leer del layout ORIGINAL
+        # (contrato implícito que ya mordió en §Q65). Se copian POR REFERENCIA
+        # (contexto de sólo-lectura compartido: p.ej. las marcas
+        # `_zone_affinity` sobre `_considerations` deben verse en todas las
+        # copias).
+        for attr in self.CONTEXT_ATTRS:
+            if hasattr(self, attr):
+                setattr(new, attr, getattr(self, attr))
+        return new
 
     def invalidate_collision_cache(self):
         """

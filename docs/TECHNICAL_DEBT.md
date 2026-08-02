@@ -241,7 +241,7 @@ Verificado: firewall detectado en (500,100)-(625,158). Test:
 
 ---
 
-### BUGS-ARCH-001: `Layout.copy()` pierde todos los atributos ad-hoc 🆕 ABIERTO
+### BUGS-ARCH-001: `Layout.copy()` pierde todos los atributos ad-hoc ✅ RESUELTO (2026-08-02)
 **Componente**: `AlmaGag/layout/layout.py:70-96`, `AlmaGag/generator.py:221-252`
 **Reportado**: 2026-08-02 (auditoría; mordió en la práctica al implementar §Q65)
 
@@ -255,10 +255,13 @@ default — contrato implícito, invisible y fácil de romper (§Q65 falló en e
 primer intento exactamente por esto; quedó nota en
 `zones.py::zone_affinity_groups`).
 
-**Fix**: o `copy()` preserva una lista REGISTRADA de atributos de contexto,
-o el contexto se saca del Layout a un objeto de sólo-lectura que viaja
-aparte (opción alineada con WISH-ARCH-004 «el mapa»). Test de regresión:
-copy() debe preservar el contexto declarado.
+**Fix aplicado**: registro explícito `Layout.CONTEXT_ATTRS` (10 atributos)
+que `copy()` preserva POR REFERENCIA — contexto compartido, no clonado
+(las marcas sobre `_considerations`, p.ej. `_zone_affinity`, se ven en
+todas las copias). Todo atributo de contexto nuevo debe registrarse ahí.
+Test: `tests/test_arch001_layout_copy.py`. Guarda: 34 fixtures
+byte-idénticos (comportamiento neutro; el contrato deja de ser implícito).
+La extracción del contexto a un objeto aparte queda para WISH-ARCH-004.
 
 ---
 
