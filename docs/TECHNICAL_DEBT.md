@@ -240,6 +240,20 @@ con rutas `strategies/`; banner de HISTÓRICO en DIAGRAM_REVIEW.md.
 
 ---
 
+### BUGS-VAL-004: `validate_gag` sin sección `canvas` revienta con `KeyError: 'width'` ✅ RESUELTO (2026-08-03)
+**Componente**: `AlmaGag/validation/visual_quality.py::validate_gag`
+**Reportado**: 2026-08-03 (papercut hallado al re-medir la tabla del rol GAG Skiller)
+
+`canvas` es OPCIONAL en el formato: el CLI pone defaults (`generator.py`,
+WIDTH×HEIGHT), pero `validate_gag` construía el Layout con el dict vacío y
+el positioner reventaba en `layout.canvas['width']`. Reproductor: cualquier
+.sdjf sin sección `canvas` vía `validate_gag`.
+
+**Fix aplicado**: mismos defaults que el generator al construir el Layout.
+Test: `tests/test_visual_quality.py::test_validate_gag_without_canvas_uses_defaults`.
+
+---
+
 ### BUGS-VAL-003: `validate_svg` standalone no ve iconos dibujados sólo con `<path>` (firewall) ✅ RESUELTO (2026-08-02)
 **Componente**: `AlmaGag/validation/visual_quality.py`
 **Reportado**: 2026-08-02 (auditoría; re-verifica la nota del skill sobre R3/FortiGate)
