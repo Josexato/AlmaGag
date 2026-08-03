@@ -16,6 +16,15 @@ correr `python -m AlmaGag.main archivo.sdjf` y medir; después leer
   [`docs/guides/GAG-SKILLER.md`](docs/guides/GAG-SKILLER.md). Contrato motor⇄skill:
   [`docs/guides/SKILL-ALMAGAG.md`](docs/guides/SKILL-ALMAGAG.md).
 
+## Skills de terceros
+
+La definición de skill del repo es **recomendación no vinculante**: cada usuario
+que implemente AlmaGag puede tener su propio skill, con su propio catálogo de
+iconos y vocabulario semántico que NO viven en este repo. La IA que implemente
+cada skill es la responsable de administrar qué iconos tiene disponibles. El
+motor sólo garantiza el formato (`docs/spec/FORMATO_ARCHIVOS.md`) y la frontera
+§R (intención declarada ⇄ geometría del motor).
+
 ## Cómo se trabaja en este repo
 
 - **Un criterio por commit**, con test de regresión y **verificación visual PNG**
