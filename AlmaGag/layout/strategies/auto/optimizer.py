@@ -500,36 +500,27 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         # H3: normalizar/escalonar movió iconos y expandió contenedores sin
         # re-rutear → las rutas quedaban obsoletas y cruzaban las cajas ya
         # crecidas. Se re-rutea (obstacle-aware, H2) para que las conexiones
-        # rodeen los contenedores en su tamaño final. Guardado: sólo se conserva
-        # si no aumenta las colisiones respecto al layout pre-reruteo.
-        cols_before_reroute = self.evaluate(best_layout)
-        pre_reroute_conns = [dict(c) for c in best_layout.connections]
+        # rodeen los contenedores en su tamaño final.
+        # BUGS-AUTO-009: el re-ruteo es INCONDICIONAL. El guardado que había
+        # aquí comparaba las rutas frescas contra rutas RANCIAS
+        # (pre-normalización), que el renderer luego re-anclaba dibujando
+        # diagonales que ningún evaluador midió — comparación viciada a favor
+        # del material viejo. Sobre la geometría final sólo existe un estado
+        # medible: el re-ruteado.
         best_layout.invalidate_collision_cache()
         self.routing.route(best_layout)
         # H3: re-rutear invalida posiciones de etiqueta (nota del review) → tras
         # el re-ruteo se reubican las etiquetas de icono que hayan quedado
-        # solapadas por las rutas nuevas, antes de decidir si se conserva.
+        # solapadas por las rutas nuevas.
         self._stagger_overlapping_contained_labels(best_layout)
         for _ in range(3):
             if not self._try_relocate_labels(best_layout):
                 break
             best_layout.invalidate_collision_cache()
-        # §P60: con troncales inter-zona el macro-layout se re-armó (banda +
-        # periferia) y las rutas pre-reruteo son geometría vieja garantizada —
-        # la comparación del guardado sería contra material rancio. El re-ruteo
-        # final es incondicional en ese camino.
-        _has_trunks = any(c.get('_zone_trunk') for c in best_layout.connections)
-        if not _has_trunks and self.evaluate(best_layout) > cols_before_reroute:
-            # el re-ruteo (con reubicación) empeoró: revertir a las rutas previas
-            for c, saved in zip(best_layout.connections, pre_reroute_conns):
-                c.clear()
-                c.update(saved)
-            best_layout.invalidate_collision_cache()
-        else:
-            self._capture('reruteo', best_layout,
-                          f'rutas obstacle-aware tras layout final · '
-                          f'{count_crossings(best_layout)} cruces · '
-                          f'{self.evaluate(best_layout)} colisiones')
+        self._capture('reruteo', best_layout,
+                      f'rutas obstacle-aware tras layout final · '
+                      f'{count_crossings(best_layout)} cruces · '
+                      f'{self.evaluate(best_layout)} colisiones')
         min_collisions = self.evaluate(best_layout)
 
         # Guardar dump final si está habilitado
@@ -568,9 +559,8 @@ class AutoLayoutOptimizer(LayoutOptimizer):
                           f'{n_zones} zona(s) near · {min_collisions} colisiones')
 
         # §P60: las troncales inter-zona son ESTRUCTURALES (cero diagonales,
-        # H24) — se recalculan sobre la geometría definitiva aunque el guardado
-        # H3 haya revertido el re-ruteo general a rutas previas (esas rutas
-        # revertidas son pre-normalización: para las troncales serían rancias).
+        # H24) — se recalculan sobre la geometría definitiva, después de que
+        # las consideraciones blandas (y su re-ruteo) hayan movido lo último.
         from AlmaGag.layout.strategies.auto.zones import route_zone_trunks
         if route_zone_trunks(best_layout):
             best_layout.invalidate_collision_cache()
