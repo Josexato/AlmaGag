@@ -71,12 +71,17 @@ anterior (era AUTO-vs-LAF) está en
   re-ruteo).
 - **Zona `near` (§N46)** — cluster compacto por construcción con caja
   punteada rotulada (§O54) y expulsión de intrusos.
-- **Anticolisión global (§P61)** — última etapa: reubica etiquetas (toda
-  profundidad, deslizamiento por polilínea) sin tocar iconos ni rutas. 📍
+- **Anticolisión global (§P61 + WISH-LAYOUT-008)** — EL único optimizador
+  de etiquetas, compartido por auto y hier: última etapa, cubre elementos
+  libres y contenidos a toda profundidad, desliza rótulos de conexión por
+  su polilínea, siembra la verdad que falte y descarta posiciones rancias
+  (>90px del icono / >60px de la línea). El renderer dibuja
+  `label_positions`/`connection_labels` TAL CUAL. 📍
   `strategies/auto/anticollision.py`.
-- **Medición veraz (`_measure_stored_labels`)** — en la etapa final el
-  detector mide las etiquetas donde se DIBUJAN; las heurísticas intermedias
-  siguen calibradas con la posición canónica (migración: WISH-LAYOUT-008).
+- **Medición veraz** — el detector mide SIEMPRE las etiquetas donde se
+  DIBUJAN (posición almacenada); el pipeline la mantiene sincronizada
+  (los movimientos de bloque arrastran sus etiquetas). Lo medido = lo
+  dibujado, en todas las etapas (WISH-LAYOUT-008). 📍 `layout/collision.py`.
 - **Rescates** — ① compactación por offsets de bloque
   (`layout/offset_optimizer.py`), ② contracción SCC (`hier/scc.py`),
   ④ consideraciones blandas guardadas.

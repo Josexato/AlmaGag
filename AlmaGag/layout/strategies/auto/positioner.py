@@ -303,9 +303,15 @@ class AutoLayoutPositioner:
                 break
 
     def _shift_container_subtree(self, container, layout, dx, dy):
-        """Mueve un container + todos sus descendientes por (dx, dy)."""
+        """Mueve un container + todos sus descendientes por (dx, dy).
+
+        WISH-LAYOUT-008: las etiquetas ALMACENADAS viajan con su elemento —
+        con medición veraz, una etiqueta que se queda atrás puntúa «limpia»
+        en el espacio vacío y el diagrama la dibuja huérfana.
+        """
         container['x'] += dx
         container['y'] += dy
+        self._shift_stored_label(layout, container['id'], dx, dy)
         # Mover descendientes recursivamente
         for ref in container.get('contains', []):
             ref_id = extract_item_id(ref)
@@ -316,6 +322,14 @@ class AutoLayoutPositioner:
                 else:
                     child['x'] += dx
                     child['y'] += dy
+                    self._shift_stored_label(layout, ref_id, dx, dy)
+
+    @staticmethod
+    def _shift_stored_label(layout, eid, dx, dy):
+        lp = getattr(layout, 'label_positions', None)
+        if lp and eid in lp:
+            x, y, anchor, baseline = lp[eid]
+            lp[eid] = (x + dx, y + dy, anchor, baseline)
 
     def _calculate_hierarchical_layout(self, layout: Layout, elements: List[dict]):
         """

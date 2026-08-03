@@ -66,13 +66,13 @@ class HierLayoutOptimizer(LayoutOptimizer):
 
         # §I: despacho por vista.
         if view == 'areas' and L._areas:
-            return self._optimize_areas(L)
+            return self._finish_labels(self._optimize_areas(L))
         if view == 'lanes':
-            return self._optimize_lanes(L)
+            return self._finish_labels(self._optimize_lanes(L))
         if view == 'matrix' and L._areas:
             # §I: matriz fase×rol (la vista más completa; el spec la ofrece
             # "solo bajo petición" por lo cara de rutear).
-            return self._optimize_matrix(L)
+            return self._finish_labels(self._optimize_matrix(L))
         if view == 'matrix':
             logger.warning("[HIER] vista 'matrix' requiere `areas`; usando flujo")
         # compat: si pidieron 'areas' sin declararlas, sigue el flujo normal.
@@ -154,6 +154,18 @@ class HierLayoutOptimizer(LayoutOptimizer):
                          f"satélites={lv.satellites} tomas={lv.side_feeders}")
 
         self._capture('final', L, '§G22 canvas contenido')
+        return self._finish_labels(L)
+
+    def _finish_labels(self, L):
+        """WISH-LAYOUT-008: la ÚNICA optimización de etiquetas es la pasada
+        global (compartida con auto) — siembra la verdad en
+        `label_positions`/`connection_labels` (respetando la preferencia de
+        lado §F18 y las anclas §G23) y resuelve fusiones deslizando por las
+        polilíneas reales. El renderer dibuja esos valores tal cual, así que
+        la medición almacenada ES la verdad visual."""
+        from AlmaGag.layout.strategies.auto.anticollision import (
+            global_label_anticollision)
+        global_label_anticollision(L, self.geometry)
         return L
 
     def _optimize_areas(self, L):

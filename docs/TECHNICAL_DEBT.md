@@ -312,23 +312,22 @@ Guarda: 34 fixtures byte-idénticos.
 
 ---
 
-### BUGS-AUTO-009: el guardado del re-ruteo final (H3) compara rutas frescas contra rutas rancias 🆕 ABIERTO
-**Componente**: `AlmaGag/layout/strategies/auto/optimizer.py` (bloque H3, ~:501-524)
+### BUGS-AUTO-009: el guardado del re-ruteo final (H3) compara rutas frescas contra rutas rancias ✅ RESUELTO (2026-08-03, iteración 6)
+**Componente**: `AlmaGag/layout/strategies/auto/optimizer.py` (bloque H3)
 **Reportado**: 2026-08-02 (hallazgo §P60/§P61, generalización pendiente)
 
-`pre_reroute_conns` conserva paths calculados ANTES de los últimos
+`pre_reroute_conns` conservaba paths calculados ANTES de los últimos
 movimientos (stagger, re-resolución de contenedores del loop); el guardado
-«revertir si empeora» evalúa esos paths rancios — que el renderer luego
-re-ancla en los extremos, dibujando diagonales que ningún evaluador midió.
-La comparación está viciada a favor del material viejo. En el camino §P60
-(troncales) ya se hizo incondicional el re-ruteo; y §P61 reordenó
-`_recalculate_structures` (contenedores→ruteo). Falta generalizar: que el
-guardado compare SIEMPRE dos estados medidos con geometría vigente.
+«revertir si empeora» evaluaba esos paths rancios — que el renderer luego
+re-anclaba en los extremos, dibujando diagonales que ningún evaluador
+midió. La comparación estaba viciada a favor del material viejo.
 
-**Fix**: re-rutear el estado «previo» sobre la geometría final antes de
-comparar (o eliminar el revert y confiar en el re-ruteo obstacle-aware).
-Medir con la guarda de fixtures: hoy los offenders conocidos son 6 aristas
-intra-zona del fixture minero cuando el revert gana.
+**Fix aplicado**: el revert se ELIMINÓ — sobre la geometría final sólo
+existe un estado medible, el re-ruteado obstacle-aware, y el re-ruteo H3
+es incondicional (el caso especial de troncales §P60 quedó subsumido).
+Guarda de fixtures: 37/37 sin cambios (el revert ya no ganaba en ningún
+fixture). Test de invariante (`tests/test_auto009_fresh_routes.py`): todo
+`computed_path` termina anclado a la geometría vigente de sus extremos.
 
 ---
 
@@ -956,34 +955,72 @@ fantasma) → holgura + recorte exacto del PNG. Tests:
 
 ---
 
-### WISH-LAYOUT-008: Unificar los TRES sistemas de etiquetas + medición veraz total 🆕 ABIERTO
-**Componente**: `layout/label_optimizer.py`, `strategies/auto/{optimizer,anticollision,auto_renderer}.py`, `layout/collision.py`
+### WISH-LAYOUT-008: Unificar los TRES sistemas de etiquetas + medición veraz total ✅ RESUELTO (2026-08-03, iteración 6)
+**Componente**: `layout/label_optimizer.py`, `strategies/auto/{optimizer,anticollision,auto_renderer,positioner}.py`, `layout/collision.py`
 **Reportado**: 2026-08-02 (deuda estructural descubierta al cerrar §P61)
 
-Hoy conviven TRES sistemas que colocan etiquetas sin verse entre sí:
+Convivían TRES sistemas que colocaban etiquetas sin verse entre sí:
 (1) `layout.label_positions` + la pasada global §P61 (verdad para miembros
-CONTENIDOS, dibujados tal cual); (2) el stagger de contenedores
-(BUGS-AUTO-006) dentro del optimizer; (3) el `LabelPositionOptimizer` del
-RENDERER, que re-optimiza en tiempo de dibujo las etiquetas de elementos
-LIBRES y las de conexión — o sea, lo dibujado ≠ lo medido para esos casos.
-§P61 los hizo convivir (obstáculos pre-ocupados `extra_obstacles`, headers
-como obstáculo), pero la unificación real es: el renderer DIBUJA la verdad
-del layout y hay UN solo optimizador, corriendo en la etapa global.
+CONTENIDOS); (2) el stagger de contenedores (BUGS-AUTO-006) dentro del
+optimizer; (3) el `LabelPositionOptimizer` del RENDERER, que re-optimizaba
+en tiempo de dibujo las etiquetas de elementos LIBRES y las de conexión —
+lo dibujado ≠ lo medido para esos casos.
 
-Segunda mitad: la medición veraz (`_measure_stored_labels`, bbox desde la
-posición ALMACENADA) hoy sólo rige en la etapa final — las heurísticas
-intermedias siguen midiendo la posición canónica del ancla porque migrarlas
-re-baraja fixtures calibrados (probado 2-ago: 06-flujo a×n 0→8, git 3→9 —
-revertido con evidencia). Migrar TODO el pipeline a medición veraz requiere
-recalibrar esas heurísticas con la guarda de fixtures en la mano.
+**Resuelto en dos mitades (commits de la iteración 6):**
 
-También desbloquea: el resto de fusiones del fixture minero (~5 pares en la
-fila de torres — congestión de pitch que exige espaciado consciente de
-etiquetas, dos veces intentado y revertido por la guarda; diagnósticos en
-`docs/reviews/grupo-P/PENDIENTE.md`).
+*Unificación*: la pasada global §P61 es LA única optimización — cubre
+elementos libres, siembra la verdad que falte (`seed_label_truth`,
+respetando `label_position` §F18) y almacena SIEMPRE el centro elegido de
+cada rótulo de conexión. El `AutoSVGRenderer` dibuja
+`label_positions`/`connection_labels` TAL CUAL; hier corre la misma pasada
+al final de su optimize; el `LabelPositionOptimizer` quedó exclusivo de
+`legacy`. Tests: `tests/test_layout008_unified_labels.py`.
 
-**Prioridad**: Alta para la iteración 6 — es el precursor declarado de
-cerrar «0 fusiones» (§P61) y del pitch label-aware (§P61/K35).
+*Medición veraz total*: el detector mide SIEMPRE la posición almacenada
+(la bifurcación `_measure_stored_labels` desapareció — era sólo-final).
+La migración destapó tres bugs latentes que la calibración canónica
+ocultaba, todos corregidos: (a) el invariante «contenedores top-level sin
+solape» (BUGS-AUTO-004) no sobrevivía a `_compact_horizontal` ni al
+stagger — ahora se restaura en ambos y en `_recalculate_structures`;
+(b) `_shift_container_subtree` y los offsets de compactación movían
+bloques SIN arrastrar sus etiquetas almacenadas → etiquetas huérfanas que
+puntuaban «limpias» en el vacío — ahora la etiqueta viaja con su bloque;
+(c) guardas de rancidez en la pasada global: una posición almacenada a
+>90px de su icono o >60px de su polilínea no es candidata.
+
+Recalibración (guarda de 37 fixtures): git 13→11 cruces con todo adherido
+(su aspecto 0.26 es honesto: el 0.44 anterior lo inflaban las huérfanas),
+mina 22→19 labels, reference-cheatsheet 23→21 y a×n 3→2, 06-flujo 8→12
+(conteo honesto de la congestión que antes escondían dos huérfanas); los
+otros 33 fixtures byte-estables. Verificación visual PNG de los 5 casos.
+
+Lo que NO cierra este ticket (sigue en WISH-LAYOUT-009): la congestión de
+pitch — filas donde las etiquetas son más anchas que el espaciado de
+iconos (fila de torres del minero, contenedor LAF de 06-flujo).
+
+---
+
+### WISH-LAYOUT-009: Pitch label-aware — espaciado consciente del ancho de etiquetas 🆕 ABIERTO
+**Componente**: `strategies/auto/{positioner,optimizer}.py` (pitch de grillas/filas), `container_calculator.py`
+**Reportado**: 2026-08-03 (alcance restante al cerrar WISH-LAYOUT-008)
+
+Con la unificación y la medición veraz cerradas, las fusiones que quedan
+son TODAS del mismo tipo: filas/grillas donde el pitch entre iconos se
+calcula por el ancho del ICONO, no de su ETIQUETA — dos vecinos a 100px
+con labels de 150px no caben ni con escalones ni corrimientos (la pasada
+global ya agota sus candidatos). Casos testigo: la fila de torres del
+fixture minero (~5 pares), el contenedor «LAF Optimizer» de
+06-flujo-ejecucion (grilla 4×3 con labels de 2-3 líneas), el racimo
+sudamericano de continentes-america.
+
+**Idea**: el pitch de celda/columna considera `max(ancho_icono,
+ancho_label_medido)` (ya existe `get_label_bbox_stored` para medirlo);
+dos intentos previos genéricos fueron revertidos por la guarda —
+diagnósticos en `docs/reviews/grupo-P/PENDIENTE.md`. Con la medición
+veraz ahora vigente en todo el pipeline, el intento 3 tiene por primera
+vez un evaluador que ve lo que el lector ve.
+
+**Prioridad**: Media-alta — es el paso declarado hacia «0 fusiones».
 
 ---
 
@@ -1939,10 +1976,12 @@ Ambos son válidos UML pero el diamante es más universal en diagramas arquitect
 
 Los conteos por categoría se sacan grep-eando este archivo (`grep -c '^### BUGS-'`
 / `'^### WISH-'`) — las tablas estáticas de conteo quedaban obsoletas al primer
-ticket nuevo (BUGS-DOCS-006). Estado al 2026-08-02: tanda de auditoría con
-BUGS-DOCS-001…006, BUGS-VAL-003 ✅, BUGS-ARCH-001 ✅, BUGS-AUTO-008 ✅,
-BUGS-AUTO-009, BUGS-DRAW-001 ✅, BUGS-DRAW-002; WISH abiertos: WISH-DRAW-002
-(flujos resaltados), WISH-LAYOUT-008 (unificación de etiquetas, iteración 6).
+ticket nuevo (BUGS-DOCS-006). Estado al 2026-08-03: la tanda de auditoría
+2026-08-02 quedó COMPLETA (BUGS-DOCS-001…006, BUGS-VAL-003, BUGS-ARCH-001,
+BUGS-AUTO-008/009, BUGS-DRAW-001/002 — todos ✅) y la iteración 6 cerró
+WISH-DRAW-002 (flujos resaltados) y WISH-LAYOUT-008 (unificación de
+etiquetas + medición veraz total). WISH abierto más reciente:
+WISH-LAYOUT-009 (pitch label-aware).
 
 
 ## Mapeo desde códigos anteriores

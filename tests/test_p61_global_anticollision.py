@@ -1,11 +1,11 @@
 """§P61 — pasada anticolisión GLOBAL post-layout sobre el árbol completo.
 
-Tres piezas: (a) el detector mide las etiquetas donde se DIBUJAN (posición
+Dos piezas: (a) el detector mide las etiquetas donde se DIBUJAN (posición
 almacenada, `_measure_stored_labels`) en la etapa final; (b) la pasada
-global reubica etiquetas de miembros contenidos (toda profundidad) y
-desliza etiquetas de conexión por su polilínea, con separación texto↔texto
-≥8px; (c) el optimizador de etiquetas del renderer recibe las etiquetas
-contenidas como bboxes pre-ocupados (era ciego a ellas).
+global reubica etiquetas a toda profundidad (contenidas y, desde
+WISH-LAYOUT-008, también libres) y desliza etiquetas de conexión por su
+polilínea, con separación texto↔texto ≥8px. El renderer dibuja el
+resultado tal cual (tests en test_layout008_unified_labels.py).
 """
 
 import json
@@ -44,8 +44,9 @@ def test_label_bbox_stored_follows_position():
     assert st[0] == 500 and en[2] == 500
 
 
-def test_detector_uses_stored_positions_when_flagged():
-    """Con `_measure_stored_labels`, un escalón anti-fusión SÍ cuenta."""
+def test_detector_measures_stored_positions():
+    """WISH-LAYOUT-008 (medición veraz total): el detector mide SIEMPRE la
+    posición ALMACENADA — un escalón anti-fusión cuenta, sin flag alguno."""
     from AlmaGag.layout.collision import CollisionDetector
     els = [{'id': 'a', 'type': 'server', 'label': 'Etiqueta larga A',
             'x': 100, 'y': 100},
@@ -57,12 +58,9 @@ def test_detector_uses_stored_positions_when_flagged():
     L.label_positions = {'a': (140.0, 170.0, 'middle', 'bottom'),
                          'b': (240.0, 214.0, 'middle', 'bottom')}
     det = CollisionDetector(GeometryCalculator())
-    canonical = {b[2] for b in det._collect_all_bboxes(L)}
-    L._measure_stored_labels = True
     boxes = {bid: bb for bb, kind, bid in det._collect_all_bboxes(L)
              if kind == 'icon_label'}
-    assert canonical  # sanidad: el modo canónico también produce bboxes
-    # en modo almacenado, el bbox de b arranca en su y desplazada (escalón)
+    # el bbox de b arranca en su y desplazada (escalón) — verdad almacenada
     assert boxes['b'][1] == 214 - 14
 
 
@@ -128,17 +126,10 @@ def test_pass_is_idempotent():
     assert global_label_anticollision(L, geo) == 0
 
 
-def test_renderer_optimizer_respects_extra_obstacles():
-    """El optimizador del renderer no aterriza sobre bboxes pre-ocupados."""
-    from AlmaGag.layout.label_optimizer import Label, LabelPositionOptimizer
-    geo = GeometryCalculator()
-    opt = LabelPositionOptimizer(geo, 800, 600)
-    lbl = Label(id='c1', text='rotulo', anchor_x=400, anchor_y=300,
-                font_size=12, priority=1, category='connection')
-    free = opt.optimize_labels([lbl], elements=[], connections=[])
-    # el mismo rótulo, con su zona preferida pre-ocupada, termina en otra parte
-    fx, fy = free['c1'].x, free['c1'].y
-    blocked = opt.optimize_labels(
-        [lbl], elements=[], connections=[],
-        extra_obstacles=[(fx - 40, fy - 20, fx + 40, fy + 10)])
-    assert (blocked['c1'].x, blocked['c1'].y) != (fx, fy)
+def test_auto_renderer_does_not_reoptimize():
+    """WISH-LAYOUT-008: el AutoSVGRenderer ya no usa LabelPositionOptimizer —
+    la única optimización de etiquetas es la pasada global."""
+    import inspect
+    from AlmaGag.layout.strategies.auto import auto_renderer
+    src = inspect.getsource(auto_renderer)
+    assert 'LabelPositionOptimizer' not in src
