@@ -3,7 +3,7 @@
 El skill de claude.ai que genera diagramas con AlmaGag. Este doc fija el
 **contrato** entre el skill y el repo, para mantenerlos sincronizados.
 
-## Qué asume el skill del repo (v3.5+, grupos N y O)
+## Qué asume el skill del repo (v3.6, iteración 6)
 
 | Capacidad | Cómo la usa el skill |
 |---|---|
@@ -27,6 +27,9 @@ El skill de claude.ai que genera diagramas con AlmaGag. Este doc fija el
 | **PNG sin navegador (§O58)** | `--exportpng`: Chrome/Chromium/Edge si hay (multiplataforma), cairosvg si no; `ALMAGAG_CHROME` como override |
 | Epifanía | `--epifania`: flipbook por fase con colisiones marcadas |
 | **Flujos resaltados (WISH-DRAW-002)** | sección `flows` top-level: recorridos por ids con trazo de resaltador que sigue las rutas reales; `label` → leyenda «Flujos:»; anotación pura (no toca layout/métricas). Usarla para narrar caminos (paquete, trámite, aprobación) |
+| **Etiquetas: lo dibujado ES lo medido (WISH-LAYOUT-008)** | UN solo optimizador (pasada global, compartida auto/hier); el renderer dibuja `label_positions`/`connection_labels` tal cual; el contador `labels` es la verdad visual en todo el pipeline. El skill puede confiar en la métrica sin re-inspeccionar posiciones |
+| **Pitch label-aware (WISH-LAYOUT-009)** | celdas de grilla y avance de banda dimensionados por `max(icono, etiqueta)` por columna + reserva vertical por fila. Consecuencia de autoría: ACORTAR labels es la palanca #1 del ancho de lámina; no compensar fusiones con coordenadas |
+| **Validador sin falsos positivos R3 (VAL-003)** | el histórico del FortiGate/`firewall` quedó resuelto: un R3 es un conector que de verdad cuelga |
 
 ## Recomendaciones para construir un skill de Claude sobre AlmaGag
 
@@ -71,6 +74,8 @@ semánticas, palabras clave — viaja en el skill o embebido en el archivo.**
 
 ## Mantenimiento
 - El skill vive en el perfil de claude.ai del autor (`SKILL.md` + `references/`).
+- Última sincronización: **v3.6** (3-ago-2026, iteración 6: `flows`,
+  etiquetas unificadas + medición veraz, pitch label-aware, VAL-003).
 - Al agregar capacidades al motor: actualizar el skill (paso de diseño +
   debugging + `references/motores-y-vistas.md`) y esta tabla.
 - Regla de oro del skill: **el código gana a los docs**; verificar contra
