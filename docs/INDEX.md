@@ -137,7 +137,7 @@ docs/
 ├── ROADMAP.md                    # Plan de desarrollo
 ├── TECHNICAL_DEBT.md             # Deuda técnica (BUGS-*, WISH-*)
 ├── DIAGRAM_REVIEW.md             # HISTÓRICO: revisión visual jun-2026
-├── FLUJO_EJECUCION.md            # Flujo del pipeline (en actualización)
+├── architecture/history/         # ARCHITECTURE y FLUJO_EJECUCION antiguos
 ├── CHANGELOG.md · RELEASE_v3.0.0.md
 │
 ├── spec/

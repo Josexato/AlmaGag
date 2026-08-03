@@ -41,11 +41,12 @@ semánticas, palabras clave — viaja en el skill o embebido en el archivo.**
    `truck`, `cpe`, `generator`, `powergrid`) y copia a la sección
    `icons{}` de cada .gag SOLO las entradas usadas — los archivos son
    autocontenidos.
-2. **Colores FIJOS en los SVG embebidos.** El motor inserta el SVG tal
-   cual: NO resuelve `currentColor` (rasteriza negro) y el `color` del
-   elemento no afecta al icono embebido. Para variantes de color,
-   duplicar la entrada con otro nombre y otros hex. (La spec del repo
-   decía lo contrario; corregida el 2-ago — el código gana a los docs.)
+2. **Color en los SVG embebidos.** Desde BUGS-DRAW-002 (2-ago) el motor
+   SÍ resuelve `currentColor` con el `color` del elemento (default gray):
+   un solo icono sirve para todas las variantes — ya no hace falta
+   duplicar entradas por color. Un icono con hex FIJOS (como el catálogo
+   actual del skill) se inserta tal cual y el `color` no lo afecta;
+   ambas formas conviven.
 3. **BWT deliberado como etapa legítima.** Un `type` sin icono todavía
    se usa igual: el plátano con el nombre rotulado es un placeholder
    honesto. Regla: el nombre debe explicarse solo. La línea de log

@@ -524,7 +524,7 @@ def draw_connection_line(dwg, connection):
 - [x] Routing `bezier` genera curvas suaves
 - [x] Routing `arc` funciona para self-loops
 - [x] `corner_radius` preparado (rendering básico)
-- [ ] `avoid_elements=true` evita colisiones (>80% de casos) - **Pospuesto para v2.2**
+- ~~`avoid_elements`~~ DESCARTADA (2026-08-02): la evitación es incondicional vía visibility graph
 - [x] Compatible con SDJF v1.5 waypoints
 
 #### No Funcionales

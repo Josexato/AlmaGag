@@ -97,7 +97,7 @@ top-level.
 
 ---
 
-### BUGS-DOCS-002: Los docs de arquitectura describen un paquete que no existe ◐ MITIGADO (2026-08-02)
+### BUGS-DOCS-002: Los docs de arquitectura describen un paquete que no existe ✅ RESUELTO (2026-08-02)
 **Componente**: `docs/architecture/ARCHITECTURE.md`, `docs/architecture/modules/**`
 **Reportado**: 2026-08-02 (auditoría)
 
@@ -121,16 +121,17 @@ top-level.
   `test_visual_quality.py` listado y no existe; constantes
   `DEFAULT_CANVAS_WIDTH` inventadas — reales `WIDTH`/`HEIGHT`).
 
-**Mitigado**: banners de estado en TODOS los docs afectados (laf/* como
-HISTÓRICO con la recomendación invertida anulada; ARCHITECTURE/README/
-AUTO/ROUTING como DESACTUALIZADO con el pipeline real resumido y puntero
-a la auditoría). **Resta** (la parte grande): reescribir ARCHITECTURE.md
-con el árbol real y documentar `LayoutEngine`/`select_strategy`/`hier` —
-buen candidato para una sesión propia.
+**Fix aplicado**: `ARCHITECTURE.md` REESCRITO desde el código (pipeline
+real con select_strategy/LayoutEngine/estrategias, optimizer AUTO por
+fases, módulos transversales, invariantes de calidad); el anterior
+archivado en `history/ARCHITECTURE-2026-06-23.md`. Los docs de `laf/`
+quedan como HISTÓRICO con banner (por diseño); `modules/layout/README`,
+`auto/*` y `routing/ROUTING` conservan banner DESACTUALIZADO — su
+refresh fino es mantenimiento continuo, no deuda.
 
 ---
 
-### BUGS-DOCS-003: FLUJO_EJECUCION.md narra un pipeline que ya no existe ◐ MITIGADO (2026-08-02)
+### BUGS-DOCS-003: FLUJO_EJECUCION.md narra un pipeline que ya no existe ✅ RESUELTO (2026-08-02)
 **Componente**: `docs/FLUJO_EJECUCION.md`
 **Reportado**: 2026-08-02 (auditoría)
 
@@ -143,9 +144,9 @@ y CERO mención de los pasos reales de `generate_diagram`: `expand_unions`
 anticolisión global §P61 → re-ruteo final → métricas §H6/§O52. Cabecera
 declara «v3.3.0 (LAF 11 fases)».
 
-**Mitigado**: banner DESACTUALIZADO con el pipeline real resumido en 4
-líneas + puntero a la auditoría. **Resta**: la reescritura completa (o
-degradación definitiva a histórico) — junto con BUGS-DOCS-002.
+**Fix aplicado**: archivado como
+`architecture/history/FLUJO_EJECUCION-v3.3.md` (decisión del autor,
+opción A); el pipeline vigente vive en el `ARCHITECTURE.md` nuevo.
 
 ---
 
@@ -172,8 +173,9 @@ degradación definitiva a histórico) — junto con BUGS-DOCS-002.
 licencia MIT, roadmap-resumen); ROADMAP con banner + checkbox
 `avoid_elements` desmarcado y anotado como nunca-implementado; CONCEPTS
 con banner. **Resta**: reescribir el cuerpo de ROADMAP (estado v3.4/v3.5)
-y el glosario de CONCEPTS (vocabulario del motor actual); decidir el
-destino de `avoid_elements` en `SDJF_v2.1_PROPOSAL.md`.
+y el glosario de CONCEPTS (vocabulario del motor actual). `avoid_elements`
+DESCARTADA por decisión del autor (2026-08-02): banner definitivo en
+`SDJF_v2.1_PROPOSAL.md` y criterios de ROADMAP anotados.
 
 ---
 
@@ -345,7 +347,7 @@ el contenido llenando la lámina (92-95%; resto = margen §O51).
 
 ---
 
-### BUGS-DRAW-002: `draw_embedded_icon` recibe `color` y nunca lo usa 🆕 ABIERTO
+### BUGS-DRAW-002: `draw_embedded_icon` recibe `color` y nunca lo usa ✅ RESUELTO (2026-08-02, opción a — decisión del autor)
 **Componente**: `AlmaGag/draw/icons/__init__.py::draw_embedded_icon`
 **Reportado**: 2026-08-02 (denunciado por el catálogo del skill; spec ya corregida)
 
@@ -356,11 +358,12 @@ rasteriza negro. La spec ya fue corregida el 2-ago para decir la verdad
 («colores FIJOS»), y el skill duplica entradas de icono por variante de
 color como workaround.
 
-**Fix (decisión pendiente del autor)**: (a) implementar el reemplazo
-`currentColor→color` (un `replace` — cumpliría la promesa original y
-eliminaría los duplicados del skill; re-verificar fixtures con embebidos), o
-(b) retirar el parámetro y cerrar como «tal cual por diseño». En ambos
-casos, alinear spec + skill.
+**Fix aplicado (opción a, elegida por el autor)**: `currentColor` se
+reemplaza por el `color` del elemento (default gray) al insertar; los
+iconos con hex fijos se insertan tal cual — ambas formas conviven. Spec y
+contrato del skill re-alineados; el skill ya no necesita duplicar iconos
+por variante de color. Tests: `tests/test_draw002_currentcolor.py`.
+Guarda: 34 fixtures byte-idénticos (ninguno usaba currentColor).
 
 ---
 
