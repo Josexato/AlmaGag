@@ -1,108 +1,119 @@
-# Conceptos de AlmaGag — Glosario unificado
+# Glosario de AlmaGag (v3.5)
 
-> **⚠️ DESACTUALIZADO (pre-reorg `strategies/`, ≤jun-2026).** El pipeline
-> real es: `generator.py` (expand_unions §H7 → semantics §Q63 → theme §O57 →
-> `select_strategy` → templates) → `LayoutEngine` (`auto`/`hier`/`legacy`) →
-> banding §P60 → anticolisión §P61 → re-ruteo → métricas §O52. Ver el código
-> y `docs/reviews/auditoria-2026-08-02/` (BUGS-DOCS-002/003/004); este
-> documento se conserva por su valor histórico hasta su reescritura.
-
-
-Este documento es el **punto de entrada conceptual** para entender el vocabulario que usa AlmaGag en código, docs y especificaciones. Para detalle de implementación, ver `architecture/` y `spec/`.
+**Actualizado**: 2026-08-02, verificado contra el código. El glosario
+anterior (era AUTO-vs-LAF) está en
+[`architecture/history/CONCEPTS-2026-02.md`](architecture/history/CONCEPTS-2026-02.md).
+📍 = dónde vive en el código.
 
 ---
 
-## Glosario por categoría
+## El formato
 
-### 1. Formatos de entrada
+- **SDJF / `.sdjf`** — el JSON declarativo de diagramas (elements +
+  connections + secciones opcionales). 📍 spec viva:
+  `docs/spec/FORMATO_ARCHIVOS.md`.
+- **GAG / `.gag`** — el mismo JSON con iconos SVG embebidos en `"icons"`.
+  El motor trata ambas extensiones igual; es convención de autoría.
+- **`direction`** — `forward` · `backward` · `bidirectional` · `none`. No es
+  cosmética: `bidirectional`/`none` = TRANSPORTE y clasifica zonas (§P60) y
+  detecta topologías de red (§N45).
+- **`semantic_type`** — la CLASE de un enlace (canónica o custom del
+  dominio). Con ≥3 clases distintas, leyenda automática §N48. 📍
+  `draw/primitives/svg.py::SEMANTIC_CONNECTION_COLORS`.
+- **`semantics` (§Q63)** — mapa embebido texto→clase que el motor aplica
+  con WARNING a conexiones sin declarar. El vocabulario viaja en el archivo
+  o en el skill, nunca en el motor. 📍 `layout/semantics.py`.
+- **`theme` (§O57)** — tokens de color top-level; cualquier `color` que
+  coincida exacto con un token se resuelve a su hex antes del render. 📍
+  `layout/theme.py`.
+- **`contains`** — convierte un elemento en CONTENEDOR; anidable. Desde
+  §P59 la contención reserva espacio real a toda profundidad.
+- **`area` (type)** — contenedor de ZONA física. Zonas top-level sin coords
+  disparan el macro-layout banda/periferia §P60.
+- **`considerations`** — `align` (blanda), `avoid` (blanda), `near` (DURA:
+  zona por construcción §N46; con ids de ÁREAS = afinidad §Q65). 📍
+  `layout/considerations.py`.
+- **`areas` / `lanes` / `roles`** — metadata de fase/responsable para las
+  vistas de `hier` (`--view areas|lanes|matrix`). 📍 `strategies/hier/`.
+- **`unions` (§H7)** — pareja → nodo de barra + un tronco por hijo
+  (genealogías). 📍 `layout/unions.py`.
+- **`layout_template`** — patrón macro (`architecture`, `flow`,
+  `hub_and_spoke`, `dashboard`, `er`, `sequence`, `state`, `nested`…) con
+  auto-detección; `hier` los ignora. 📍 `layout/templates/`.
 
-**SDJF** — Simple Diagram JSON Format. Formato JSON declarativo de AlmaGag. Describe `elements`, `connections` y opcionalmente `canvas`. Sin layout: las coordenadas son opcionales.
-📍 `docs/spec/SDJF_v2.1_PROPOSAL.md` (versión actual)
+## El motor
 
-**GAG** — Variante de SDJF que permite **iconos SVG embebidos inline** dentro del JSON. Mismo esquema que SDJF más un campo de SVG por elemento. Diferenciador clave de AlmaGag.
-📍 `docs/spec/FORMATO_ARCHIVOS.md`
+- **`select_strategy`** — LA decisión central: 7 reglas en orden (view→hier,
+  considerations→auto, contains→auto, areas→hier, decision→hier, ciclo sin
+  coords→hier, resto→auto); la señal anulada se nombra en WARNING §O53. 📍
+  `generator.py`.
+- **`LayoutEngine`** — despacho de estrategias (`auto`/`hier`/`legacy`). 📍
+  `layout/engine.py::_STRATEGIES`.
+- **`auto`** — estrategia principal: niveles topológicos + barycenter +
+  contenedores + zonas + loop de optimización + anticolisión. 📍
+  `strategies/auto/`.
+- **`hier`** — flujo dirigido por niveles/columnas, decisiones, SCC,
+  vistas por área/carril/matriz. 📍 `strategies/hier/`.
+- **`legacy`** — el ex-LAF, CONGELADO; nunca se auto-elige; conserva la
+  Epifanía histórica. 📍 `strategies/legacy/`.
+- **Super-nodo rígido (§P59)** — un contenedor resuelto se mueve como
+  bloque indivisible (`_shift_container_subtree`); las celdas de su grilla
+  usan el tamaño REAL de cada hijo.
+- **Banda / periferia (§P60)** — zonas con transporte inter-zona van
+  adyacentes a la banda principal; las de sólo-soporte, a la fila
+  periférica. 📍 `strategies/auto/zones.py`.
+- **Troncal (§I29/§P60)** — los enlaces de un par de zonas comparten UNA
+  espina ortogonal en el corredor (`_zone_trunk`, recomputada en cada
+  re-ruteo).
+- **Zona `near` (§N46)** — cluster compacto por construcción con caja
+  punteada rotulada (§O54) y expulsión de intrusos.
+- **Anticolisión global (§P61)** — última etapa: reubica etiquetas (toda
+  profundidad, deslizamiento por polilínea) sin tocar iconos ni rutas. 📍
+  `strategies/auto/anticollision.py`.
+- **Medición veraz (`_measure_stored_labels`)** — en la etapa final el
+  detector mide las etiquetas donde se DIBUJAN; las heurísticas intermedias
+  siguen calibradas con la posición canónica (migración: WISH-LAYOUT-008).
+- **Rescates** — ① compactación por offsets de bloque
+  (`layout/offset_optimizer.py`), ② contracción SCC (`hier/scc.py`),
+  ④ consideraciones blandas guardadas.
 
-### 2. Algoritmos de layout
+## Dibujo y emisión
 
-**AUTO** — Algoritmo de layout original. Respeta coordenadas manuales (`x`/`y` en el JSON) y auto-posiciona el resto. Rápido para diagramas simples y casos "dashboard" (ver workaround BUGS-LAF-002).
-📍 `AlmaGag/layout/auto/optimizer.py` · doc: `architecture/modules/layout/auto/AUTO.md`
+- **BWT** — Banana With Tape: fallback VISIBLE para un `type` sin icono,
+  ROTULADO con el nombre (§Q64) + WARNING §O55 + inventario en el log.
+  Usarlo a propósito es legítimo mientras un concepto no tiene forma.
+- **Alias de iconos (§O55)** — `inet`/`wan`/`internet` dibujan `cloud` (y
+  cuentan como hub §N45).
+- **Iconos embebidos** — sección `"icons"`; `currentColor` se resuelve al
+  `color` del elemento (BUGS-DRAW-002); hex fijos se insertan tal cual.
+  **El catálogo de dominio vive en el skill** (§Q64). 📍 `draw/icons/`.
+- **Halo portable (§O50)** — el halo de texto es GEOMETRÍA SVG 1.1 (gemelo
+  con trazo blanco, `class="ag-text-halo"`), no CSS: cualquier rasterizador
+  es fiel.
+- **viewBox al contenido (§O51)** — la lámina se recorta al bbox + 40px
+  (sólo contrae); leyendas re-ancladas. 📍 `draw/primitives/viewbox.py`.
+- **Leyenda §N48** — «Enlaces:» al pie con ≥3 `semantic_type` distintos.
+- **Callout** — labels enormes (≥6 líneas / ≥150 chars) van a caja aparte
+  con línea guía; override con `"callout": true|false`.
+- **Epifanía** — `--epifania`: un SVG por fase del pipeline + flipbook, con
+  colisiones marcadas. 📍 `layout/epifania.py`.
+- **`--exportpng` (§O58)** — Chrome/Chromium/Edge headless si hay
+  (`ALMAGAG_CHROME` como override), cairosvg si no.
 
-**LAF** — Layout Abstracto Primero. Pipeline de fases con minimización de cruces estilo Sugiyama. **Ignora coordenadas manuales** (todo se posiciona desde cero). Mejor para arquitecturas/flows densos.
-📍 `AlmaGag/layout/laf/optimizer.py` · doc: `architecture/modules/layout/laf/LAF.md`
+## Calidad y proceso
 
-### 3. Modelo de análisis estructural (lo más oscuro del proyecto)
-
-Tres niveles de nodos que LAF maneja simultáneamente durante su pipeline. Cada uno opera en una abstracción distinta:
-
-**NdDp — Nodo de Profundidad** — ID que codifica nivel de anidación en el grafo. Ej: `NdDp02-001` = nodo del nivel 2, índice 001. Usado en análisis topológico (longest-path levels).
-📍 `AlmaGag/layout/laf/structure_analyzer.py`
-
-**NdPr — Nodo Primario** — Grafo abstracto que opera sobre nodos agregados (contenedores virtuales + elementos primarios) en lugar de elementos individuales. Fases 3-5 de LAF trabajan sobre NdPr para reducir cruces en grafos densos.
-📍 `AlmaGag/layout/laf/structure_analyzer.py`
-
-**NdFn — Nodo Final** — Etiqueta de debug visual con índice global. Aparece sobre cada elemento renderizado cuando se activa `--visualdebug`. Útil para correlacionar SVG con tablas de debug.
-📍 `AlmaGag/layout/laf/structure_analyzer.py` · uso en `AlmaGag/renderer.py`
-
-**TOI / Virtual Container** — Contenedor que agrupa elementos virtualmente sin existir como tal en el JSON. Detectado automáticamente por análisis topológico: cuando varios elementos comparten patrón "Triple Origen Idéntico" (todos hijos del mismo padre, sin conexiones entre sí), LAF los trata como una unidad.
-📍 `AlmaGag/layout/laf/structure_analyzer.py`
-
-### 4. Modelo de datos
-
-**Layout** — Value Object inmutable que contiene el estado completo del diagrama en cualquier punto del pipeline. Análisis lazy (`collision_count`, `graph`, `levels`, `groups` se calculan bajo demanda y se cachean). Invalidación de caché explícita con `invalidate_collision_cache()`.
-📍 `AlmaGag/layout/layout.py`
-
-**Container** — **No es entidad propia**. Es un `element` con campo `contains: [...]`. El código detecta containers vía `'contains' in element`. Centralización pendiente (WISH-LAYOUT-001 en TECHNICAL_DEBT).
-📍 dispersos: `AlmaGag/routing/router_base.py`, `AlmaGag/layout/geometry.py`, `AlmaGag/generator.py`
-
-**BWT — Banana With Tape** — Icono de fallback que aparece cuando un elemento tiene `type` que no está registrado en el sistema de iconos. Mascota informal del proyecto y mecanismo de degradación visible.
-📍 `AlmaGag/draw/bwt.py`
-
-**Routing Policy** — Política de routing por algoritmo. Encapsula **cuándo** el optimizer invoca el `ConnectionRouterManager` (biblioteca compartida en `AlmaGag/routing/`). Hay una por algoritmo: `AutoRoutingPolicy` (4 invocaciones en el pipeline AUTO) y `LAFRoutingPolicy` (1 invocación opcional en Fase 10 de LAF). Misma interfaz pública (`.route()`), construcción interna asimétrica (síntoma de WISH-ARCH-001).
-📍 `AlmaGag/layout/auto/routing_policy.py` · `AlmaGag/layout/laf/routing_policy.py`
-
----
-
-## Ejemplo end-to-end trazado
-
-Considerá este SDJF mínimo:
-
-```json
-{
-  "canvas": {"width": 600, "height": 300},
-  "elements": [
-    {"id": "A", "type": "server", "label": "Server A"},
-    {"id": "B", "type": "database", "label": "DB"},
-    {"id": "C", "type": "server", "label": "Server B"}
-  ],
-  "connections": [
-    {"from": "A", "to": "B"},
-    {"from": "C", "to": "B"}
-  ]
-}
-```
-
-Tres nodos, dos conexiones, sin coordenadas manuales. AlmaGag lo procesa así (vista conceptual, no exhaustiva):
-
-**1. Parseo y `Layout` inicial.** El JSON se materializa en un `Layout` con `elements` (3), `connections` (2), `canvas`. Los atributos lazy (`graph`, `levels`, `groups`) aún no se calculan.
-
-**2. Análisis del grafo.** `GraphAnalyzer` construye adyacencia, calcula niveles topológicos (`A`, `C` en nivel 0; `B` en nivel 1) e identifica que los 3 forman un solo grupo conexo.
-
-**3. Auto-posicionamiento.** AUTO o LAF asigna `x`/`y` a cada elemento. Resultado conceptual: `A` arriba-izquierda, `C` arriba-derecha, `B` abajo-centro.
-
-**4. Routing.** La `RoutingPolicy` activa invoca `ConnectionRouterManager`, que calcula los paths concretos de las 2 conexiones (líneas/curvas/ortogonales según `routing.type` o default).
-
-**5. Renderizado.** `renderer.py` recorre el `Layout` final y emite SVG: marcadores de flecha, gradientes por tipo de icono, etiquetas posicionadas, conexiones dibujadas. Output: un SVG ~3KB.
-
-Para ejemplos reales corribles, ver `docs/diagrams/gags/` — el archivo más simple es `08-auto-layout.sdjf` (6 elementos, 6 conexiones).
-
----
-
-## Para profundizar
-
-- **Especificación del formato**: `docs/spec/`
-- **Arquitectura técnica**: `docs/architecture/ARCHITECTURE.md`
-- **Algoritmo AUTO en detalle**: `docs/architecture/modules/layout/auto/AUTO.md`
-- **Algoritmo LAF en detalle**: `docs/architecture/modules/layout/laf/LAF.md`
-- **Biblioteca de routing**: `docs/architecture/modules/routing/ROUTING.md`
-- **Deuda técnica conocida**: `docs/TECHNICAL_DEBT.md`
-- **Roadmap**: `docs/ROADMAP.md`
+- **Línea `[motor]`** — `cruces(arista×arista)`, `arista×nodo`, `labels`,
+  `tinta` (§O52, <4% avisa), `aspecto` (fuera de [0.4, 3.0] avisa). 📍
+  `layout/metrics.py`.
+- **Guarda anti-regresión** — `scripts/measure_fixtures.py`: una línea por
+  fixture; patrón *probar → medir → revertir si empeora*; aborta ruidoso si
+  mide 0.
+- **Validador R1/R2/R3** — audit del SVG emitido: etiqueta sobre icono,
+  etiquetas solapadas, conector colgante. 📍 `validation/visual_quality.py`.
+- **NdDp / NdPr / NdFn** — identificadores de debug de nodos (dato /
+  primario / final) para `--visualdebug`; no son parte del formato.
+- **Frontera §R** — el archivo/skill declara intención y semántica; el
+  motor decide TODA la geometría. Coordenadas fijas para compensar un
+  layout feo = bug del motor, se reporta.
+- **Tickets** — `BUGS-*` / `WISH-*` en `TECHNICAL_DEBT.md` (métricas por
+  grep). Reviews externos por iteración en `docs/reviews/`.
