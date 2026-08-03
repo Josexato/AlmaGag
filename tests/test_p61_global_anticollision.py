@@ -44,8 +44,9 @@ def test_label_bbox_stored_follows_position():
     assert st[0] == 500 and en[2] == 500
 
 
-def test_detector_uses_stored_positions_when_flagged():
-    """Con `_measure_stored_labels`, un escalón anti-fusión SÍ cuenta."""
+def test_detector_measures_stored_positions():
+    """WISH-LAYOUT-008 (medición veraz total): el detector mide SIEMPRE la
+    posición ALMACENADA — un escalón anti-fusión cuenta, sin flag alguno."""
     from AlmaGag.layout.collision import CollisionDetector
     els = [{'id': 'a', 'type': 'server', 'label': 'Etiqueta larga A',
             'x': 100, 'y': 100},
@@ -57,12 +58,9 @@ def test_detector_uses_stored_positions_when_flagged():
     L.label_positions = {'a': (140.0, 170.0, 'middle', 'bottom'),
                          'b': (240.0, 214.0, 'middle', 'bottom')}
     det = CollisionDetector(GeometryCalculator())
-    canonical = {b[2] for b in det._collect_all_bboxes(L)}
-    L._measure_stored_labels = True
     boxes = {bid: bb for bb, kind, bid in det._collect_all_bboxes(L)
              if kind == 'icon_label'}
-    assert canonical  # sanidad: el modo canónico también produce bboxes
-    # en modo almacenado, el bbox de b arranca en su y desplazada (escalón)
+    # el bbox de b arranca en su y desplazada (escalón) — verdad almacenada
     assert boxes['b'][1] == 214 - 14
 
 

@@ -35,13 +35,20 @@ geometría es suya (frontera §R). Lo construido, por capas:
 Los reviews de Claude Design (grupos A–R, iteraciones 1–5) están **completos**
 — archivo por iteración en `docs/reviews/`.
 
-## Lo siguiente (iteración 6)
+## Iteración 6 — COMPLETA (2/3-ago-2026)
 
 | Orden | Qué | Ticket |
 |---|---|---|
-| 1 ✅ | **Flujos de información resaltados** — HECHO (2-ago): `flows` top-level, trazo semitransparente que sigue las rutas reales, leyenda «Flujos:», invisible para métricas | WISH-DRAW-002 |
-| 2 | **Unificar los 3 sistemas de etiquetas** + medición veraz en todo el pipeline — precursor del «0 fusiones» y del pitch label-aware | WISH-LAYOUT-008 |
-| 3 | **Guardado H3 justo** — comparar re-ruteos con geometría vigente (hoy compara contra rutas rancias); sesión dedicada con la guarda | BUGS-AUTO-009 |
+| 1 ✅ | **Flujos de información resaltados** — `flows` top-level, trazo semitransparente que sigue las rutas reales, leyenda «Flujos:», invisible para métricas | WISH-DRAW-002 |
+| 2 ✅ | **Unificar los 3 sistemas de etiquetas** + medición veraz en TODO el pipeline — un solo optimizador (pasada global, compartida auto/hier); el renderer dibuja la verdad; destapó y corrigió 3 bugs latentes (solape de contenedores post-loop, etiquetas que no viajaban con su bloque, posiciones rancias) | WISH-LAYOUT-008 |
+| 3 ✅ | **Guardado H3 justo** — el revert viciado se eliminó: re-ruteo obstacle-aware incondicional; invariante «rutas ancladas a geometría vigente» con test | BUGS-AUTO-009 |
+
+## Lo siguiente
+
+- **Pitch label-aware (WISH-LAYOUT-009)**: el espaciado de filas/grillas
+  considera el ancho de la ETIQUETA, no sólo del icono — el paso declarado
+  hacia «0 fusiones» (casos testigo: fila de torres del minero, contenedor
+  LAF de 06-flujo).
 
 ## Mediano plazo (sin fecha)
 

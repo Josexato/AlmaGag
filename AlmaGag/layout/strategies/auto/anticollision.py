@@ -79,6 +79,27 @@ def _parent_boxes(layout) -> Dict[str, Tuple[float, float, float, float]]:
     return out
 
 
+def _dist_point_segs(px, py, segs) -> float:
+    """Distancia mínima de un punto a una lista de segmentos."""
+    best = float('inf')
+    for (ax, ay, bx, by) in segs:
+        vx, vy = bx - ax, by - ay
+        L2 = vx * vx + vy * vy
+        t = 0.0 if L2 == 0 else max(0.0, min(1.0, ((px - ax) * vx + (py - ay) * vy) / L2))
+        qx, qy = ax + t * vx, ay + t * vy
+        d = ((px - qx) ** 2 + (py - qy) ** 2) ** 0.5
+        if d < best:
+            best = d
+    return best
+
+
+# WISH-LAYOUT-008: umbral de rancidez — una posición almacenada más lejos
+# que esto de su ancla (icono / polilínea) quedó atrás en algún movimiento
+# no rastreado; puntuaría «limpia» en el vacío y se dibujaría huérfana.
+STALE_ICON_DIST = 90.0
+STALE_CONN_DIST = 60.0
+
+
 def _conn_label_bbox_at(label: str, cx: float, cy: float):
     """Espejo de geometry.get_connection_label_bbox con centro explícito."""
     w = len(label) * 7
@@ -238,9 +259,19 @@ def global_label_anticollision(layout, geometry) -> int:
                         candidates.append((p, stag, dx))
 
             own_bb = label_bbox.pop(eid)
+            # rancidez: la posición actual sólo es candidata si sigue CERCA
+            # de su icono (gap entre bboxes ≤ STALE_ICON_DIST)
+            ib = icon_box.get(eid)
+            cur_is_stale = False
+            if ib and own_bb:
+                gx = max(ib[0] - own_bb[2], own_bb[0] - ib[2], 0.0)
+                gy = max(ib[1] - own_bb[3], own_bb[1] - ib[3], 0.0)
+                cur_is_stale = (gx * gx + gy * gy) ** 0.5 > STALE_ICON_DIST
             best = None      # (score, idx, pos_tuple, bbox)
             for idx, cand in enumerate(candidates):
                 if cand is None:
+                    if cur_is_stale:
+                        continue
                     pos = cur
                     bb = own_bb
                 else:
@@ -283,7 +314,12 @@ def global_label_anticollision(layout, geometry) -> int:
             lens = [((bx - ax) ** 2 + (by - ay) ** 2) ** 0.5
                     for (ax, ay, bx, by) in segs]
             total = sum(lens) or 1.0
-            points = [(cx, cy)]
+            # rancidez: el centro almacenado sólo es candidato si sigue CERCA
+            # de su propia polilínea (el rótulo viaja con su línea)
+            if _dist_point_segs(cx, cy, segs) <= STALE_CONN_DIST:
+                points = [(cx, cy)]
+            else:
+                points = []
             for f in LINE_FRACTIONS:
                 d = f * total
                 for (ax, ay, bx, by), L in zip(segs, lens):

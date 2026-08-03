@@ -165,7 +165,6 @@ class HierLayoutOptimizer(LayoutOptimizer):
         la medición almacenada ES la verdad visual."""
         from AlmaGag.layout.strategies.auto.anticollision import (
             global_label_anticollision)
-        L._measure_stored_labels = True
         global_label_anticollision(L, self.geometry)
         return L
 

@@ -496,6 +496,14 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         # iconos juntos y labels más anchos que el spacing), escalonar
         # verticalmente y expandir el container para acomodar.
         self._stagger_overlapping_contained_labels(best_layout)
+        # WISH-LAYOUT-008: el escalonado EXPANDE contenedores — puede montar
+        # cajas top-level entre sí. El invariante BUGS-AUTO-004 se restaura
+        # antes del re-ruteo final (que verá la geometría sana).
+        from AlmaGag.config import SPACING_SMALL
+        _conts = [e for e in best_layout.elements
+                  if 'contains' in e and 'x' in e and 'y' in e]
+        self.positioner._resolve_container_overlaps(
+            _conts, best_layout, SPACING_SMALL)
 
         # H3: normalizar/escalonar movió iconos y expandió contenedores sin
         # re-rutear → las rutas quedaban obsoletas y cruzaban las cajas ya
@@ -568,12 +576,11 @@ class AutoLayoutOptimizer(LayoutOptimizer):
 
         # §P61: pasada anticolisión GLOBAL sobre el árbol completo — última
         # etapa, con la geometría definitiva (nada se mueve después). Sólo
-        # reubica etiquetas: cruces/arista×nodo/tinta no pueden cambiar. A
-        # partir de aquí el detector mide las etiquetas donde se DIBUJAN
-        # (posición almacenada): la métrica reportada es la verdad visual.
+        # reubica etiquetas: cruces/arista×nodo/tinta no pueden cambiar.
+        # WISH-LAYOUT-008: el detector mide SIEMPRE la posición almacenada
+        # (medición veraz total), ya no sólo en esta etapa.
         from AlmaGag.layout.strategies.auto.anticollision import (
             global_label_anticollision)
-        best_layout._measure_stored_labels = True
         if global_label_anticollision(best_layout, self.geometry):
             best_layout.invalidate_collision_cache()
         best_layout.invalidate_collision_cache()
@@ -668,8 +675,22 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         candidate = layout.copy()
         for e in candidate.elements:
             if 'x' in e and e['id'] in node_group:
-                e['x'] += offsets.get(node_group[e['id']], 0.0)
+                off = offsets.get(node_group[e['id']], 0.0)
+                e['x'] += off
+                # WISH-LAYOUT-008: la etiqueta almacenada viaja con su bloque
+                if e['id'] in candidate.label_positions:
+                    lx, ly, an, bl = candidate.label_positions[e['id']]
+                    candidate.label_positions[e['id']] = (lx + off, ly, an, bl)
         candidate.invalidate_collision_cache()
+        # WISH-LAYOUT-008: los offsets por bloque pueden montar contenedores
+        # top-level (solape que NI la guarda NI el detector ven — container
+        # vs container no cuenta por diseño). El invariante BUGS-AUTO-004 se
+        # restaura antes de evaluar al candidato.
+        from AlmaGag.config import SPACING_SMALL
+        cconts = [e for e in candidate.elements
+                  if 'contains' in e and 'x' in e and 'y' in e]
+        self.positioner._resolve_container_overlaps(
+            cconts, candidate, SPACING_SMALL)
         self._normalize_to_canvas(candidate)
         self.routing.route(candidate)
 
@@ -1243,6 +1264,17 @@ class AutoLayoutOptimizer(LayoutOptimizer):
 
         # Propagar coordenadas locales actualizadas (centrado)
         self.positioner._propagate_coordinates_to_contained(layout)
+
+        # WISH-LAYOUT-008: el invariante «contenedores top-level sin solape»
+        # (BUGS-AUTO-004) debe sobrevivir a los movimientos del loop — la
+        # resolución sólo corría en el posicionado inicial y un movimiento
+        # posterior podía dejar cajas montadas sin que nadie las separara
+        # (el detector no cuenta container-vs-container por diseño).
+        from AlmaGag.config import SPACING_SMALL
+        containers = [e for e in layout.elements
+                      if 'contains' in e and 'x' in e and 'y' in e]
+        self.positioner._resolve_container_overlaps(
+            containers, layout, SPACING_SMALL)
 
         # Ruteo y etiquetas sobre las posiciones DEFINITIVAS de esta iteración
         self.routing.route(layout)

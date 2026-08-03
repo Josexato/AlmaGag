@@ -105,7 +105,7 @@ def test_seed_skips_grouped_views():
 
 def test_hier_flow_ships_label_truth(tmp_path):
     """Un diagrama hier (decision) sale del optimize con la verdad sembrada:
-    label_positions para todo elemento etiquetado y medición almacenada."""
+    label_positions para todo elemento etiquetado."""
     from AlmaGag.generator import select_strategy
     from AlmaGag.layout.engine import LayoutEngine
     d = json.load(open('docs/diagrams/gags/es-primo.gag'))
@@ -113,7 +113,59 @@ def test_hier_flow_ships_label_truth(tmp_path):
                canvas={'width': 1400, 'height': 900})
     L._strategy = select_strategy(d, None)
     out = LayoutEngine(verbose=False, strategy=None).optimize(L)
-    assert getattr(out, '_measure_stored_labels', False)
     for e in out.elements:
         if e.get('label') and 'contains' not in e and 'x' in e:
             assert e['id'] in out.label_positions
+
+
+# --- medición veraz TOTAL (2c): guardas de rancidez y bloques -------------
+
+def test_labels_travel_with_container_shift():
+    """_shift_container_subtree arrastra las etiquetas ALMACENADAS de todo
+    el subárbol — con medición veraz, una etiqueta que se queda atrás sería
+    dibujada huérfana."""
+    from AlmaGag.layout.strategies.auto.positioner import AutoLayoutPositioner
+    els = [{'id': 'box', 'type': 'area', 'label': 'Caja', 'contains': ['a'],
+            'x': 0, 'y': 0, 'width': 300, 'height': 200},
+           {'id': 'a', 'type': 'server', 'label': 'A', 'x': 50, 'y': 50}]
+    L = Layout(elements=els, connections=[],
+               canvas={'width': 800, 'height': 600})
+    L.label_positions = {'a': (90.0, 120.0, 'middle', 'bottom')}
+    AutoLayoutPositioner._shift_stored_label(L, 'a', 0, 0)  # smoke del helper
+    pos = AutoLayoutPositioner.__new__(AutoLayoutPositioner)
+    pos._shift_container_subtree(els[0], L, 100, 40)
+    assert els[1]['x'] == 150 and els[1]['y'] == 90
+    assert L.label_positions['a'] == (190.0, 160.0, 'middle', 'bottom')
+
+
+def test_stale_element_label_is_reanchored():
+    """Una posición almacenada LEJOS de su icono (rancia) no es candidata:
+    la pasada global re-ancla la etiqueta junto al elemento."""
+    geo = GeometryCalculator()
+    e = {'id': 'a', 'type': 'server', 'label': 'Etiqueta', 'x': 100, 'y': 100}
+    L = Layout(elements=[e], connections=[],
+               canvas={'width': 800, 'height': 600})
+    L.label_positions = {'a': (600.0, 500.0, 'middle', 'bottom')}  # huérfana
+    global_label_anticollision(L, geo)
+    bb = geo.get_label_bbox_stored(e, L.label_positions['a'])
+    ib = geo.get_icon_bbox(e)
+    gx = max(ib[0] - bb[2], bb[0] - ib[2], 0.0)
+    gy = max(ib[1] - bb[3], bb[1] - ib[3], 0.0)
+    assert (gx * gx + gy * gy) ** 0.5 <= 90.0
+
+
+def test_stale_connection_label_returns_to_its_line():
+    """Un centro almacenado lejos de su polilínea no es candidato: el rótulo
+    vuelve a deslizarse por su línea."""
+    from AlmaGag.layout.strategies.auto.anticollision import _dist_point_segs
+    els = [{'id': 'a', 'type': 'server', 'label': '', 'x': 0, 'y': 300},
+           {'id': 'b', 'type': 'server', 'label': '', 'x': 400, 'y': 300}]
+    conn = {'from': 'a', 'to': 'b', 'label': 'rotulo',
+            'computed_path': {'type': 'polyline',
+                              'points': [[40, 325], [440, 325]]}}
+    L = Layout(elements=els, connections=[conn],
+               canvas={'width': 800, 'height': 600})
+    L.connection_labels = {'a->b': (700.0, 50.0)}   # huérfano
+    global_label_anticollision(L, GeometryCalculator())
+    cx, cy = L.connection_labels['a->b']
+    assert _dist_point_segs(cx, cy, [(40, 325, 440, 325)]) <= 60.0

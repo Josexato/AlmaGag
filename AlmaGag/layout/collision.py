@@ -163,29 +163,24 @@ class CollisionDetector:
         count = 0
         icon_bbox = self.geometry.get_icon_bbox(elem)
 
-        # Colisiones del ícono con etiquetas de otros
+        # Colisiones del ícono con etiquetas de otros. WISH-LAYOUT-008: la
+        # etiqueta se mide donde está ALMACENADA (= donde se dibuja); el
+        # pipeline mantiene label_positions sincronizado tras cada movimiento
+        # (_recalculate_structures re-siembra).
         for other_id, pos_info in layout.label_positions.items():
             if other_id == element_id:
                 continue
             other_elem = layout.elements_by_id.get(other_id)
             if other_elem:
-                if getattr(layout, '_measure_stored_labels', False):
-                    label_bbox = self.geometry.get_label_bbox_stored(
-                        other_elem, pos_info)
-                else:
-                    label_bbox = self.geometry.get_label_bbox(
-                        other_elem, pos_info[3])
+                label_bbox = self.geometry.get_label_bbox_stored(
+                    other_elem, pos_info)
                 if self.geometry.rectangles_intersect(icon_bbox, label_bbox):
                     count += 1
 
         # Colisiones de mi etiqueta con otros íconos y líneas
         if element_id in layout.label_positions:
-            if getattr(layout, '_measure_stored_labels', False):
-                my_label_bbox = self.geometry.get_label_bbox_stored(
-                    elem, layout.label_positions[element_id])
-            else:
-                my_label_bbox = self.geometry.get_label_bbox(
-                    elem, layout.label_positions[element_id][3])
+            my_label_bbox = self.geometry.get_label_bbox_stored(
+                elem, layout.label_positions[element_id])
 
             # Con otros íconos. BUGS-AUTO-005: excluir containers — son fondos
             # semi-transparentes, los labels viven dentro de ellos (mismo fix
@@ -240,20 +235,16 @@ class CollisionDetector:
             bbox = self.geometry.get_icon_bbox(elem)
             bboxes.append((bbox, 'icon', elem['id']))
 
-        # Bboxes de etiquetas de íconos. §P61: con `_measure_stored_labels`
-        # (etapa final del pipeline) se miden en su posición ALMACENADA — lo
-        # que se dibuja —, si no los escalones anti-fusión son invisibles para
-        # el contador. Las evaluaciones intermedias del optimizador siguen
-        # midiendo la posición canónica del ancla: sus heurísticas están
-        # calibradas contra ella (cambiarlas re-baraja fixtures enteros).
-        stored = getattr(layout, '_measure_stored_labels', False)
+        # Bboxes de etiquetas de íconos. WISH-LAYOUT-008 (medición veraz
+        # TOTAL): SIEMPRE en su posición ALMACENADA — lo que se dibuja. El
+        # pipeline mantiene label_positions sincronizado (cada movimiento
+        # pasa por _recalculate_structures, que re-siembra); las heurísticas
+        # se recalibraron con la guarda de fixtures al migrar (§P61 sólo lo
+        # aplicaba en la etapa final).
         for elem in normal_elements:
             if elem['id'] in layout.label_positions:
                 pos_info = layout.label_positions[elem['id']]
-                if stored:
-                    bbox = self.geometry.get_label_bbox_stored(elem, pos_info)
-                else:
-                    bbox = self.geometry.get_label_bbox(elem, pos_info[3])
+                bbox = self.geometry.get_label_bbox_stored(elem, pos_info)
                 if bbox:
                     bboxes.append((bbox, 'icon_label', elem['id']))
 

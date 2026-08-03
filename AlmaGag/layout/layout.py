@@ -67,7 +67,7 @@ class Layout:
     # (por referencia). Agregar aquí todo atributo nuevo de este estilo.
     CONTEXT_ATTRS = (
         '_diagram_name', '_areas', '_roles', '_lanes', '_layout_view',
-        '_considerations', '_strategy', '_measure_stored_labels',
+        '_considerations', '_strategy',
         '_resolved_primary_connections', '_hierarchical_layout_applied',
         '_flows',
     )
