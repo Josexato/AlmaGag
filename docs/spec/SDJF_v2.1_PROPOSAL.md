@@ -1,5 +1,12 @@
 # SDJF v2.1 - Waypoints Automáticos y Tipos de Líneas
 
+> **⚠️ PROPUESTA HISTÓRICA (v2.1, implementada en su mayoría).** La
+> propiedad **`avoid_elements` queda DESCARTADA por decisión del autor
+> (2026-08-02)**: nunca se implementó y no se implementará — la evitación
+> de obstáculos real es INCONDICIONAL vía visibility graph
+> (`routing/visibility_graph.py`), sin propiedad que la gobierne. La spec
+> vigente del formato es `docs/spec/FORMATO_ARCHIVOS.md`.
+
 **Estado**: ✅ Implementado
 **Versión**: 2.1
 **Fecha**: 2026-01-08
