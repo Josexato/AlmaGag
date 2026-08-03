@@ -21,7 +21,7 @@ Esta es la guía completa de documentación de AlmaGag, organizada por tipo de d
 
 **Para entender el vocabulario:**
 
-- **[CONCEPTS.md](CONCEPTS.md)** ✨ - Glosario unificado (SDJF, GAG, AUTO, LAF, NdDp, NdPr, NdFn, TOI, BWT, Routing Policy)
+- **[CONCEPTS.md](CONCEPTS.md)** - Glosario v3.5 (formato, motor, dibujo/emisión, calidad y proceso)
 
 ---
 

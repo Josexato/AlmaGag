@@ -150,7 +150,7 @@ opción A); el pipeline vigente vive en el `ARCHITECTURE.md` nuevo.
 
 ---
 
-### BUGS-DOCS-004: CONCEPTS.md, INDEX.md y ROADMAP.md fósiles (v3.3/feb-2026) ◐ MITIGADO (2026-08-02)
+### BUGS-DOCS-004: CONCEPTS.md, INDEX.md y ROADMAP.md fósiles (v3.3/feb-2026) ✅ RESUELTO (2026-08-02)
 **Componente**: `docs/CONCEPTS.md`, `docs/INDEX.md`, `docs/ROADMAP.md`
 **Reportado**: 2026-08-02 (auditoría)
 
@@ -169,13 +169,14 @@ opción A); el pipeline vigente vive en el `ARCHITECTURE.md` nuevo.
   entregado, contradicho 150 líneas después, y **cero ocurrencias en el
   código**; 4 links rotos (`CONTRIBUTING.md`, rutas `docs/docs/…`).
 
-**Mitigado**: INDEX.md refrescado COMPLETO (v3.5, motor único, árbol real,
-licencia MIT, roadmap-resumen); ROADMAP con banner + checkbox
-`avoid_elements` desmarcado y anotado como nunca-implementado; CONCEPTS
-con banner. **Resta**: reescribir el cuerpo de ROADMAP (estado v3.4/v3.5)
-y el glosario de CONCEPTS (vocabulario del motor actual). `avoid_elements`
-DESCARTADA por decisión del autor (2026-08-02): banner definitivo en
-`SDJF_v2.1_PROPOSAL.md` y criterios de ROADMAP anotados.
+**Fix aplicado (completo)**: INDEX.md refrescado (v3.5, motor único, árbol
+real, licencia MIT); **ROADMAP.md REESCRITO** (estado v3.5 por capas,
+iteración 6 con orden y tickets, mediano plazo, sección «Descartado» —
+avoid_elements y LAF elegible — y el proceso de trabajo); **CONCEPTS.md
+REESCRITO** (glosario v3.5 en 4 bloques: formato, motor, dibujo/emisión,
+calidad/proceso, con 📍 rutas reales). Cuerpos viejos archivados en
+`architecture/history/{ROADMAP,CONCEPTS}-2026-02.md`. `avoid_elements`
+DESCARTADA con banner definitivo en `SDJF_v2.1_PROPOSAL.md`.
 
 ---
 
