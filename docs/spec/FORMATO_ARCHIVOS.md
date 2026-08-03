@@ -659,7 +659,7 @@ Si necesitas un tipo de icono que AlmaGag no trae, puedes definirlo inline con S
 | Regla | Detalle |
 |-------|---------|
 | **viewBox** | Usa `viewBox='0 0 80 50'` para que el icono escale bien al tamano base (80x50 px). |
-| **Colores FIJOS** | AlmaGag inserta el SVG **tal cual** (no resuelve `currentColor`: rasteriza negro y el `color` del elemento NO afecta al icono embebido). Usa hex fijos; para variantes de color, duplica la entrada en `icons` con otro nombre y otros hex. |
+| **currentColor** | `fill='currentColor'` en el SVG se REEMPLAZA por el `color` del elemento (default `gray`) — un solo icono sirve para todas las variantes de color (BUGS-DRAW-002, 2-ago-2026). Un icono con hex FIJOS se inserta tal cual y el `color` del elemento no lo afecta. |
 | **Comillas** | El SVG va entre comillas dobles `"`. Dentro del SVG usa comillas simples `'`. |
 | **Sin saltos de linea** | Todo el SVG debe ir en una sola linea (es un string JSON). |
 | **Mezcla con built-in** | Puedes usar iconos custom y built-in en el mismo archivo. En el ejemplo, `"sensor"` es custom pero `"server"` es built-in. |

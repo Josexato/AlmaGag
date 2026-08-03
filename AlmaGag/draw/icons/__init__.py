@@ -85,8 +85,15 @@ def draw_embedded_icon(dwg, x, y, color, element_id, svg_string):
 
     Parsea el SVG string, extrae viewBox para calcular escala uniforme
     a ICON_WIDTH x ICON_HEIGHT, y lo envuelve en <g transform="translate scale">.
+
+    BUGS-DRAW-002: `currentColor` en el SVG embebido se resuelve con el
+    `color` del elemento (default 'gray', como los built-ins) — cumple la
+    promesa original de la spec y evita duplicar iconos por variante de
+    color. Un icono con colores fijos no se toca.
     """
     wrapped = svg_string.strip()
+    if color and 'currentColor' in wrapped:
+        wrapped = wrapped.replace('currentColor', color)
 
     if wrapped.startswith('<svg'):
         tmp = ET.fromstring(wrapped)

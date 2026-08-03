@@ -345,7 +345,7 @@ el contenido llenando la lámina (92-95%; resto = margen §O51).
 
 ---
 
-### BUGS-DRAW-002: `draw_embedded_icon` recibe `color` y nunca lo usa 🆕 ABIERTO
+### BUGS-DRAW-002: `draw_embedded_icon` recibe `color` y nunca lo usa ✅ RESUELTO (2026-08-02, opción a — decisión del autor)
 **Componente**: `AlmaGag/draw/icons/__init__.py::draw_embedded_icon`
 **Reportado**: 2026-08-02 (denunciado por el catálogo del skill; spec ya corregida)
 
@@ -356,11 +356,12 @@ rasteriza negro. La spec ya fue corregida el 2-ago para decir la verdad
 («colores FIJOS»), y el skill duplica entradas de icono por variante de
 color como workaround.
 
-**Fix (decisión pendiente del autor)**: (a) implementar el reemplazo
-`currentColor→color` (un `replace` — cumpliría la promesa original y
-eliminaría los duplicados del skill; re-verificar fixtures con embebidos), o
-(b) retirar el parámetro y cerrar como «tal cual por diseño». En ambos
-casos, alinear spec + skill.
+**Fix aplicado (opción a, elegida por el autor)**: `currentColor` se
+reemplaza por el `color` del elemento (default gray) al insertar; los
+iconos con hex fijos se insertan tal cual — ambas formas conviven. Spec y
+contrato del skill re-alineados; el skill ya no necesita duplicar iconos
+por variante de color. Tests: `tests/test_draw002_currentcolor.py`.
+Guarda: 34 fixtures byte-idénticos (ninguno usaba currentColor).
 
 ---
 
