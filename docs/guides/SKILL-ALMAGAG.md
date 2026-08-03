@@ -26,6 +26,7 @@ El skill de claude.ai que genera diagramas con AlmaGag. Este doc fija el
 | **Tokens de tema (§O57)** | sección `theme` top-level + `"color": "<token>"` en elements/connections/areas/lanes/roles; hex literal gana |
 | **PNG sin navegador (§O58)** | `--exportpng`: Chrome/Chromium/Edge si hay (multiplataforma), cairosvg si no; `ALMAGAG_CHROME` como override |
 | Epifanía | `--epifania`: flipbook por fase con colisiones marcadas |
+| **Flujos resaltados (WISH-DRAW-002)** | sección `flows` top-level: recorridos por ids con trazo de resaltador que sigue las rutas reales; `label` → leyenda «Flujos:»; anotación pura (no toca layout/métricas). Usarla para narrar caminos (paquete, trámite, aprobación) |
 
 ## Recomendaciones para construir un skill de Claude sobre AlmaGag
 

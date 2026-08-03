@@ -223,6 +223,7 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     # §I27/§I30: ámbitos por fase (areas) y leyenda de roles (opcionales; sólo
     # los consume el algoritmo hier). Retrocompatible: si faltan, camino normal.
     initial_layout._areas = data.get('areas')
+    initial_layout._flows = data.get('flows')
     initial_layout._roles = data.get('roles')
     initial_layout._lanes = data.get('lanes')
     # §④ consideraciones BLANDAS (align/near/avoid): sólo las consume AUTO y las

@@ -900,7 +900,7 @@ El alza de R1 es **correcta**: al detectar ahora los iconos custom, el validador
 
 ## 🌟 WISH
 
-### WISH-DRAW-002: Flujos de información resaltados («highlighter» sobre el diagrama) 🆕 ABIERTO
+### WISH-DRAW-002: Flujos de información resaltados («highlighter» sobre el diagrama) ✅ RESUELTO (2026-08-02, iteración 6)
 **Reportado**: 2026-08-02 (idea del autor, al cierre del review grupos O–R)
 **Componente**: formato SDJF/.gag + `draw/` (capa nueva de anotación)
 
@@ -943,7 +943,16 @@ Boceto de diseño (a validar cuando se implemente):
   cruzando flujo; interacción con el recorte §O51 (el trazo entra al bbox);
   esquinas del trazo en las troncales ortogonales.
 
-**Prioridad**: Media-alta — pedido explícito del autor («es necesario»).
+**Resuelto**: `draw/primitives/flows.py` + gancho en el renderer compartido
+(capa entre fondos e iconos — cubre auto Y hier). El trazo sigue los
+`computed_path` reales (troncales §P60 incluidas) con fallback recto;
+paleta de resaltador; leyenda «Flujos:» apilada con las demás; ids
+inexistentes → WARNING; `class="ag-flow"` invisible para métricas y
+validador (test diferencial). Fixture minero con 2 flujos de demo (SCADA
+y facturación) — línea [motor] intacta. De paso, DRAW-001 v2: algunos
+Chromium tratan --window-size como ventana EXTERIOR (~70-90px de UI
+fantasma) → holgura + recorte exacto del PNG. Tests:
+`tests/test_flows.py` (7).
 
 ---
 

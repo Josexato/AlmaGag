@@ -117,6 +117,13 @@ class AutoSVGRenderer:
         # 1. Containers (rect de fondo, icono va inline)
         self._render_containers(dwg, containers, elements_by_id, ndfn_labels)
 
+        # WISH-DRAW-002: flujos resaltados — capa de anotación sobre los
+        # fondos y BAJO iconos/líneas/textos (el trazo sigue los
+        # computed_path ya calculados; no toca layout ni métricas).
+        from AlmaGag.draw.primitives.flows import draw_flows
+        _flows = getattr(layout, '_flows', None)
+        draw_flows(dwg, _flows, elements_by_id, connections)
+
         # 2. Iconos de elementos normales
         self._render_icons(dwg, normal_elements, ndfn_labels, embedded_icons=embedded_icons)
 
@@ -169,6 +176,15 @@ class AutoSVGRenderer:
         from AlmaGag.draw.primitives.svg import draw_connection_type_legend
         draw_connection_type_legend(dwg, connections, canvas_width, canvas_height,
                                     y_offset=24 if role_legend_drawn else 0)
+
+        # WISH-DRAW-002: leyenda «Flujos:» apilada sobre las otras franjas
+        if _flows:
+            from AlmaGag.draw.primitives.flows import draw_flow_legend
+            _n_legends = (1 if role_legend_drawn else 0) + \
+                (1 if len({c.get('semantic_type') for c in connections
+                           if c.get('semantic_type')}) >= 3 else 0)
+            draw_flow_legend(dwg, _flows, canvas_width, canvas_height,
+                             y_offset=24 * _n_legends)
 
         # 5. Debug visual
         if visualdebug:

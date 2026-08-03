@@ -39,7 +39,7 @@ Los reviews de Claude Design (grupos A–R, iteraciones 1–5) están **completo
 
 | Orden | Qué | Ticket |
 |---|---|---|
-| 1 | **Flujos de información resaltados** — capa de anotación tipo resaltador sobre el diagrama tendido (`flows` top-level, trazo ancho semitransparente siguiendo los `computed_path`) | WISH-DRAW-002 |
+| 1 ✅ | **Flujos de información resaltados** — HECHO (2-ago): `flows` top-level, trazo semitransparente que sigue las rutas reales, leyenda «Flujos:», invisible para métricas | WISH-DRAW-002 |
 | 2 | **Unificar los 3 sistemas de etiquetas** + medición veraz en todo el pipeline — precursor del «0 fusiones» y del pitch label-aware | WISH-LAYOUT-008 |
 | 3 | **Guardado H3 justo** — comparar re-ruteos con geometría vigente (hoy compara contra rutas rancias); sesión dedicada con la guarda | BUGS-AUTO-009 |
 

@@ -142,8 +142,15 @@ def _png_via_chrome(chrome_exe, svg_path, png_path, width, height, scale=1.0):
     resolución la pone `--force-device-scale-factor=scale` — el PNG sale a
     width×scale píxeles con el contenido llenando la lámina. El bug previo
     escalaba la ventana sin device-scale-factor: el SVG se pintaba a 1× en
-    la esquina y ¾ del PNG quedaban en blanco."""
+    la esquina y ¾ del PNG quedaban en blanco.
+
+    Algunos builds de Chromium tratan `--window-size` como ventana EXTERIOR
+    (viewport ≈ 70-90px CSS más bajo): se pide la ventana con HOLGURA y se
+    recorta el PNG al tamaño exacto (best-effort, con Pillow si está)."""
     import subprocess
+
+    # holgura por la UI fantasma de algunos builds (viewport < window-size)
+    SLACK_W, SLACK_H = 24, 120
 
     svg_abs_path = os.path.abspath(svg_path)
     cmd = [
@@ -155,7 +162,7 @@ def _png_via_chrome(chrome_exe, svg_path, png_path, width, height, scale=1.0):
         '--default-background-color=FFFFFFFF',
         f'--force-device-scale-factor={scale}',
         f'--screenshot={os.path.abspath(png_path)}',
-        f'--window-size={width},{height}',
+        f'--window-size={width + SLACK_W},{height + SLACK_H}',
         f'file:///{svg_abs_path.replace(chr(92), "/")}'  # Convertir \ a /
     ]
     try:
@@ -164,6 +171,18 @@ def _png_via_chrome(chrome_exe, svg_path, png_path, width, height, scale=1.0):
         logger.error("Timeout al ejecutar Chrome")
         return False
     if result.returncode == 0 and os.path.exists(png_path):
+        # recortar la holgura para entregar exactamente width×height × scale
+        try:
+            from PIL import Image
+            im = Image.open(png_path)
+            target = (int(round(width * scale)), int(round(height * scale)))
+            if im.size[0] >= target[0] and im.size[1] >= target[1] \
+                    and im.size != target:
+                im.crop((0, 0, target[0], target[1])).save(png_path)
+        except ImportError:
+            pass                  # sin Pillow queda una banda blanca inocua
+        except Exception as e:    # el recorte jamás debe romper la exportación
+            logger.debug(f"recorte del PNG omitido: {e}")
         return True
     logger.warning("Chrome falló al generar PNG")
     if result.stderr:
