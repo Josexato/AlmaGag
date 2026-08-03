@@ -1,11 +1,11 @@
 """§P61 — pasada anticolisión GLOBAL post-layout sobre el árbol completo.
 
-Tres piezas: (a) el detector mide las etiquetas donde se DIBUJAN (posición
+Dos piezas: (a) el detector mide las etiquetas donde se DIBUJAN (posición
 almacenada, `_measure_stored_labels`) en la etapa final; (b) la pasada
-global reubica etiquetas de miembros contenidos (toda profundidad) y
-desliza etiquetas de conexión por su polilínea, con separación texto↔texto
-≥8px; (c) el optimizador de etiquetas del renderer recibe las etiquetas
-contenidas como bboxes pre-ocupados (era ciego a ellas).
+global reubica etiquetas a toda profundidad (contenidas y, desde
+WISH-LAYOUT-008, también libres) y desliza etiquetas de conexión por su
+polilínea, con separación texto↔texto ≥8px. El renderer dibuja el
+resultado tal cual (tests en test_layout008_unified_labels.py).
 """
 
 import json
@@ -128,17 +128,10 @@ def test_pass_is_idempotent():
     assert global_label_anticollision(L, geo) == 0
 
 
-def test_renderer_optimizer_respects_extra_obstacles():
-    """El optimizador del renderer no aterriza sobre bboxes pre-ocupados."""
-    from AlmaGag.layout.label_optimizer import Label, LabelPositionOptimizer
-    geo = GeometryCalculator()
-    opt = LabelPositionOptimizer(geo, 800, 600)
-    lbl = Label(id='c1', text='rotulo', anchor_x=400, anchor_y=300,
-                font_size=12, priority=1, category='connection')
-    free = opt.optimize_labels([lbl], elements=[], connections=[])
-    # el mismo rótulo, con su zona preferida pre-ocupada, termina en otra parte
-    fx, fy = free['c1'].x, free['c1'].y
-    blocked = opt.optimize_labels(
-        [lbl], elements=[], connections=[],
-        extra_obstacles=[(fx - 40, fy - 20, fx + 40, fy + 10)])
-    assert (blocked['c1'].x, blocked['c1'].y) != (fx, fy)
+def test_auto_renderer_does_not_reoptimize():
+    """WISH-LAYOUT-008: el AutoSVGRenderer ya no usa LabelPositionOptimizer —
+    la única optimización de etiquetas es la pasada global."""
+    import inspect
+    from AlmaGag.layout.strategies.auto import auto_renderer
+    src = inspect.getsource(auto_renderer)
+    assert 'LabelPositionOptimizer' not in src

@@ -408,14 +408,22 @@ def draw_connections(dwg, connections, elements_by_id, markers, per_conn_styles,
     return conn_centers
 
 
-def draw_connection_labels(dwg, connections, conn_centers, optimized_label_positions):
-    """Dibuja etiquetas de conexiones con posiciones optimizadas o fallback al centro."""
+def draw_connection_labels(dwg, connections, conn_centers,
+                           optimized_label_positions=None, stored_centers=None):
+    """Dibuja etiquetas de conexiones.
+
+    Fuentes en orden de precedencia:
+    1. `_label_anchor` (§G23, hier): ancla pegada al puerto de salida.
+    2. `stored_centers` (WISH-LAYOUT-008): `layout.connection_labels`, la
+       verdad medida por la pasada global §P61 — camino del motor único.
+    3. `optimized_label_positions`: posiciones del LabelPositionOptimizer
+       (sólo lo usa la estrategia `legacy`, congelada).
+    4. centro geométrico del path dibujado (`conn_centers`).
+    """
     for conn in connections:
         if not conn.get('label'):
             continue
         key = f"{conn['from']}->{conn['to']}"
-        # §G23 (hier): ancla pegada al puerto de salida — prioritaria sobre el
-        # optimizador (que buscaría el punto medio del path).
         anchor = conn.get('_label_anchor')
         if anchor:
             dwg.add(dwg.text(
@@ -427,10 +435,12 @@ def draw_connection_labels(dwg, connections, conn_centers, optimized_label_posit
                 fill="#14181d",
             ))
             continue
-        optimized_pos = optimized_label_positions.get(key)
+        stored = stored_centers.get(key) if stored_centers else None
+        if stored:
+            draw_connection_label(dwg, conn, stored)
+            continue
+        optimized_pos = (optimized_label_positions or {}).get(key)
         if optimized_pos:
-            # Posición optimizada por LabelPositionOptimizer: dibujar el texto
-            # directamente con anchor y stroke.
             dwg.add(dwg.text(
                 conn['label'],
                 insert=(optimized_pos.x, optimized_pos.y),

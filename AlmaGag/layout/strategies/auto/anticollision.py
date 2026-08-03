@@ -85,9 +85,45 @@ def _conn_label_bbox_at(label: str, cx: float, cy: float):
     return (cx - w // 2, cy - 10 - 16, cx + w // 2, cy - 10)
 
 
+def seed_label_truth(layout, geometry) -> None:
+    """WISH-LAYOUT-008: garantiza que el layout CONTIENE la verdad dibujable.
+
+    Todo elemento etiquetado y posicionado sin entrada en `label_positions`
+    recibe su posición canónica (respetando `label_position` preferida);
+    toda conexión etiquetada sin `_label_anchor` recibe su centro en
+    `connection_labels`. El renderer dibuja estos valores TAL CUAL — sin
+    esto, una estrategia que no siembra (hier) dejaría etiquetas sin fuente.
+
+    En vistas agrupadas (§I27/§I28: areas/lanes/matrix) las etiquetas de
+    nodo son estructurales (centradas bajo el icono, `draw_area_node_labels`)
+    y NO viven en `label_positions` — no se siembran ni se reubican.
+    """
+    grouped = bool(getattr(layout, 'areas', None)
+                   or getattr(layout, 'lanes', None)
+                   or getattr(layout, 'matrix', None))
+    if not grouped:
+        for e in layout.elements:
+            if ('contains' in e or not e.get('label')
+                    or 'x' not in e or 'y' not in e
+                    or e['id'] in layout.label_positions):
+                continue
+            num_lines = len(e['label'].split('\n'))
+            preferred = e.get('label_position', 'bottom')
+            layout.label_positions[e['id']] = geometry.get_text_coords(
+                e, preferred, num_lines)
+    for c in layout.connections:
+        if not c.get('label') or c.get('_label_anchor'):
+            continue
+        key = f"{c['from']}->{c['to']}"
+        if key not in layout.connection_labels:
+            layout.connection_labels[key] = geometry.get_connection_center(
+                layout, c)
+
+
 def global_label_anticollision(layout, geometry) -> int:
     """Reubica etiquetas fundidas sobre el árbol completo. Devuelve cuántas
     etiquetas se movieron. No toca iconos ni paths."""
+    seed_label_truth(layout, geometry)     # WISH-LAYOUT-008
     els = [e for e in layout.elements
            if 'contains' not in e and 'x' in e and 'y' in e]
     icon_box = {e['id']: geometry.get_icon_bbox(e) for e in els}
@@ -109,16 +145,30 @@ def global_label_anticollision(layout, geometry) -> int:
             zone_labels.append((c['x'], c['y'],
                                 c['x'] + c.get('width', 0), c['y'] + header_h))
 
-    # Sólo etiquetas de MIEMBROS CONTENIDOS (a toda profundidad): se dibujan
-    # tal cual desde label_positions. Las de elementos libres pasan por el
-    # optimizador de etiquetas del renderer (auto_renderer) DESPUÉS de esta
-    # etapa — moverlas aquí pelea con ese optimizador y el resultado dibujado
-    # diverge del modelo. Unificar los dos sistemas queda anotado en PENDIENTE.
+    # WISH-LAYOUT-008: TODAS las etiquetas de icono — contenidas a cualquier
+    # profundidad Y libres — pasan por esta única pasada; el renderer dibuja
+    # label_positions tal cual (ya no re-optimiza nada). Los miembros de zona
+    # near y los expulsados conservan su etiqueta estructural (§N46): no se
+    # mueven, pero abajo cuentan como obstáculo.
     labeled = [e for e in els
                if e.get('label') and e['id'] in layout.label_positions
-               and e['id'] in parent_box
                and e.get('_near_zone') is None and not e.get('_evicted')]
     labeled.sort(key=lambda e: (e['y'], e['x'], e['id']))
+
+    # etiquetas estructurales (miembros near/evicted) y rótulos de conexión
+    # anclados a puerto (§G23, hier): fijos, pero visibles para el score
+    for e in els:
+        if (e.get('label') and e['id'] in layout.label_positions
+                and (e.get('_near_zone') is not None or e.get('_evicted'))):
+            bb = geometry.get_label_bbox_stored(e, layout.label_positions[e['id']])
+            if bb:
+                zone_labels.append(bb)
+    for c in layout.connections:
+        anchor = c.get('_label_anchor')
+        if c.get('label') and anchor:
+            w = len(c['label']) * 7
+            zone_labels.append((anchor[0] - w / 2, anchor[1] - 12,
+                                anchor[0] + w / 2, anchor[1] + 4))
 
     # TODAS las etiquetas actuales son obstáculo desde el inicio (al procesar
     # una se quita su propia entrada): el barrido ve también a las que aún no
@@ -131,7 +181,7 @@ def global_label_anticollision(layout, geometry) -> int:
     conn_bbox: Dict[str, Tuple[float, float, float, float]] = {}
     conn_by_key: Dict[str, dict] = {}
     for c in layout.connections:
-        if c.get('label'):
+        if c.get('label') and not c.get('_label_anchor'):
             key = f"{c['from']}->{c['to']}"
             conn_by_key[key] = c
             cx, cy = layout.connection_labels.get(
@@ -259,8 +309,10 @@ def global_label_anticollision(layout, geometry) -> int:
                     break
 
             _, idx, center, bb = best
+            # el centro elegido SIEMPRE se almacena: es la fuente única de la
+            # que dibuja el renderer (WISH-LAYOUT-008), no sólo una medición
+            layout.connection_labels[key] = center
             if idx != 0:
-                layout.connection_labels[key] = center
                 sweep_moved += 1
             conn_bbox[key] = bb
 

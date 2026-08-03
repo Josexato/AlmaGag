@@ -14,7 +14,7 @@ Características específicas de AUTO:
 import logging
 
 from AlmaGag.config import (ICON_WIDTH, ICON_HEIGHT, TEXT_LINE_HEIGHT,
-                            FONT_SIZE_NODE, FONT_SIZE_CONNECTION)
+                            FONT_SIZE_NODE)
 from AlmaGag.draw.primitives.container import draw_container as _draw_container
 from AlmaGag.draw.icons import draw_icon_shape as _draw_icon_shape, draw_icon_label as _draw_icon_label
 from AlmaGag.draw.primitives.svg import (
@@ -27,7 +27,6 @@ from AlmaGag.draw.primitives.svg import (
 from AlmaGag.draw.primitives.phase_areas import (
     draw_area_boxes, draw_role_markers, draw_role_legend, draw_area_node_labels,
     draw_lane_strips, draw_matrix_grid)
-from AlmaGag.layout.label_optimizer import LabelPositionOptimizer, Label
 from AlmaGag.utils import extract_item_id
 from AlmaGag.debug import add_debug_badge, draw_grid, draw_guide_lines, draw_debug_free_ranges, convert_svg_to_png
 
@@ -40,8 +39,8 @@ class AutoSVGRenderer:
     def __init__(self, geometry_calculator):
         """
         Args:
-            geometry_calculator: GeometryCalculator usado por LabelPositionOptimizer.
-                Generalmente el mismo que usa el optimizer (reutilización).
+            geometry_calculator: GeometryCalculator (fallback canónico de
+                etiquetas). Generalmente el mismo que usa el optimizer.
         """
         self.geometry = geometry_calculator
 
@@ -134,34 +133,18 @@ class AutoSVGRenderer:
         # 3. Conexiones
         conn_centers = draw_connections(dwg, connections, elements_by_id, markers, per_conn_styles, ndfn_labels)
 
-        # 4. Optimizar y dibujar etiquetas
-        label_optimizer = LabelPositionOptimizer(self.geometry, canvas_width, canvas_height, debug=debug)
-        labels_to_optimize = self._collect_labels(elements, connections, containers, conn_centers, layout.label_positions)
-        # §P61: las etiquetas de miembros CONTENIDOS se dibujan tal cual desde
-        # label_positions (no pasan por este optimizador) — se le entregan como
-        # bboxes pre-ocupados para que no aterrice rótulos encima de ellas.
-        from AlmaGag.layout.geometry import GeometryCalculator
-        _geo = GeometryCalculator(getattr(layout, 'sizing', None))
-        contained_ids = {extract_item_id(item)
-                         for c in containers for item in c.get('contains', [])}
-        contained_label_bboxes = []
-        for eid in contained_ids:
-            e = elements_by_id.get(eid)
-            pos = layout.label_positions.get(eid)
-            if e and pos and e.get('label') and 'contains' not in e:
-                bb = _geo.get_label_bbox_stored(e, pos)
-                if bb:
-                    contained_label_bboxes.append(bb)
-        optimized_label_positions = label_optimizer.optimize_labels(
-            labels_to_optimize, elements, connections,
-            extra_obstacles=contained_label_bboxes)
-        # §I27/§I28: en modos agrupados las etiquetas de nodo van centradas bajo
-        # el icono (placement propio); en modo normal usa el optimizador.
+        # 4. Dibujar etiquetas — WISH-LAYOUT-008: el renderer dibuja LA VERDAD
+        # del layout (label_positions / connection_labels, ya optimizadas por
+        # la única pasada global §P61 en la etapa de layout). Aquí no se
+        # re-optimiza nada: lo dibujado ES lo medido.
+        # §I27/§I28: en modos agrupados las etiquetas de nodo van centradas
+        # bajo el icono (placement propio de la vista).
         if grouped:
             draw_area_node_labels(dwg, normal_elements)
         else:
-            self._render_element_labels(dwg, elements, optimized_label_positions, layout.label_positions, canvas_width, canvas_height)
-        draw_connection_labels(dwg, connections, conn_centers, optimized_label_positions)
+            self._render_element_labels(dwg, elements, layout.label_positions, canvas_width, canvas_height)
+        draw_connection_labels(dwg, connections, conn_centers,
+                               stored_centers=layout.connection_labels)
         self._render_container_labels(dwg, containers, elements_by_id)
 
         # §I30: leyenda de responsables (sólo roles usados).
@@ -259,60 +242,15 @@ class AutoSVGRenderer:
             if ndfn_group is not None:
                 dwg.add(ndfn_group)
 
-    def _collect_labels(self, elements, connections, containers, conn_centers, label_positions):
-        """Recolecta todas las etiquetas a optimizar (conexiones + elementos no-contained)."""
-        labels_to_optimize = []
-        # Etiquetas de conexiones
-        for conn in connections:
-            if conn.get('label'):
-                key = f"{conn['from']}->{conn['to']}"
-                center = conn_centers.get(key)
-                if center:
-                    labels_to_optimize.append(Label(
-                        id=key, text=conn['label'],
-                        anchor_x=center[0], anchor_y=center[1],
-                        font_size=FONT_SIZE_CONNECTION, priority=1, category="connection",
-                    ))
+    def _render_element_labels(self, dwg, elements, label_positions, canvas_width=0, canvas_height=0):
+        """Dibuja etiquetas de elementos no-container desde `label_positions`
+        TAL CUAL (WISH-LAYOUT-008: la verdad vive en el layout; la única
+        optimización es la pasada global §P61, que ya corrió).
 
-        # IDs de elementos contenidos (sus labels ya fueron posicionados por ContainerGrower)
-        contained_element_ids = set()
-        for container in containers:
-            for item in container.get('contains', []):
-                contained_element_ids.add(extract_item_id(item))
-
-        # Etiquetas de elementos normales
-        for elem in elements:
-            # §N46: miembros de zona near quedan fuera del optimizador — su
-            # etiqueta es estructural (bajo el icono) y se dibuja del fallback
-            # layout.label_positions.
-            if elem.get('_near_zone') is not None or elem.get('_evicted'):
-                continue
-            if ('contains' not in elem and elem['id'] not in contained_element_ids
-                    and elem.get('label') and 'x' in elem and 'y' in elem):
-                elem_id = elem['id']
-                elem_width = elem.get('width', ICON_WIDTH)
-                elem_height = elem.get('height', ICON_HEIGHT)
-                elem_cx = elem['x'] + elem_width / 2
-                elem_cy = elem['y'] + elem_height / 2
-                if elem_id in label_positions:
-                    label_x, label_y, _anchor, _baseline = label_positions[elem_id]
-                else:
-                    label_x = elem_cx
-                    label_y = elem_cy
-                labels_to_optimize.append(Label(
-                    id=elem_id, text=elem['label'],
-                    anchor_x=label_x, anchor_y=label_y,
-                    font_size=FONT_SIZE_NODE, priority=2, category="element",
-                    fixed=False, element_center_x=elem_cx, element_center_y=elem_cy,
-                ))
-        return labels_to_optimize
-
-    def _render_element_labels(self, dwg, elements, optimized_label_positions, label_positions, canvas_width=0, canvas_height=0):
-        """Dibuja etiquetas de elementos no-container con posiciones optimizadas o fallback.
-
-        Si el label excede umbrales (WISH-LAYOUT-003), se renderiza como
-        callout box separado con leader line; el icono queda con su label
-        canónico (primera línea).
+        Fallback canónico sólo para fotos intermedias (Epifanía) donde la
+        siembra aún no ocurrió. Si el label excede umbrales (WISH-LAYOUT-003),
+        se renderiza como callout box separado con leader line; el icono queda
+        con su label canónico (primera línea).
         """
         from AlmaGag.draw.primitives.callout import should_use_callout, get_canonical_label, draw_callout
 
@@ -322,28 +260,18 @@ class AutoSVGRenderer:
                 use_callout = should_use_callout(elem, full_label)
                 visible_label = get_canonical_label(full_label) if use_callout else full_label
 
-                optimized_pos = optimized_label_positions.get(elem['id'])
-                if optimized_pos:
-                    lines = visible_label.split('\n')
-                    for i, line in enumerate(lines):
-                        dwg.add(dwg.text(
-                            line,
-                            insert=(optimized_pos.x, optimized_pos.y + (i * 18)),
-                            text_anchor=optimized_pos.anchor,
-                            font_size=f"{FONT_SIZE_NODE}px", font_family="Arial, sans-serif",
-                            fill="black", filter='url(#text-glow)',
-                        ))
-                else:
-                    position_info = label_positions.get(elem['id'])
-                    if use_callout:
-                        elem_short = dict(elem)
-                        elem_short['label'] = visible_label
-                        _draw_icon_label(dwg, elem_short, position_info)
-                    else:
-                        _draw_icon_label(dwg, elem, position_info)
-
+                position_info = label_positions.get(elem['id'])
+                if position_info is None and 'x' in elem and 'y' in elem:
+                    num_lines = len(visible_label.split('\n'))
+                    position_info = self.geometry.get_text_coords(
+                        elem, elem.get('label_position', 'bottom'), num_lines)
                 if use_callout:
+                    elem_short = dict(elem)
+                    elem_short['label'] = visible_label
+                    _draw_icon_label(dwg, elem_short, position_info)
                     draw_callout(dwg, elem, full_label, canvas_width, canvas_height)
+                else:
+                    _draw_icon_label(dwg, elem, position_info)
 
     def _render_container_labels(self, dwg, containers, elements_by_id):
         """Dibuja etiquetas de contenedores en posición fija (no optimizadas)."""
