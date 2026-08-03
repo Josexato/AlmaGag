@@ -150,3 +150,10 @@ se conserva intacto; esto es lo que cambió, con el reproductor corrido:
 Papercut anotado durante la re-medición: `validate_gag` sobre un archivo SIN `canvas`
 revienta con `KeyError: 'width'` (el CLI pone defaults; el validador no). Reproductor:
 cualquier .sdjf sin sección `canvas` vía `validate_gag`.
+
+**Alcance del rol (aclaración del autor, 3-ago-2026):** el GAG Skiller mantiene el
+skill de JOSÉ (`almagag-diagramas`). Otros usuarios de AlmaGag pueden tener skills
+propios, con iconos y vocabulario que no son parte del repo — la IA que implemente
+cada skill administra su propio inventario. La definición de skill del repo
+(`SKILL-ALMAGAG.md`) es recomendación no vinculante; lo único normativo para
+cualquier skill es el formato de archivo y la frontera §R.

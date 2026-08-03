@@ -3,6 +3,17 @@
 El skill de claude.ai que genera diagramas con AlmaGag. Este doc fija el
 **contrato** entre el skill y el repo, para mantenerlos sincronizados.
 
+> **Alcance (decisión del autor, 3-ago-2026): esto es una RECOMENDACIÓN NO
+> VINCULANTE.** `almagag-diagramas` es la implementación de referencia del
+> autor — no "el" skill. Cada usuario que implemente AlmaGag puede definir
+> su propio skill con su propio catálogo de iconos, sus clases semánticas y
+> sus convenciones, nada de lo cual vive en este repo. **La IA que
+> implemente cada skill es la responsable de saber qué iconos tiene
+> disponibles** (y de embeberlos en el `.gag` o aceptar el BWT rotulado si
+> no los tiene). Lo único que el motor garantiza a cualquier skill es el
+> formato de archivo (`docs/spec/FORMATO_ARCHIVOS.md`) y la frontera §R: el
+> archivo declara intención y semántica, el motor decide toda la geometría.
+
 ## Qué asume el skill del repo (v3.6, iteración 6)
 
 | Capacidad | Cómo la usa el skill |
@@ -34,9 +45,11 @@ El skill de claude.ai que genera diagramas con AlmaGag. Este doc fija el
 ## Recomendaciones para construir un skill de Claude sobre AlmaGag
 
 Lo aprendido con `almagag-diagramas`, aplicable a cualquier skill que
-genere diagramas con este motor. Principio rector (§R + Q63/Q64): **el
-motor entrega MECANISMO; todo vocabulario de dominio — iconos, clases
-semánticas, palabras clave — viaja en el skill o embebido en el archivo.**
+genere diagramas con este motor — como guía, no como norma: cada
+implementador arma el suyo. Principio rector (§R + Q63/Q64): **el motor
+entrega MECANISMO; todo vocabulario de dominio — iconos, clases
+semánticas, palabras clave — viaja en el skill o embebido en el archivo,
+y es la IA que implementa ese skill quien administra su inventario.**
 
 1. **Iconografía (§Q64 — el catálogo vive en el skill).** El motor trae
    ~12 built-ins genéricos y NO va a sumar iconos de dominio. El skill
