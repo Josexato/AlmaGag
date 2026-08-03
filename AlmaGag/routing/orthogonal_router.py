@@ -123,15 +123,24 @@ class OrthogonalRouter(ConnectionRouter):
                 layout, sizing_calculator, preference
             )
 
-        # H2: SÓLO si el camino base cruza un contenedor ajeno, se intenta el
+        # H2: SÓLO si el camino base cruza un contenedor ajeno — o, desde
+        # WISH-LAYOUT-009, un ICONO ajeno (los corredores contenedor→contenedor
+        # eran ciegos a los iconos del contenedor destino) — se intenta el
         # ruteo obstacle-aware con cajas blandas (padres del origen/destino con
         # cruce libre, el resto penalizado). Se adopta únicamente si elimina el
         # cruce. Una arista cuyo camino base ya está limpio no se toca → cero
         # churn de etiquetas; H2 sólo mejora, nunca empeora (criterio del review).
-        if (related_containers and hasattr(layout, 'elements')
-                and len(layout.elements) > 2
-                and self._path_crosses_unrelated_container(
-                    waypoints, layout, related_containers, sizing_calculator)):
+        _base_hits_cont = (related_containers and hasattr(layout, 'elements')
+                           and len(layout.elements) > 2
+                           and self._path_crosses_unrelated_container(
+                               waypoints, layout, related_containers,
+                               sizing_calculator))
+        _base_hits_icon = (hasattr(layout, 'elements')
+                           and len(layout.elements) > 2
+                           and self._path_crosses_unrelated_icon(
+                               waypoints, layout, from_elem.get('id', ''),
+                               to_elem.get('id', ''), sizing_calculator))
+        if _base_hits_cont or _base_hits_icon:
             vg_path = find_orthogonal_path(
                 from_center, to_center, layout,
                 from_elem.get('id', ''), to_elem.get('id', ''),
@@ -140,7 +149,10 @@ class OrthogonalRouter(ConnectionRouter):
             )
             if (vg_path and len(vg_path) >= 2 and
                     not self._path_crosses_unrelated_container(
-                        vg_path, layout, related_containers, sizing_calculator)):
+                        vg_path, layout, related_containers, sizing_calculator)
+                    and not self._path_crosses_unrelated_icon(
+                        vg_path, layout, from_elem.get('id', ''),
+                        to_elem.get('id', ''), sizing_calculator)):
                 waypoints = vg_path
 
         # Post-process: remove unnecessary bends (L-shortcuts) when the
@@ -186,6 +198,46 @@ class OrthogonalRouter(ConnectionRouter):
             inset = 3.0
             rects.append((c['x'] + inset, c['y'] + inset,
                           c['x'] + w - inset, c['y'] + h - inset))
+        if not rects:
+            return False
+        pts = [(p.x, p.y) if hasattr(p, 'x') else (p[0], p[1]) for p in waypoints]
+        for i in range(len(pts) - 1):
+            ax, ay = pts[i]
+            bx, by = pts[i + 1]
+            for (x1, y1, x2, y2) in rects:
+                if abs(ax - bx) < 0.1:                 # vertical
+                    if x1 < ax < x2 and min(ay, by) < y2 and max(ay, by) > y1:
+                        return True
+                elif abs(ay - by) < 0.1:               # horizontal
+                    if y1 < ay < y2 and min(ax, bx) < x2 and max(ax, bx) > x1:
+                        return True
+                else:                                  # diagonal: muestreo
+                    for t in (0.25, 0.5, 0.75):
+                        px, py = ax + (bx - ax) * t, ay + (by - ay) * t
+                        if x1 < px < x2 and y1 < py < y2:
+                            return True
+        return False
+
+    def _path_crosses_unrelated_icon(self, waypoints, layout, from_id, to_id,
+                                     sizing_calculator):
+        """WISH-LAYOUT-009: True si algún tramo pasa por el INTERIOR de un
+        ICONO ajeno (no contenedor, no origen/destino). Mismo criterio de
+        inset/muestreo que _path_crosses_unrelated_container."""
+        rects = []
+        for e in getattr(layout, 'elements', []):
+            if 'contains' in e or 'x' not in e or 'y' not in e:
+                continue
+            if e.get('id', '') in (from_id, to_id):
+                continue
+            if 'width' in e and 'height' in e:
+                w, h = e['width'], e['height']
+            elif sizing_calculator:
+                w, h = sizing_calculator.get_element_size(e)
+            else:
+                w, h = 80, 50
+            inset = 3.0
+            rects.append((e['x'] + inset, e['y'] + inset,
+                          e['x'] + w - inset, e['y'] + h - inset))
         if not rects:
             return False
         pts = [(p.x, p.y) if hasattr(p, 'x') else (p[0], p[1]) for p in waypoints]

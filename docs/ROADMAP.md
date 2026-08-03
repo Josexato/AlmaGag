@@ -42,13 +42,13 @@ Los reviews de Claude Design (grupos A–R, iteraciones 1–5) están **completo
 | 1 ✅ | **Flujos de información resaltados** — `flows` top-level, trazo semitransparente que sigue las rutas reales, leyenda «Flujos:», invisible para métricas | WISH-DRAW-002 |
 | 2 ✅ | **Unificar los 3 sistemas de etiquetas** + medición veraz en TODO el pipeline — un solo optimizador (pasada global, compartida auto/hier); el renderer dibuja la verdad; destapó y corrigió 3 bugs latentes (solape de contenedores post-loop, etiquetas que no viajaban con su bloque, posiciones rancias) | WISH-LAYOUT-008 |
 | 3 ✅ | **Guardado H3 justo** — el revert viciado se eliminó: re-ruteo obstacle-aware incondicional; invariante «rutas ancladas a geometría vigente» con test | BUGS-AUTO-009 |
+| 4 ✅ | **Pitch label-aware** — celdas/bandas al ancho de la ETIQUETA en toda grilla; labels −35 y a×n −5 netos (fila de torres del minero legible, git 26→12) | WISH-LAYOUT-009 |
 
 ## Lo siguiente
 
-- **Pitch label-aware (WISH-LAYOUT-009)**: el espaciado de filas/grillas
-  considera el ancho de la ETIQUETA, no sólo del icono — el paso declarado
-  hacia «0 fusiones» (casos testigo: fila de torres del minero, contenedor
-  LAF de 06-flujo).
+- **«0 fusiones», último tramo**: presupuesto de espacio por contenedor
+  (header-vs-miembro en contenedores densos, pares aislados en zonas
+  saturadas) — el residuo que el pitch label-aware ya no explica.
 
 ## Mediano plazo (sin fecha)
 

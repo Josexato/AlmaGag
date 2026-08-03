@@ -186,7 +186,11 @@ class AutoLayoutPositioner:
         logger.debug(f"  Contenedores: {len(containers)}")
         logger.debug(f"  Elementos libres: {len(free_elements)}")
 
-        if not containers or not free_elements:
+        # WISH-LAYOUT-009: sin contenedores no hay nada que hacer, pero SIN
+        # LIBRES la resolución contenedor-contenedor sigue siendo necesaria
+        # (un diagrama 100% seccionado — p. ej. template dashboard — quedaba
+        # con cajas montadas tras crecer la grilla label-aware).
+        if not containers:
             logger.debug("  Nada que ajustar")
             return layout
 
@@ -222,6 +226,9 @@ class AutoLayoutPositioner:
                     # Shift element below the container
                     old_y = elem['y']
                     elem['y'] = cy2 + MARGIN
+                    # WISH-LAYOUT-008: la etiqueta almacenada viaja con él
+                    self._shift_stored_label(layout, elem['id'], 0,
+                                             elem['y'] - old_y)
                     adjustments += 1
                     logger.debug(f"    {elem['id']}: Y {old_y:.1f} → {elem['y']:.1f} (evitar {cid})")
                     # Re-check with updated position
@@ -1102,9 +1109,15 @@ class AutoLayoutPositioner:
                              if self._get_scope(e, container) == 'full']
             spacing = GRID_SPACING_SMALL
             left = band_left_region(container) + padding
-            for i, elem in enumerate(full_elements):
-                elem['_local_x'] = left + i * (ICON_WIDTH + spacing)
+            # WISH-LAYOUT-009: el avance de la fila es por HIJO — el ancho de
+            # su etiqueta manda sobre el del icono (pitch label-aware).
+            xacc = left
+            for elem in full_elements:
+                cell_w = max(float(ICON_WIDTH),
+                             self._est_contained_label_width(elem))
+                elem['_local_x'] = xacc + (cell_w - float(ICON_WIDTH)) / 2.0
                 elem['_local_y'] = padding
+                xacc += cell_w + spacing
             return
 
         # Layout para elementos "full" (distribución interna simple)
@@ -1120,25 +1133,23 @@ class AutoLayoutPositioner:
 
             spacing = GRID_SPACING_SMALL  # gap horizontal entre celdas
 
-            # K35: la celda se dimensiona al LABEL más ancho de cada columna (no
-            # sólo al ícono) para que las etiquetas multilínea no invadan la
-            # columna vecina (colisiones dentro de «Shared»). SÓLO en grids
-            # angostos (≤2 columnas): en grids anchos, ensanchar cada columna
-            # explotaría el contenedor y descuadraría el layout externo. Ancho
-            # POR COLUMNA (no máximo global). El contenedor crece para alojarlo.
+            # K35 + WISH-LAYOUT-009: la celda se dimensiona al LABEL más ancho
+            # de cada columna (no sólo al ícono) para que las etiquetas no
+            # invadan la columna vecina. Antes sólo en grids angostos (≤2
+            # columnas) — en anchos el pitch de icono fundía filas enteras
+            # (fila de torres del minero, grilla LAF de 06-flujo) y la pasada
+            # global agotaba sus candidatos. Hoy los vecinos SÍ acompañan el
+            # crecimiento (super-nodo rígido §P59 + invariante de solapes +
+            # medición veraz), así que el ensanche es por columna en TODA
+            # grilla. El contenedor crece para alojarlo.
             #
             # §P59: la celda se dimensiona además al tamaño REAL del hijo — un
             # contenedor anidado ya resuelto puede medir cientos de px y el
             # pitch fijo de icono lo encimaba con sus hermanos. Ancho por
-            # columna y alto por FILA; con hijos tamaño-icono esto se reduce
-            # exactamente al comportamiento anterior.
-            widen = cols <= 2
-
+            # columna y alto por FILA.
             def _child_w(e):
-                w = float(e.get('width', ICON_WIDTH))
-                if widen:
-                    w = max(w, self._est_contained_label_width(e))
-                return w
+                return max(float(e.get('width', ICON_WIDTH)),
+                           self._est_contained_label_width(e))
 
             col_w = {}
             row_h = {}
@@ -1152,14 +1163,20 @@ class AutoLayoutPositioner:
             for c in range(cols):
                 col_left[c] = xacc
                 xacc += col_w.get(c, float(ICON_WIDTH)) + spacing
-            label_h = max((self._est_contained_label_height(e) for e in full_elements),
-                          default=0.0) if widen else 0.0
-            row_extra = max(CONTAINER_GRID_ROW_SPACING, label_h + spacing)
+            # WISH-LAYOUT-009: reserva vertical por FILA — el alto del label
+            # más alto de ESA fila (no un máximo global), para que la fila de
+            # abajo arranque debajo de los textos de la de arriba.
+            row_label_h = {}
+            for i, elem in enumerate(full_elements):
+                r = i // cols
+                row_label_h[r] = max(row_label_h.get(r, 0.0),
+                                     self._est_contained_label_height(elem))
             row_top = {}
             yacc = start_y
             for r in range(max(row_h) + 1):
                 row_top[r] = yacc
-                yacc += row_h[r] + row_extra
+                yacc += row_h[r] + max(CONTAINER_GRID_ROW_SPACING,
+                                       row_label_h.get(r, 0.0) + spacing)
 
             for i, elem in enumerate(full_elements):
                 row = i // cols
@@ -1256,15 +1273,28 @@ class AutoLayoutPositioner:
             content_width = max(content_width, ICON_WIDTH)
             content_height = max(content_height, ICON_HEIGHT)
 
-            # Agregar padding horizontal (izquierda + derecha)
-            base_width = content_width + 2 * padding
+            # WISH-LAYOUT-009: el ancho cubre la EXTENSIÓN local real
+            # (los _local_x son coordenadas dentro del contenedor, no
+            # relativas a min_x): la fórmula content_width + 2·padding
+            # descartaba el origen y el offset de centrado de la primera
+            # columna dejaba al último hijo fuera del borde derecho.
+            base_width = max(max_x + padding, ICON_WIDTH + 2 * padding)
 
         # WISH-LAYOUT-005: band reserva margen lateral para el título rotado
         # + icono (no header arriba) y hugs verticalmente.
+        # WISH-LAYOUT-009: el ancho se mide sobre la EXTENSIÓN local real
+        # (iconos + vuelo horizontal de etiquetas). La fórmula anterior
+        # (content_width + left_region) asumía contenido pegado al margen;
+        # con celdas label-aware el primer icono arranca corrido
+        # (celda−icono)/2 y la banda quedaba corta exactamente ese offset.
         if container is not None and is_band(container):
-            left_region = band_left_region(container)
-            return (content_width + 2 * padding + left_region,
-                    content_height + 2 * padding)
+            right_max = 0.0
+            for e in elements:
+                lx = float(e.get('_local_x', 0.0))
+                ew = float(e.get('width', ICON_WIDTH))
+                lw = self._est_contained_label_width(e)
+                right_max = max(right_max, lx + ew, lx + ew / 2.0 + lw / 2.0)
+            return (right_max + padding, content_height + 2 * padding)
 
         # Calcular espacio del header del contenedor (icono + etiqueta)
         # El header comienza después del padding top

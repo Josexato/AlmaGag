@@ -496,14 +496,12 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         # iconos juntos y labels más anchos que el spacing), escalonar
         # verticalmente y expandir el container para acomodar.
         self._stagger_overlapping_contained_labels(best_layout)
-        # WISH-LAYOUT-008: el escalonado EXPANDE contenedores — puede montar
-        # cajas top-level entre sí. El invariante BUGS-AUTO-004 se restaura
-        # antes del re-ruteo final (que verá la geometría sana).
-        from AlmaGag.config import SPACING_SMALL
-        _conts = [e for e in best_layout.elements
-                  if 'contains' in e and 'x' in e and 'y' in e]
-        self.positioner._resolve_container_overlaps(
-            _conts, best_layout, SPACING_SMALL)
+        # WISH-LAYOUT-008/009: el escalonado y la grilla label-aware EXPANDEN
+        # contenedores — pueden montar cajas entre sí O sobre elementos
+        # libres (invisible para el detector por diseño). Se restauran ambos
+        # invariantes antes del re-ruteo final (que verá geometría sana).
+        self.positioner.recalculate_positions_with_expanded_containers(
+            best_layout)
 
         # H3: normalizar/escalonar movió iconos y expandió contenedores sin
         # re-rutear → las rutas quedaban obsoletas y cruzaban las cajas ya
@@ -521,6 +519,13 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         # el re-ruteo se reubican las etiquetas de icono que hayan quedado
         # solapadas por las rutas nuevas.
         self._stagger_overlapping_contained_labels(best_layout)
+        # WISH-LAYOUT-009: ese stagger EXPANDE contenedores otra vez — si
+        # montó cajas (entre sí o sobre libres), se restauran los invariantes
+        # y se re-rutea sobre la geometría definitivamente sana.
+        self.positioner.recalculate_positions_with_expanded_containers(
+            best_layout)
+        best_layout.invalidate_collision_cache()
+        self.routing.route(best_layout)
         for _ in range(3):
             if not self._try_relocate_labels(best_layout):
                 break
@@ -683,14 +688,10 @@ class AutoLayoutOptimizer(LayoutOptimizer):
                     candidate.label_positions[e['id']] = (lx + off, ly, an, bl)
         candidate.invalidate_collision_cache()
         # WISH-LAYOUT-008: los offsets por bloque pueden montar contenedores
-        # top-level (solape que NI la guarda NI el detector ven — container
-        # vs container no cuenta por diseño). El invariante BUGS-AUTO-004 se
-        # restaura antes de evaluar al candidato.
-        from AlmaGag.config import SPACING_SMALL
-        cconts = [e for e in candidate.elements
-                  if 'contains' in e and 'x' in e and 'y' in e]
-        self.positioner._resolve_container_overlaps(
-            cconts, candidate, SPACING_SMALL)
+        # entre sí o sobre libres (solapes que NI la guarda NI el detector
+        # ven, por diseño). Los invariantes se restauran antes de evaluar.
+        self.positioner.recalculate_positions_with_expanded_containers(
+            candidate)
         self._normalize_to_canvas(candidate)
         self.routing.route(candidate)
 
@@ -1265,16 +1266,13 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         # Propagar coordenadas locales actualizadas (centrado)
         self.positioner._propagate_coordinates_to_contained(layout)
 
-        # WISH-LAYOUT-008: el invariante «contenedores top-level sin solape»
-        # (BUGS-AUTO-004) debe sobrevivir a los movimientos del loop — la
-        # resolución sólo corría en el posicionado inicial y un movimiento
-        # posterior podía dejar cajas montadas sin que nadie las separara
-        # (el detector no cuenta container-vs-container por diseño).
-        from AlmaGag.config import SPACING_SMALL
-        containers = [e for e in layout.elements
-                      if 'contains' in e and 'x' in e and 'y' in e]
-        self.positioner._resolve_container_overlaps(
-            containers, layout, SPACING_SMALL)
+        # WISH-LAYOUT-008/009: los invariantes «contenedores sin solape»
+        # (BUGS-AUTO-004) y «ningún libre sobre un contenedor» deben
+        # sobrevivir a los movimientos del loop — la resolución sólo corría
+        # en el posicionado inicial y un movimiento posterior podía dejar
+        # cajas montadas sin que nadie las separara (el detector no cuenta
+        # container-vs-container ni libre-vs-container por diseño).
+        self.positioner.recalculate_positions_with_expanded_containers(layout)
 
         # Ruteo y etiquetas sobre las posiciones DEFINITIVAS de esta iteración
         self.routing.route(layout)

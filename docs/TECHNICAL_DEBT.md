@@ -1000,27 +1000,41 @@ iconos (fila de torres del minero, contenedor LAF de 06-flujo).
 
 ---
 
-### WISH-LAYOUT-009: Pitch label-aware — espaciado consciente del ancho de etiquetas 🆕 ABIERTO
-**Componente**: `strategies/auto/{positioner,optimizer}.py` (pitch de grillas/filas), `container_calculator.py`
+### WISH-LAYOUT-009: Pitch label-aware — espaciado consciente del ancho de etiquetas ✅ RESUELTO (2026-08-03, iteración 6 — intento 3)
+**Componente**: `strategies/auto/{positioner,optimizer}.py`, `routing/orthogonal_router.py`
 **Reportado**: 2026-08-03 (alcance restante al cerrar WISH-LAYOUT-008)
 
-Con la unificación y la medición veraz cerradas, las fusiones que quedan
-son TODAS del mismo tipo: filas/grillas donde el pitch entre iconos se
-calcula por el ancho del ICONO, no de su ETIQUETA — dos vecinos a 100px
-con labels de 150px no caben ni con escalones ni corrimientos (la pasada
-global ya agota sus candidatos). Casos testigo: la fila de torres del
-fixture minero (~5 pares), el contenedor «LAF Optimizer» de
-06-flujo-ejecucion (grilla 4×3 con labels de 2-3 líneas), el racimo
-sudamericano de continentes-america.
+Las fusiones restantes eran todas del mismo tipo: filas/grillas donde el
+pitch entre iconos se calculaba por el ancho del ICONO, no de su ETIQUETA.
+Dos intentos previos fueron revertidos por la guarda; el tercero prosperó
+porque las precondiciones que su diagnóstico pedía ya existían (pasada
+global única, medición veraz, invariantes de solape restaurables).
 
-**Idea**: el pitch de celda/columna considera `max(ancho_icono,
-ancho_label_medido)` (ya existe `get_label_bbox_stored` para medirlo);
-dos intentos previos genéricos fueron revertidos por la guarda —
-diagnósticos en `docs/reviews/grupo-P/PENDIENTE.md`. Con la medición
-veraz ahora vigente en todo el pipeline, el intento 3 tiene por primera
-vez un evaluador que ve lo que el lector ve.
+**Aplicado**:
+- La celda se ensancha al label más ancho de su columna en TODA grilla
+  (antes sólo ≤2 columnas) + reserva vertical por FILA; el avance de una
+  band es por hijo (`max(icono, label)`).
+- Bugs latentes que el crecimiento destapó, corregidos: el ancho del
+  contenedor descartaba el ORIGEN local (el centrado de la primera columna
+  dejaba al último hijo fuera del borde — P59 roto en el minero); la
+  resolución contenedor-contenedor tenía early-return sin elementos libres
+  (un diagrama 100% seccionado — template dashboard — quedaba montado); el
+  corredor ortogonal contenedor→contenedor era ciego a ICONOS ajenos (el
+  reintento obstacle-aware H2 sólo se gatillaba por contenedores).
+- Los invariantes (cajas sin solape, libres fuera de cajas) se restauran
+  también tras el stagger post-H3.
 
-**Prioridad**: Media-alta — es el paso declarado hacia «0 fusiones».
+Recalibración (vs. cierre de WISH-LAYOUT-008): **labels −35 y a×n −5
+netos en 8 fixtures** — mina 19→14 (fila de torres LEGIBLE, el caso
+testigo), git 26→12 con cruces 11→5 y aspecto de vuelta en rango
+(0.26→0.47), cheatsheet 21→12, 06-flujo 12→8. Costo: cruces +7 netos
+(06-flujo +6, cheatsheet +4, mina +3, git −6) — el precio del espacio
+honesto, aceptado con verificación visual de los 5 casos. Tests:
+`tests/test_layout009_label_pitch.py`.
+
+Residual para «0 fusiones»: racimos de header-vs-miembro en contenedores
+densos (CCO del minero) y pares aislados en zonas saturadas — ya no es un
+problema de pitch sino de presupuesto de espacio por contenedor.
 
 ---
 
