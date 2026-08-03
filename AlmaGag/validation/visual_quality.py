@@ -588,10 +588,16 @@ def validate_gag(gag_path: str, layout_algorithm='auto') -> QualityReport:
         else:
             apply_template(template_name, data)
 
+    # BUGS-VAL-004: `canvas` es OPCIONAL en el formato — el CLI pone defaults
+    # (generator.py) pero este camino pasaba el dict vacío y el positioner
+    # reventaba con KeyError: 'width'. Mismos defaults que el generator.
+    from AlmaGag.config import WIDTH, HEIGHT
+    _canvas = data.get('canvas', {})
     layout = Layout(
         elements=data.get('elements', []),
         connections=data.get('connections', []),
-        canvas=data.get('canvas', {}),
+        canvas={'width': _canvas.get('width', WIDTH),
+                'height': _canvas.get('height', HEIGHT)},
     )
     # Metadata semántica que el motor hier consume (retrocompatible: si falta,
     # camino normal). Debe viajar en el layout igual que en el generator.

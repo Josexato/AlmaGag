@@ -147,9 +147,9 @@ se conserva intacto; esto es lo que cambió, con el reproductor corrido:
 | (nuevo) Pitch | WISH-LAYOUT-009: celdas/bandas al ancho de la ETIQUETA. Acortar labels compacta la lámina |
 | `pyproject.toml` | Check de capacidad actualizado: `draw/primitives/flows.py` presente = iteración 6 completa |
 
-Papercut anotado durante la re-medición: `validate_gag` sobre un archivo SIN `canvas`
-revienta con `KeyError: 'width'` (el CLI pone defaults; el validador no). Reproductor:
-cualquier .sdjf sin sección `canvas` vía `validate_gag`.
+Papercut hallado durante la re-medición y RESUELTO el mismo día
+(BUGS-VAL-004): `validate_gag` sobre un archivo sin `canvas` reventaba con
+`KeyError: 'width'`; ahora pone los mismos defaults que el CLI.
 
 **Alcance del rol (aclaración del autor, 3-ago-2026):** el GAG Skiller mantiene el
 skill de JOSÉ (`almagag-diagramas`). Otros usuarios de AlmaGag pueden tener skills

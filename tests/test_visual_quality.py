@@ -152,3 +152,20 @@ def test_semantic_colored_connection_is_detected():
     os.unlink(path)
     assert r.n_connections == 1
     assert len(r.by_rule('R3_dangling_connection')) == 0
+
+
+def test_validate_gag_without_canvas_uses_defaults(tmp_path):
+    """BUGS-VAL-004: `canvas` es opcional en el formato — validate_gag debe
+    poner los mismos defaults que el CLI, no reventar con KeyError."""
+    import json
+    from AlmaGag.validation.visual_quality import validate_gag
+    src = tmp_path / 'sin_canvas.sdjf'
+    src.write_text(json.dumps({
+        'elements': [
+            {'id': 'a', 'type': 'server', 'label': 'A'},
+            {'id': 'b', 'type': 'database', 'label': 'B'},
+        ],
+        'connections': [{'from': 'a', 'to': 'b'}],
+    }))
+    report = validate_gag(str(src))
+    assert report.n_icons >= 2
