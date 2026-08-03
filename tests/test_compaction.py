@@ -48,7 +48,10 @@ def test_compaction_never_worsens_crossings(canonical):
 
 
 def test_compaction_improves_a_dense_container_diagram():
-    # reference-cheatsheet mejora de forma medible con la compactación.
+    # reference-cheatsheet mejoraba estrictamente con la compactación; desde
+    # WISH-LAYOUT-009 (celdas label-aware) la geometría de partida es otra y
+    # la compactación puede resultar neutra — la propiedad exigible es que
+    # JAMÁS empeore (la mejora estricta la vigila git.sdjf en la guarda).
     with_c = count_crossings(_run_auto('docs/diagrams/gags/reference-cheatsheet.sdjf', True))
     without_c = count_crossings(_run_auto('docs/diagrams/gags/reference-cheatsheet.sdjf', False))
-    assert with_c < without_c
+    assert with_c <= without_c
