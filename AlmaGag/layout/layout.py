@@ -69,6 +69,7 @@ class Layout:
         '_diagram_name', '_areas', '_roles', '_lanes', '_layout_view',
         '_considerations', '_strategy', '_measure_stored_labels',
         '_resolved_primary_connections', '_hierarchical_layout_applied',
+        '_flows',
     )
 
     def __post_init__(self):

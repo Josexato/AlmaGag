@@ -607,6 +607,33 @@ Ver canonical `docs/diagrams/gags/16-contract-band.gag`.
 
 ---
 
+## 5.8. `flows` — flujos de informacion resaltados (WISH-DRAW-002)
+
+Capa de ANOTACION, no de topologia: un flujo narra un recorrido sobre el
+diagrama ya tendido (el camino de un paquete, un tramite, una cadena de
+aprobacion) como un trazo de RESALTADOR — ancho, semitransparente, puntas
+redondas — sin agregar aristas ni alterar layout ni metricas.
+
+```json
+"flows": [
+  {"id": "scada", "label": "Datos SCADA", "color": "#f7e017",
+   "path": ["cpe_mina", "est2", "dc_mina", "cco"]}
+]
+```
+
+| Campo | Tipo | Obligatorio | Que hace |
+|-------|------|:-----------:|----------|
+| `path` | array de ids | **SI** (≥2) | Recorrido EN ORDEN por elementos existentes. Entre dos consecutivos, si existe una conexion dibujada (en cualquier sentido) el trazo SIGUE su ruta real (troncales §P60 incluidas); si no, tramo directo. |
+| `label` | string | no | Con ≥1 label aparece la leyenda «Flujos:» al pie. |
+| `color` | string | no | hex/CSS o token §O57; sin declarar, paleta de resaltador (amarillo/verde/rosa/celeste, ciclada). |
+| `id` | string | no | Para logs/WARNINGs. |
+
+Ids inexistentes se omiten con WARNING; un flujo con <2 elementos
+dibujables no se pinta. Los trazos llevan `class="ag-flow"`: invisibles
+para metricas, ruteo y validador (como el halo `ag-text-halo`).
+
+---
+
 ## 5.9. `unions` — punto de union (genealogias, §H7)
 
 Seccion top-level opcional para "dos progenitores con hijos comunes": genera
@@ -944,6 +971,7 @@ Archivo .sdjf o .gag
   +-- "theme" (opcional): { "token": "#hex" }             # §O57
   +-- "semantics" (opcional): { "clase": ["keywords"] }   # §Q63
   +-- "unions" (opcional): [ { "id", "between": [a, b] } ]  # §H7
+  +-- "flows" (opcional): [ { "path": [ids...], "label", "color" } ]  # resaltador
   +-- "considerations" (opcional): [ align | near | avoid ]
   +-- "areas" / "lanes" / "roles" (opcional)              # vistas §I
 ```

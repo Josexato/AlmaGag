@@ -1,0 +1,148 @@
+"""
+WISH-DRAW-002 — Flujos de información resaltados («highlighter»).
+
+Capa de ANOTACIÓN, no de topología: un flujo narra un recorrido sobre el
+diagrama ya tendido — el camino de un paquete, un trámite, una cadena de
+aprobación — sin agregar aristas ni alterar el layout.
+
+Formato (top-level):
+
+    "flows": [
+      {"id": "scada", "label": "Datos SCADA", "color": "#f7e017",
+       "path": ["cpe_mina", "est2", "dc_mina", "cco"]}
+    ]
+
+Render: trazo ancho semitransparente (puntas redondas) que pasa por los
+elementos del `path` EN ORDEN. Entre dos elementos consecutivos, si existe
+una conexión dibujada (en cualquier sentido), el trazo SIGUE su
+`computed_path` — el resaltador pasa por donde pasan los cables, troncales
+§P60 incluidas; si no hay arista, tramo directo. Capa: sobre fondos/zonas y
+bajo iconos, líneas y textos.
+
+Todo elemento del flujo lleva `class="ag-flow"`: invisible para métricas,
+ruteo y validadores (mismo mecanismo que `ag-text-halo`). Los colores por
+defecto son la paleta de resaltador; `color` acepta hex/CSS o token §O57
+(resuelto antes por apply_theme).
+"""
+
+import logging
+
+from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
+
+logger = logging.getLogger('AlmaGag')
+
+FLOW_CLASS = 'ag-flow'
+FLOW_WIDTH = 28.0          # ancho del trazo (px)
+FLOW_OPACITY = 0.30        # transparencia de resaltador
+# paleta de resaltador (se cicla si hay más flujos que colores)
+FLOW_PALETTE = ('#f7e017', '#7ce07c', '#ff9ad5', '#7cd6e0')
+
+
+def _center(e):
+    return (e['x'] + e.get('width', ICON_WIDTH) / 2.0,
+            e['y'] + e.get('height', ICON_HEIGHT) / 2.0)
+
+
+def _conn_points(connections, a, b):
+    """Puntos del computed_path de la conexión a→b (o b→a, invertida)."""
+    for c in connections:
+        cp = c.get('computed_path')
+        pts = cp.get('points') if isinstance(cp, dict) else None
+        if not pts or len(pts) < 2:
+            continue
+        xy = [((p[0], p[1]) if not hasattr(p, 'x') else (p.x, p.y)) for p in pts]
+        if c.get('from') == a and c.get('to') == b:
+            return xy
+        if c.get('from') == b and c.get('to') == a:
+            return list(reversed(xy))
+    return None
+
+
+def build_flow_points(flow, elements_by_id, connections):
+    """Polilínea completa de un flujo: concatena los tramos entre elementos
+    consecutivos del path (computed_path si hay arista; recto si no).
+    Devuelve la lista de puntos, o None si el flujo no es dibujable."""
+    ids = [i for i in flow.get('path', []) if isinstance(i, str)]
+    known = []
+    for i in ids:
+        e = elements_by_id.get(i)
+        if e is None or 'x' not in e:
+            logger.warning(f"flows: id '{i}' del flujo "
+                           f"'{flow.get('id', '?')}' no existe o no tiene "
+                           f"posición — se omite del recorrido")
+            continue
+        known.append(e)
+    if len(known) < 2:
+        return None
+
+    points = []
+    for a, b in zip(known, known[1:]):
+        seg = _conn_points(connections, a['id'], b['id'])
+        if seg is None:
+            seg = [_center(a), _center(b)]
+        if points and abs(points[-1][0] - seg[0][0]) < 0.5 \
+                and abs(points[-1][1] - seg[0][1]) < 0.5:
+            seg = seg[1:]          # no duplicar el punto de empalme
+        points.extend(seg)
+    return points if len(points) >= 2 else None
+
+
+def draw_flows(dwg, flows, elements_by_id, connections) -> int:
+    """Dibuja los flujos como trazos de resaltador. Devuelve cuántos se
+    dibujaron. No-op silencioso sin sección `flows`."""
+    if not flows:
+        return 0
+    n = 0
+    for i, flow in enumerate(flows):
+        if not isinstance(flow, dict):
+            continue
+        points = build_flow_points(flow, elements_by_id, connections)
+        if points is None:
+            logger.warning(f"flows: el flujo '{flow.get('id', i)}' no tiene "
+                           f"≥2 elementos dibujables — no se pinta")
+            continue
+        color = flow.get('color') or FLOW_PALETTE[n % len(FLOW_PALETTE)]
+        dwg.add(dwg.polyline(
+            points=[(round(x, 2), round(y, 2)) for x, y in points],
+            fill='none', stroke=color,
+            stroke_width=FLOW_WIDTH, stroke_opacity=FLOW_OPACITY,
+            stroke_linecap='round', stroke_linejoin='round',
+            class_=FLOW_CLASS))
+        n += 1
+    if n:
+        logger.info(f"flows: {n} flujo(s) resaltado(s) sobre el diagrama")
+    return n
+
+
+def draw_flow_legend(dwg, flows, canvas_width, canvas_height, y_offset=0):
+    """Leyenda «Flujos:» al pie (análoga a §N48). Un swatch de resaltador
+    por flujo DIBUJABLE con label; sin labels no hay leyenda."""
+    entries = []
+    n = 0
+    for i, flow in enumerate(flows or []):
+        if not isinstance(flow, dict):
+            continue
+        color = flow.get('color') or FLOW_PALETTE[n % len(FLOW_PALETTE)]
+        n += 1
+        if flow.get('label'):
+            entries.append((str(flow['label']), color))
+    if not entries:
+        return False
+
+    legend = dwg.g(class_='ag-bottom-anchored')
+    y = canvas_height - 30 - y_offset
+    x = 24
+    legend.add(dwg.text('Flujos:', insert=(x, y + 4),
+                        font_size='11px', font_weight='700',
+                        font_family='Arial, sans-serif', fill='#5a5648'))
+    x += 60
+    for label, color in entries:
+        legend.add(dwg.line(start=(x, y), end=(x + 26, y), stroke=color,
+                            stroke_width=10, stroke_opacity=FLOW_OPACITY,
+                            stroke_linecap='round', class_=FLOW_CLASS))
+        legend.add(dwg.text(label, insert=(x + 32, y + 4),
+                            font_size='11px', font_family='Arial, sans-serif',
+                            fill='#3a362c'))
+        x += 58 + len(label) * 6.8
+    dwg.add(legend)
+    return True

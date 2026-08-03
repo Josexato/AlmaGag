@@ -586,5 +586,28 @@
     "c-soporte": "#0e8a8a",
     "c-gestion-remota": "#8e44ad",
     "c-administrativo": "#888888"
-  }
+  },
+  "flows": [
+    {
+      "id": "scada",
+      "label": "Datos SCADA planta -> CCO",
+      "color": "#f7e017",
+      "path": [
+        "cpe_mina",
+        "est2",
+        "dc_mina",
+        "cco"
+      ]
+    },
+    {
+      "id": "facturacion",
+      "label": "Facturacion contratista -> sede",
+      "color": "#7cd6e0",
+      "path": [
+        "cuadrillas",
+        "oficinas",
+        "sede_costa"
+      ]
+    }
+  ]
 }
