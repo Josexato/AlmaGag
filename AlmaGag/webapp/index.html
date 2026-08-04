@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>AlmaGag — Visor local</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --borde: #d0d4dc;
+    --fondo: #f5f6f8;
+    --panel: #ffffff;
+    --tinta: #23272f;
+    --acento: #2563eb;
+    --error: #b91c1c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--tinta);
+    background: var(--fondo);
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    padding: 8px 14px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--borde);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  header h1 { font-size: 15px; margin: 0; font-weight: 600; }
+  header h1 span { color: var(--acento); }
+  header .archivo { font-size: 12px; color: #6b7280; }
+  main {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+  }
+  /* ---- Panel izquierdo ---- */
+  #panel-izq {
+    width: 40%;
+    min-width: 280px;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--borde);
+    background: var(--panel);
+  }
+  #barra-carga {
+    padding: 8px 10px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--borde);
+  }
+  #editor {
+    flex: 1;
+    resize: none;
+    border: none;
+    outline: none;
+    padding: 10px;
+    font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.45;
+    white-space: pre;
+    overflow: auto;
+    tab-size: 2;
+  }
+  #editor.arrastrando { outline: 2px dashed var(--acento); outline-offset: -6px; }
+  #barra-opciones {
+    padding: 6px 10px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    border-top: 1px solid var(--borde);
+    font-size: 12px;
+  }
+  #log {
+    max-height: 110px;
+    overflow: auto;
+    margin: 0;
+    padding: 6px 10px;
+    border-top: 1px solid var(--borde);
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 11.5px;
+    color: var(--error);
+    white-space: pre-wrap;
+    display: none;
+  }
+  /* ---- Panel derecho ---- */
+  #panel-der {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  #barra-zoom {
+    padding: 6px 10px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--borde);
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    font-size: 12px;
+  }
+  #zoom-nivel { min-width: 46px; text-align: center; color: #6b7280; }
+  #visor {
+    flex: 1;
+    overflow: auto;             /* el scroll pedido para moverse por el SVG */
+    background:
+      conic-gradient(#eceef1 25%, transparent 0 50%, #eceef1 0 75%, transparent 0)
+      0 0 / 24px 24px;
+  }
+  #lienzo { padding: 20px; display: inline-block; }
+  #lienzo svg { display: block; background: white; box-shadow: 0 1px 6px rgba(0,0,0,.15); }
+  #vacio {
+    color: #9ca3af;
+    font-size: 14px;
+    padding: 40px;
+  }
+  button, select, label.boton {
+    font: inherit;
+    font-size: 12.5px;
+    padding: 4px 10px;
+    border: 1px solid var(--borde);
+    border-radius: 6px;
+    background: var(--panel);
+    color: var(--tinta);
+    cursor: pointer;
+  }
+  button:hover, label.boton:hover { border-color: var(--acento); color: var(--acento); }
+  button.primario {
+    background: var(--acento);
+    border-color: var(--acento);
+    color: white;
+  }
+  button.primario:hover { background: #1d4ed8; color: white; }
+  button:disabled { opacity: .5; cursor: default; }
+  input[type=file] { display: none; }
+  .atajo { color: #9ca3af; font-size: 11px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Alma<span>Gag</span> · visor local</h1>
+  <span class="archivo" id="nombre-archivo">sin archivo — carga un .sdjf o .gag, o pega el JSON</span>
+</header>
+
+<main>
+  <section id="panel-izq">
+    <div id="barra-carga">
+      <label class="boton" for="selector-archivo">📂 Abrir archivo…</label>
+      <input type="file" id="selector-archivo" accept=".sdjf,.gag,.json">
+      <button class="primario" id="btn-render">▶ Renderizar</button>
+      <span class="atajo">Ctrl+Enter · o arrastra el archivo al editor</span>
+    </div>
+    <textarea id="editor" spellcheck="false"
+      placeholder='Pega aquí el contenido del .sdjf/.gag, o arrastra el archivo…'></textarea>
+    <pre id="log"></pre>
+    <div id="barra-opciones">
+      <label>Layout
+        <select id="opt-layout">
+          <option value="select" selected>select (motor decide)</option>
+          <option value="auto">auto</option>
+          <option value="hier">hier</option>
+          <option value="legacy">legacy</option>
+        </select>
+      </label>
+      <label>Vista
+        <select id="opt-view">
+          <option value="auto" selected>auto</option>
+          <option value="flow">flow</option>
+          <option value="areas">areas</option>
+          <option value="lanes">lanes</option>
+          <option value="matrix">matrix</option>
+        </select>
+      </label>
+      <label><input type="checkbox" id="opt-visualdebug"> visualdebug</label>
+    </div>
+  </section>
+
+  <section id="panel-der">
+    <div id="barra-zoom">
+      <button id="zoom-menos" title="Alejar">−</button>
+      <span id="zoom-nivel">100%</span>
+      <button id="zoom-mas" title="Acercar">+</button>
+      <button id="zoom-cien" title="Tamaño real">1:1</button>
+      <button id="zoom-ajustar" title="Ajustar al ancho">Ajustar</button>
+      <span style="flex:1"></span>
+      <button id="btn-descargar" disabled>⬇ Descargar SVG</button>
+    </div>
+    <div id="visor">
+      <div id="vacio">El SVG aparecerá aquí. Usa el scroll para moverte y los botones para hacer zoom.</div>
+      <div id="lienzo" hidden></div>
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const editor = $('editor'), lienzo = $('lienzo'), vacio = $('vacio');
+  const nombreEl = $('nombre-archivo'), logEl = $('log');
+  let nombreArchivo = 'diagrama.sdjf';
+  let zoom = 1, naturalW = 0, naturalH = 0, svgActual = null, ultimoSvgTexto = '';
+
+  // ---------- carga de archivo ----------
+  function cargarArchivo(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      editor.value = reader.result;
+      nombreArchivo = file.name;
+      nombreEl.textContent = file.name;
+      renderizar();
+    };
+    reader.readAsText(file, 'utf-8');
+  }
+  $('selector-archivo').addEventListener('change', e => cargarArchivo(e.target.files[0]));
+  editor.addEventListener('dragover', e => { e.preventDefault(); editor.classList.add('arrastrando'); });
+  editor.addEventListener('dragleave', () => editor.classList.remove('arrastrando'));
+  editor.addEventListener('drop', e => {
+    e.preventDefault();
+    editor.classList.remove('arrastrando');
+    cargarArchivo(e.dataTransfer.files[0]);
+  });
+
+  // ---------- render ----------
+  async function renderizar() {
+    const contenido = editor.value.trim();
+    if (!contenido) return;
+    const btn = $('btn-render');
+    btn.disabled = true; btn.textContent = '… renderizando';
+    try {
+      const resp = await fetch('/render', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filename: nombreArchivo,
+          content: contenido,
+          options: {
+            layout_algorithm: $('opt-layout').value,
+            view: $('opt-view').value,
+            visualdebug: $('opt-visualdebug').checked,
+          },
+        }),
+      });
+      const data = await resp.json();
+      mostrarLog(data.log);
+      if (data.ok && data.svg) {
+        mostrarSvg(data.svg);
+      } else if (!data.log) {
+        mostrarLog('[ERROR] El motor no pudo generar el diagrama.');
+      }
+    } catch (err) {
+      mostrarLog('[ERROR] No se pudo contactar al servidor local: ' + err);
+    } finally {
+      btn.disabled = false; btn.textContent = '▶ Renderizar';
+    }
+  }
+  $('btn-render').addEventListener('click', renderizar);
+  document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); renderizar(); }
+  });
+
+  function mostrarLog(texto) {
+    logEl.textContent = (texto || '').trim();
+    logEl.style.display = logEl.textContent ? 'block' : 'none';
+  }
+
+  function mostrarSvg(texto) {
+    ultimoSvgTexto = texto;
+    lienzo.innerHTML = texto;
+    svgActual = lienzo.querySelector('svg');
+    if (!svgActual) { mostrarLog('[ERROR] Respuesta sin SVG válido.'); return; }
+    // Normalizar: asegurar viewBox para que el zoom escale el contenido.
+    const w = parseFloat(svgActual.getAttribute('width')) || 0;
+    const h = parseFloat(svgActual.getAttribute('height')) || 0;
+    if (!svgActual.getAttribute('viewBox') && w && h) {
+      svgActual.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    }
+    const vb = (svgActual.getAttribute('viewBox') || '').split(/[\s,]+/).map(Number);
+    naturalW = w || vb[2] || 800;
+    naturalH = h || vb[3] || 600;
+    vacio.hidden = true;
+    lienzo.hidden = false;
+    $('btn-descargar').disabled = false;
+    aplicarZoom(zoom);
+  }
+
+  // ---------- zoom ----------
+  function aplicarZoom(z) {
+    zoom = Math.min(8, Math.max(0.1, z));
+    if (svgActual) {
+      svgActual.setAttribute('width', naturalW * zoom);
+      svgActual.setAttribute('height', naturalH * zoom);
+    }
+    $('zoom-nivel').textContent = Math.round(zoom * 100) + '%';
+  }
+  $('zoom-mas').addEventListener('click', () => aplicarZoom(zoom * 1.25));
+  $('zoom-menos').addEventListener('click', () => aplicarZoom(zoom / 1.25));
+  $('zoom-cien').addEventListener('click', () => aplicarZoom(1));
+  $('zoom-ajustar').addEventListener('click', () => {
+    if (!naturalW) return;
+    const disponible = $('visor').clientWidth - 40;
+    aplicarZoom(disponible / naturalW);
+  });
+  $('visor').addEventListener('wheel', e => {
+    if (!e.ctrlKey) return;           // Ctrl+rueda = zoom; rueda sola = scroll
+    e.preventDefault();
+    aplicarZoom(zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1));
+  }, { passive: false });
+
+  // ---------- descarga ----------
+  $('btn-descargar').addEventListener('click', () => {
+    if (!ultimoSvgTexto) return;
+    const blob = new Blob([ultimoSvgTexto], { type: 'image/svg+xml' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = nombreArchivo.replace(/\.(sdjf|gag|json)$/i, '') + '.svg';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+})();
+</script>
+</body>
+</html>

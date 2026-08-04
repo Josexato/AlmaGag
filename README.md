@@ -24,6 +24,16 @@ almagag mi-diagrama.sdjf --view lanes               # Forzar una representación
 > ver [Guía de layout](docs/guides/LAYOUT-DECISION-GUIDE.md). El histórico
 > `laf` fue renombrado a `legacy` y está congelado (solo debug/Epifanía).
 
+### Visor web local
+
+```bash
+python -m AlmaGag.webapp        # abre http://127.0.0.1:8321 en el navegador
+```
+
+Carga (o arrastra) un `.sdjf`/`.gag` a la izquierda y el SVG aparece a la
+derecha, con scroll y zoom (Ctrl+rueda, `Ajustar`, `1:1`). Solo escucha en
+localhost y no requiere dependencias extra.
+
 ## Ejemplo minimo (.sdjf)
 
 ```json
