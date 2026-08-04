@@ -46,9 +46,16 @@ Los reviews de Claude Design (grupos A–R, iteraciones 1–5) están **completo
 
 ## Lo siguiente
 
-- **«0 fusiones», último tramo**: presupuesto de espacio por contenedor
-  (header-vs-miembro en contenedores densos, pares aislados en zonas
-  saturadas) — el residuo que el pitch label-aware ya no explica.
+- **«0 fusiones», último tramo (WISH-LAYOUT-010)**: presupuesto de espacio
+  por contenedor — header como zona dura + corredores para rótulos de
+  conexión. Caso real reproducible: `mina-fisico-v2.gag` (17/8/17; acortar
+  labels apenas mueve: 18/7/14).
+- **Libres multi-zona (WISH-AUTO-010)**: un libre cuyos vecinos viven en
+  zonas se coloca hoy exiliado al fondo con diagonales gigantes
+  (`energia_ext` del físico v2); debería ir a la periferia del baricentro.
+
+> Fixtures del caso real evolucionado (3-ago, anonimizados §P62):
+> `mina-fisico-v2.gag` y `mina-hld.gag` — el HLD adoptado rinde 4/0/1.
 
 ## Mediano plazo (sin fecha)
 

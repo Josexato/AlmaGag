@@ -1052,6 +1052,54 @@ problema de pitch sino de presupuesto de espacio por contenedor.
 
 ---
 
+### WISH-LAYOUT-010: Presupuesto de espacio por contenedor — miembros sobre el header y congestión interna 🆕 ABIERTO
+**Componente**: `strategies/auto/positioner.py` (grilla/bounds de contenedor), `container_calculator.py`
+**Reportado**: 2026-08-03 (caso real evolucionado; anonimizado en `mina-fisico-v2.gag`)
+
+Con pitch label-aware y medición veraz cerrados, el residuo hacia
+«0 fusiones» es de PRESUPUESTO DE ESPACIO dentro del contenedor. En el
+fixture `mina-fisico-v2.gag` (17 cruces / 8 arista×nodo / 17 labels):
+
+- El miembro `cco` (edificio) queda MONTADO sobre el propio header de su
+  zona («CCO DC-204…» pisa «ZONA PILA - PAMPA COLORADA»): la banda del
+  título no se respeta como zona prohibida para los miembros.
+- Racimos internos: «7 estaciones fijas» × rótulo «FO inter-DC», «4
+  estaciones fijas» × «energia provisional» — rótulos de conexión cuyo
+  deslizamiento §P61 no encuentra hueco dentro de la caja.
+
+**Dato medido clave** (confirma el hallazgo de la sesión externa del
+3-ago): acortar TODAS las etiquetas a una línea apenas mueve la aguja
+(17/8/17 → 18/7/14) — el cuello NO es ancho de etiqueta sino espacio
+interno; la palanca «acortar labels» del skill aplica a grillas/bandas
+libres, no a zonas congestionadas.
+
+**Idea**: el alto/reparto interno del contenedor reserva presupuesto para
+(a) la banda del header como zona dura, (b) corredores para los rótulos de
+conexión que entran/salen de la caja. Medir con la guarda (los dos
+fixtures v2 ya están en ella).
+
+**Prioridad**: Alta — es el «lo siguiente» declarado del ROADMAP, ahora
+con caso real reproducible.
+
+---
+
+### WISH-AUTO-010: Elemento libre multi-zona queda exiliado con diagonales gigantes 🆕 ABIERTO
+**Componente**: `strategies/auto/positioner.py` (colocación de libres), `zones.py`
+**Reportado**: 2026-08-03 (caso real evolucionado; anonimizado en `mina-fisico-v2.gag`)
+
+`energia_ext` (red eléctrica, type `powergrid`) sólo conecta con las
+fuentes de energía DENTRO de las dos zonas. El ajuste post-expansión lo
+empuja debajo de todos los contenedores y termina EXILIADO en la esquina
+inferior derecha, con dos diagonales naranjas que cruzan la lámina entera
+(y los contenedores de en medio — parte del arista×nodo=8).
+
+**Deseo**: un libre cuyos vecinos viven todos en zonas debería colocarse
+en la periferia CERCANA al baricentro de sus destinos (como hace §P60 con
+las zonas de servicio), no al final del canvas. Repro:
+`mina-fisico-v2.gag`, elemento `energia_ext`.
+
+---
+
 ### WISH-ARCH-002: Convergencia a un solo algoritmo (auto-selección) ✅ RESUELTO (cierre 2026-08-02)
 
 > Cerrado por BUGS-DOCS-006: todo el alcance está en el código —
