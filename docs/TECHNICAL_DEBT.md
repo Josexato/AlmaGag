@@ -1118,8 +1118,24 @@ WISH-LAYOUT-010/ROADMAP), no de flows.
 
 ---
 
-### WISH-LAYOUT-010: Presupuesto de espacio por contenedor — miembros sobre el header y congestión interna 🆕 ABIERTO
-**Componente**: `strategies/auto/positioner.py` (grilla/bounds de contenedor), `container_calculator.py`
+### WISH-LAYOUT-010: Presupuesto de espacio por contenedor — miembros sobre el header y congestión interna ✅ RESUELTO (2026-08-05)
+
+> Resuelto en la pasada anticolisión (§P61), no en el reparto del
+> positioner: (a) el TÍTULO del contenedor (icono + texto real, espejo del
+> renderer) es zona DURA para las etiquetas de sus propios miembros —
+> ningún candidato lo pisa y una posición heredada sobre él se expulsa;
+> (b) montarse sobre un ICONO puntúa ×2 frente a rozar otro texto (la
+> violación R1 pesa más); (c) la pasada B suma candidatos AL COSTADO del
+> conector (offset perpendicular ±26px) para zonas congestas. **Medido**
+> (guarda completa): neto −5 labels (git 15→10, 06 −1, 09 1→0, cakephp
+> −1; mina-arquitectura-fisica +2 y cheatsheet +1, ambos texto-texto);
+> pares «sobre icono» (R1): físico v2 7→4, fisica 1→0, cheatsheet 12→9.
+> El header de ZONA PILA quedó limpio (verificado en PNG). La banda dura
+> a TODO el ancho se probó y se descartó: +6 en fisica por expulsar
+> etiquetas que no pisaban texto visible. Regresión:
+> `tests/test_layout010_container_budget.py`.
+
+**Componente**: `strategies/auto/anticollision.py` (zona dura + score + candidatos)
 **Reportado**: 2026-08-03 (caso real evolucionado; anonimizado en `mina-fisico-v2.gag`)
 
 Con pitch label-aware y medición veraz cerrados, el residuo hacia

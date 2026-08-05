@@ -22,6 +22,7 @@ aparición para conexiones. Separación texto↔texto exigida: ≥8px.
 import logging
 from typing import Dict, List, Optional, Tuple
 
+from AlmaGag.config import ICON_WIDTH
 from AlmaGag.utils import extract_item_id
 
 logger = logging.getLogger('AlmaGag')
@@ -159,12 +160,32 @@ def global_label_anticollision(layout, geometry) -> int:
             zone_labels.append(zone['label_bbox'])
     # el ENCABEZADO de cada contenedor también es texto dibujado: banda
     # superior de la caja (rótulo multilínea) — sin esto, un candidato `top`
-    # se monta sobre el título del contenedor y el detector no lo ve
+    # se monta sobre el título del contenedor y el detector no lo ve.
+    # WISH-LAYOUT-010: además de obstáculo blando para terceros, el TÍTULO
+    # es ZONA DURA para las etiquetas de los propios miembros. La zona dura
+    # NO es la banda completa (expulsaría etiquetas que no pisan nada): sólo
+    # icono + texto real del rótulo, espejo de _render_container_labels
+    # (anclado a la izquierda, ~8px/carácter en bold).
+    header_bands: Dict[str, Tuple[float, float, float, float]] = {}
     for c in layout.elements:
         if 'contains' in c and c.get('label') and 'x' in c:
-            header_h = len(c['label'].split('\n')) * 18 + 10
-            zone_labels.append((c['x'], c['y'],
-                                c['x'] + c.get('width', 0), c['y'] + header_h))
+            lines = c['label'].split('\n')
+            header_h = len(lines) * 18 + 10
+            band = (c['x'], c['y'],
+                    c['x'] + c.get('width', 0), c['y'] + header_h)
+            zone_labels.append(band)
+            local_x = 10.0 if c.get('type') == 'area' \
+                else 10.0 + ICON_WIDTH + 10.0
+            text_w = max(len(ln) for ln in lines) * 8.0
+            header_bands[c['id']] = (
+                c['x'], c['y'],
+                min(c['x'] + local_x + text_w, c['x'] + c.get('width', 0)),
+                c['y'] + header_h)
+    member_header: Dict[str, Tuple[float, float, float, float]] = {}
+    for c in layout.elements:
+        if 'contains' in c and c['id'] in header_bands:
+            for ref in c['contains']:
+                member_header[extract_item_id(ref)] = header_bands[c['id']]
 
     # WISH-LAYOUT-008: TODAS las etiquetas de icono — contenidas a cualquier
     # profundidad Y libres — pasan por esta única pasada; el renderer dibuja
@@ -210,10 +231,12 @@ def global_label_anticollision(layout, geometry) -> int:
             conn_bbox[key] = _conn_label_bbox_at(c['label'], cx, cy)
 
     def _score(bb, own_id, own_conns) -> int:
+        # WISH-LAYOUT-010: montarse sobre un ICONO pesa más que rozar otro
+        # texto (es la violación R1, la más fea).
         s = 0
         for eid, ib in icon_box.items():
             if eid != own_id and ib and _intersect(bb, ib):
-                s += 1
+                s += 2
         gb = _inflate(bb, TEXT_GAP / 2)
         for zb in zone_labels:
             if _intersect(gb, _inflate(zb, TEXT_GAP / 2)):
@@ -285,6 +308,13 @@ def global_label_anticollision(layout, geometry) -> int:
                         and not (bb[0] >= pbox[0] - 2 and bb[2] <= pbox[2] + 2
                                  and bb[1] >= pbox[1] - 2 and bb[3] <= pbox[3] + 2)):
                     continue      # un candidato nuevo no saca la etiqueta de su caja
+                # WISH-LAYOUT-010: el TÍTULO del contenedor (icono + texto)
+                # es zona DURA para las etiquetas de sus miembros — también
+                # para la posición actual (un `top` heredado sobre el título
+                # se expulsa aunque puntúe limpio).
+                hband = member_header.get(eid)
+                if hband and _intersect(bb, hband):
+                    continue
                 s = _score(bb, eid, own_conns)
                 if best is None or s < best[0]:
                     best = (s, idx, pos, bb)
@@ -331,6 +361,15 @@ def global_label_anticollision(layout, geometry) -> int:
                         # punto): dos rótulos gemelos en polilíneas paralelas
                         # no caben ambos arriba — uno puede colgar debajo
                         points.append((px, py + 30))
+                        # WISH-LAYOUT-010: variantes AL COSTADO del conector
+                        # (offset perpendicular ±26px) — en zonas congestas
+                        # el único hueco suele estar junto a la línea, no
+                        # sobre ella
+                        if L > 0:
+                            ux, uy = (bx - ax) / L, (by - ay) / L
+                            for off in (26.0, -26.0):
+                                points.append((px - uy * off + 0,
+                                               py + ux * off + 13))
                         break
                     d -= L
 
