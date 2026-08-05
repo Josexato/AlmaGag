@@ -216,8 +216,10 @@ def draw_container(dwg, container, elements_by_id, draw_label=True, layout_algor
     # Dibujar ícono del container.
     # - Normal: esquina superior izquierda (el label se renderiza a su derecha).
     # - Band: a la derecha del título rotado, alineado con la fila de hijos.
-    if draw_icon:
-        icon_type = container.get('type', 'building')
+    # - T73: un ÁREA es caja + rótulo, sin icono — el slot no se emite (antes
+    #   caía al rect beige de fallback porque 'area' no tiene módulo de icono).
+    icon_type = container.get('type', 'building')
+    if draw_icon and icon_type != 'area':
         icon_size = min(ICON_WIDTH, ICON_HEIGHT) * 0.6  # Ícono más pequeño (fallback)
         if band:
             from AlmaGag.layout.container_calculator import band_label_margin
