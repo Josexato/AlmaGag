@@ -1194,13 +1194,8 @@ class AutoLayoutPositioner:
         if len(contained_elements) == 1:
             elem = contained_elements[0]
 
-            # Calcular espacio del header del contenedor
-            header_height = 0
-            if container.get('label'):
-                lines = container['label'].split('\n')
-                label_height = len(lines) * TEXT_LINE_HEIGHT  # 18px por línea
-                icon_height = CONTAINER_ICON_HEIGHT  # Altura del icono del contenedor
-                header_height = max(CONTAINER_ICON_HEIGHT, label_height)
+            # BUGS-LAYOUT-011: misma cuenta de header que el layout local
+            header_height = self._container_header_height(container, padding)
 
             # Obtener tamaño del elemento
             elem_width = elem.get('width', ICON_WIDTH)
@@ -1237,6 +1232,26 @@ class AutoLayoutPositioner:
             logger.debug(f"    - {elem['id']}: local({elem.get('_local_x', 0):.1f}, {elem.get('_local_y', 0):.1f}) "
                         f"size({elem.get('width', ICON_WIDTH):.1f} x {elem.get('height', ICON_HEIGHT):.1f})")
 
+    @staticmethod
+    def _container_header_height(container: dict, padding: float) -> float:
+        """BUGS-LAYOUT-011: alto del header de un contenedor, medido desde
+        su techo hasta donde puede empezar el contenido.
+
+        El icono decorativo se DIBUJA en [y+padding, y+padding+50]
+        (draw_container): el header debe llegar hasta su borde inferior
+        real — la cuenta vieja (max(50, label) sin el padding superior)
+        dejaba al primer hijo soldado al icono, y sin label ni siquiera
+        reservaba el icono (hijos encima). Áreas (T73, sin icono) y bands
+        (título lateral) conservan su cuenta."""
+        label_h = 0.0
+        if container.get('label'):
+            label_h = len(container['label'].split('\n')) * TEXT_LINE_HEIGHT
+        if is_band(container):
+            return 0.0
+        if container.get('type', 'building') != 'area':
+            return padding + max(float(CONTAINER_ICON_HEIGHT), label_h)
+        return max(float(CONTAINER_ICON_HEIGHT), label_h) if label_h else 0.0
+
     def _layout_contained_elements_locally(self, container: dict, elements: List[dict]):
         """
         Posiciona elementos DENTRO del contenedor (coordenadas locales).
@@ -1251,17 +1266,8 @@ class AutoLayoutPositioner:
         """
         padding = container.get('padding', CONTAINER_PADDING)
 
-        # Calcular espacio del header del contenedor
-        header_height = 0
-        if container.get('label'):
-            label_text = container['label']
-            lines = label_text.split('\n')
-            label_height = len(lines) * TEXT_LINE_HEIGHT  # 18px por línea
-            icon_height = CONTAINER_ICON_HEIGHT  # Altura del icono del contenedor
-            header_height = max(CONTAINER_ICON_HEIGHT, label_height)
-
         # Posición Y inicial para elementos = header + padding_mid
-        start_y = header_height + padding
+        start_y = self._container_header_height(container, padding) + padding
 
         # Filtrar por scope
         full_elements = []
