@@ -604,7 +604,6 @@
       "label": "Facturacion contratista -> sede",
       "color": "#7cd6e0",
       "path": [
-        "cuadrillas",
         "oficinas",
         "sede_costa"
       ]
