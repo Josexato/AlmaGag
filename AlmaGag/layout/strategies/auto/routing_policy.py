@@ -37,3 +37,9 @@ class AutoRoutingPolicy:
         # geometría vigente en cada re-ruteo, pisando el path individual.
         from AlmaGag.layout.strategies.auto.zones import route_zone_trunks
         route_zone_trunks(layout)
+        # WISH-ROUTE-001 (T70/T71/T72): cirugía de extremos para las
+        # conexiones que cruzan bordes de contenedor — puerto en el
+        # perímetro, cruce perpendicular, navegación interna ortogonal y
+        # puertos repartidos. Corre en CADA re-ruteo (geometría vigente).
+        from AlmaGag.routing.container_ports import route_container_ports
+        route_container_ports(layout)

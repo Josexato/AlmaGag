@@ -1052,36 +1052,41 @@ problema de pitch sino de presupuesto de espacio por contenedor.
 
 ---
 
-### WISH-ROUTE-001: Ruteo hacia contenedores — puertos de perímetro (grupo T del review) 🆕 ABIERTO
-**Componente**: `routing/` (orthogonal/port_assignment), `strategies/auto/`
-**Reportado**: 2026-08-05 (artefacto Claude Design, grupo T — caso HLD zoom; T73 ya resuelto aparte)
+### WISH-ROUTE-001: Ruteo hacia contenedores — puertos de perímetro (grupo T del review) ✅ RESUELTO (2026-08-05, iteración 7)
+**Componente**: `routing/container_ports.py` (nuevo), `strategies/auto/routing_policy.py`
+**Reportado**: 2026-08-05 (artefacto Claude Design, grupo T — caso HLD zoom; T73 resuelto aparte)
 
-Los invariantes de borde (Q1-Q3) y ortogonalidad (H24) hoy sólo rigen
-entre nodos sueltos; dentro y hacia contenedores se pierden. Observado en
-el zoom de RED DE TRANSPORTE del HLD (`mina-hld.gag`): conexiones
-externas cruzan el borde de la caja EN DIAGONAL, puntas aterrizan sobre
-el icono del contenedor o junto al rótulo, y 5-6 flechas convergen casi
-en el mismo punto del borde izquierdo.
+**Implementado** como pasada POST-ruteo (`route_container_ports`, corre en
+cada re-ruteo dentro de `AutoRoutingPolicy.route`) que hace cirugía de
+extremos conservando el cuerpo del path:
 
-- **T70 — la conexión al contenedor termina en el borde**: cuando el
-  destino es un contenedor/área, el puerto es un punto de su PERÍMETRO
-  (por proyección, C9) y la flecha llega perpendicular al borde. Nada
-  entra al interior; el icono decorativo jamás recibe puertos. Verifica:
-  toda punta con destino contenedor coincide con su rect exterior ±2px.
-- **T71 — conexión a un hijo: 3 tramos**: corredor externo ortogonal →
-  cruce PERPENDICULAR del borde por un puerto del perímetro → tramo
-  interno ortogonal hasta el borde del icono hijo. Puertos sin solaparse
-  con el rótulo (franja superior reservada). Verifica: cada cruce de
-  borde es H o V puro; audit cuenta cruces diagonales de perímetro = 0.
-- **T72 — puertos de perímetro distribuidos**: el perímetro es superficie
-  de puertos de primera clase — proyección C9 + separación mínima como
-  entre nodos. Verifica: distancia entre puntas sobre un mismo borde
-  ≥18px; ninguna pareja comparte punto de llegada.
+- **T70** ✅: destino contenedor → el path TERMINA en un puerto de su
+  perímetro con llegada perpendicular (stub exterior H/V). El icono
+  decorativo jamás recibe puertos.
+- **T71** ✅: destino hijo → corredor externo (grafo de visibilidad con
+  contenedores blandos; fallback codo simple) → cruce H/V puro del borde
+  → navegación interna ortogonal hasta el BORDE del hijo. El puerto
+  deseado es la proyección del hijo (C9); si el corredor directo cruza
+  HERMANOS de la misma fila/columna, se elige un carril libre y el hijo
+  se aborda por su lado perpendicular (`_pick_lane`). Borde superior con
+  franja de rótulo reservada (TITLE_GUARD).
+- **T72** ✅: puertos por (contenedor, lado) repartidos con separación
+  mínima 18px (barrido bidireccional que conserva el orden).
+- waypoints v1.5 del autor se respetan sólo si conservan puntos
+  intermedios reales; degenerados a recta se tratan como default.
 
-**Contexto del review**: T70/T71 son PRERREQUISITO de las zonas en HLDs
-(el A/B del 3-ago mostró que agrupar degrada métricas mientras este
-ruteo esté roto — S66/S69 quedaron re-alcance esperando esto). También es
-la causa raíz de parte del arista×nodo=8 del físico v2.
+**Medido** (vs. baseline post-T73): arista×nodo **−10 neto** — hld 2→0,
+git 3→1 (el restante es diagonal intra-contenedor preexistente, familia
+K37), cakephp 6→4, físico-v2 8→6, 05/15 en 0; labels −3 neto (mineras
+−8, +3 en 15/git por rótulos re-medidos sobre corredores nuevos); cruces
+y tinta intactos en 39/39. Verificación visual: HLD con entradas
+perpendiculares distribuidas (el pileup de 5-6 flechas murió) y
+07-containers sin una sola diagonal de borde. Tests:
+`tests/test_route001_container_ports.py` (T70/T71/T72 + audit «cruces
+diagonales de perímetro = 0» sobre el HLD).
+
+**Desbloquea**: re-medir S66/S69 (zonas en HLDs) — el A/B del 3-ago
+debía repetirse cuando esto aterrizara.
 
 ---
 
