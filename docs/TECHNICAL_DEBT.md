@@ -1052,6 +1052,67 @@ problema de pitch sino de presupuesto de espacio por contenedor.
 
 ---
 
+### WISH-ROUTE-001: Ruteo hacia contenedores — puertos de perímetro (grupo T del review) 🆕 ABIERTO
+**Componente**: `routing/` (orthogonal/port_assignment), `strategies/auto/`
+**Reportado**: 2026-08-05 (artefacto Claude Design, grupo T — caso HLD zoom; T73 ya resuelto aparte)
+
+Los invariantes de borde (Q1-Q3) y ortogonalidad (H24) hoy sólo rigen
+entre nodos sueltos; dentro y hacia contenedores se pierden. Observado en
+el zoom de RED DE TRANSPORTE del HLD (`mina-hld.gag`): conexiones
+externas cruzan el borde de la caja EN DIAGONAL, puntas aterrizan sobre
+el icono del contenedor o junto al rótulo, y 5-6 flechas convergen casi
+en el mismo punto del borde izquierdo.
+
+- **T70 — la conexión al contenedor termina en el borde**: cuando el
+  destino es un contenedor/área, el puerto es un punto de su PERÍMETRO
+  (por proyección, C9) y la flecha llega perpendicular al borde. Nada
+  entra al interior; el icono decorativo jamás recibe puertos. Verifica:
+  toda punta con destino contenedor coincide con su rect exterior ±2px.
+- **T71 — conexión a un hijo: 3 tramos**: corredor externo ortogonal →
+  cruce PERPENDICULAR del borde por un puerto del perímetro → tramo
+  interno ortogonal hasta el borde del icono hijo. Puertos sin solaparse
+  con el rótulo (franja superior reservada). Verifica: cada cruce de
+  borde es H o V puro; audit cuenta cruces diagonales de perímetro = 0.
+- **T72 — puertos de perímetro distribuidos**: el perímetro es superficie
+  de puertos de primera clase — proyección C9 + separación mínima como
+  entre nodos. Verifica: distancia entre puntas sobre un mismo borde
+  ≥18px; ninguna pareja comparte punto de llegada.
+
+**Contexto del review**: T70/T71 son PRERREQUISITO de las zonas en HLDs
+(el A/B del 3-ago mostró que agrupar degrada métricas mientras este
+ruteo esté roto — S66/S69 quedaron re-alcance esperando esto). También es
+la causa raíz de parte del arista×nodo=8 del físico v2.
+
+---
+
+### WISH-DRAW-003: Flows — carriles paralelos y contrato de autoría (grupo U del review) 🆕 ABIERTO
+**Componente**: `draw/primitives/flows.py`, `validation/visual_quality.py`
+**Reportado**: 2026-08-05 (artefacto Claude Design, grupo U — caso telefonía)
+
+`flows` quedó bien concebido (U76 «no altera el layout» ya está
+garantizado por test diferencial) pero el review pide tres refinamientos:
+
+- **U74 — cero geometría propia**: el overlay debe seguir SIEMPRE los
+  waypoints de la conexión del par. Hoy un par sin conexión declarada cae
+  a tramo recto en silencio — exactamente las «cintas rectas» que el
+  review denuncia. Con U77 el fallback deja de ser silencioso.
+- **U75 — tramos compartidos = carriles paralelos**: offset perpendicular
+  por flujo (±½ ancho por carril, orden estable por aparición); N flujos
+  sobre un tramo común se ven lado a lado, ninguno cubierto >10%.
+  Hoy los colores se superponen y el de abajo desaparece.
+- **U77 — contrato de autoría + audit**: error duro
+  `[flows] par (a,b) sin conexión declarada` (hoy: warning sólo por ids
+  inexistentes); warning si dos flujos comparten color; `label`
+  obligatorio (va a la leyenda). Recomendación de autoría: ≤3-4 flujos
+  por lámina.
+
+**Nota U76 (mitad layout)**: el caso telefonía (grafo-camino de 8 nodos)
+salió 1080×2400 con ~60% de vacío — el patrón tira-1×N que J33/O51
+prohíben. La compactación de cadenas es asunto del layout (ver
+WISH-LAYOUT-010/ROADMAP), no de flows.
+
+---
+
 ### WISH-LAYOUT-010: Presupuesto de espacio por contenedor — miembros sobre el header y congestión interna 🆕 ABIERTO
 **Componente**: `strategies/auto/positioner.py` (grilla/bounds de contenedor), `container_calculator.py`
 **Reportado**: 2026-08-03 (caso real evolucionado; anonimizado en `mina-fisico-v2.gag`)

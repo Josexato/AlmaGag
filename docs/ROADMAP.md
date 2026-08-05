@@ -44,18 +44,25 @@ Los reviews de Claude Design (grupos A–R, iteraciones 1–5) están **completo
 | 3 ✅ | **Guardado H3 justo** — el revert viciado se eliminó: re-ruteo obstacle-aware incondicional; invariante «rutas ancladas a geometría vigente» con test | BUGS-AUTO-009 |
 | 4 ✅ | **Pitch label-aware** — celdas/bandas al ancho de la ETIQUETA en toda grilla; labels −35 y a×n −5 netos (fila de torres del minero legible, git 26→12) | WISH-LAYOUT-009 |
 
-## Lo siguiente
+## Lo siguiente (iteración 7 — grupos T y U del review, 5-ago)
 
-- **«0 fusiones», último tramo (WISH-LAYOUT-010)**: presupuesto de espacio
-  por contenedor — header como zona dura + corredores para rótulos de
-  conexión. Caso real reproducible: `mina-fisico-v2.gag` (17/8/17; acortar
-  labels apenas mueve: 18/7/14).
-- **Libres multi-zona (WISH-AUTO-010)**: un libre cuyos vecinos viven en
-  zonas se coloca hoy exiliado al fondo con diagonales gigantes
-  (`energia_ext` del físico v2); debería ir a la periferia del baricentro.
+El artefacto de Claude Design incorporó el A/B del 3-ago y abrió tres
+grupos: S (autoría/skill — S67 adoptada, S66/S69 re-alcance esperando T),
+T (motor: ruteo hacia contenedores) y U (motor: refinamiento de flows).
+T73 (áreas sin slot de icono) ya quedó resuelto el mismo día.
+
+| Orden | Qué | Ticket |
+|---|---|---|
+| 1 | **Ruteo hacia contenedores** (T70 puerto en el perímetro · T71 tres tramos con cruce perpendicular · T72 puertos distribuidos ≥18px) — PRERREQUISITO de zonas en HLDs y causa raíz de parte del a×n del físico v2 | WISH-ROUTE-001 |
+| 2 | **Presupuesto de espacio por contenedor** — header como zona dura + corredores para rótulos (mina-fisico-v2: 17/8/17; acortar labels apenas mueve: 18/7/14) | WISH-LAYOUT-010 |
+| 3 | **Flows: carriles paralelos + contrato** (U74 cero geometría propia · U75 offset por flujo en tramos compartidos · U77 error duro por par sin conexión) + compactación de cadenas 1×N (U76/J33) | WISH-DRAW-003 |
+| 4 | **Libres multi-zona** — `energia_ext` exiliado con diagonales gigantes; debería ir a la periferia del baricentro | WISH-AUTO-010 |
 
 > Fixtures del caso real evolucionado (3-ago, anonimizados §P62):
-> `mina-fisico-v2.gag` y `mina-hld.gag` — el HLD adoptado rinde 4/0/1.
+> `mina-fisico-v2.gag` (17/8/17) y `mina-hld.gag` (4/0/1, el adoptado).
+> Nota del review: la numeración del artefacto (I27/Q65…) no coincide con
+> los §§ del contrato del skill — al citar entre equipos, usar el id del
+> contrato (`SKILL-ALMAGAG.md`).
 
 ## Mediano plazo (sin fecha)
 
