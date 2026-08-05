@@ -374,24 +374,35 @@ class AutoLayoutPositioner:
                 outgoing[f].append(t)
                 incoming[t].append(f)
 
-        # Centrality scores (use resolved connections)
-        centrality = self.graph_analyzer.calculate_centrality_scores(
-            elements, resolved_conns, layout.topological_levels
-        )
+        # U76/J33: una CADENA PURA (cada nivel con un solo eslabón,
+        # consecutivos conectados) apilada por nivel da la tira 1×N que
+        # J33/O51 prohíben. Se pliega en serpentina y se saltan barycenter
+        # y layer-offset (el orden del recorrido ES el orden; el offset por
+        # capa desalinearía los empalmes verticales).
+        folded = self._fold_chain_serpentine(by_level, outgoing, incoming)
+        if folded:
+            by_level, abstract_positions, levels_map = folded
+        else:
+            levels_map = layout.topological_levels
 
-        # 2. Barycenter ordering (reorder elements within each level)
-        self._reorder_by_barycenter(by_level, outgoing, incoming, centrality)
+            # Centrality scores (use resolved connections)
+            centrality = self.graph_analyzer.calculate_centrality_scores(
+                elements, resolved_conns, layout.topological_levels
+            )
 
-        # 3. Assign abstract positions (index within level)
-        abstract_positions = {}
-        for level_num in sorted(by_level.keys()):
-            for idx, elem in enumerate(by_level[level_num]):
-                abstract_positions[elem['id']] = (float(idx), float(level_num))
+            # 2. Barycenter ordering (reorder elements within each level)
+            self._reorder_by_barycenter(by_level, outgoing, incoming, centrality)
 
-        # 4. Optimize abstract positions (layer-offset bisection)
-        abstract_positions = self._optimize_abstract_positions(
-            abstract_positions, by_level, outgoing, incoming
-        )
+            # 3. Assign abstract positions (index within level)
+            abstract_positions = {}
+            for level_num in sorted(by_level.keys()):
+                for idx, elem in enumerate(by_level[level_num]):
+                    abstract_positions[elem['id']] = (float(idx), float(level_num))
+
+            # 4. Optimize abstract positions (layer-offset bisection)
+            abstract_positions = self._optimize_abstract_positions(
+                abstract_positions, by_level, outgoing, incoming
+            )
 
         # 5. Compute real coordinates with global X scale
         TOP_MARGIN = TOP_MARGIN_DEBUG if self.visualdebug else TOP_MARGIN_NORMAL
@@ -456,7 +467,7 @@ class AutoLayoutPositioner:
         for elem in elements:
             eid = elem['id']
             ax = abstract_positions[eid][0]
-            level_num = layout.topological_levels.get(eid, 0)
+            level_num = levels_map.get(eid, 0)
             elem['x'] = (ax + abs_x_shift) * global_x_scale + LEFT_MARGIN
             elem['y'] = level_y.get(level_num, TOP_MARGIN)
 
@@ -469,6 +480,40 @@ class AutoLayoutPositioner:
 
         # Mark hierarchical layout as applied (prevents overwriting by redistribution)
         layout._hierarchical_layout_applied = True
+
+    @staticmethod
+    def _fold_chain_serpentine(by_level, outgoing, incoming):
+        """U76/J33: grafo-cadena → serpentina boustrophedon.
+
+        Si TODOS los niveles tienen exactamente un elemento, hay ≥5
+        eslabones y cada par consecutivo está conectado (en cualquier
+        sentido), la cadena se pliega en filas de ceil(sqrt(2n)) columnas
+        (lámina apaisada ~φ en vez de tira 1×N). Las filas alternan el
+        sentido de recorrido, así cada eslabón queda ADYACENTE al
+        siguiente: horizontal dentro de la fila, vertical en el doblez.
+        Devuelve (by_level, abstract_positions, levels_map) o None."""
+        lv = sorted(by_level.keys())
+        if len(lv) < 5 or any(len(by_level[k]) != 1 for k in lv):
+            return None
+        chain = [by_level[k][0] for k in lv]
+        for a, b in zip(chain, chain[1:]):
+            if b['id'] not in outgoing.get(a['id'], []) \
+                    and b['id'] not in incoming.get(a['id'], []):
+                return None
+        n = len(chain)
+        cols = math.ceil(math.sqrt(2 * n))
+        new_by_level: Dict[int, List[dict]] = {}
+        abstract = {}
+        levels_map = {}
+        for i, e in enumerate(chain):
+            row, col = divmod(i, cols)
+            c = col if row % 2 == 0 else cols - 1 - col
+            abstract[e['id']] = (float(c), float(row))
+            levels_map[e['id']] = row
+            new_by_level.setdefault(row, []).append(e)
+        logger.info(f"    - U76: cadena de {n} eslabones plegada en "
+                    f"serpentina de {cols} columnas")
+        return new_by_level, abstract, levels_map
 
     def _reorder_by_barycenter(
         self,

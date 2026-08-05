@@ -1090,8 +1090,27 @@ debía repetirse cuando esto aterrizara.
 
 ---
 
-### WISH-DRAW-003: Flows — carriles paralelos y contrato de autoría (grupo U del review) 🆕 ABIERTO
-**Componente**: `draw/primitives/flows.py`, `validation/visual_quality.py`
+### WISH-DRAW-003: Flows — carriles paralelos y contrato de autoría (grupo U del review) ✅ RESUELTO (2026-08-05)
+
+> Tres commits, uno por criterio:
+> **U74/U77** — contrato de autoría: par consecutivo sin conexión
+> declarada, id inexistente o flujo sin `label` son ERROR DURO
+> (ValueError); color repetido y >4 flujos por lámina, WARNING. La
+> conexión declarada que se dibuja recta sigue esa misma recta — cero
+> geometría propia. El fixture minero corrigió su flow `facturacion`
+> (arrancaba en `cuadrillas` sin arista).
+> **U75** — `build_flow_lanes`: tramos compartidos repartidos en
+> carriles perpendiculares (paso = FLOW_WIDTH, orden estable por
+> aparición, normal canónica por tramo — consistente aunque dos flujos
+> recorran el tramo en sentidos opuestos); ninguno tapado.
+> **U76/J33** — grafo-cadena (≥5 eslabones, un elemento por nivel)
+> plegado en serpentina boustrophedon de ceil(sqrt(2n)) columnas en el
+> positioner; se saltan barycenter y layer-offset en ese caso. Cadena de
+> 8: 2 filas de 4, apaisada (antes 1×8 vertical).
+> Guarda intacta (39/39) en los tres; regresión: `tests/test_flows.py`
+> (contrato + carriles) y `tests/test_u76_chain_serpentine.py`.
+
+**Componente**: `draw/primitives/flows.py`, `strategies/auto/positioner.py`
 **Reportado**: 2026-08-05 (artefacto Claude Design, grupo U — caso telefonía)
 
 `flows` quedó bien concebido (U76 «no altera el layout» ya está

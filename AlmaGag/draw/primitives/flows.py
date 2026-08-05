@@ -13,11 +13,15 @@ Formato (top-level):
     ]
 
 Render: trazo ancho semitransparente (puntas redondas) que pasa por los
-elementos del `path` EN ORDEN. Entre dos elementos consecutivos, si existe
-una conexión dibujada (en cualquier sentido), el trazo SIGUE su
-`computed_path` — el resaltador pasa por donde pasan los cables, troncales
-§P60 incluidas; si no hay arista, tramo directo. Capa: sobre fondos/zonas y
-bajo iconos, líneas y textos.
+elementos del `path` EN ORDEN. Entre dos elementos consecutivos, el trazo
+SIGUE el `computed_path` de la conexión declarada (en cualquier sentido) —
+el resaltador pasa por donde pasan los cables, troncales §P60 incluidas.
+
+Contrato de autoría (U74/U77): un flujo sólo recorre ARISTAS EXISTENTES —
+cero geometría propia. Un par consecutivo sin conexión declarada, un id
+inexistente o un flujo sin `label` son ERROR DURO (ValueError); dos flujos
+con el mismo color o más de 4 flujos por lámina, WARNING. Capa: sobre
+fondos/zonas y bajo iconos, líneas y textos.
 
 Todo elemento del flujo lleva `class="ag-flow"`: invisible para métricas,
 ruteo y validadores (mismo mecanismo que `ag-text-halo`). Los colores por
@@ -43,32 +47,41 @@ def _center(e):
             e['y'] + e.get('height', ICON_HEIGHT) / 2.0)
 
 
-def _conn_points(connections, a, b):
-    """Puntos del computed_path de la conexión a→b (o b→a, invertida)."""
+def _find_conn(connections, a, b):
+    """Conexión declarada a→b o b→a. Devuelve (conn, invertida) o None."""
     for c in connections:
-        cp = c.get('computed_path')
-        pts = cp.get('points') if isinstance(cp, dict) else None
-        if not pts or len(pts) < 2:
-            continue
-        xy = [((p[0], p[1]) if not hasattr(p, 'x') else (p.x, p.y)) for p in pts]
         if c.get('from') == a and c.get('to') == b:
-            return xy
+            return c, False
         if c.get('from') == b and c.get('to') == a:
-            return list(reversed(xy))
+            return c, True
     return None
+
+
+def _conn_points(conn, reverse):
+    """Puntos del computed_path de la conexión (invertidos si hace falta)."""
+    cp = conn.get('computed_path')
+    pts = cp.get('points') if isinstance(cp, dict) else None
+    if not pts or len(pts) < 2:
+        return None
+    xy = [((p[0], p[1]) if not hasattr(p, 'x') else (p.x, p.y)) for p in pts]
+    return list(reversed(xy)) if reverse else xy
 
 
 def build_flow_points(flow, elements_by_id, connections):
     """Polilínea completa de un flujo: concatena los tramos entre elementos
-    consecutivos del path (computed_path si hay arista; recto si no).
+    consecutivos del path siguiendo la conexión declarada de cada par (U74:
+    cero geometría propia — sin conexión no hay tramo, es error duro).
     Devuelve la lista de puntos, o None si el flujo no es dibujable."""
+    fid = flow.get('id', '?')
     ids = [i for i in flow.get('path', []) if isinstance(i, str)]
     known = []
     for i in ids:
         e = elements_by_id.get(i)
-        if e is None or 'x' not in e:
-            logger.warning(f"flows: id '{i}' del flujo "
-                           f"'{flow.get('id', '?')}' no existe o no tiene "
+        if e is None:
+            raise ValueError(
+                f"[flows] id '{i}' del flujo '{fid}' no existe en elements")
+        if 'x' not in e:
+            logger.warning(f"flows: '{i}' del flujo '{fid}' no tiene "
                            f"posición — se omite del recorrido")
             continue
         known.append(e)
@@ -77,8 +90,17 @@ def build_flow_points(flow, elements_by_id, connections):
 
     points = []
     for a, b in zip(known, known[1:]):
-        seg = _conn_points(connections, a['id'], b['id'])
+        found = _find_conn(connections, a['id'], b['id'])
+        if found is None:
+            raise ValueError(
+                f"[flows] par ({a['id']}, {b['id']}) del flujo '{fid}' sin "
+                f"conexión declarada — un flujo sólo recorre aristas "
+                f"existentes (U74)")
+        conn, reverse = found
+        seg = _conn_points(conn, reverse)
         if seg is None:
+            # la conexión existe pero se dibuja recta (sin computed_path):
+            # el resaltador sigue esa misma recta — nunca geometría propia
             seg = [_center(a), _center(b)]
         if points and abs(points[-1][0] - seg[0][0]) < 0.5 \
                 and abs(points[-1][1] - seg[0][1]) < 0.5:
@@ -87,16 +109,101 @@ def build_flow_points(flow, elements_by_id, connections):
     return points if len(points) >= 2 else None
 
 
+def _seg_key(p, q):
+    """Clave canónica de un tramo (independiente del sentido de recorrido)."""
+    a = (round(p[0], 1), round(p[1], 1))
+    b = (round(q[0], 1), round(q[1], 1))
+    return (a, b) if a <= b else (b, a)
+
+
+def _canonical_normal(key):
+    """Normal unitaria del tramo en su orientación canónica: todos los
+    flujos que lo comparten se reparten hacia los MISMOS lados del mundo,
+    recorran el tramo en el sentido que lo recorran."""
+    (ax, ay), (bx, by) = key
+    dx, dy = bx - ax, by - ay
+    L = (dx * dx + dy * dy) ** 0.5
+    if L < 1e-9:
+        return None
+    return (-dy / L, dx / L)
+
+
+def build_flow_lanes(flows, elements_by_id, connections):
+    """U75: puntos finales de cada flujo con reparto en CARRILES.
+
+    Construye las polilíneas (contrato U74/U77 mediante build_flow_points),
+    detecta los tramos compartidos por varios flujos y desplaza cada uno
+    perpendicularmente: N flujos sobre un tramo común quedan lado a lado
+    (paso = FLOW_WIDTH, carril por orden de aparición), ninguno tapado.
+    Devuelve [(flow, points)] sólo con los dibujables."""
+    built = []
+    for flow in flows:
+        points = build_flow_points(flow, elements_by_id, connections)
+        built.append((flow, points))
+
+    occupancy = {}            # seg_key -> [índices de flujo, orden estable]
+    for fi, (_, pts) in enumerate(built):
+        if not pts:
+            continue
+        for p, q in zip(pts, pts[1:]):
+            key = _seg_key(p, q)
+            riders = occupancy.setdefault(key, [])
+            if fi not in riders:
+                riders.append(fi)
+
+    out = []
+    for fi, (flow, pts) in enumerate(built):
+        if not pts:
+            out.append((flow, None))
+            continue
+        lane_pts = []
+        for p, q in zip(pts, pts[1:]):
+            key = _seg_key(p, q)
+            riders = occupancy.get(key, [fi])
+            n = _canonical_normal(key)
+            if len(riders) > 1 and n is not None:
+                off = (riders.index(fi) - (len(riders) - 1) / 2.0) * FLOW_WIDTH
+                pp = (p[0] + n[0] * off, p[1] + n[1] * off)
+                qq = (q[0] + n[0] * off, q[1] + n[1] * off)
+            else:
+                pp, qq = p, q
+            for pt in (pp, qq):
+                if not lane_pts or abs(lane_pts[-1][0] - pt[0]) > 0.05 \
+                        or abs(lane_pts[-1][1] - pt[1]) > 0.05:
+                    lane_pts.append(pt)
+        out.append((flow, lane_pts if len(lane_pts) >= 2 else None))
+    return out
+
+
 def draw_flows(dwg, flows, elements_by_id, connections) -> int:
     """Dibuja los flujos como trazos de resaltador. Devuelve cuántos se
     dibujaron. No-op silencioso sin sección `flows`."""
     if not flows:
         return 0
+    # U77: audit de autoría — label obligatorio, colores sin repetir,
+    # recomendación ≤4 flujos por lámina.
+    declared = [f for f in flows if isinstance(f, dict)]
+    for flow in declared:
+        if not flow.get('label'):
+            raise ValueError(
+                f"[flows] el flujo '{flow.get('id', '?')}' no declara "
+                f"label — obligatorio (va a la leyenda «Flujos:»)")
+    seen_colors = {}
+    for f in declared:
+        col = f.get('color')
+        if col and col in seen_colors:
+            logger.warning(f"flows: '{f.get('id', '?')}' repite el color "
+                           f"{col} de '{seen_colors[col]}' — dos flujos "
+                           f"iguales no se distinguen")
+        elif col:
+            seen_colors[col] = f.get('id', '?')
+    if len(declared) > 4:
+        logger.warning(f"flows: {len(declared)} flujos en una lámina — la "
+                       f"recomendación de autoría es ≤4 (el resaltador "
+                       f"pierde contraste)")
     n = 0
-    for i, flow in enumerate(flows):
-        if not isinstance(flow, dict):
-            continue
-        points = build_flow_points(flow, elements_by_id, connections)
+    for i, (flow, points) in enumerate(
+            build_flow_lanes(declared, elements_by_id, connections)):
         if points is None:
             logger.warning(f"flows: el flujo '{flow.get('id', i)}' no tiene "
                            f"≥2 elementos dibujables — no se pinta")

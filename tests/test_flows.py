@@ -6,7 +6,8 @@ import logging
 import pytest
 
 from AlmaGag.draw.primitives.flows import (
-    FLOW_CLASS, FLOW_PALETTE, build_flow_points, draw_flows)
+    FLOW_CLASS, FLOW_PALETTE, FLOW_WIDTH, build_flow_lanes,
+    build_flow_points, draw_flows)
 from AlmaGag.draw.primitives.svg import create_canvas
 
 FIXTURE = 'docs/diagrams/gags/mina-arquitectura-fisica.sdjf'
@@ -35,28 +36,87 @@ def test_flow_follows_computed_path_and_reversed():
     assert pts[4:] == [(140, 60), (240, 60), (240, 25)]
 
 
-def test_flow_falls_back_to_straight_segment():
-    pts = build_flow_points({'id': 'f', 'path': ['a', 'c']}, _els(), [])
+def test_u74_pair_without_connection_is_hard_error():
+    """U74/U77: un par consecutivo sin conexión declarada es ValueError —
+    se acabó la «cinta recta» silenciosa."""
+    with pytest.raises(ValueError, match=r'par \(a, c\).*sin conexión'):
+        build_flow_points({'id': 'f', 'path': ['a', 'c']}, _els(), [])
+
+
+def test_u74_declared_connection_without_computed_path_stays_on_edge():
+    """Conexión declarada que se dibuja recta (sin computed_path): el
+    resaltador sigue esa misma recta — es la arista, no geometría propia."""
+    conns = [{'from': 'a', 'to': 'c'}]
+    pts = build_flow_points({'id': 'f', 'path': ['a', 'c']}, _els(), conns)
     assert pts == [(40.0, 25.0), (240.0, 25.0)]
 
 
-def test_unknown_ids_warn_and_skip(caplog):
+def test_u77_unknown_id_is_hard_error():
+    with pytest.raises(ValueError, match=r"id 'nope' del flujo 'f'"):
+        build_flow_points({'id': 'f', 'path': ['a', 'nope', 'c']},
+                          _els(), [])
+
+
+def test_u77_label_mandatory_and_color_repeat_warns(tmp_path, caplog):
+    conns = [{'from': 'a', 'to': 'b'}, {'from': 'b', 'to': 'c'}]
+    dwg = create_canvas(str(tmp_path / 'o.svg'), 400, 200)
+    with pytest.raises(ValueError, match=r"'f1' no declara label"):
+        draw_flows(dwg, [{'id': 'f1', 'path': ['a', 'b']}], _els(), conns)
     with caplog.at_level(logging.WARNING, logger='AlmaGag'):
-        pts = build_flow_points({'id': 'f', 'path': ['a', 'nope', 'c']},
-                                _els(), [])
-    assert 'nope' in caplog.text
-    assert pts == [(40.0, 25.0), (240.0, 25.0)]
-    # con <2 dibujables no hay flujo
-    assert build_flow_points({'id': 'f', 'path': ['a', 'nope']}, _els(), []) is None
+        n = draw_flows(dwg, [
+            {'id': 'f1', 'label': 'uno', 'color': '#123456',
+             'path': ['a', 'b']},
+            {'id': 'f2', 'label': 'dos', 'color': '#123456',
+             'path': ['b', 'c']},
+        ], _els(), conns)
+    assert n == 2
+    assert 'repite el color' in caplog.text
+
+
+def test_u75_shared_segment_gets_parallel_lanes():
+    """Dos flujos sobre el MISMO tramo: carriles lado a lado (paso =
+    FLOW_WIDTH, ninguno tapado) aunque lo recorran en sentidos opuestos;
+    los tramos exclusivos no se mueven."""
+    els = dict(_els())
+    els['d'] = {'id': 'd', 'x': 300, 'y': 0}
+    conns = [{'from': 'a', 'to': 'b'}, {'from': 'b', 'to': 'c'},
+             {'from': 'c', 'to': 'd'}]
+    lanes = build_flow_lanes([
+        {'id': 'f1', 'label': 'uno', 'path': ['a', 'b', 'c']},
+        {'id': 'f2', 'label': 'dos', 'path': ['d', 'c', 'b']},
+    ], els, conns)
+    (f1, p1), (f2, p2) = lanes
+    # tramo exclusivo de f1 (a→b) intacto, sobre la línea original y=25
+    assert p1[0] == (40.0, 25.0) and p1[1] == (140.0, 25.0)
+    # tramo compartido b↔c: f1 y f2 en carriles opuestos, separados
+    # exactamente FLOW_WIDTH (cero solape del resaltador)
+    y1 = p1[-1][1]
+    y2 = p2[-1][1]
+    assert abs(y1 - y2) == pytest.approx(FLOW_WIDTH)
+    assert y1 != 25.0 and y2 != 25.0
+    # simetría: ±½ ancho alrededor de la línea original
+    assert y1 + y2 == pytest.approx(2 * 25.0)
+    # tramo exclusivo de f2 (d→c) intacto
+    assert p2[0] == (340.0, 25.0) and p2[1] == (240.0, 25.0)
+
+
+def test_u75_single_flow_stays_on_the_wire():
+    """Un flujo solo no se desplaza: sin tramo compartido no hay carril."""
+    conns = [{'from': 'a', 'to': 'b'}]
+    lanes = build_flow_lanes(
+        [{'id': 'f', 'label': 'x', 'path': ['a', 'b']}], _els(), conns)
+    assert lanes[0][1] == [(40.0, 25.0), (140.0, 25.0)]
 
 
 def test_draw_flows_class_palette_and_declared_color(tmp_path):
+    conns = [{'from': 'a', 'to': 'b'}, {'from': 'b', 'to': 'c'}]
     dwg = create_canvas(str(tmp_path / 'o.svg'), 400, 200)
     n = draw_flows(dwg, [
-        {'id': 'f1', 'path': ['a', 'b']},                       # paleta[0]
-        {'id': 'f2', 'path': ['b', 'c'], 'color': '#123456'},   # declarado
-        {'id': 'roto', 'path': ['a']},                          # no dibujable
-    ], _els(), [])
+        {'id': 'f1', 'label': 'uno', 'path': ['a', 'b']},       # paleta[0]
+        {'id': 'f2', 'label': 'dos', 'path': ['b', 'c'],
+         'color': '#123456'},                                   # declarado
+        {'id': 'roto', 'label': 'x', 'path': ['a']},            # no dibujable
+    ], _els(), conns)
     assert n == 2
     svg = dwg.tostring()
     assert svg.count(f'class="{FLOW_CLASS}"') == 2
