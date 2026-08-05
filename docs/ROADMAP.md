@@ -56,7 +56,7 @@ T73 (áreas sin slot de icono) ya quedó resuelto el mismo día.
 | 1 ✅ | **Ruteo hacia contenedores** — HECHO (5-ago): puertos de perímetro con llegada perpendicular, tres tramos con carriles anti-hermanos, reparto ≥18px. a×n −10 neto; hld y 07-containers sin diagonales de borde. **Desbloquea re-medir S66/S69** | WISH-ROUTE-001 |
 | 2 ✅ | **Presupuesto de espacio por contenedor** — HECHO (5-ago): título como zona dura para miembros, iconos pesan ×2 en el score, candidatos al costado del conector. Neto −5 labels; pares sobre icono: físico v2 7→4, cheatsheet 12→9; header de ZONA PILA limpio | WISH-LAYOUT-010 |
 | 3 ✅ | **Flows: carriles paralelos + contrato** — HECHO (5-ago): U74/U77 error duro por par sin conexión, label obligatorio, warning color repetido; U75 tramos compartidos en carriles (paso = ancho, sin taparse); U76/J33 cadenas ≥5 plegadas en serpentina apaisada | WISH-DRAW-003 |
-| 4 | **Libres multi-zona** — `energia_ext` exiliado con diagonales gigantes; debería ir a la periferia del baricentro | WISH-AUTO-010 |
+| 4 ✅ | **Libres multi-zona** — HECHO (5-ago): el mal puesto va a la periferia del hull por el lado del baricentro de sus vecinos. Cruces −6 neto; físico v2 con tinta 36.5→52.8% y aspecto 1.42 | WISH-AUTO-010 |
 
 > Fixtures del caso real evolucionado (3-ago, anonimizados §P62):
 > `mina-fisico-v2.gag` (17/8/17) y `mina-hld.gag` (4/0/1, el adoptado).

@@ -209,6 +209,14 @@ class AutoLayoutPositioner:
 
         MARGIN = SPACING_SMALL  # 40px margin around containers
 
+        # WISH-AUTO-010: un libre MULTI-ZONA (todos sus vecinos dentro de
+        # contenedores, y en ≥2 contenedores distintos) no se deja caer al
+        # fondo del canvas: se coloca en la periferia del bbox de
+        # contenedores, en el lado más cercano al baricentro de sus
+        # vecinos (mismo espíritu que §P60 con las zonas de servicio).
+        self._place_multizone_free_elements(layout, free_elements,
+                                            container_bboxes, MARGIN)
+
         # For each free element, check overlap with containers and shift if needed
         adjustments = 0
         for elem in free_elements:
@@ -249,6 +257,122 @@ class AutoLayoutPositioner:
         layout._hierarchical_layout_applied = True
 
         return layout
+
+    def _place_multizone_free_elements(self, layout, free_elements,
+                                       container_bboxes, margin):
+        """WISH-AUTO-010: libres cuyos vecinos viven TODOS en contenedores
+        (≥2 distintos) van a la periferia del bloque de contenedores, al
+        lado más cercano al baricentro de sus vecinos — no exiliados al
+        fondo con diagonales que cruzan la lámina entera."""
+        # miembro (a cualquier profundidad) → contenedor de primer nivel
+        parent = {}
+        for c in layout.elements:
+            for ref in c.get('contains', []):
+                parent[extract_item_id(ref)] = c['id']
+
+        def _top(eid):
+            seen = set()
+            while eid in parent and eid not in seen:
+                seen.add(eid)
+                eid = parent[eid]
+            return eid
+
+        top_ids = {b[4] for b in container_bboxes}
+        gx1 = min(b[0] for b in container_bboxes)
+        gy1 = min(b[1] for b in container_bboxes)
+        gx2 = max(b[2] for b in container_bboxes)
+        gy2 = max(b[3] for b in container_bboxes)
+
+        placed_boxes = []
+        for elem in free_elements:
+            if 'x' not in elem or 'y' not in elem:
+                continue
+            # sólo aplica al MAL puesto: el que hoy pisa una caja (el
+            # ajuste clásico lo iba a exiliar) o el que ya quedó exiliado
+            # FUERA del hull de contenedores y lejos de sus vecinos; un
+            # libre peninsular bien ubicado no se toca.
+            ew, eh = self.sizing.get_element_size(elem)
+            overlaps = any(
+                elem['x'] < b[2] + margin and elem['x'] + ew > b[0] - margin
+                and elem['y'] < b[3] + margin and elem['y'] + eh > b[1] - margin
+                for b in container_bboxes)
+            outside = (elem['x'] >= gx2 + margin or elem['x'] + ew <= gx1 - margin
+                       or elem['y'] >= gy2 + margin or elem['y'] + eh <= gy1 - margin)
+            if not overlaps and not outside:
+                continue
+            nbr_ids = set()
+            for conn in layout.connections:
+                if conn.get('from') == elem['id']:
+                    nbr_ids.add(conn.get('to'))
+                elif conn.get('to') == elem['id']:
+                    nbr_ids.add(conn.get('from'))
+            nbr_ids.discard(None)
+            if not nbr_ids:
+                continue
+            zones = set()
+            centers = []
+            hosted = True
+            for nid in nbr_ids:
+                ne = layout.elements_by_id.get(nid)
+                if ne is None or 'x' not in ne:
+                    hosted = False
+                    break
+                t = _top(nid)
+                if t == nid or t not in top_ids:
+                    hosted = False       # vecino libre: caso normal
+                    break
+                zones.add(t)
+                centers.append((ne['x'] + ne.get('width', ICON_WIDTH) / 2.0,
+                                ne['y'] + ne.get('height', ICON_HEIGHT) / 2.0))
+            if not hosted or len(zones) < 2:
+                continue
+
+            bx = sum(p[0] for p in centers) / len(centers)
+            by = sum(p[1] for p in centers) / len(centers)
+            if not overlaps:
+                # exiliado = fuera del hull Y lejos del baricentro (más de
+                # media diagonal del hull); si ya está cerca, se respeta
+                ecx, ecy = elem['x'] + ew / 2, elem['y'] + eh / 2
+                half_diag = ((gx2 - gx1) ** 2 + (gy2 - gy1) ** 2) ** 0.5 / 2
+                if ((ecx - bx) ** 2 + (ecy - by) ** 2) ** 0.5 <= half_diag:
+                    continue
+            w, h = self.sizing.get_element_size(elem)
+            # etiqueta de varios renglones: aire extra bajo el icono
+            label_h = self._est_contained_label_height(elem)
+
+            def _clamp(v, lo, hi):
+                return max(lo, min(v, hi))
+
+            candidates = [
+                (_clamp(bx - w / 2, gx1, gx2 - w),
+                 gy1 - margin - h - label_h),                       # arriba
+                (_clamp(bx - w / 2, gx1, gx2 - w), gy2 + margin),   # abajo
+                (gx1 - margin - w - ICON_WIDTH,
+                 _clamp(by - h / 2, gy1, gy2 - h)),                 # izquierda
+                (gx2 + margin + ICON_WIDTH,
+                 _clamp(by - h / 2, gy1, gy2 - h)),                 # derecha
+            ]
+
+            def _cost(pos):
+                cx, cy = pos[0] + w / 2, pos[1] + h / 2
+                return sum(((cx - px) ** 2 + (cy - py) ** 2) ** 0.5
+                           for px, py in centers)
+
+            nx, ny = min(candidates, key=_cost)
+            # no montarse sobre otro libre ya reubicado
+            for (ox1, oy1, ox2, oy2) in placed_boxes:
+                if nx < ox2 + margin and nx + w > ox1 - margin \
+                        and ny < oy2 + margin and ny + h > oy1 - margin:
+                    nx = ox2 + margin
+            dx, dy = nx - elem['x'], ny - elem['y']
+            if abs(dx) < 0.5 and abs(dy) < 0.5:
+                continue
+            elem['x'], elem['y'] = nx, ny
+            self._shift_stored_label(layout, elem['id'], dx, dy)
+            placed_boxes.append((nx, ny, nx + w, ny + h))
+            logger.debug(f"    {elem['id']}: libre multi-zona → periferia "
+                         f"({nx:.0f}, {ny:.0f}) cerca del baricentro "
+                         f"({bx:.0f}, {by:.0f})")
 
     def _resolve_container_overlaps(self, containers, layout, margin):
         """

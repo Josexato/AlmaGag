@@ -1184,8 +1184,23 @@ con caso real reproducible.
 
 ---
 
-### WISH-AUTO-010: Elemento libre multi-zona queda exiliado con diagonales gigantes 🆕 ABIERTO
-**Componente**: `strategies/auto/positioner.py` (colocación de libres), `zones.py`
+### WISH-AUTO-010: Elemento libre multi-zona queda exiliado con diagonales gigantes ✅ RESUELTO (2026-08-05)
+
+> Nueva pasada `_place_multizone_free_elements` en el ajuste
+> post-expansión: un libre cuyos vecinos viven TODOS en contenedores (≥2
+> distintos) y que está MAL puesto — pisa una caja, o quedó fuera del
+> hull de contenedores a más de media diagonal de sus vecinos — se coloca
+> en la periferia del hull, en el lado más cercano al baricentro de sus
+> vecinos (espíritu §P60). El bien puesto no se toca (la primera versión
+> sin esa puerta reubicaba libres sanos de 05/15 y empeoraba: +1 a×n).
+> **Medido**: cruces −6 neto (15-architecture 9→5 y labels −1;
+> físico v2 17→15 con labels +1); físico v2 compacto de verdad — tinta
+> 36.5→52.8%, aspecto 1.76→1.42; la red eléctrica queda arriba al centro
+> con dos bajadas cortas (verificado en PNG), murieron las dos diagonales
+> naranjas de lámina completa. Regresión:
+> `tests/test_auto010_multizone_free.py`.
+
+**Componente**: `strategies/auto/positioner.py` (colocación de libres)
 **Reportado**: 2026-08-03 (caso real evolucionado; anonimizado en `mina-fisico-v2.gag`)
 
 `energia_ext` (red eléctrica, type `powergrid`) sólo conecta con las
