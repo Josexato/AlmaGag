@@ -53,7 +53,7 @@ T73 (áreas sin slot de icono) ya quedó resuelto el mismo día.
 
 | Orden | Qué | Ticket |
 |---|---|---|
-| 1 | **Ruteo hacia contenedores** (T70 puerto en el perímetro · T71 tres tramos con cruce perpendicular · T72 puertos distribuidos ≥18px) — PRERREQUISITO de zonas en HLDs y causa raíz de parte del a×n del físico v2 | WISH-ROUTE-001 |
+| 1 ✅ | **Ruteo hacia contenedores** — HECHO (5-ago): puertos de perímetro con llegada perpendicular, tres tramos con carriles anti-hermanos, reparto ≥18px. a×n −10 neto; hld y 07-containers sin diagonales de borde. **Desbloquea re-medir S66/S69** | WISH-ROUTE-001 |
 | 2 | **Presupuesto de espacio por contenedor** — header como zona dura + corredores para rótulos (mina-fisico-v2: 17/8/17; acortar labels apenas mueve: 18/7/14) | WISH-LAYOUT-010 |
 | 3 | **Flows: carriles paralelos + contrato** (U74 cero geometría propia · U75 offset por flujo en tramos compartidos · U77 error duro por par sin conexión) + compactación de cadenas 1×N (U76/J33) | WISH-DRAW-003 |
 | 4 | **Libres multi-zona** — `energia_ext` exiliado con diagonales gigantes; debería ir a la periferia del baricentro | WISH-AUTO-010 |
