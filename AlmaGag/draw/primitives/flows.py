@@ -109,6 +109,72 @@ def build_flow_points(flow, elements_by_id, connections):
     return points if len(points) >= 2 else None
 
 
+def _seg_key(p, q):
+    """Clave canónica de un tramo (independiente del sentido de recorrido)."""
+    a = (round(p[0], 1), round(p[1], 1))
+    b = (round(q[0], 1), round(q[1], 1))
+    return (a, b) if a <= b else (b, a)
+
+
+def _canonical_normal(key):
+    """Normal unitaria del tramo en su orientación canónica: todos los
+    flujos que lo comparten se reparten hacia los MISMOS lados del mundo,
+    recorran el tramo en el sentido que lo recorran."""
+    (ax, ay), (bx, by) = key
+    dx, dy = bx - ax, by - ay
+    L = (dx * dx + dy * dy) ** 0.5
+    if L < 1e-9:
+        return None
+    return (-dy / L, dx / L)
+
+
+def build_flow_lanes(flows, elements_by_id, connections):
+    """U75: puntos finales de cada flujo con reparto en CARRILES.
+
+    Construye las polilíneas (contrato U74/U77 mediante build_flow_points),
+    detecta los tramos compartidos por varios flujos y desplaza cada uno
+    perpendicularmente: N flujos sobre un tramo común quedan lado a lado
+    (paso = FLOW_WIDTH, carril por orden de aparición), ninguno tapado.
+    Devuelve [(flow, points)] sólo con los dibujables."""
+    built = []
+    for flow in flows:
+        points = build_flow_points(flow, elements_by_id, connections)
+        built.append((flow, points))
+
+    occupancy = {}            # seg_key -> [índices de flujo, orden estable]
+    for fi, (_, pts) in enumerate(built):
+        if not pts:
+            continue
+        for p, q in zip(pts, pts[1:]):
+            key = _seg_key(p, q)
+            riders = occupancy.setdefault(key, [])
+            if fi not in riders:
+                riders.append(fi)
+
+    out = []
+    for fi, (flow, pts) in enumerate(built):
+        if not pts:
+            out.append((flow, None))
+            continue
+        lane_pts = []
+        for p, q in zip(pts, pts[1:]):
+            key = _seg_key(p, q)
+            riders = occupancy.get(key, [fi])
+            n = _canonical_normal(key)
+            if len(riders) > 1 and n is not None:
+                off = (riders.index(fi) - (len(riders) - 1) / 2.0) * FLOW_WIDTH
+                pp = (p[0] + n[0] * off, p[1] + n[1] * off)
+                qq = (q[0] + n[0] * off, q[1] + n[1] * off)
+            else:
+                pp, qq = p, q
+            for pt in (pp, qq):
+                if not lane_pts or abs(lane_pts[-1][0] - pt[0]) > 0.05 \
+                        or abs(lane_pts[-1][1] - pt[1]) > 0.05:
+                    lane_pts.append(pt)
+        out.append((flow, lane_pts if len(lane_pts) >= 2 else None))
+    return out
+
+
 def draw_flows(dwg, flows, elements_by_id, connections) -> int:
     """Dibuja los flujos como trazos de resaltador. Devuelve cuántos se
     dibujaron. No-op silencioso sin sección `flows`."""
@@ -136,8 +202,8 @@ def draw_flows(dwg, flows, elements_by_id, connections) -> int:
                        f"recomendación de autoría es ≤4 (el resaltador "
                        f"pierde contraste)")
     n = 0
-    for i, flow in enumerate(declared):
-        points = build_flow_points(flow, elements_by_id, connections)
+    for i, (flow, points) in enumerate(
+            build_flow_lanes(declared, elements_by_id, connections)):
         if points is None:
             logger.warning(f"flows: el flujo '{flow.get('id', i)}' no tiene "
                            f"≥2 elementos dibujables — no se pinta")

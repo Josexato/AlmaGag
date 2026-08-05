@@ -6,7 +6,8 @@ import logging
 import pytest
 
 from AlmaGag.draw.primitives.flows import (
-    FLOW_CLASS, FLOW_PALETTE, build_flow_points, draw_flows)
+    FLOW_CLASS, FLOW_PALETTE, FLOW_WIDTH, build_flow_lanes,
+    build_flow_points, draw_flows)
 from AlmaGag.draw.primitives.svg import create_canvas
 
 FIXTURE = 'docs/diagrams/gags/mina-arquitectura-fisica.sdjf'
@@ -70,6 +71,41 @@ def test_u77_label_mandatory_and_color_repeat_warns(tmp_path, caplog):
         ], _els(), conns)
     assert n == 2
     assert 'repite el color' in caplog.text
+
+
+def test_u75_shared_segment_gets_parallel_lanes():
+    """Dos flujos sobre el MISMO tramo: carriles lado a lado (paso =
+    FLOW_WIDTH, ninguno tapado) aunque lo recorran en sentidos opuestos;
+    los tramos exclusivos no se mueven."""
+    els = dict(_els())
+    els['d'] = {'id': 'd', 'x': 300, 'y': 0}
+    conns = [{'from': 'a', 'to': 'b'}, {'from': 'b', 'to': 'c'},
+             {'from': 'c', 'to': 'd'}]
+    lanes = build_flow_lanes([
+        {'id': 'f1', 'label': 'uno', 'path': ['a', 'b', 'c']},
+        {'id': 'f2', 'label': 'dos', 'path': ['d', 'c', 'b']},
+    ], els, conns)
+    (f1, p1), (f2, p2) = lanes
+    # tramo exclusivo de f1 (a→b) intacto, sobre la línea original y=25
+    assert p1[0] == (40.0, 25.0) and p1[1] == (140.0, 25.0)
+    # tramo compartido b↔c: f1 y f2 en carriles opuestos, separados
+    # exactamente FLOW_WIDTH (cero solape del resaltador)
+    y1 = p1[-1][1]
+    y2 = p2[-1][1]
+    assert abs(y1 - y2) == pytest.approx(FLOW_WIDTH)
+    assert y1 != 25.0 and y2 != 25.0
+    # simetría: ±½ ancho alrededor de la línea original
+    assert y1 + y2 == pytest.approx(2 * 25.0)
+    # tramo exclusivo de f2 (d→c) intacto
+    assert p2[0] == (340.0, 25.0) and p2[1] == (240.0, 25.0)
+
+
+def test_u75_single_flow_stays_on_the_wire():
+    """Un flujo solo no se desplaza: sin tramo compartido no hay carril."""
+    conns = [{'from': 'a', 'to': 'b'}]
+    lanes = build_flow_lanes(
+        [{'id': 'f', 'label': 'x', 'path': ['a', 'b']}], _els(), conns)
+    assert lanes[0][1] == [(40.0, 25.0), (140.0, 25.0)]
 
 
 def test_draw_flows_class_palette_and_declared_color(tmp_path):
