@@ -300,7 +300,12 @@ class AutoSVGRenderer:
                     ))
                 continue
 
-            label_local_x = 10 + ICON_WIDTH + 10
+            # T73: un área no lleva icono — su rótulo arranca en el padding,
+            # sin reservar el hueco del icono inexistente.
+            if container.get('type') == 'area':
+                label_local_x = 10
+            else:
+                label_local_x = 10 + ICON_WIDTH + 10
             label_local_y = 16
             label_x = container_x + label_local_x
             label_y = container_y + label_local_y

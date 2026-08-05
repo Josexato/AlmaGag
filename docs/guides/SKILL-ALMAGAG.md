@@ -84,6 +84,27 @@ y es la IA que implementa ese skill quien administra su inventario.**
    vigente: ante duda, `main.py`/`select_strategy`/el módulo — este
    contrato se actualiza cuando el motor cambia, y a veces la spec
    miente (caso `currentColor`).
+7. **Autoría de HLDs (grupo S del review, ago-2026 — con veredicto A/B
+   medido).** Cuatro reglas, dos vigentes hoy y dos en espera de motor:
+   - **S67 (vigente, adoptada)**: partir los nodos-servicio compartidos
+     por sitio — si el servicio existe físicamente en cada sitio (GEs,
+     energía, almacén), un nodo por sitio DENTRO de su zona. Un nodo
+     único sólo para servicios realmente centrales (un NOC, una SRA).
+   - **S68 (vigente, y suele ser no-op)**: afinidad `near` entre áreas
+     sólo con lectura preferida — el A/B mostró que la derivación §Q65
+     ya producía ese orden sola.
+   - **S66 (EN ESPERA de WISH-ROUTE-001)**: «todo elemento operativo en
+     un grupo de primer nivel del principio organizador de la vista»
+     (física → zonas geográficas; HLD funcional → capas acceso ·
+     transporte · core · gestión; nunca mezclar ambos ejes). El A/B del
+     3-ago midió que HOY agrupar degrada (4→13 cruces, 0→6 a×n) porque
+     el ruteo hacia contenedores está roto — posponer las cajas hasta
+     que T70/T71 aterricen.
+   - **S69 (EN ESPERA, misma razón)**: los agrupadores se declaran como
+     `area` (caja + rótulo, sin icono — T73 ya no emite el slot), no
+     como `building` con `contains`; `building` es para edificios que
+     son elementos. El A/B actual favorece building-contenedor (39.2%
+     tinta / 1.22 vs 63.6% / 1.91) — se invierte cuando llegue T.
 
 ## Mantenimiento
 - El skill vive en el perfil de claude.ai del autor (`SKILL.md` + `references/`).
