@@ -240,6 +240,31 @@ con rutas `strategies/`; banner de HISTÓRICO en DIAGRAM_REVIEW.md.
 
 ---
 
+### BUGS-LAYOUT-011: El header no reservaba el espacio real del icono decorativo — primer miembro soldado al icono ✅ RESUELTO (2026-08-05)
+**Componente**: `strategies/auto/positioner.py` (`_layout_contained_elements_locally`, re-centrado de miembro único)
+**Reportado**: 2026-08-05 (caso telefonía del autor: «Troncal SIP» pegado al edificio de «Claro — Nube del operador»; también en `15-architecture-template.gag`, 3 cajas con hijo a +0px)
+
+El icono decorativo del contenedor se DIBUJA en `[y+padding, y+padding+50]`
+(`draw_container`), pero la reserva de header para los miembros era
+`max(50, label) + padding` — usaba el padding como aire por encima del
+icono y olvidaba que el icono ya lo consumió: el primer miembro arrancaba
+en el borde inferior exacto del icono, en su misma columna (x=padding),
+soldado. Agravante: sin label la reserva era 0 y los miembros caían
+ENCIMA del icono.
+
+**Fix**: `_container_header_height` — para contenedores con icono, el
+header llega hasta el borde real del icono (`padding + max(50, label)`),
+reservado aunque no haya label; áreas (T73) y bands conservan su cuenta.
+La misma función alimenta el re-centrado de miembro único (cuenta
+duplicada unificada). **Medido**: labels −4 neto (06 −2, cakephp/git/
+cheatsheet −1, fisica +1), cruces −1 neto; costo un a×n en 07-containers
+(+1, desvío de ruteo por el corrimiento de 10px). Verificación visual:
+telefonía con «Troncal SIP» respirando bajo el edificio. Regresión:
+`tests/test_layout011_header_icon_gap.py` (con label, sin label, y área
+sin cambio).
+
+---
+
 ### BUGS-VAL-004: `validate_gag` sin sección `canvas` revienta con `KeyError: 'width'` ✅ RESUELTO (2026-08-03)
 **Componente**: `AlmaGag/validation/visual_quality.py::validate_gag`
 **Reportado**: 2026-08-03 (papercut hallado al re-medir la tabla del rol GAG Skiller)
