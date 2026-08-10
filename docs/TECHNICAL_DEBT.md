@@ -1147,7 +1147,25 @@ midió 2/5 con el motor previo — la iteración 7 ya mejoró dos).
 
 ---
 
-### WISH-ROUTE-002: Convergencia limpia — verticales por columna + puertos T72 en nodos (V80) 🆕 ABIERTO
+### WISH-ROUTE-002: Convergencia limpia — verticales por columna + puertos T72 en nodos (V80) ✅ RESUELTO (2026-08-10)
+
+> Dos partes: (1) **columnas de eslabones** (positioner): un eslabón 1:1
+> entre rangos consecutivos se alinea a la misma columna moviendo el
+> extremo de grado 1, sólo si el hueco existe (pitch label-aware) — el
+> repro del autor (pulab→mo, 161px de desfase con barrido bajo su propio
+> label) quedó en desfase 0 con arista vertical pura y el label de vuelta
+> en `bottom`. (2) **puertos T72 en nodos** (`route_node_ports`): cuando
+> ≥2 conexiones ORTOGONALES llegan por el mismo lado de un nodo con
+> puntas <18px o llegada tangencial, se reparten (≥PORT_MIN_SEP) y el
+> tramo final se reescribe perpendicular vía carril a STUB px. Cirugía
+> SOLO sobre la violación: grupos ya limpios, paths con diagonales
+> (estilo straight legítimo: árboles, hubs) y salidas no se tocan — la
+> primera versión sin esas puertas costaba +5 labels y +1 a×n en
+> fixtures sanos. **Medido**: resumen recibe sus 3 cadenas con llegadas
+> perpendiculares y puntas a 18/36/18px (antes 14/15px con ring
+> tangencial barriendo el borde); guarda 39/39 intacta salvo +1 label en
+> git (parte 1, caja densa preexistente). Regresión:
+> `tests/test_route002_convergence.py`.
 **Componente**: `AlmaGag/routing/`, `strategies/auto/`
 **Reportado**: 2026-08-10 (artefacto Claude Design, grupo V)
 

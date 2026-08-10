@@ -343,9 +343,10 @@ def _outer_leg(a, b, lado, layout, conn, boundaries, departure=False):
     return [_bend_to(a, b, lado)]
 
 
-def _spread(requests):
+def _spread(requests, title_guard=True):
     """T72: reparte las coordenadas de puerto de un mismo (contenedor, lado)
-    con separación mínima, dentro del rango útil del borde."""
+    con separación mínima, dentro del rango útil del borde. Para NODOS
+    (V80) se llama con title_guard=False: no hay franja de rótulo."""
     by_side: Dict[Tuple[str, str], List[dict]] = {}
     for req in requests:
         key = (req['boundary']['id'], req['lado'])
@@ -356,7 +357,7 @@ def _spread(requests):
             lo, hi = r[1] + EDGE_MARGIN, r[3] - EDGE_MARGIN
         else:
             lo, hi = r[0] + EDGE_MARGIN, r[2] - EDGE_MARGIN
-            if lado == 'top':
+            if lado == 'top' and title_guard:
                 lo = max(lo, r[0] + TITLE_GUARD)   # franja del rótulo
         reqs.sort(key=lambda q: q['coord'])
         n = len(reqs)
@@ -478,4 +479,147 @@ def route_container_ports(layout) -> int:
             'points': [(round(x, 1), round(y, 1)) for x, y in clean],
         }
         rewritten += 1
+    return rewritten
+
+
+def _which_side(p, r, eps=1.5):
+    """Lado del rect r sobre el que cae el punto p (None si no toca)."""
+    x, y = p
+    if abs(y - r[1]) <= eps and r[0] - eps <= x <= r[2] + eps:
+        return 'top'
+    if abs(y - r[3]) <= eps and r[0] - eps <= x <= r[2] + eps:
+        return 'bottom'
+    if abs(x - r[0]) <= eps and r[1] - eps <= y <= r[3] + eps:
+        return 'left'
+    if abs(x - r[2]) <= eps and r[1] - eps <= y <= r[3] + eps:
+        return 'right'
+    return None
+
+
+def route_node_ports(layout) -> int:
+    """WISH-ROUTE-002 (V80) — T72 aplicado a NODOS.
+
+    Cuando ≥2 conexiones tocan el MISMO lado de un nodo (convergencia),
+    sus puntas se reparten (≥PORT_MIN_SEP) y el tramo final se reescribe
+    PERPENDICULAR al borde vía un carril a STUB px — se acabaron las
+    llegadas tangenciales que barren el borde y las puntas apiladas.
+    Los hijos contenidos ya los gobierna T71; manual/bezier/arc y las
+    troncales §P60 se respetan tal cual."""
+    parent = _build_maps(layout)
+    nodes = {e['id']: e for e in layout.elements
+             if 'x' in e and 'contains' not in e and e['id'] not in parent}
+    groups: Dict[Tuple[str, str], List[dict]] = {}
+    for conn in layout.connections:
+        rt = (conn.get('routing') or {}).get('type')
+        if rt in _SKIP_ROUTING or conn.get('_zone_trunk') \
+                or conn.get('from') == conn.get('to'):
+            continue
+        cp = conn.get('computed_path')
+        raw = cp.get('points') if isinstance(cp, dict) else None
+        if not raw or len(raw) < 2:
+            continue
+        pts = [_xy(p) for p in raw]
+        # V80 gobierna paths ORTOGONALES: un tramo diagonal es estilo
+        # straight legítimo (árboles, hubs), no una convergencia sucia.
+        if any(abs(a[0] - b[0]) > 0.5 and abs(a[1] - b[1]) > 0.5
+               for a, b in zip(pts, pts[1:])):
+            continue
+        # sólo LLEGADAS: ahí vive la flecha y ahí pide puertos el review
+        for at_end in (True,):
+            nid = conn['to'] if at_end else conn['from']
+            node = nodes.get(nid)
+            if node is None:
+                continue
+            r = _rect(node)
+            tip = pts[-1] if at_end else pts[0]
+            side = _which_side(tip, r)
+            if side is None:
+                continue
+            coord = tip[0] if side in ('top', 'bottom') else tip[1]
+            groups.setdefault((nid, side), []).append(
+                {'conn': conn, 'end': at_end, 'boundary': node,
+                 'lado': side, 'coord': coord})
+
+    def _already_clean(ms):
+        """Grupo que YA cumple V80 (llegadas perpendiculares y puntas
+        separadas ≥PORT_MIN_SEP): no se toca — la cirugía sólo opera
+        sobre la violación, no sobre lo sano."""
+        tips = []
+        for m in ms:
+            pts = [_xy(p) for p in m['conn']['computed_path']['points']]
+            tip, prev = (pts[-1], pts[-2]) if m['end'] else (pts[0], pts[1])
+            if m['lado'] in ('top', 'bottom'):
+                if abs(prev[0] - tip[0]) > 0.5:
+                    return False
+            elif abs(prev[1] - tip[1]) > 0.5:
+                return False
+            tips.append(tip)
+        for i in range(len(tips)):
+            for j in range(i + 1, len(tips)):
+                d = ((tips[i][0] - tips[j][0]) ** 2
+                     + (tips[i][1] - tips[j][1]) ** 2) ** 0.5
+                if d < PORT_MIN_SEP - 0.5:
+                    return False
+        return True
+
+    crowded = [ms for ms in groups.values()
+               if len(ms) >= 2 and not _already_clean(ms)]
+    if not crowded:
+        return 0
+    _spread([m for ms in crowded for m in ms], title_guard=False)
+
+    current: Dict[int, List[Tuple[float, float]]] = {}
+    rewritten = 0
+    for ms in crowded:
+        for m in ms:
+            conn = m['conn']
+            key = id(conn)
+            if key not in current:
+                current[key] = [_xy(p)
+                                for p in conn['computed_path']['points']]
+            pts = current[key]
+            r = _rect(m['boundary'])
+            lado = m['lado']
+            port = _port_point(r, lado, m['coord'])
+            lane = {'top': r[1] - STUB, 'bottom': r[3] + STUB,
+                    'left': r[0] - STUB, 'right': r[2] + STUB}[lado]
+
+            def in_band(p):
+                if lado == 'top':
+                    return p[1] >= lane - 0.5
+                if lado == 'bottom':
+                    return p[1] <= lane + 0.5
+                if lado == 'left':
+                    return p[0] >= lane - 0.5
+                return p[0] <= lane + 0.5
+
+            seq = list(pts) if m['end'] else list(reversed(pts))
+            body = seq[:-1]
+            while len(body) > 1 and in_band(body[-1]):
+                body.pop()
+            last = body[-1]
+            tail = []
+            if lado in ('top', 'bottom'):
+                if abs(last[1] - lane) > 0.5:
+                    tail.append((last[0], lane))
+                tail.append((port[0], lane))
+            else:
+                if abs(last[0] - lane) > 0.5:
+                    tail.append((lane, last[1]))
+                tail.append((lane, port[1]))
+            tail.append(port)
+            new_seq = body[:]
+            for t in tail:
+                if abs(t[0] - new_seq[-1][0]) > 0.05 \
+                        or abs(t[1] - new_seq[-1][1]) > 0.05:
+                    new_seq.append(t)
+            if len(new_seq) < 2:
+                continue
+            new_pts = new_seq if m['end'] else list(reversed(new_seq))
+            current[key] = new_pts
+            conn['computed_path'] = {
+                'type': 'polyline',
+                'points': [(round(x, 1), round(y, 1)) for x, y in new_pts],
+            }
+            rewritten += 1
     return rewritten
