@@ -266,6 +266,7 @@ Define el tamano del area de dibujo en pixeles. Si lo omites, AlmaGag usa 1400x9
 | `width` | numero | 1400 | Ancho del SVG en pixeles |
 | `height` | numero | 900 | Alto del SVG en pixeles |
 | `flow` | string | `"down"` | Orientacion de LECTURA del grafo dirigido (V78). `"down"`: fuentes arriba, sumidero abajo (historico). `"up"`: rangos invertidos — fuentes como cimiento en la banda inferior y el consolidado arriba; es la orientacion natural de los roll-ups/agregaciones («de los recursos al consolidado»). `"left"`/`"right"`: reservados — hoy avisan con WARNING y emiten como `down`. |
+| `legend` | array | — | Leyenda LIBRE al pie (V82), apilada con las otras franjas («Enlaces:», «Flujos:»). Entradas: string (solo texto) o `{"label": "...", "color": "#hex"}` (swatch redondo del color + texto). Reemplaza el viejo hack del flow blanco con path degenerado, que hoy es error U74/U77. |
 
 **Nota:** Si tus elementos no caben, AlmaGag agranda el canvas automaticamente.
 
@@ -308,6 +309,7 @@ Es un array de objetos. Cada objeto es un nodo/icono del diagrama.
 | `label_position` | string | no | automatico | Donde poner el texto: `"bottom"`, `"top"`, `"left"`, `"right"`. Si lo omites, AlmaGag elige la posicion que no tape otros elementos. |
 | `width` / `height` | numero | no | por `hp`/`wp` | Tamano EXPLICITO en px. Si estan ambos, **ganan** sobre `hp`/`wp`. |
 | `callout` | booleano | no | automatico | Fuerza (`true`) o desactiva (`false`) el render como callout (caja de texto aparte con linea guia). Sin declarar, se auto-activa con labels de ≥6 lineas o ≥150 caracteres. |
+| `status` | string | no | — | Estado del elemento (V82): `"ok"` (◉ verde), `"partial"` (◪ ambar), `"empty"` (▢ gris). El badge se antepone a la ULTIMA linea del label y esa linea toma el color — no pintes el glifo a mano. Combina con `canvas.legend` para explicar los estados al pie. |
 
 ### Reglas importantes
 

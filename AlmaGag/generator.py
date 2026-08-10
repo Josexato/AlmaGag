@@ -216,7 +216,10 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
         canvas={'width': canvas_width, 'height': canvas_height,
                 # WISH-LAYOUT-012 (V78): orientación de lectura declarada
                 **({'flow': str(canvas['flow']).lower()}
-                   if isinstance(canvas, dict) and canvas.get('flow') else {})}
+                   if isinstance(canvas, dict) and canvas.get('flow') else {}),
+                # WISH-DRAW-004 (V82): leyenda libre del autor
+                **({'legend': canvas['legend']}
+                   if isinstance(canvas, dict) and canvas.get('legend') else {})}
     )
 
     # Agregar nombre del diagrama para visualizador

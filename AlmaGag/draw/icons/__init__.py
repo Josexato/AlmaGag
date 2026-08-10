@@ -424,13 +424,23 @@ def draw_icon_shape(dwg, element, embedded_icons=None):
             font_family="'JetBrains Mono', monospace", fill='#8a1c1c'))
 
 
+# WISH-DRAW-004 (V82): `element.status` es constructo de primera clase —
+# el badge colorea la ÚLTIMA línea del label (la línea de estado) sin que
+# el autor pinte el glifo a mano.
+STATUS_BADGES = {
+    'ok':      ('◉', '#2e7d32'),     # verde: con datos
+    'partial': ('◪', '#b8860b'),     # ámbar: parcial
+    'empty':   ('▢', '#757575'),     # gris: en cero
+}
+
+
 def draw_icon_label(dwg, element, position_info):
     """
     Dibuja solo la etiqueta de un ícono en la posición indicada.
 
     Parámetros:
         dwg (svgwrite.Drawing): Objeto de dibujo SVG.
-        element (dict): Elemento con 'label'.
+        element (dict): Elemento con 'label' (y opcional 'status' §V82).
         position_info (tuple): (x, y, anchor, position_name) calculado por AutoLayout.
     """
     label = element.get('label', '')
@@ -439,15 +449,20 @@ def draw_icon_label(dwg, element, position_info):
 
     text_x, text_y, anchor, _ = position_info
     lines = label.split('\n')
+    status = STATUS_BADGES.get(str(element.get('status', '')).lower())
 
     for i, line in enumerate(lines):
+        text, fill = line, 'black'
+        if status and i == len(lines) - 1:
+            text = f'{status[0]} {line}'
+            fill = status[1]
         dwg.add(dwg.text(
-            line,
+            text,
             insert=(text_x, text_y + (i * TEXT_LINE_HEIGHT)),
             text_anchor=anchor,
             font_size=f"{FONT_SIZE_NODE}px",
             font_family="Arial, sans-serif",
-            fill="black",
+            fill=fill,
         ))
 
 

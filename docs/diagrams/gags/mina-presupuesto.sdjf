@@ -1,67 +1,91 @@
 {
   "canvas": {
-    "flow": "up"
+    "flow": "up",
+    "legend": [
+      {
+        "label": "◉ con datos",
+        "color": "#2e7d32"
+      },
+      {
+        "label": "◪ parcial",
+        "color": "#b8860b"
+      },
+      {
+        "label": "▢ en cero",
+        "color": "#757575"
+      }
+    ]
   },
   "elements": [
     {
       "id": "resumen",
       "type": "building",
-      "label": "Resumen\nconsolidado E+P+C\n◪ cond. comerciales §5",
-      "color": "#1F3864"
+      "label": "Resumen\nconsolidado E+P+C\ncond. comerciales §5",
+      "color": "#1F3864",
+      "status": "partial"
     },
     {
       "id": "fza",
       "type": "user",
-      "label": "Fza Laboral\n◉ desde Formato 1-3",
-      "color": "#8FAADC"
+      "label": "Fza Laboral\ndesde Formato 1-3",
+      "color": "#8FAADC",
+      "status": "ok"
     },
     {
       "id": "cron",
       "type": "document",
-      "label": "Cron. Val.\n◪ desde hitos H1–H7",
-      "color": "#8FAADC"
+      "label": "Cron. Val.\ndesde hitos H1–H7",
+      "color": "#8FAADC",
+      "status": "partial"
     },
     {
       "id": "pareto",
       "type": "document",
-      "label": "Paretto\n▢ deriva del consolidado",
-      "color": "#8FAADC"
+      "label": "Paretto\nderiva del consolidado",
+      "color": "#8FAADC",
+      "status": "empty"
     },
     {
       "id": "ring",
       "type": "document",
-      "label": "Resumen Ingeniería\n◉ con datos",
-      "color": "#2E75B6"
+      "label": "Resumen Ingeniería\ncon datos",
+      "color": "#2E75B6",
+      "status": "ok"
     },
     {
       "id": "ing",
       "type": "database",
-      "label": "Ingeniería\ncivil · eléctrica · telecom\n◉ US$ 56 K cotizados",
-      "color": "#2E75B6"
+      "label": "Ingeniería\ncivil · eléctrica · telecom\nUS$ 56 K cotizados",
+      "color": "#2E75B6",
+      "status": "ok"
     },
     {
       "id": "rproc",
       "type": "document",
-      "label": "Resumen Procura\npartidas 1.10 a 1.50\n◪ leasing en 1.40",
-      "color": "#ED7D31"
+      "label": "Resumen Procura\npartidas 1.10 a 1.50\nleasing en 1.40",
+      "color": "#ED7D31",
+      "status": "partial"
     },
     {
       "id": "dproc",
       "type": "database",
-      "label": "Detalle Procura\nP.U.D. · G.G. · UTILIDAD\n◪ falta utilidad",
-      "color": "#ED7D31"
+      "label": "Detalle Procura\nP.U.D. · G.G. · UTILIDAD\nfalta utilidad",
+      "color": "#ED7D31",
+      "status": "partial"
     },
     {
       "id": "mproc",
       "type": "database",
-      "label": "Material Procura\n◉ mapeada · cotización",
-      "color": "#ED7D31"
+      "label": "Material Procura\nmapeada · cotización",
+      "color": "#ED7D31",
+      "status": "ok"
     },
     {
       "id": "eproc",
       "type": "database",
-      "label": "Equipo Procura\n◉ mapeada · cotización",
-      "color": "#ED7D31"
+      "label": "Equipo Procura\nmapeada · cotización",
+      "color": "#ED7D31",
+      "status": "ok"
     },
     {
       "id": "constr",
@@ -72,68 +96,79 @@
     {
       "id": "ppto",
       "type": "database",
-      "label": "Presupuesto\npartidas y metrados\n◪ metrados a corregir 11+3",
-      "color": "#C00000"
+      "label": "Presupuesto\npartidas y metrados\nmetrados a corregir 11+3",
+      "color": "#C00000",
+      "status": "partial"
     },
     {
       "id": "dppto",
       "type": "database",
-      "label": "Detalle Ppto\nAPU por partida\n▢ deriva de recursos",
-      "color": "#C00000"
+      "label": "Detalle Ppto\nAPU por partida\nderiva de recursos",
+      "color": "#C00000",
+      "status": "empty"
     },
     {
       "id": "mo",
       "type": "user",
-      "label": "Mano de Obra\ncuadrillas\n▢ EN CERO · InteCo",
-      "color": "#548B54"
+      "label": "Mano de Obra\ncuadrillas\nEN CERO · InteCo",
+      "color": "#548B54",
+      "status": "empty"
     },
     {
       "id": "mat",
       "type": "database",
-      "label": "Material\n▢ EN CERO · InteCo",
-      "color": "#548B54"
+      "label": "Material\nEN CERO · InteCo",
+      "color": "#548B54",
+      "status": "empty"
     },
     {
       "id": "eq",
       "type": "server",
-      "label": "Equipo y combustible\n▢ EN CERO · InteCo",
-      "color": "#548B54"
+      "label": "Equipo y combustible\nEN CERO · InteCo",
+      "color": "#548B54",
+      "status": "empty"
     },
     {
       "id": "sub",
       "type": "database",
-      "label": "Subcontratos\n▢ EN CERO · InteCo",
-      "color": "#548B54"
+      "label": "Subcontratos\nEN CERO · InteCo",
+      "color": "#548B54",
+      "status": "empty"
     },
     {
       "id": "pulab",
       "type": "database",
-      "label": "P.U. Labor\ntarifa por categoría\n▢ EN CERO · InteCo",
-      "color": "#548B54"
+      "label": "P.U. Labor\ntarifa por categoría\nEN CERO · InteCo",
+      "color": "#548B54",
+      "status": "empty"
     },
     {
       "id": "tareq",
       "type": "database",
-      "label": "Tarifa Equipos\nhora-máquina\n▢ EN CERO · InteCo",
-      "color": "#548B54"
+      "label": "Tarifa Equipos\nhora-máquina\nEN CERO · InteCo",
+      "color": "#548B54",
+      "status": "empty"
     },
     {
       "id": "gg",
       "type": "database",
-      "label": "Gastos Generales\n21 conceptos\n▢ EN CERO · InteCo+C&D",
-      "color": "#548B54"
+      "label": "Gastos Generales\n21 conceptos\nEN CERO · InteCo+C&D",
+      "color": "#548B54",
+      "status": "empty"
     },
     {
       "id": "sup",
       "type": "user",
-      "label": "Supervisión\n▢ EN CERO",
-      "color": "#548B54"
+      "label": "Supervisión\nEN CERO",
+      "color": "#548B54",
+      "status": "empty"
     },
     {
       "id": "seg",
       "type": "database",
-      "label": "Seguridad\n▢ EN CERO",
-      "color": "#548B54"
+      "label": "Seguridad\nEN CERO",
+      "color": "#548B54",
+      "status": "empty"
     },
     {
       "id": "indir",
