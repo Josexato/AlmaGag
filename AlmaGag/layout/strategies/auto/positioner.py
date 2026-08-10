@@ -629,6 +629,61 @@ class AutoLayoutPositioner:
             for elem in elements:
                 elem['x'] += correction
 
+        # WISH-ROUTE-002 (V80): un eslabón 1:1 entre rangos consecutivos
+        # (padre con esa única arista hacia abajo, hijo con esa única
+        # arista hacia arriba) se alinea a la MISMA columna — la arista
+        # queda vertical pura y el label del padre no convive con un
+        # barrido horizontal (repro: pulab→mo, 161px de desfase). Se mueve
+        # el extremo de grado 1 hacia el otro, sólo si el hueco existe
+        # (pitch label-aware contra los vecinos de su fila).
+        deg = {i: len(outgoing.get(i, [])) + len(incoming.get(i, []))
+               for i in elem_ids}
+        by_row: Dict[int, List[dict]] = {}
+        for e in elements:
+            by_row.setdefault(levels_map.get(e['id'], 0), []).append(e)
+
+        def _center(e):
+            return e['x'] + e.get('width', ICON_WIDTH) / 2.0
+
+        for _ in range(2):
+            for conn in resolved_conns:
+                f, t = conn.get('from'), conn.get('to')
+                if f not in elem_ids or t not in elem_ids or f == t:
+                    continue
+                rf = levels_map.get(f, 0)
+                rt = levels_map.get(t, 0)
+                if abs(rf - rt) != 1:
+                    continue
+                if outgoing.get(f) != [t] or incoming.get(t) != [f]:
+                    continue
+                if deg.get(f) == 1:
+                    free, anchor = by_id[f], by_id[t]
+                elif deg.get(t) == 1:
+                    free, anchor = by_id[t], by_id[f]
+                else:
+                    continue
+                dx = _center(anchor) - _center(free)
+                if abs(dx) < 1.0:
+                    continue
+                new_c = _center(free) + dx
+                row = by_row.get(levels_map.get(free['id'], 0), [])
+                fits = True
+                for other in row:
+                    if other is free:
+                        continue
+                    required = max(
+                        (free.get('width', ICON_WIDTH)
+                         + other.get('width', ICON_WIDTH)) / 2.0 + MIN_GAP,
+                        (label_ws.get(free['id'], 0)
+                         + label_ws.get(other['id'], 0)) / 2.0 + LABEL_GAP)
+                    if abs(new_c - _center(other)) < required:
+                        fits = False
+                        break
+                if fits:
+                    free['x'] += dx
+                    logger.debug(f"    V80: {free['id']} alineado a la "
+                                 f"columna de {anchor['id']} (dx {dx:+.0f})")
+
         # WISH-LAYOUT-014: cada feeder va al costado del rango de su
         # destino — el lado de la arista más corta — fuera de lo ya tendido
         # en su franja vertical, centrado en su destino. El tronco no se

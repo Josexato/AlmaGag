@@ -41,5 +41,10 @@ class AutoRoutingPolicy:
         # conexiones que cruzan bordes de contenedor — puerto en el
         # perímetro, cruce perpendicular, navegación interna ortogonal y
         # puertos repartidos. Corre en CADA re-ruteo (geometría vigente).
-        from AlmaGag.routing.container_ports import route_container_ports
+        from AlmaGag.routing.container_ports import (route_container_ports,
+                                                     route_node_ports)
         route_container_ports(layout)
+        # WISH-ROUTE-002 (V80): T72 aplicado a NODOS — convergencias con
+        # ≥2 puntas en el mismo lado se reparten (≥18px) y el tramo final
+        # se hace perpendicular al borde.
+        route_node_ports(layout)
