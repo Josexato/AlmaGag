@@ -1115,6 +1115,87 @@ debía repetirse cuando esto aterrizara.
 
 ---
 
+### WISH-LAYOUT-012: `canvas.flow` — la orientación cuenta la historia (V78) 🆕 ABIERTO
+**Componente**: `AlmaGag/layout/` (asignación de niveles), `docs/spec/FORMATO_ARCHIVOS.md`
+**Reportado**: 2026-08-10 (artefacto Claude Design, grupo V — caso presupuesto)
+
+El presupuesto se narra «de abajo hacia arriba: de los recursos al
+consolidado», pero el motor rinde siempre top-down (fuentes arriba,
+sumidero abajo) y no existe forma de declararlo. **Estándar propuesto**:
+`canvas.flow: "up" | "down" | "left" | "right"` (default `down`).
+Agregaciones/roll-ups usan `up`: banda de captura como cimiento,
+consolidado arriba, salidas derivadas como remate. **Verificación**: con
+`flow: "up"` las fuentes quedan en la banda inferior y el sumidero
+principal arriba; invertir `flow` produce el espejo exacto. Repro:
+`mina-presupuesto.sdjf` (hoy: `resumen` en y=1740, fuentes en y=45).
+
+---
+
+### WISH-LAYOUT-013: `align[]` es contrato, como near — audit duro y eje x (V79) 🆕 ABIERTO
+**Componente**: `AlmaGag/layout/considerations.py`
+**Reportado**: 2026-08-10 (artefacto Claude Design, grupo V)
+
+El autor declaró 5 alineaciones; el motor actual (post-iteración 7)
+cumple 4 y viola EN SILENCIO la de eje x (`[dppto, ppto, constr]` →
+centros x 569/636/760). Pedido del review: (a) violación = aviso duro
+del audit (`[align] grupo N: ids desalineados`), nunca silencio;
+(b) si un align cruza cadenas de profundidad distinta, se honra
+estirando la cadena corta con verticales limpias por su columna — no se
+rechaza; (c) alinear por CENTROS de icono en el eje declarado
+(desviación ≤1px). Medido con `mina-presupuesto.sdjf` (4/5; el artefacto
+midió 2/5 con el motor previo — la iteración 7 ya mejoró dos).
+
+---
+
+### WISH-ROUTE-002: Convergencia limpia — verticales por columna + puertos T72 en nodos (V80) 🆕 ABIERTO
+**Componente**: `AlmaGag/routing/`, `strategies/auto/`
+**Reportado**: 2026-08-10 (artefacto Claude Design, grupo V)
+
+Tres cadenas convergen en `resumen` desde profundidades 5/3/2; `ring`
+queda a ~1451px (medido hoy) con su arista cayendo por medio lienzo.
+Pedido: cada arista de convergencia viaja como vertical pura por el
+corredor de su columna hasta un corredor horizontal corto adyacente al
+padre común, y entra por puertos distribuidos en su borde — **T72
+aplicado a NODOS, no solo contenedores**. Sin `align[]` declarado, los
+padres de un hijo común se alinean al rango adyacente. Verificación:
+cero diagonales en aristas de convergencia; puertos ≥18px; ninguna
+arista de convergencia cruza otra columna.
+
+---
+
+### WISH-LAYOUT-014: Contenedor-feeder = carril lateral, nunca rango del tronco (V81) 🆕 ABIERTO
+**Componente**: `strategies/auto/positioner.py` (niveles de contenedores)
+**Reportado**: 2026-08-10 (artefacto Claude Design, grupo V)
+
+«Indirectos de obra» (gg/sup/seg → constr) se inserta como rango propio
+dentro de la columna del tronco: `dppto→ppto` pasa de un rango a 635px
+(medido hoy) con el contenedor en medio, y el lienzo crece a 1400×2205
+(aspecto 0.58 — J33/O51). Pedido: un contenedor cuyo único rol es
+alimentar a un nodo del tronco se coloca AL COSTADO del rango de su
+destino (lado libre), con arista corta perpendicular al borde —
+generaliza el carril de feeders a contenedores. Verificación: la
+distancia entre rangos consecutivos del tronco no cambia al agregar el
+contenedor; su arista al destino tiene ≤2 codos. Repro:
+`mina-presupuesto.sdjf`.
+
+---
+
+### WISH-DRAW-004: `canvas.legend[]` y `element.status` como constructos de primera clase (V82) 🆕 ABIERTO
+**Componente**: `AlmaGag/draw/`, `docs/spec/FORMATO_ARCHIVOS.md`
+**Reportado**: 2026-08-10 (artefacto Claude Design, grupo V)
+
+El autor necesitó una leyenda de estados y la metió con un hack: flow
+blanco `f4` con `path: [resumen, resumen]`. **La mitad audit YA ESTÁ**:
+el contrato U74/U77 (iteración 7) caza el hack con error duro
+(verificado ejecutando el archivo original). Falta el estándar que lo
+reemplace: `canvas.legend[]` (entradas texto+swatch libres) y
+`element.status: "ok" | "partial" | "empty"` con badge ◉◪▢ que colorea
+la línea de estado (verde/ámbar/gris) sin que el autor lo pinte a mano.
+Verificación: el fixture reescrito con legend+status emite el mismo
+visual sin el flow f4.
+
+---
+
 ### WISH-DRAW-003: Flows — carriles paralelos y contrato de autoría (grupo U del review) ✅ RESUELTO (2026-08-05)
 
 > Tres commits, uno por criterio:

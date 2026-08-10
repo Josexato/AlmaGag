@@ -64,6 +64,23 @@ T73 (áreas sin slot de icono) ya quedó resuelto el mismo día.
 > los §§ del contrato del skill — al citar entre equipos, usar el id del
 > contrato (`SKILL-ALMAGAG.md`).
 
+## Iteración 8 — grupo V del review (10-ago): el caso presupuesto
+
+El artefacto de Claude Design incorporó el formato de presupuesto (22
+hojas, pirámide de agregación) y abrió el grupo V. Fixture anonimizado:
+`mina-presupuesto.gag` → `docs/diagrams/gags/mina-presupuesto.sdjf`
+(23/19, 5 `align[]`, 3 flows, 1 contenedor-feeder). Verificado por
+ejecución el 10-ago: 4/5 aligns ya se cumplen (el artefacto midió 2/5
+pre-iteración 7) y el hack f4 ya lo caza U74/U77 con error duro.
+
+| Orden | Qué | Ticket |
+|---|---|---|
+| 1 | **Contenedor-feeder al carril lateral** — el tronco no se estira (dppto→ppto 635px hoy; lienzo 1400×2205) | WISH-LAYOUT-014 |
+| 2 | **Convergencia limpia** — verticales por columna + puertos T72 en nodos (ring→resumen 1451px hoy) | WISH-ROUTE-002 |
+| 3 | **`align[]` contrato duro** — audit que nombra la violación + caso eje x + estirar cadena corta | WISH-LAYOUT-013 |
+| 4 | **`canvas.flow`** — orientación de lectura up/down/left/right (roll-ups leen de abajo hacia arriba) | WISH-LAYOUT-012 |
+| 5 | **`canvas.legend[]` + `element.status`** ◉◪▢ — reemplazo de primera clase del hack f4 (la mitad audit ya está) | WISH-DRAW-004 |
+
 ## Mediano plazo (sin fecha)
 
 - **«El mapa» (WISH-ARCH-004)**: separar mapa (dato) de vista (representación)

@@ -1,0 +1,437 @@
+{
+  "elements": [
+    {
+      "id": "resumen",
+      "type": "building",
+      "label": "Resumen\nconsolidado E+P+C\n◪ cond. comerciales §5",
+      "color": "#1F3864"
+    },
+    {
+      "id": "fza",
+      "type": "user",
+      "label": "Fza Laboral\n◉ desde Formato 1-3",
+      "color": "#8FAADC"
+    },
+    {
+      "id": "cron",
+      "type": "document",
+      "label": "Cron. Val.\n◪ desde hitos H1–H7",
+      "color": "#8FAADC"
+    },
+    {
+      "id": "pareto",
+      "type": "document",
+      "label": "Paretto\n▢ deriva del consolidado",
+      "color": "#8FAADC"
+    },
+    {
+      "id": "ring",
+      "type": "document",
+      "label": "Resumen Ingeniería\n◉ con datos",
+      "color": "#2E75B6"
+    },
+    {
+      "id": "ing",
+      "type": "database",
+      "label": "Ingeniería\ncivil · eléctrica · telecom\n◉ US$ 56 K cotizados",
+      "color": "#2E75B6"
+    },
+    {
+      "id": "rproc",
+      "type": "document",
+      "label": "Resumen Procura\npartidas 1.10 a 1.50\n◪ leasing en 1.40",
+      "color": "#ED7D31"
+    },
+    {
+      "id": "dproc",
+      "type": "database",
+      "label": "Detalle Procura\nP.U.D. · G.G. · UTILIDAD\n◪ falta utilidad",
+      "color": "#ED7D31"
+    },
+    {
+      "id": "mproc",
+      "type": "database",
+      "label": "Material Procura\n◉ mapeada · cotización",
+      "color": "#ED7D31"
+    },
+    {
+      "id": "eproc",
+      "type": "database",
+      "label": "Equipo Procura\n◉ mapeada · cotización",
+      "color": "#ED7D31"
+    },
+    {
+      "id": "constr",
+      "type": "building",
+      "label": "Construcción\ncosto directo + indirectos + UTILIDAD",
+      "color": "#C00000"
+    },
+    {
+      "id": "ppto",
+      "type": "database",
+      "label": "Presupuesto\npartidas y metrados\n◪ metrados a corregir 11+3",
+      "color": "#C00000"
+    },
+    {
+      "id": "dppto",
+      "type": "database",
+      "label": "Detalle Ppto\nAPU por partida\n▢ deriva de recursos",
+      "color": "#C00000"
+    },
+    {
+      "id": "mo",
+      "type": "user",
+      "label": "Mano de Obra\ncuadrillas\n▢ EN CERO · InteCo",
+      "color": "#548B54"
+    },
+    {
+      "id": "mat",
+      "type": "database",
+      "label": "Material\n▢ EN CERO · InteCo",
+      "color": "#548B54"
+    },
+    {
+      "id": "eq",
+      "type": "server",
+      "label": "Equipo y combustible\n▢ EN CERO · InteCo",
+      "color": "#548B54"
+    },
+    {
+      "id": "sub",
+      "type": "database",
+      "label": "Subcontratos\n▢ EN CERO · InteCo",
+      "color": "#548B54"
+    },
+    {
+      "id": "pulab",
+      "type": "database",
+      "label": "P.U. Labor\ntarifa por categoría\n▢ EN CERO · InteCo",
+      "color": "#548B54"
+    },
+    {
+      "id": "tareq",
+      "type": "database",
+      "label": "Tarifa Equipos\nhora-máquina\n▢ EN CERO · InteCo",
+      "color": "#548B54"
+    },
+    {
+      "id": "gg",
+      "type": "database",
+      "label": "Gastos Generales\n21 conceptos\n▢ EN CERO · InteCo+C&D",
+      "color": "#548B54"
+    },
+    {
+      "id": "sup",
+      "type": "user",
+      "label": "Supervisión\n▢ EN CERO",
+      "color": "#548B54"
+    },
+    {
+      "id": "seg",
+      "type": "database",
+      "label": "Seguridad\n▢ EN CERO",
+      "color": "#548B54"
+    },
+    {
+      "id": "indir",
+      "type": "document",
+      "label": "Indirectos de obra",
+      "color": "#548B54",
+      "contains": [
+        "gg",
+        "sup",
+        "seg"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "pulab",
+      "to": "mo",
+      "direction": "forward",
+      "semantic_type": "dependency",
+      "routing": {
+        "type": "orthogonal",
+        "corner_radius": 10,
+        "preference": "vertical"
+      }
+    },
+    {
+      "from": "tareq",
+      "to": "eq",
+      "direction": "forward",
+      "semantic_type": "dependency",
+      "routing": {
+        "type": "orthogonal",
+        "corner_radius": 10,
+        "preference": "vertical"
+      }
+    },
+    {
+      "from": "mo",
+      "to": "dppto",
+      "direction": "forward",
+      "semantic_type": "data_flow",
+      "routing": {
+        "type": "orthogonal",
+        "corner_radius": 10,
+        "preference": "vertical"
+      }
+    },
+    {
+      "from": "mat",
+      "to": "dppto",
+      "direction": "forward",
+      "semantic_type": "data_flow",
+      "routing": {
+        "type": "orthogonal",
+        "corner_radius": 10,
+        "preference": "vertical"
+      }
+    },
+    {
+      "from": "eq",
+      "to": "dppto",
+      "direction": "forward",
+      "semantic_type": "data_flow",
+      "routing": {
+        "type": "orthogonal",
+        "corner_radius": 10,
+        "preference": "vertical"
+      }
+    },
+    {
+      "from": "sub",
+      "to": "dppto",
+      "direction": "forward",
+      "semantic_type": "data_flow",
+      "routing": {
+        "type": "orthogonal",
+        "corner_radius": 10,
+        "preference": "vertical"
+      }
+    },
+    {
+      "from": "dppto",
+      "to": "ppto",
+      "direction": "forward",
+      "semantic_type": "data_flow",
+      "routing": {
+        "type": "orthogonal",
+        "corner_radius": 10,
+        "preference": "vertical"
+      }
+    },
+    {
+      "from": "ppto",
+      "to": "constr",
+      "direction": "forward",
+      "semantic_type": "data_flow",
+      "routing": {
+        "type": "orthogonal",
+        "corner_radius": 10,
+        "preference": "vertical"
+      }
+    },
+    {
+      "from": "mproc",
+      "to": "dproc",
+      "direction": "forward",
+      "semantic_type": "data_flow",
+      "routing": {
+        "type": "orthogonal",
+        "corner_radius": 10,
+        "preference": "vertical"
+      }
+    },
+    {
+      "from": "eproc",
+      "to": "dproc",
+      "direction": "forward",
+      "semantic_type": "data_flow",
+      "routing": {
+        "type": "orthogonal",
+        "corner_radius": 10,
+        "preference": "vertical"
+      }
+    },
+    {
+      "from": "dproc",
+      "to": "rproc",
+      "direction": "forward",
+      "semantic_type": "data_flow",
+      "routing": {
+        "type": "orthogonal",
+        "corner_radius": 10,
+        "preference": "vertical"
+      }
+    },
+    {
+      "from": "ing",
+      "to": "ring",
+      "direction": "forward",
+      "semantic_type": "data_flow",
+      "routing": {
+        "type": "orthogonal",
+        "corner_radius": 10,
+        "preference": "vertical"
+      }
+    },
+    {
+      "from": "ring",
+      "to": "resumen",
+      "direction": "forward",
+      "semantic_type": "data_flow",
+      "routing": {
+        "type": "orthogonal",
+        "corner_radius": 10,
+        "preference": "vertical"
+      }
+    },
+    {
+      "from": "rproc",
+      "to": "resumen",
+      "direction": "forward",
+      "semantic_type": "data_flow",
+      "routing": {
+        "type": "orthogonal",
+        "corner_radius": 10,
+        "preference": "vertical"
+      }
+    },
+    {
+      "from": "constr",
+      "to": "resumen",
+      "direction": "forward",
+      "semantic_type": "data_flow",
+      "routing": {
+        "type": "orthogonal",
+        "corner_radius": 10,
+        "preference": "vertical"
+      }
+    },
+    {
+      "from": "resumen",
+      "to": "cron",
+      "direction": "forward",
+      "style": "dashed",
+      "semantic_type": "event",
+      "routing": {
+        "type": "orthogonal",
+        "corner_radius": 10,
+        "preference": "vertical"
+      }
+    },
+    {
+      "from": "resumen",
+      "to": "pareto",
+      "direction": "forward",
+      "style": "dashed",
+      "semantic_type": "event",
+      "routing": {
+        "type": "orthogonal",
+        "corner_radius": 10,
+        "preference": "vertical"
+      }
+    },
+    {
+      "from": "resumen",
+      "to": "fza",
+      "direction": "forward",
+      "style": "dashed",
+      "semantic_type": "event",
+      "routing": {
+        "type": "orthogonal",
+        "corner_radius": 10,
+        "preference": "vertical"
+      }
+    },
+    {
+      "from": "indir",
+      "to": "constr",
+      "direction": "forward",
+      "semantic_type": "data_flow"
+    }
+  ],
+  "flows": [
+    {
+      "id": "f1",
+      "label": "Cadena Construcción",
+      "color": "#C00000",
+      "path": [
+        "mo",
+        "dppto",
+        "ppto",
+        "constr",
+        "resumen"
+      ]
+    },
+    {
+      "id": "f2",
+      "label": "Cadena Procura",
+      "color": "#ED7D31",
+      "path": [
+        "mproc",
+        "dproc",
+        "rproc",
+        "resumen"
+      ]
+    },
+    {
+      "id": "f3",
+      "label": "Cadena Ingeniería",
+      "color": "#2E75B6",
+      "path": [
+        "ing",
+        "ring",
+        "resumen"
+      ]
+    }
+  ],
+  "considerations": [
+    {
+      "align": [
+        "pulab",
+        "tareq",
+        "mproc",
+        "eproc",
+        "ing"
+      ],
+      "axis": "y"
+    },
+    {
+      "align": [
+        "mo",
+        "eq",
+        "mat",
+        "sub",
+        "dproc",
+        "ring"
+      ],
+      "axis": "y"
+    },
+    {
+      "align": [
+        "dppto",
+        "rproc"
+      ],
+      "axis": "y"
+    },
+    {
+      "align": [
+        "fza",
+        "cron",
+        "pareto"
+      ],
+      "axis": "y"
+    },
+    {
+      "align": [
+        "dppto",
+        "ppto",
+        "constr"
+      ],
+      "axis": "x"
+    }
+  ]
+}
