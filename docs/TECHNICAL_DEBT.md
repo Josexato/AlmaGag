@@ -1161,6 +1161,15 @@ padres de un hijo común se alinean al rango adyacente. Verificación:
 cero diagonales en aristas de convergencia; puertos ≥18px; ninguna
 arista de convergencia cruza otra columna.
 
+**Aplica también a los ESLABONES de cada cadena** (el render objetivo lo
+dice: «las cadenas suben por columnas propias con verticales puras»).
+Repro concreto señalado por el autor (10-ago): `pulab→mo` — el padre
+quedó en x≈311 y el hijo en x≈150 (161px de desfase), la arista sale
+del icono, barre 133px horizontal a y=70 POR DEBAJO del propio label de
+`pulab` (que el optimizador empujó a `left` por el mismo enredo) y
+recién ahí cae. Con columnas alineadas, la arista es una vertical pura
+y el label vuelve a su posición natural — los dos defectos son uno.
+
 ---
 
 ### WISH-LAYOUT-014: Contenedor-feeder = carril lateral, nunca rango del tronco (V81) 🆕 ABIERTO
