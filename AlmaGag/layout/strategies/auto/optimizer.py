@@ -591,6 +591,28 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         best_layout.invalidate_collision_cache()
         min_collisions = self.evaluate(best_layout)
 
+        # WISH-LAYOUT-013 (V79): align[] es CONTRATO — el audit nombra cada
+        # grupo desalineado sobre la geometría FINAL, nunca silencio. La
+        # tolerancia es 1px sobre centros de icono en el eje declarado.
+        for gi, cons in enumerate(
+                getattr(layout, '_considerations', None) or []):
+            if cons.get('kind') != 'align':
+                continue
+            axis = cons.get('axis', 'x')
+            vals = []
+            for eid in cons.get('ids', []):
+                e = best_layout.elements_by_id.get(eid)
+                if e is None or 'x' not in e:
+                    continue
+                c = (e['x'] + e.get('width', 80) / 2.0 if axis == 'x'
+                     else e['y'] + e.get('height', 50) / 2.0)
+                vals.append((eid, c))
+            if len(vals) >= 2 and \
+                    max(v for _, v in vals) - min(v for _, v in vals) > 1.0:
+                detail = ' · '.join(f'{i}={v:.0f}' for i, v in vals)
+                logger.warning(f"[align] grupo {gi + 1} ({axis}): ids "
+                               f"desalineados — {detail}")
+
         self._capture('final', best_layout,
                       f'normalizado + labels escalonados · {min_collisions} colisiones')
 

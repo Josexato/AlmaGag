@@ -77,7 +77,7 @@ pre-iteración 7) y el hack f4 ya lo caza U74/U77 con error duro.
 |---|---|---|
 | 1 ✅ | **Contenedor-feeder al carril lateral** — HECHO (10-ago): dppto→ppto 635→290, lienzo 2205→1960, arista 2 codos | WISH-LAYOUT-014 |
 | 2 ✅ | **Convergencia limpia** — HECHO (10-ago): eslabones 1:1 en la misma columna (pulab→mo vertical pura) + puertos T72 en nodos (llegadas perpendiculares, puntas ≥18px) | WISH-ROUTE-002 |
-| 3 | **`align[]` contrato duro** — audit que nombra la violación + caso eje x + estirar cadena corta | WISH-LAYOUT-013 |
+| 3 ✅ | **`align[]` contrato duro** — HECHO (10-ago): eje x entre rangos honrado en el positioner (5/5 aligns; tronco en una columna) + audit `[align]` que nombra toda violación | WISH-LAYOUT-013 |
 | 4 | **`canvas.flow`** — orientación de lectura up/down/left/right (roll-ups leen de abajo hacia arriba) | WISH-LAYOUT-012 |
 | 5 | **`canvas.legend[]` + `element.status`** ◉◪▢ — reemplazo de primera clase del hack f4 (la mitad audit ya está) | WISH-DRAW-004 |
 

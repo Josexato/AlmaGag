@@ -1131,7 +1131,20 @@ principal arriba; invertir `flow` produce el espejo exacto. Repro:
 
 ---
 
-### WISH-LAYOUT-013: `align[]` es contrato, como near — audit duro y eje x (V79) 🆕 ABIERTO
+### WISH-LAYOUT-013: `align[]` es contrato, como near — audit duro y eje x (V79) ✅ RESUELTO (2026-08-10)
+
+> Dos patas: (1) **honrar el eje x entre rangos** (positioner): un align
+> de eje x cuyos miembros viven en rangos distintos es contrato de
+> COLUMNA — se honra en el origen (mediana, con hueco label-aware en
+> cada fila, todo-o-nada), porque la vía blanda guardada no podía
+> moverlo; (2) **audit que nombra**: al final del pipeline, cada grupo
+> align con desviación >1px sobre centros de icono se reporta
+> `[align] grupo N (axis): ids desalineados — id=coord …` — nunca
+> silencio. **Medido** (mina-presupuesto): 5/5 alineaciones cumplidas
+> (el artefacto midió 2/5 pre-it7; 4/5 post-it7); el tronco
+> dppto/ppto/constr quedó en una sola columna (x=652) con verticales
+> puras. Guarda 39/39 intacta. Regresión:
+> `tests/test_layout013_align_contract.py`.
 **Componente**: `AlmaGag/layout/considerations.py`
 **Reportado**: 2026-08-10 (artefacto Claude Design, grupo V)
 
