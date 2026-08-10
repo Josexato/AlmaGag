@@ -75,7 +75,7 @@ pre-iteración 7) y el hack f4 ya lo caza U74/U77 con error duro.
 
 | Orden | Qué | Ticket |
 |---|---|---|
-| 1 | **Contenedor-feeder al carril lateral** — el tronco no se estira (dppto→ppto 635px hoy; lienzo 1400×2205) | WISH-LAYOUT-014 |
+| 1 ✅ | **Contenedor-feeder al carril lateral** — HECHO (10-ago): dppto→ppto 635→290, lienzo 2205→1960, arista 2 codos | WISH-LAYOUT-014 |
 | 2 | **Convergencia limpia** — verticales por columna + puertos T72 en nodos (ring→resumen 1451px hoy) | WISH-ROUTE-002 |
 | 3 | **`align[]` contrato duro** — audit que nombra la violación + caso eje x + estirar cadena corta | WISH-LAYOUT-013 |
 | 4 | **`canvas.flow`** — orientación de lectura up/down/left/right (roll-ups leen de abajo hacia arriba) | WISH-LAYOUT-012 |

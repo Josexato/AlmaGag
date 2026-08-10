@@ -1172,7 +1172,19 @@ y el label vuelve a su posición natural — los dos defectos son uno.
 
 ---
 
-### WISH-LAYOUT-014: Contenedor-feeder = carril lateral, nunca rango del tronco (V81) 🆕 ABIERTO
+### WISH-LAYOUT-014: Contenedor-feeder = carril lateral, nunca rango del tronco (V81) ✅ RESUELTO (2026-08-10)
+
+> En `_calculate_hierarchical_layout`: un contenedor cuya única relación
+> con el grafo es UNA arista hacia un nodo primario no-contenedor se
+> aparta del apilado por niveles y, tras el centrado global, se coloca al
+> costado del rango de su destino (el lado de la arista más corta, fuera
+> de lo ya tendido en su franja vertical, centrado en el destino).
+> **Medido** (mina-presupuesto): dppto→ppto 635→290px (pitch normal),
+> lienzo 1400×2205→1960, tinta 11.3→12.7%, aspecto 0.58→0.66; la arista
+> del feeder quedó con 2 codos. Costo: +2 cruces (la arista lateral
+> atraviesa las verticales de procura — territorio de WISH-ROUTE-002) y
+> +1 label interno del contenedor. Resto de la guarda intacto (38/38).
+> Regresión: `tests/test_layout014_feeder_container.py`.
 **Componente**: `strategies/auto/positioner.py` (niveles de contenedores)
 **Reportado**: 2026-08-10 (artefacto Claude Design, grupo V)
 
