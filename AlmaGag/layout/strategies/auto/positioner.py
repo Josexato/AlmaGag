@@ -515,6 +515,22 @@ class AutoLayoutPositioner:
         if not by_level:
             return
 
+        # WISH-LAYOUT-012 (V78): `canvas.flow` declara la orientación de
+        # lectura. 'up' (roll-ups: de los recursos al consolidado) invierte
+        # los rangos — fuentes en la banda inferior, sumidero arriba.
+        # Default 'down' (histórico). left/right aún no: warning honesto.
+        flow = str((getattr(layout, 'canvas', None) or {})
+                   .get('flow', 'down')).lower()
+        flow_levels = None
+        if flow in ('left', 'right'):
+            logger.warning(f"§V78: canvas.flow '{flow}' aún no implementado "
+                           f"— se emite con 'down'")
+        elif flow == 'up':
+            mx = max(by_level.keys())
+            by_level = {mx - k: v for k, v in by_level.items()}
+            flow_levels = {e['id']: mx - layout.topological_levels.get(e['id'], 0)
+                           for e in elements}
+
         # Build directed graphs for barycenter (use resolved connections)
         elem_ids = {e['id'] for e in elements}
         outgoing = {e['id']: [] for e in elements}
@@ -534,7 +550,7 @@ class AutoLayoutPositioner:
         if folded:
             by_level, abstract_positions, levels_map = folded
         else:
-            levels_map = layout.topological_levels
+            levels_map = flow_levels or layout.topological_levels
 
             # Centrality scores (use resolved connections)
             centrality = self.graph_analyzer.calculate_centrality_scores(

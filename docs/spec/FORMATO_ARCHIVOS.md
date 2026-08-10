@@ -265,6 +265,7 @@ Define el tamano del area de dibujo en pixeles. Si lo omites, AlmaGag usa 1400x9
 |-------|------|---------|----------|
 | `width` | numero | 1400 | Ancho del SVG en pixeles |
 | `height` | numero | 900 | Alto del SVG en pixeles |
+| `flow` | string | `"down"` | Orientacion de LECTURA del grafo dirigido (V78). `"down"`: fuentes arriba, sumidero abajo (historico). `"up"`: rangos invertidos — fuentes como cimiento en la banda inferior y el consolidado arriba; es la orientacion natural de los roll-ups/agregaciones («de los recursos al consolidado»). `"left"`/`"right"`: reservados — hoy avisan con WARNING y emiten como `down`. |
 
 **Nota:** Si tus elementos no caben, AlmaGag agranda el canvas automaticamente.
 
