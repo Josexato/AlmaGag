@@ -1,4 +1,7 @@
 {
+  "canvas": {
+    "flow": "up"
+  },
   "elements": [
     {
       "id": "resumen",

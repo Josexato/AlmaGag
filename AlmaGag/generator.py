@@ -213,7 +213,10 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     initial_layout = Layout(
         elements=all_elements,
         connections=all_connections,
-        canvas={'width': canvas_width, 'height': canvas_height}
+        canvas={'width': canvas_width, 'height': canvas_height,
+                # WISH-LAYOUT-012 (V78): orientación de lectura declarada
+                **({'flow': str(canvas['flow']).lower()}
+                   if isinstance(canvas, dict) and canvas.get('flow') else {})}
     )
 
     # Agregar nombre del diagrama para visualizador

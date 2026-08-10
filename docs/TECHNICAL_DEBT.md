@@ -1115,7 +1115,19 @@ debía repetirse cuando esto aterrizara.
 
 ---
 
-### WISH-LAYOUT-012: `canvas.flow` — la orientación cuenta la historia (V78) 🆕 ABIERTO
+### WISH-LAYOUT-012: `canvas.flow` — la orientación cuenta la historia (V78) ✅ RESUELTO (2026-08-10)
+
+> `canvas.flow: "up" | "down"` (default `down`). Con `up` el positioner
+> invierte los rangos topológicos: fuentes como cimiento en la banda
+> inferior, sumidero arriba, salidas derivadas como remate — la lectura
+> natural de los roll-ups. `left`/`right` quedan reservados: WARNING
+> honesto y se emite como `down`. El fixture `mina-presupuesto.sdjf`
+> declara `up` y quedó como el render objetivo del review (captura
+> abajo, consolidado arriba, salidas de presentación como corona) — de
+> rebote cruces 2→0 (labels 1→2, texto-texto). Verificación del ticket
+> cumplida: invertir `flow` produce el espejo exacto del orden de
+> rangos (test diferencial). Espec: `docs/spec/FORMATO_ARCHIVOS.md` §1.
+> Regresión: `tests/test_layout012_canvas_flow.py`.
 **Componente**: `AlmaGag/layout/` (asignación de niveles), `docs/spec/FORMATO_ARCHIVOS.md`
 **Reportado**: 2026-08-10 (artefacto Claude Design, grupo V — caso presupuesto)
 
