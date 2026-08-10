@@ -476,6 +476,34 @@ class AutoLayoutPositioner:
             layout: Layout con topological_levels calculados
             elements: Elementos sin coordenadas a posicionar
         """
+        resolved_conns = getattr(layout, '_resolved_primary_connections', None) or layout.connections
+
+        # WISH-LAYOUT-014 (V81): un contenedor-FEEDER — toda su relación con
+        # el grafo es UNA arista hacia un nodo primario que no es contenedor
+        # — no ocupa un rango propio (partía el tronco: dppto→ppto a 635px y
+        # el lienzo a 2205). Se aparta del apilado por niveles y al final se
+        # coloca AL COSTADO del rango de su destino.
+        all_ids = {e['id'] for e in elements}
+        by_id = {e['id']: e for e in elements}
+        feeders: Dict[str, str] = {}
+        for e in elements:
+            if 'contains' not in e:
+                continue
+            nbrs = set()
+            for conn in resolved_conns:
+                f, t = conn['from'], conn['to']
+                if f == e['id'] and t in all_ids:
+                    nbrs.add(t)
+                elif t == e['id'] and f in all_ids:
+                    nbrs.add(f)
+            nbrs.discard(e['id'])
+            if len(nbrs) == 1:
+                target = next(iter(nbrs))
+                if 'contains' not in by_id[target]:
+                    feeders[e['id']] = target
+        if feeders and len(feeders) < len(elements):
+            elements = [e for e in elements if e['id'] not in feeders]
+
         # 1. Agrupar por nivel topológico (element dicts, not IDs)
         by_level = {}
         for elem in elements:
@@ -488,7 +516,6 @@ class AutoLayoutPositioner:
             return
 
         # Build directed graphs for barycenter (use resolved connections)
-        resolved_conns = getattr(layout, '_resolved_primary_connections', None) or layout.connections
         elem_ids = {e['id'] for e in elements}
         outgoing = {e['id']: [] for e in elements}
         incoming = {e['id']: [] for e in elements}
@@ -601,6 +628,34 @@ class AutoLayoutPositioner:
         if abs(correction) > 0.5:
             for elem in elements:
                 elem['x'] += correction
+
+        # WISH-LAYOUT-014: cada feeder va al costado del rango de su
+        # destino — el lado de la arista más corta — fuera de lo ya tendido
+        # en su franja vertical, centrado en su destino. El tronco no se
+        # estira y la arista queda corta y perpendicular al borde.
+        for fid, tid in feeders.items():
+            fc = by_id[fid]
+            tgt = by_id.get(tid)
+            if tgt is None or 'x' not in tgt:
+                continue
+            cw = fc.get('width', ICON_WIDTH)
+            ch = fc.get('height', ICON_HEIGHT)
+            cy = tgt['y'] + tgt.get('height', ICON_HEIGHT) / 2.0 - ch / 2.0
+            band = [e for e in elements if 'x' in e
+                    and e['y'] < cy + ch + MIN_GAP
+                    and e['y'] + e.get('height', ICON_HEIGHT) > cy - MIN_GAP]
+            gap = SPACING_XLARGE          # aire para la arista y los labels
+            right_x = max((e['x'] + e.get('width', ICON_WIDTH) for e in band),
+                          default=tgt['x']) + gap
+            left_x = min((e['x'] for e in band), default=tgt['x']) - gap - cw
+            t_r = tgt['x'] + tgt.get('width', ICON_WIDTH)
+            if right_x - t_r <= tgt['x'] - (left_x + cw):
+                fc['x'] = right_x
+            else:
+                fc['x'] = left_x
+            fc['y'] = cy
+            logger.debug(f"    {fid}: contenedor-feeder al costado de {tid} "
+                         f"({fc['x']:.0f}, {fc['y']:.0f})")
 
         # Mark hierarchical layout as applied (prevents overwriting by redistribution)
         layout._hierarchical_layout_applied = True
