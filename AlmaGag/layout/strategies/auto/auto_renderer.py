@@ -161,13 +161,22 @@ class AutoSVGRenderer:
                                     y_offset=24 if role_legend_drawn else 0)
 
         # WISH-DRAW-002: leyenda «Flujos:» apilada sobre las otras franjas
+        _n_legends = (1 if role_legend_drawn else 0) + \
+            (1 if len({c.get('semantic_type') for c in connections
+                       if c.get('semantic_type')}) >= 3 else 0)
         if _flows:
             from AlmaGag.draw.primitives.flows import draw_flow_legend
-            _n_legends = (1 if role_legend_drawn else 0) + \
-                (1 if len({c.get('semantic_type') for c in connections
-                           if c.get('semantic_type')}) >= 3 else 0)
-            draw_flow_legend(dwg, _flows, canvas_width, canvas_height,
-                             y_offset=24 * _n_legends)
+            if draw_flow_legend(dwg, _flows, canvas_width, canvas_height,
+                                y_offset=24 * _n_legends):
+                _n_legends += 1
+
+        # WISH-DRAW-004 (V82): leyenda LIBRE del autor (canvas.legend[]),
+        # apilada sobre las demás franjas.
+        _canvas_legend = (getattr(layout, 'canvas', None) or {}).get('legend')
+        if _canvas_legend:
+            from AlmaGag.draw.primitives.svg import draw_canvas_legend
+            draw_canvas_legend(dwg, _canvas_legend, canvas_width,
+                               canvas_height, y_offset=24 * _n_legends)
 
         # 5. Debug visual
         if visualdebug:

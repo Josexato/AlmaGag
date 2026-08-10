@@ -1244,7 +1244,20 @@ contenedor; su arista al destino tiene ≤2 codos. Repro:
 
 ---
 
-### WISH-DRAW-004: `canvas.legend[]` y `element.status` como constructos de primera clase (V82) 🆕 ABIERTO
+### WISH-DRAW-004: `canvas.legend[]` y `element.status` como constructos de primera clase (V82) ✅ RESUELTO (2026-08-10)
+
+> `element.status: ok|partial|empty` → badge ◉◪▢ que se antepone a la
+> ÚLTIMA línea del label y la colorea (verde/ámbar/gris) en el dibujo —
+> el autor ya no pinta glifos a mano (`draw_icon_label`, STATUS_BADGES).
+> `canvas.legend[]` → leyenda libre al pie (string o {label, color} con
+> swatch redondo), apilada con «Enlaces:»/«Flujos:»
+> (`draw_canvas_legend`). El fixture del presupuesto quedó reescrito con
+> los constructos (21 status + leyenda de 3 estados, glifos fuera de los
+> labels) y emite el mismo visual sin el hack f4 — que la otra mitad del
+> ticket (U74/U77, iteración 7) ya cazaba como error. Espec:
+> `FORMATO_ARCHIVOS.md` (§1 canvas.legend, §2 element.status). Guarda:
+> sólo la línea del presupuesto (labels 2→1: los labels perdieron los
+> glifos pintados). Regresión: `tests/test_draw004_legend_status.py`.
 **Componente**: `AlmaGag/draw/`, `docs/spec/FORMATO_ARCHIVOS.md`
 **Reportado**: 2026-08-10 (artefacto Claude Design, grupo V)
 
