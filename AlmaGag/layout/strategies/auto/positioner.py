@@ -684,6 +684,52 @@ class AutoLayoutPositioner:
                     logger.debug(f"    V80: {free['id']} alineado a la "
                                  f"columna de {anchor['id']} (dx {dx:+.0f})")
 
+        # WISH-LAYOUT-013 (V79): un align de eje x entre RANGOS distintos
+        # es contrato de COLUMNA (dppto/ppto/constr = un solo tronco). El
+        # camino blando no puede honrarlo (mueve todo o nada contra la
+        # guarda de colisiones); aquí se honra en el origen: cada miembro
+        # va a la columna objetivo (mediana) si TODOS tienen hueco en su
+        # fila — pitch label-aware, como el snap V80.
+        for cons in getattr(layout, '_considerations', None) or []:
+            if cons.get('kind') != 'align' or cons.get('axis') != 'x':
+                continue
+            members = [by_id[i] for i in cons.get('ids', [])
+                       if i in by_id and 'x' in by_id[i]
+                       and i in levels_map]
+            if len(members) < 2:
+                continue
+            if len({levels_map.get(m['id'], 0) for m in members}) < 2:
+                continue          # mismo rango: sigue en la vía blanda
+            centers = sorted(_center(m) for m in members)
+            target = centers[len(centers) // 2]
+            moves = []
+            honorable = True
+            for m in members:
+                dx = target - _center(m)
+                if abs(dx) < 1.0:
+                    continue
+                row = by_row.get(levels_map.get(m['id'], 0), [])
+                for other in row:
+                    if other is m:
+                        continue
+                    required = max(
+                        (m.get('width', ICON_WIDTH)
+                         + other.get('width', ICON_WIDTH)) / 2.0 + MIN_GAP,
+                        (label_ws.get(m['id'], 0)
+                         + label_ws.get(other['id'], 0)) / 2.0 + LABEL_GAP)
+                    if abs(target - _center(other)) < required:
+                        honorable = False
+                        break
+                if not honorable:
+                    break
+                moves.append((m, dx))
+            if honorable:
+                for m, dx in moves:
+                    m['x'] += dx
+                if moves:
+                    logger.debug(f"    V79: align x honrado — "
+                                 f"{[m['id'] for m, _ in moves]} → {target:.0f}")
+
         # WISH-LAYOUT-014: cada feeder va al costado del rango de su
         # destino — el lado de la arista más corta — fuera de lo ya tendido
         # en su franja vertical, centrado en su destino. El tronco no se
