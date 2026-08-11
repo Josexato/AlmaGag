@@ -107,6 +107,27 @@ motor (el visor es sólo capa de presentación).
 a 1483×1391 con letra 16px, llegadas verticales a mitad de corredor y
 leyenda en franja propia. Motor v3.10.0.
 
+## Iteración 10 — grupo W del review (11-ago): higiene de bandas y última milla
+
+Claude Design midió el presupuesto v3 (render del motor v3.10) y abrió
+W83-W89. Además, la pregunta del autor sobre los tres resúmenes destapó
+WISH-LAYOUT-017 (resuelto el mismo día). Todos los W verificados por
+ejecución contra master antes de ticketear (W84 refutado en iconos,
+W86 matizado — ver TECHNICAL_DEBT).
+
+| Orden | Qué | Ticket |
+|---|---|---|
+| 1 ✅ | **align y entre rangos = FILA** — HECHO (11-ago): promoción de rango; la «capa de resúmenes» del presupuesto (ring/rproc/constr en una fila) con lo infactible nombrado | WISH-LAYOUT-017 |
+| 2 | **Cero diagonales de última milla** — 4 medidas en el presupuesto pese a preference vertical; audit H24 extendido (Δx>8∧Δy>8 = 0) | BUGS-ROUTE-004 |
+| 3 | **Higiene de bandas** — la banda termina bajo su nodo, corredor mínimo, nada ajeno encerrado (hoy: la roja envuelve a Mano de Obra); longitud ≤ 1.15× sus conexiones | WISH-DRAW-006 |
+| 4 | **Labels como obstáculos de ruteo** — la dashed resumen→cron cruza el label de Cron.Val; bboxes de labels al mapa de obstáculos + métrica nueva del audit | WISH-ROUTE-004 |
+| 5 | **Canal entre cadenas + labels de contenedor** — lo que queda de W84/W86 tras re-medir: es de labels, no de iconos | WISH-LAYOUT-018 |
+| 6 | **Journey como primitivo de colocación** — miembros exclusivos en corredor propio; la banda recta como consecuencia. El cambio de fondo del grupo | WISH-LAYOUT-019 |
+
+**Mediano plazo del grupo**: WISH-ARCH-006 (derivabilidad W89 — el
+presupuesto de ~470 a ~200 líneas; fixture reducido ≡ completo como test
+de éxito).
+
 ## Mediano plazo (sin fecha)
 
 - **«El mapa» (WISH-ARCH-004)**: separar mapa (dato) de vista (representación)

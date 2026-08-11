@@ -1281,6 +1281,100 @@ intacto + infactible nombrado).
 
 ---
 
+> **Tanda 2026-08-11 — grupo W del review («Higiene de bandas y última
+> milla», presupuesto v3).** Claude Design midió el render del motor
+> v3.10 y abrió W83-W89. Verificado por ejecución contra master antes de
+> ticketear: W85 confirmado y superado (4 diagonales, no 3, incluida su
+> 335,463→375,415); W83/W87/W88 confirmados en PNG; W84 refutado en
+> iconos (gap mo↔dproc 144px ≥ 48) pero válido en labels; W86 matizado
+> (los hijos de Indirectos ya salen en grilla 2×2 — gg/sup y=381, seg
+> y=502; falta el pulido de labels internos).
+
+### BUGS-ROUTE-004: Diagonales de última milla en aristas nodo→nodo (W85) 🆕 ABIERTO
+**Componente**: `routing/` (spread de puertos / reconstrucción V80)
+**Reportado**: 2026-08-11 (grupo W; verificado: 4 segmentos con Δx>8∧Δy>8
+en el presupuesto — p.ej. 335,463→375,415 y 877,463→837,415)
+
+H24 prohíbe diagonales pero el reparto de puertos y las reconexiones
+dejan tramos oblicuos cortos cerca de los extremos, pese a
+`preference: "vertical"`. **Deseo W85**: toda arista ortogonal entra y
+sale perpendicular al borde; el desplazamiento lateral se absorbe en un
+codo a ≥14px del borde. Audit H24 extendido: cero segmentos Δx>8∧Δy>8.
+
+---
+
+### WISH-DRAW-006: Higiene de bandas de journeys — terminar en el nodo, corredor mínimo, nada encerrado (W83) 🆕 ABIERTO
+**Componente**: `draw/primitives/journeys.py`
+**Reportado**: 2026-08-11 (grupo W; verificado en PNG: la banda roja
+encierra a Mano de Obra en su arranque)
+
+La banda (a) empieza y termina bajo el icono de su nodo extremo, sin
+lazos ni U-turns; (b) entre nodos consecutivos toma el corredor de menor
+longitud (la polilínea de SU conexión, U74) sin desvíos; (c) ningún
+icono/label ajeno queda dentro del trazo (distancia icono↔eje > ancho/2
++ 8px). Métrica: longitud de banda ≤ 1.15× la suma de sus conexiones.
+
+---
+
+### WISH-ROUTE-004: Los labels son obstáculos de ruteo (W87) 🆕 ABIERTO
+**Componente**: `routing/visibility_graph.py` (mapa de obstáculos)
+**Reportado**: 2026-08-11 (grupo W; verificado en PNG: la dashed
+resumen→cron atraviesa «Cron. Val. / desde hitos H1–H7»)
+
+Los bboxes de labels (propios y ajenos) entran al mapa de obstáculos con
+margen de 4px; la llegada elige un puerto cuyo tramo final no cruce el
+label del propio destino. Métrica de audit nueva: intersecciones
+segmento↔bbox de label (hoy no se cuenta).
+
+---
+
+### WISH-LAYOUT-018: Canal entre cadenas + pulido de labels de contenedor (W84 + W86) 🆕 ABIERTO
+**Componente**: `strategies/auto/` (colocación), `container_calculator`
+**Reportado**: 2026-08-11 (grupo W, re-medido: los ICONOS ya cumplen —
+gap mo↔dproc 144px; los hijos de Indirectos ya salen en grilla 2×2)
+
+Lo que queda de W84/W86 tras la re-medición es de LABELS: el canal
+entre la columna de una cadena y la vecina debe quedar libre también de
+labels (si el label no cabe, K37 lo recoloca antes de invadir); y los
+labels internos de contenedor no deben rozarse entre sí. Métrica:
+ningún bbox de label intersecta el canal de otra cadena ni otro label
+dentro de un contenedor.
+
+---
+
+### WISH-LAYOUT-019: El journey es primitivo de COLOCACIÓN, no solo overlay (W88) 🆕 ABIERTO
+**Componente**: `strategies/auto/positioner.py`
+**Reportado**: 2026-08-11 (grupo W; verificado: mo —cadena
+construcción— colocado junto a la columna de procura)
+
+Cada journey reclama una columna/corredor propio (perpendicular al
+flow): miembros exclusivos dentro, ordenados por posición en el path;
+nodos compartidos en la confluencia; no-miembros fuera. El orden de
+columnas sigue `journeys[]` salvo near/avoid. La banda casi recta (≤2
+codos por tramo) sale como CONSECUENCIA, no como parche. Es el cambio
+de fondo del grupo W: hoy los journeys pintan sobre un placement que
+los ignora.
+
+---
+
+### WISH-ARCH-006: Derivabilidad — el JSON mínimo que debería bastar (W89) 🆕 ABIERTO — mediano plazo
+**Componente**: transversal (positioner + router + spec)
+**Reportado**: 2026-08-11 (grupo W, referencia orientativa — «la última
+palabra la tiene Claude Code al implementar»)
+
+Test de éxito del grupo W: el presupuesto pasaría de ~470 a ~200 líneas
+— cada línea restante es una decisión, no un parche. Se derivan:
+`canvas.width/height` (O51), `routing{}` ×19 (H24/W85 default),
+la leyenda de estados (V82), y 4 de 5 `align[]` (hermanos que convergen
+= fila; padres del sumidero = capa de resúmenes vía W88/V80; hijos del
+sumidero = salidas; columna del tronco = G21/W88). Queda declarado sólo
+lo no-derivable (la fila base que cruza profundidades — preferencia
+genuina). Verificación: el fixture reducido y el completo emiten el
+MISMO SVG; si difieren, se documenta la derivación faltante o el campo
+se declara no-derivable.
+
+---
+
 ### Recalibración O56 (iteración 9): escala tipográfica 14/12/11 → 16/13/12 ✅ (2026-08-11)
 
 Con la lámina ya compacta (LAYOUT-016), el contrato tipográfico sube a
