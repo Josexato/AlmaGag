@@ -206,8 +206,12 @@ nunca una cinta 1×N. El área puede declarar su banda con `role`:
 | `overlay` | fondo | buses/capas transversales |
 
 El ruteo inter-área elige el lado de salida/entrada por el eje dominante
-entre cajas (derecha/izquierda/abajo/arriba). Precedencia del macro-plano:
-`canvas.partition` declarado > `area.role` > derivación por aspecto.
+entre cajas (derecha/izquierda/abajo/arriba). **Bus (WISH-ROUTE-005/X92)**:
+un nodo con destinos inter-área en ≥3 áreas distintas se rutea como bus —
+troncal horizontal única en el corredor pegado a su caja y un ramal
+vertical por destino (se nombra en el log: `[bus] hub '...'`). Precedencia
+del macro-plano: `canvas.partition` declarado > `area.role` > derivación
+por aspecto.
 (Nota: este `role` de ÁREA es distinto del `role` de responsable por
 nodo §I30.)
 

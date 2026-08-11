@@ -456,15 +456,74 @@ def _node_border_port(e, side):
     return (cx, e['y'] + ICON_HEIGHT)
 
 
+BUS_MIN_AREAS = 3      # WISH-ROUTE-005 (X92): umbral de destinos en áreas distintas
+
+
+def _route_bus(src_id, conns, area_of, box_by_area, by_id):
+    """WISH-ROUTE-005 (X92): un hub con destinos en ≥BUS_MIN_AREAS áreas
+    distintas se rutea como BUS — una troncal horizontal en el corredor
+    pegado a la caja del hub (arriba o abajo, según la mayoría de destinos)
+    y un ramal vertical por destino. Los tramos compartidos de la troncal se
+    superponen: la lámina muestra UNA línea con derivaciones, no N rutas
+    independientes cruzando el lienzo (tabernero: las ~15 dashed de la capa
+    TI). v1: troncal horizontal + ramales verticales, hubs por nodo ORIGEN."""
+    s = by_id[src_id]
+    sb = box_by_area[area_of[src_id]]
+    scy = sb['y'] + sb['h'] / 2
+    ups = sum(1 for c in conns
+              if box_by_area[area_of[c['to']]]['y']
+              + box_by_area[area_of[c['to']]]['h'] / 2 < scy)
+    if ups >= len(conns) / 2:              # mayoría arriba → troncal superior
+        a = _node_border_port(s, 'T')
+        exit_edge, trunk_y = sb['y'], sb['y'] - AREA_GAP / 2
+    else:                                  # mayoría abajo → troncal inferior
+        a = _node_border_port(s, 'B')
+        exit_edge, trunk_y = sb['y'] + sb['h'], sb['y'] + sb['h'] + AREA_GAP / 2
+    for c in conns:
+        d = by_id[c['to']]
+        tb = box_by_area[area_of[c['to']]]
+        b_side = 'B' if tb['y'] + tb['h'] / 2 < trunk_y else 'T'
+        b = _node_border_port(d, b_side)
+        entry = tb['y'] + tb['h'] if b_side == 'B' else tb['y']
+        pts = [a, (a[0], exit_edge), (a[0], trunk_y),
+               (b[0], trunk_y), (b[0], entry), b]
+        c['computed_path'] = {'type': 'polyline', 'points': pts}
+        c['_from_port'] = a
+        c['_to_port'] = b
+        c['_inter_area'] = True
+        c['_bus'] = src_id
+    n_areas = len({area_of[c['to']] for c in conns})
+    logger.info(f"[bus] hub '{src_id}': troncal + {len(conns)} ramal(es) "
+                f"hacia {n_areas} área(s) (X92)")
+
+
 def _route_inter_area(layout, area_of, box_by_area):
     """§I29 generalizado (WISH-LAYOUT-020): con la macro-grilla 2D las cajas
     ya no están sólo a la derecha — el lado de salida/entrada se elige por el
     EJE DOMINANTE entre centros de caja (R→L, L→R, B→T o T→B), con el
-    corredor a mitad de camino entre los bordes enfrentados."""
+    corredor a mitad de camino entre los bordes enfrentados. Los hubs
+    multi-área van aparte como BUS (WISH-ROUTE-005)."""
     by_id = {e['id']: e for e in layout.elements}
+
+    # WISH-ROUTE-005 (X92): detectar hubs por nodo origen ANTES del ruteo
+    # par-a-par.
+    inter = [c for c in layout.connections
+             if c.get('from') in area_of and c.get('to') in area_of
+             and area_of[c.get('from')] != area_of[c.get('to')]]
+    by_src: Dict[str, list] = {}
+    for c in inter:
+        by_src.setdefault(c['from'], []).append(c)
+    bussed = set()
+    for src, cs in by_src.items():
+        if len({area_of[c['to']] for c in cs}) >= BUS_MIN_AREAS:
+            _route_bus(src, cs, area_of, box_by_area, by_id)
+            bussed.update(id(c) for c in cs)
+
     for c in layout.connections:
         f, t = c.get('from'), c.get('to')
         if f not in area_of or t not in area_of or area_of[f] == area_of[t]:
+            continue
+        if id(c) in bussed:
             continue
         sb = box_by_area[area_of[f]]
         tb = box_by_area[area_of[t]]
