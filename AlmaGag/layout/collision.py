@@ -260,10 +260,23 @@ class CollisionDetector:
         # pasa por _recalculate_structures, que re-siembra); las heurísticas
         # se recalibraron con la guarda de fixtures al migrar (§P61 sólo lo
         # aplicaba en la etapa final).
+        # BUGS-VAL-008 (X93): en vistas agrupadas (areas/lanes/matrix) las
+        # etiquetas de nodo son ESTRUCTURALES (draw_area_node_labels) y no
+        # viven en label_positions — pero se DIBUJAN, así que se MIDEN. El
+        # detector sintetiza su bbox real (no reubicable; la resolución es
+        # WISH-DRAW-007). Sin esto el contador decía labels=0 con 28 pares
+        # título↔label-de-arista solapados en el caso tabernero.
+        grouped = bool(getattr(layout, 'areas', None)
+                       or getattr(layout, 'lanes', None)
+                       or getattr(layout, 'matrix', None))
         for elem in normal_elements:
             if elem['id'] in layout.label_positions:
                 pos_info = layout.label_positions[elem['id']]
                 bbox = self.geometry.get_label_bbox_stored(elem, pos_info)
+                if bbox:
+                    bboxes.append((bbox, 'icon_label', elem['id']))
+            elif grouped:
+                bbox = self.geometry.get_structural_label_bbox(elem)
                 if bbox:
                     bboxes.append((bbox, 'icon_label', elem['id']))
 

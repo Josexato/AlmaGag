@@ -178,6 +178,16 @@ def quality_counters(layout) -> Dict[str, int]:
     label_overlap = 0
     label_own_line = 0
     pairs = getattr(layout, '_collision_pairs', None)
+    if pairs is None:
+        # BUGS-VAL-008 (X93): sólo el optimizer de AUTO poblaba
+        # _collision_pairs — con hier el contador reportaba labels=0
+        # SIEMPRE (tabernero: 28 pares título↔label-de-arista invisibles).
+        # El contador es la cifra oficial: si nadie midió, mide él.
+        from AlmaGag.layout.collision import CollisionDetector
+        from AlmaGag.layout.geometry import GeometryCalculator
+        _, pairs = CollisionDetector(
+            GeometryCalculator()).detect_all_collisions(layout)
+        layout._collision_pairs = pairs
     if pairs:
         label_overlap = sum(1 for p in pairs
                             if 'label' in p[2] and p[2] != 'label_vs_own_line')

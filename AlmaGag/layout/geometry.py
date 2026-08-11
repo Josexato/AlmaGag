@@ -189,6 +189,27 @@ class GeometryCalculator:
             x2 = text_x
         return (x1, text_y - 14, x2, text_y - 14 + text_height)
 
+    def get_structural_label_bbox(
+        self,
+        element: dict
+    ) -> Optional[Tuple[float, float, float, float]]:
+        """BUGS-VAL-008 (X93): bbox de la etiqueta ESTRUCTURAL de las vistas
+        agrupadas (§I27/§I28). En esas vistas el renderer no lee
+        `label_positions`: dibuja con `draw_area_node_labels` — centrada bajo
+        el icono, baseline de la primera línea en y+ICON_HEIGHT+14, líneas
+        apiladas a +16px. Este bbox espeja ESA geometría para que el detector
+        mida lo que se dibuja; sin él, el contador `labels` reportaba 0 con
+        decenas de solapes reales (tabernero: 28 pares título↔label-arista)."""
+        label = element.get('label', '')
+        if not label or 'x' not in element or 'y' not in element:
+            return None
+        lines = label.split('\n')
+        cx = element['x'] + ICON_WIDTH / 2
+        top = element['y'] + ICON_HEIGHT + 14      # baseline 1.ª línea
+        width = max(len(line) for line in lines) * TEXT_CHAR_WIDTH
+        return (cx - width / 2, top - 14,
+                cx + width / 2, top + (len(lines) - 1) * 16 + 5)
+
     def get_connection_endpoints(
         self,
         layout,
