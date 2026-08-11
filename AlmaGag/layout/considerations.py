@@ -133,12 +133,27 @@ def apply_one(layout, cons: dict) -> None:
     els = [by_id[i] for i in cons['ids'] if i in by_id and 'x' in by_id[i]]
     if len(els) < 2:
         return
+    before = {e['id']: (e['x'], e['y']) for e in els}
     if cons['kind'] == 'align':
         _apply_align(els, cons['axis'])
     elif cons['kind'] == 'near':
         _apply_near(els)
     elif cons['kind'] == 'avoid':
         _apply_avoid(els)
+    # WISH-LAYOUT-016: el label almacenado viaja CON su icono. Estas pasadas
+    # corren después del cálculo de labels; sin el arrastre, mover el icono
+    # dejaba el texto huérfano en la posición vieja (constr: align x lo movió
+    # +79 y su label 'right' quedó ENCIMA del icono nuevo — R1 real).
+    lp = getattr(layout, 'label_positions', None) or {}
+    for e in els:
+        eid = e['id']
+        if eid not in lp:
+            continue
+        dx = e['x'] - before[eid][0]
+        dy = e['y'] - before[eid][1]
+        if dx or dy:
+            x, y, anchor, pos = lp[eid]
+            lp[eid] = (x + dx, y + dy, anchor, pos)
 
 
 def apply_considerations(

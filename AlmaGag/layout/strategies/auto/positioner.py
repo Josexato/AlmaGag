@@ -19,7 +19,8 @@ from AlmaGag.layout.graph_analysis import GraphAnalyzer
 from AlmaGag.layout.container_calculator import is_band, band_label_margin, band_left_region
 from AlmaGag.config import (
     ICON_WIDTH, ICON_HEIGHT,
-    SPACING_SMALL, SPACING_XLARGE, SPACING_XXLARGE,
+    SPACING_SMALL, SPACING_MEDIUM, SPACING_LARGE, SPACING_XLARGE, SPACING_XXLARGE,
+    LABEL_OFFSET_BOTTOM, LABEL_OFFSET_TOP,
     CONTAINER_PADDING, CONTAINER_SPACING, CONTAINER_ELEMENT_SPACING, CONTAINER_ICON_HEIGHT,
     TEXT_LINE_HEIGHT, TEXT_CHAR_WIDTH,
     LABEL_OFFSET_VERTICAL,
@@ -29,9 +30,8 @@ from AlmaGag.config import (
     CONTAINER_GRID_ROW_SPACING,
     RADIUS_NORMAL_MAX, RADIUS_LOW_MAX,
     TOP_MARGIN_DEBUG, TOP_MARGIN_NORMAL,
-    LAF_VERTICAL_SPACING
 )
-from AlmaGag.utils import extract_item_id
+from AlmaGag.utils import extract_item_id, calculate_label_dimensions
 
 logger = logging.getLogger('AlmaGag.AutoPositioner')
 
@@ -573,7 +573,6 @@ class AutoLayoutPositioner:
 
         # 5. Compute real coordinates with global X scale
         TOP_MARGIN = TOP_MARGIN_DEBUG if self.visualdebug else TOP_MARGIN_NORMAL
-        VERTICAL_SPACING = LAF_VERTICAL_SPACING  # 240px (same as LAF)
         MIN_GAP = SPACING_SMALL  # 40px minimum gap between elements
         LEFT_MARGIN = CANVAS_MARGIN_LARGE  # 100px
 
@@ -622,13 +621,65 @@ class AutoLayoutPositioner:
         all_abs_x = [abstract_positions[e['id']][0] for e in elements]
         abs_x_shift = -min(all_abs_x) if all_abs_x else 0
 
-        # Assign Y positions per level
+        # Assign Y positions per level.
+        # WISH-LAYOUT-016: el gap entre rangos no es la constante de 240 —
+        # es lo que de verdad vive en el corredor: el label inferior del
+        # rango de arriba + aire para los barridos horizontales (+ el label
+        # de conexión si algún enlace entre rangos adyacentes lo trae) + el
+        # label superior del rango de abajo. El 240 fijo regalaba 100-180px
+        # de aire puro por corredor (lámina TM: 8 corredores, 1891px de
+        # alto). Labels de enlaces que saltan >1 rango no reservan aquí:
+        # los coloca el optimizador veraz y los vigila §P61.
+        def _bottom_stack(elems):
+            h = 0.0
+            for e in elems:
+                if e.get('label') and e.get('label_position', 'bottom') != 'top':
+                    _, lh, _ = calculate_label_dimensions(e['label'])
+                    h = max(h, LABEL_OFFSET_BOTTOM + lh)
+            return h
+
+        def _top_stack(elems):
+            h = 0.0
+            for e in elems:
+                if e.get('label') and e.get('label_position') == 'top':
+                    _, lh, _ = calculate_label_dimensions(e['label'])
+                    h = max(h, lh + LABEL_OFFSET_TOP)
+            return h
+
+        lvl_of = {e['id']: lv for lv, es in by_level.items() for e in es}
+        corridor_conn_label: Dict[int, float] = {}
+        # OJO: resolved_conns viene sin 'label' (se reconstruye con
+        # from/to/weight) — los labels viven en las conexiones ORIGINALES.
+        for conn in layout.connections:
+            la, lb = lvl_of.get(conn['from']), lvl_of.get(conn['to'])
+            if la is None or lb is None or abs(la - lb) != 1:
+                continue
+            if not conn.get('label'):
+                continue
+            _, lh, _ = calculate_label_dimensions(conn['label'])
+            lo = min(la, lb)
+            corridor_conn_label[lo] = max(corridor_conn_label.get(lo, 0.0),
+                                          lh + 10.0)
+
+        # Los barridos horizontales del ruteo corren a MITAD del corredor:
+        # cada mitad debe librar el stack de labels de su lado (si no, el
+        # barrido pisa el label, el optimizador lo echa del 'bottom' y
+        # termina sobre el icono). half = stack más alto + separación, con
+        # piso de SPACING_MEDIUM para flechas/carriles en rangos sin label.
+        LABEL_CLEAR = 12.0
         current_y = TOP_MARGIN
         level_y = {}
-        for level_num in sorted(by_level.keys()):
+        sorted_levels = sorted(by_level.keys())
+        for i, level_num in enumerate(sorted_levels):
+            if i > 0:
+                prev = sorted_levels[i - 1]
+                half = max(_bottom_stack(by_level[prev]) + LABEL_CLEAR,
+                           _top_stack(by_level[level_num]) + LABEL_CLEAR,
+                           SPACING_MEDIUM)
+                current_y += 2 * half + corridor_conn_label.get(prev, 0.0)
             level_y[level_num] = current_y
             max_h = max((e.get('height', ICON_HEIGHT) for e in by_level[level_num]), default=ICON_HEIGHT)
-            current_y += max_h + VERTICAL_SPACING
+            current_y += max_h
 
         # Assign real X, Y
         for elem in elements:
