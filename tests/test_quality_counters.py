@@ -27,7 +27,10 @@ def _render(path):
 def test_counters_have_three_keys():
     res = _render('docs/diagrams/gags/05-arquitectura-gag.gag')
     q = quality_counters(res)
-    assert set(q) == {'edge_x_edge', 'edge_x_node', 'label_overlap'}
+    # + label_own_line (W87): canal aparte para tramos que atraviesan el
+    # label de su propio extremo — no contamina label_overlap.
+    assert set(q) == {'edge_x_edge', 'edge_x_node', 'label_overlap',
+                      'label_own_line'}
     assert all(isinstance(v, int) and v >= 0 for v in q.values())
 
 

@@ -230,7 +230,7 @@ def global_label_anticollision(layout, geometry) -> int:
                 key, geometry.get_connection_center(layout, c))
             conn_bbox[key] = _conn_label_bbox_at(c['label'], cx, cy)
 
-    def _score(bb, own_id, own_conns) -> int:
+    def _score(bb, own_id, own_conns) -> float:
         # WISH-LAYOUT-010: montarse sobre un ICONO pesa más que rozar otro
         # texto (es la violación R1, la más fea).
         s = 0
@@ -249,6 +249,20 @@ def global_label_anticollision(layout, geometry) -> int:
                 s += 1
         for key, segs in segs_by_conn.items():
             if key in own_conns:
+                # WISH-ROUTE-004 (W87): el tramo que ATRAVIESA el label de
+                # su propio extremo de lado a lado cuenta (la dashed
+                # resumen→cron cortaba «Cron. Val.» y este score no lo
+                # veía); el roce del stub de puerto (un extremo del
+                # segmento dentro del bbox) sigue exento. Peso 0.5: el
+                # atravesado propio justifica mudarse a un lugar LIMPIO,
+                # nunca crear un solape nuevo (+1) para evitarlo — con
+                # peso entero P61 hacía ese mal trueque en 3 fixtures.
+                def _inside(px, py):
+                    return (bb[0] <= px <= bb[2] and bb[1] <= py <= bb[3])
+                s += 0.5 * sum(1 for sg in segs
+                               if _seg_hits(bb, [sg])
+                               and not _inside(sg[0], sg[1])
+                               and not _inside(sg[2], sg[3]))
                 continue
             s += _seg_hits(bb, segs)
         return s
@@ -304,6 +318,13 @@ def global_label_anticollision(layout, geometry) -> int:
                     bb = geometry.get_label_bbox_stored(e, pos)
                 if not bb:
                     break
+                # It10-4: un candidato con coordenada NEGATIVA muere — el
+                # recorte O51 sólo contrae, nunca expande: un label sobre la
+                # fila superior colocado en y<0 sale CORTADO de la lámina
+                # (el 'top' de cron tras W87). El lienzo crece hacia
+                # abajo/derecha, así que sólo el origen es duro.
+                if cand is not None and (bb[0] < 0 or bb[1] < 0):
+                    continue
                 if (cand is not None and pbox
                         and not (bb[0] >= pbox[0] - 2 and bb[2] <= pbox[2] + 2
                                  and bb[1] >= pbox[1] - 2 and bb[3] <= pbox[3] + 2)):
