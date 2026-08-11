@@ -165,7 +165,7 @@ def test_architecture_apply_respects_role_entry():
 def test_collect_containers_with_template_orders_bottom_up():
     """Los containers más anidados deben procesarse primero."""
     elements = [
-        {'id': 'outer', 'contains': [{'id': 'middle'}], 'layout_template': 'flow'},
+        {'id': 'outer', 'contains': [{'id': 'middle'}], 'layout_template': 'steps'},
         {'id': 'middle', 'contains': [{'id': 'inner'}], 'layout_template': 'hub_and_spoke'},
         {'id': 'inner', 'contains': [{'id': 'leaf'}], 'layout_template': 'state'},
         {'id': 'leaf'},
@@ -184,7 +184,7 @@ def test_nested_templates_dimension_container():
         'layout_template': 'auto',
         'elements': [
             {'id': 'wrapper', 'label': 'Wrapper',
-             'layout_template': 'flow',
+             'layout_template': 'steps',
              'contains': [
                  {'id': 's1'}, {'id': 's2'}, {'id': 's3'}, {'id': 's4'},
              ]},
@@ -214,7 +214,7 @@ def test_nested_children_offset_to_global_coords():
         'layout_template': 'architecture',
         'elements': [
             {'id': 'wrapper', 'label': 'Wrapper',
-             'layout_template': 'flow',
+             'layout_template': 'steps',
              'contains': [
                  {'id': 'c1'}, {'id': 'c2'}, {'id': 'c3'}, {'id': 'c4'},
              ]},

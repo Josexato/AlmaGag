@@ -17,7 +17,7 @@ Pipeline cuando se procesa un SDJF:
 
 Templates registrados:
 - ArchitectureTemplate ('architecture')
-- FlowTemplate ('flow')
+- StepsTemplate ('steps')
 - HubAndSpokeTemplate ('hub_and_spoke')
 """
 
@@ -27,7 +27,7 @@ from AlmaGag.layout.templates.architecture import (
     ArchitectureTemplate,
     apply_architecture_template,
 )
-from AlmaGag.layout.templates.flow import FlowTemplate, apply_flow_template
+from AlmaGag.layout.templates.steps import StepsTemplate, apply_steps_template
 from AlmaGag.layout.templates.hub_and_spoke import (
     HubAndSpokeTemplate,
     apply_hub_and_spoke_template,
@@ -52,7 +52,7 @@ def get_default_classifier() -> TemplateClassifier:
     """Construye el clasificador con todos los templates registrados."""
     return TemplateClassifier([
         ArchitectureTemplate(),
-        FlowTemplate(),
+        StepsTemplate(),
         HubAndSpokeTemplate(),
         DashboardTemplate(),
         ERTemplate(),
@@ -114,7 +114,7 @@ __all__ = [
     'TemplateClassifier',
     'GraphFeatures',
     'ArchitectureTemplate',
-    'FlowTemplate',
+    'StepsTemplate',
     'HubAndSpokeTemplate',
     'DashboardTemplate',
     'ERTemplate',
@@ -124,7 +124,7 @@ __all__ = [
     'auto_apply_template',
     'get_default_classifier',
     'apply_architecture_template',
-    'apply_flow_template',
+    'apply_steps_template',
     'apply_hub_and_spoke_template',
     'apply_dashboard_template',
     'apply_er_template',

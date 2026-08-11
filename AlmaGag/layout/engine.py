@@ -35,7 +35,7 @@ logger = logging.getLogger('AlmaGag')
 DEFAULT_STRATEGY = 'auto'
 _STRATEGIES = {
     'auto':   {'cls': 'AlmaGag.layout.strategies.auto.optimizer.AutoLayoutOptimizer',   'kind': 'base',   'label': 'principal · placement general'},
-    'hier':   {'cls': 'AlmaGag.layout.strategies.hier.optimizer.HierLayoutOptimizer',   'kind': 'flow',   'label': 'flujo dirigido (A–J, vistas)'},
+    'hier':   {'cls': 'AlmaGag.layout.strategies.hier.optimizer.HierLayoutOptimizer',   'kind': 'directed',   'label': 'flujo dirigido (A–J, vistas)'},
     'legacy': {'cls': 'AlmaGag.layout.strategies.legacy.optimizer.LAFOptimizer',        'kind': 'frozen', 'label': 'motor histórico (ex-LAF, congelado)', 'extra': True},
 }
 

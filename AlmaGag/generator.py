@@ -114,6 +114,24 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
         logger.error(f"Error al leer el JSON: {e}")
         return False
 
+    # v3.9 — consistencia del término «flow» (decisión del autor, 11-ago):
+    # una palabra = un concepto. Guardas de migración que ENSEÑAN:
+    if 'flows' in data:
+        raise ValueError(
+            "[formato] 'flows' se renombró a 'journeys' en v3.9 — misma "
+            "estructura ({id, label, color, path}); sólo cambia la clave")
+    if data.get('layout_template') == 'flow':
+        logger.warning("[formato] el template 'flow' se renombró a 'steps' "
+                       "en v3.9 — se ignora; declarar layout_template: "
+                       "'steps'")
+        data['layout_template'] = None
+    for _c in data.get('connections', []):
+        if _c.get('semantic_type') in ('data_flow', 'control_flow'):
+            _new = _c['semantic_type'].replace('_flow', '_link')
+            logger.warning(f"[formato] semantic_type '{_c['semantic_type']}' "
+                           f"se renombró a '{_new}' en v3.9 — se tratará "
+                           f"como clase custom sin color")
+
     # §H7: expandir `unions` (matrimonio) a nodo de barra + aristas padre→union
     # ANTES de decidir estrategia/template, para que el motor las trate como
     # nodos/aristas normales. No-op si el JSON no declara `unions`.
@@ -229,7 +247,7 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     # §I27/§I30: ámbitos por fase (areas) y leyenda de roles (opcionales; sólo
     # los consume el algoritmo hier). Retrocompatible: si faltan, camino normal.
     initial_layout._areas = data.get('areas')
-    initial_layout._flows = data.get('flows')
+    initial_layout._journeys = data.get('journeys')
     initial_layout._roles = data.get('roles')
     initial_layout._lanes = data.get('lanes')
     # §④ consideraciones BLANDAS (align/near/avoid): sólo las consume AUTO y las
@@ -255,7 +273,7 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     # areas/roles); el algoritmo decide *cómo se ve*; el CLI puede pisarlo.
     resolved_view = view if (view and view != 'auto') else 'auto'
     if resolved_view == 'auto':
-        resolved_view = 'areas' if data.get('areas') else 'flow'
+        resolved_view = 'areas' if data.get('areas') else 'columns'
     initial_layout._layout_view = resolved_view
 
     # 2. Motor ÚNICO (WISH-ARCH-002): el generator ve UN solo optimizer, el

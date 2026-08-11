@@ -35,13 +35,13 @@ anterior (era AUTO-vs-LAF) está en
   `layout/considerations.py`.
 - **`areas` / `lanes` / `roles`** — metadata de fase/responsable para las
   vistas de `hier` (`--view areas|lanes|matrix`). 📍 `strategies/hier/`.
-- **`flows` (WISH-DRAW-002)** — flujos de información resaltados: capa
+- **`journeys` (WISH-DRAW-002; hasta v3.8: `flows`)** — recorridos narrativos resaltados: capa
   de anotación tipo resaltador que recorre elementos EN ORDEN siguiendo
-  las rutas dibujadas; `class="ag-flow"`, invisible para métricas y
-  validador; leyenda «Flujos:». 📍 `draw/primitives/flows.py`.
+  las rutas dibujadas; `class="ag-journey"`, invisible para métricas y
+  validador; leyenda «Recorridos:». 📍 `draw/primitives/journeys.py`.
 - **`unions` (§H7)** — pareja → nodo de barra + un tronco por hijo
   (genealogías). 📍 `layout/unions.py`.
-- **`layout_template`** — patrón macro (`architecture`, `flow`,
+- **`layout_template`** — patrón macro (`architecture`, `steps`,
   `hub_and_spoke`, `dashboard`, `er`, `sequence`, `state`, `nested`…) con
   auto-detección; `hier` los ignora. 📍 `layout/templates/`.
 

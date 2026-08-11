@@ -1115,6 +1115,32 @@ debía repetirse cuando esto aterrizara.
 
 ---
 
+### WISH-ARCH-005: Consistencia del término «flow» — una palabra, un concepto ✅ RESUELTO (2026-08-11)
+**Componente**: formato + CLI + `draw/primitives/journeys.py`, `layout/templates/steps.py`, `hier`, `svg.py`
+**Reportado**: 2026-08-11 (revisión del autor: «flow» tenía 5 significados de cara al autor)
+
+Decisión del autor (tabla acordada): «flow» queda reservado para
+`canvas.flow` (dirección de lectura del grafo — el único uso literal);
+todo lo demás se renombró, SIN alias retrocompatible pero con guardas
+que ENSEÑAN (error/warning nombrando el reemplazo, centralizadas en
+`generate_diagram`):
+
+| Hasta v3.8 | Desde v3.9 | Concepto |
+|---|---|---|
+| `flows` (top-level) | `journeys` | Recorrido narrativo resaltado — módulo `journeys.py`, clase `ag-journey`, leyenda «Recorridos:» |
+| `canvas.flow` | (queda) | Dirección de lectura up/down |
+| `layout_template: "flow"` | `"steps"` | Cadena vertical de pasos (`steps.py`, `StepsTemplate`) |
+| `--view flow` | `--view columns` | Vista plana de hier |
+| `data_flow` / `control_flow` | `data_link` / `control_link` | Clase semántica del enlace (la leyenda ya decía «datos»/«control») |
+
+La keyword `flow` del clasificador de templates NO se toca (lee texto
+libre de labels, no es namespace; ganó `steps` como señal). Fixtures,
+tests, spec (con tabla de desambiguación), glosario y motor migrados;
+guarda 39/39 idéntica (los renames no mueven geometría); motor 3.9.0.
+Regresión: `tests/test_v39_flow_rename.py`.
+
+---
+
 ### WISH-LAYOUT-012: `canvas.flow` — la orientación cuenta la historia (V78) ✅ RESUELTO (2026-08-10)
 
 > `canvas.flow: "up" | "down"` (default `down`). Con `up` el positioner

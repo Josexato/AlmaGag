@@ -167,8 +167,8 @@ def _generate_color_palette(n):
 # El SDJF puede declarar `connection.semantic_type` y el color se asigna
 # automáticamente. `connection.color` (hex/nombre CSS) tiene precedencia.
 SEMANTIC_CONNECTION_COLORS = {
-    'data_flow':    '#e8820c',  # naranja — flujo de datos
-    'control_flow': '#1f6fd0',  # azul — flujo de control
+    'data_link':    '#e8820c',  # naranja — datos por el enlace
+    'control_link': '#1f6fd0',  # azul — control por el enlace
     'sync':         '#1aa64b',  # verde — sincronización / bidireccional
     'event':        '#8e44ad',  # púrpura — eventos
     'callback':     '#0e8a8a',  # teal — callbacks
@@ -179,8 +179,8 @@ SEMANTIC_CONNECTION_COLORS = {
 
 # §N48: etiquetas cortas para la leyenda de tipos de conexión.
 SEMANTIC_TYPE_LABELS = {
-    'data_flow':    'datos',
-    'control_flow': 'control',
+    'data_link':    'datos',
+    'control_link': 'control',
     'sync':         'sincronización',
     'event':        'eventos',
     'callback':     'callback',

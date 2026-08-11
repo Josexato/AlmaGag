@@ -1,8 +1,8 @@
 # Roadmap de AlmaGag
 
-**Versión actual**: v3.8.0 (pyproject; sube con cada iteración del review
-cerrada — 6→3.6, 7→3.7, 8→3.8, en sincronía con el skill) ·
-**Actualizado**: 2026-08-10
+**Versión actual**: v3.9.0 (pyproject; sube con cada iteración del review
+cerrada — 6→3.6, 7→3.7, 8→3.8; 3.9 = consistencia del término «flow» —
+en sincronía con el skill) · **Actualizado**: 2026-08-11
 El backlog VIVO son los tickets de [`TECHNICAL_DEBT.md`](TECHNICAL_DEBT.md)
 (BUGS-*/WISH-*); este documento da el mapa de alto nivel. El roadmap
 histórico (v1→v2.x, con el plan original de routing) está en

@@ -19,7 +19,7 @@ def _render(data):
 
 
 def _net(n_types):
-    types = ['data_flow', 'control_flow', 'dependency', 'event'][:n_types]
+    types = ['data_link', 'control_link', 'dependency', 'event'][:n_types]
     els = [{'id': f'n{i}', 'type': 'server', 'label': f'N{i}'} for i in range(n_types + 1)]
     conns = [{'from': f'n{i}', 'to': f'n{i+1}', 'semantic_type': t}
              for i, t in enumerate(types)]

@@ -587,7 +587,7 @@
     "c-gestion-remota": "#8e44ad",
     "c-administrativo": "#888888"
   },
-  "flows": [
+  "journeys": [
     {
       "id": "scada",
       "label": "Datos SCADA planta -> CCO",

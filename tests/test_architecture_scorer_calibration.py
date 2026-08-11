@@ -96,7 +96,7 @@ def test_no_regression_in_winners():
     expected = {
         '05-arquitectura-gag': 'architecture',
         '07-containers': 'architecture',
-        '03-conexiones': 'flow',
+        '03-conexiones': 'steps',
         '10-hybrid-layout': 'er',
         'reference-cheatsheet': 'dashboard',
         'system-architecture': 'hub_and_spoke',

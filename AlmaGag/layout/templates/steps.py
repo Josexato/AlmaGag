@@ -1,5 +1,5 @@
 """
-Template 'flow' — secuencia lineal de pasos (WISH-LAYOUT-004 Fase 2).
+Template 'steps' — secuencia lineal de pasos (renombrado de 'flow' en v3.9) (WISH-LAYOUT-004 Fase 2).
 
 Patrón objetivo:
 - Cadena predominante: cada nodo conecta a uno (o pocos) siguientes.
@@ -22,19 +22,19 @@ def _extract_id(ref):
     return ref['id'] if isinstance(ref, dict) else ref
 
 
-class FlowTemplate(BaseTemplate):
+class StepsTemplate(BaseTemplate):
     """Cadena lineal vertical (top-down)."""
 
-    name = 'flow'
+    name = 'steps'
 
     def detect_score(self, features: GraphFeatures) -> float:
         """
-        Señales positivas para 'flow':
+        Señales positivas para 'steps':
         - Profundidad >= 4 (cadena larga).
         - Branching factor cercano a 1 (cada nodo continúa a ~1 siguiente).
         - Pocos/cero containers.
         - Sin ciclos.
-        - Bonus si hay keywords ('step', 'phase', 'stage', 'pipeline', 'flow').
+        - Bonus si hay keywords ('step', 'phase', 'stage', 'pipeline', 'flow', 'steps').
         """
         score = 0.0
 
@@ -59,7 +59,7 @@ class FlowTemplate(BaseTemplate):
         if not features.has_cycles:
             score += 0.10
 
-        if features.label_keywords & {'step', 'phase', 'stage', 'pipeline', 'flow'}:
+        if features.label_keywords & {'step', 'phase', 'stage', 'pipeline', 'flow', 'steps'}:
             score += 0.15
 
         # Penalizar si el grafo claramente no es cadena (max_degree muy alto)
@@ -69,7 +69,7 @@ class FlowTemplate(BaseTemplate):
         return max(0.0, min(score, 1.0))
 
     def apply(self, data: dict) -> None:
-        apply_flow_template(data)
+        apply_steps_template(data)
 
 
 def _topological_order(elements, connections):
@@ -121,7 +121,7 @@ def _topological_order(elements, connections):
     return [[by_id[eid] for eid in lvl] for lvl in levels]
 
 
-def apply_flow_template(data):
+def apply_steps_template(data):
     """Distribuye nodos en cadena vertical centrada."""
     Y_SPACING = 130
     X_SPACING = 200  # cuando un nivel tiene varios nodos

@@ -17,14 +17,14 @@ def test_resolve_color_direct_override():
 
 
 def test_resolve_color_by_semantic_type():
-    assert resolve_connection_color({'semantic_type': 'data_flow'}) == \
-        SEMANTIC_CONNECTION_COLORS['data_flow']
+    assert resolve_connection_color({'semantic_type': 'data_link'}) == \
+        SEMANTIC_CONNECTION_COLORS['data_link']
     assert resolve_connection_color({'semantic_type': 'sync'}) == \
         SEMANTIC_CONNECTION_COLORS['sync']
 
 
 def test_resolve_color_precedence_color_over_semantic():
-    conn = {'color': 'red', 'semantic_type': 'data_flow'}
+    conn = {'color': 'red', 'semantic_type': 'data_link'}
     assert resolve_connection_color(conn) == 'red'
 
 
@@ -44,13 +44,13 @@ def test_setup_markers_returns_default_when_no_semantic():
 def test_setup_markers_returns_per_connection_with_semantic():
     dwg = svgwrite.Drawing(size=(100, 100))
     conns = [
-        {'from': 'a', 'to': 'b', 'semantic_type': 'data_flow'},
+        {'from': 'a', 'to': 'b', 'semantic_type': 'data_link'},
         {'from': 'b', 'to': 'c'},  # sin tipo → negro
     ]
     result = setup_arrow_markers(dwg, conns, color_connections=False)
     assert isinstance(result, tuple)
     _markers, per_conn = result
-    assert per_conn[0]['color'] == SEMANTIC_CONNECTION_COLORS['data_flow']
+    assert per_conn[0]['color'] == SEMANTIC_CONNECTION_COLORS['data_link']
     assert per_conn[1]['color'] == 'black'
 
 
