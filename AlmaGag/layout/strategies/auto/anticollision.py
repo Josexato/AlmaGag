@@ -153,6 +153,24 @@ def global_label_anticollision(layout, geometry) -> int:
     segs_by_conn = {f"{c['from']}->{c['to']}": _conn_segments(c, layout, geometry)
                     for c in layout.connections}
 
+    # WISH-LAYOUT-018 (W84): la FRANJA de cada journey (sus conexiones
+    # infladas al ancho de banda) es zona a evitar para labels AJENOS al
+    # recorrido — el texto sobre una banda de color de 28px pierde
+    # legibilidad aunque el halo ayude. Aproximación por segmentos de las
+    # conexiones miembro (los empalmes ortogonales no cambian la franja).
+    JOURNEY_HALF = 14.0
+    band_strips: List[Tuple[set, List]] = []
+    for j in (getattr(layout, '_journeys', None) or []):
+        if not isinstance(j, dict):
+            continue
+        ids = [i for i in j.get('path', []) if isinstance(i, str)]
+        segs: List = []
+        for a, b in zip(ids, ids[1:]):
+            segs.extend(segs_by_conn.get(f'{a}->{b}')
+                        or segs_by_conn.get(f'{b}->{a}') or [])
+        if segs:
+            band_strips.append((set(ids), segs))
+
     zone_labels: List[Tuple[float, float, float, float]] = []
     from AlmaGag.layout.considerations import near_zone_boxes
     for zone in near_zone_boxes(layout.elements):
@@ -246,6 +264,11 @@ def global_label_anticollision(layout, geometry) -> int:
                 s += 1
         for key, cb in conn_bbox.items():
             if key not in own_conns and _intersect(gb, _inflate(cb, TEXT_GAP / 2)):
+                s += 1
+        for members, bsegs in band_strips:
+            if own_id in members:
+                continue
+            if _seg_hits(_inflate(bb, JOURNEY_HALF), bsegs):
                 s += 1
         for key, segs in segs_by_conn.items():
             if key in own_conns:
@@ -419,4 +442,30 @@ def global_label_anticollision(layout, geometry) -> int:
     if moved:
         logger.info(f"§P61: pasada global anticolisión — "
                     f"{moved} etiqueta(s) reubicada(s)")
+
+    # WISH-LAYOUT-018 (W84): lo que quedó bajo una franja AJENA se NOMBRA
+    # — la mitad honesta de siempre: si ningún candidato limpio existió,
+    # el log lo dice en vez de callar.
+    if band_strips:
+        jid_of = {}
+        for j in (getattr(layout, '_journeys', None) or []):
+            if isinstance(j, dict):
+                jid_of[frozenset(i for i in j.get('path', [])
+                                 if isinstance(i, str))] = j.get('id', '?')
+        for e in labeled:
+            eid = e['id']
+            pi = layout.label_positions.get(eid)
+            if not pi:
+                continue
+            bb = geometry.get_label_bbox_stored(e, pi)
+            if not bb:
+                continue
+            for members, bsegs in band_strips:
+                if eid in members:
+                    continue
+                if _seg_hits(_inflate(bb, JOURNEY_HALF), bsegs):
+                    jid = jid_of.get(frozenset(members), '?')
+                    logger.warning(f"[journeys] el label de '{eid}' queda "
+                                   f"bajo la banda de '{jid}' — sin lado "
+                                   f"limpio disponible (W84)")
     return moved
