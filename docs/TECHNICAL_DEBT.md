@@ -1135,7 +1135,24 @@ inventario del Skiller (viven en su sesión).
 
 ---
 
-### BUGS-VAL-005: Falso positivo R1 en zonas near de 2 miembros 🆕 ABIERTO
+### BUGS-VAL-005: Falso positivo R1 en contenedores chicos (zona de 2 miembros) ✅ RESUELTO (2026-08-11)
+
+> **Causa raíz** (geometría medida, no estimada): el rect del contenedor
+> se emite con `fill="url(#gradient-<id>)"` — sin la marca `_container`
+> que el filtro del validador buscaba — y su único descarte restante era
+> el tamaño (>300×200). La zona de 2 miembros mide 200×153: el validador
+> la contaba como ICONO y todo texto interior «solapaba un icono» —
+> `'Equipo 0'` 64×16.2 ≈ 1035px², exactamente el área reportada. Con 3-4
+> miembros la zona supera los 300px y se salvaba por casualidad. El
+> Skiller tenía razón: falso positivo, la geometría real deja 6px de
+> aire entre label e icono.
+> **Fix por contrato, no por heurística**: el rect del contenedor viaja
+> con `class="ag-container"` (renderer) y el validador lo excluye;
+> fallback para SVGs viejos: rects con `fill-opacity < 0.9` (los
+> contenedores dibujan translúcido, los iconos opacos). Verificado con
+> control positivo crafteado: un R1 real sigue saltando. Regresión en
+> `tests/test_visual_quality.py`.
+
 **Componente**: `AlmaGag/validation/visual_quality.py` (R1)
 **Reportado**: 2026-08-03 por el GAG Skiller; re-confirmado 2026-08-11 con motor 3.9.0
 

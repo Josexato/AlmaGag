@@ -169,3 +169,44 @@ def test_validate_gag_without_canvas_uses_defaults(tmp_path):
     }))
     report = validate_gag(str(src))
     assert report.n_icons >= 2
+
+
+def test_small_container_is_not_an_icon_for_r1(tmp_path):
+    """BUGS-VAL-005 (GAG Skiller): un contenedor CHICO (bajo el umbral de
+    300×200) contaba como icono y todo texto interior daba R1 falso —
+    zona de 2 miembros: 3×R1 contra 0 con 3-4 miembros. El rect del
+    contenedor ahora viaja con class="ag-container" (contrato del
+    renderer) y el validador lo excluye; un R1 real sigue saltando."""
+    import json
+    from AlmaGag.generator import generate_diagram
+    d = {'elements': [
+            {'id': 'z', 'type': 'area', 'label': 'ZONA',
+             'contains': [{'id': 'e0', 'scope': 'full'},
+                          {'id': 'e1', 'scope': 'full'}]},
+            {'id': 'e0', 'type': 'server', 'label': 'Equipo 0'},
+            {'id': 'e1', 'type': 'server', 'label': 'Equipo 1'},
+            {'id': 'x', 'type': 'router', 'label': 'Externo'}],
+         'connections': [{'from': 'e0', 'to': 'x',
+                          'direction': 'bidirectional'}]}
+    src = tmp_path / 'zon2.sdjf'
+    src.write_text(json.dumps(d))
+    out = tmp_path / 'zon2.svg'
+    generate_diagram(str(src), output_file=str(out),
+                     layout_algorithm='select')
+    report = validate_svg(str(out))
+    r1 = [v for v in report.violations if v.rule == 'R1_label_over_icon']
+    assert not r1, f'falsos positivos R1 en zona de 2 miembros: {r1}'
+
+    # control positivo: texto ENCIMA de un icono con gradiente sí es R1
+    svg = ('<?xml version="1.0"?>'
+           '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300">'
+           '<defs><linearGradient id="gradient-a">'
+           '<stop offset="0" stop-color="#888"/></linearGradient></defs>'
+           '<rect fill="url(#gradient-a)" x="80" y="80" width="80" height="50"/>'
+           '<text x="120" y="110" text-anchor="middle" font-size="14px">'
+           'encima del icono</text></svg>')
+    ctrl = tmp_path / 'ctrl.svg'
+    ctrl.write_text(svg)
+    report2 = validate_svg(str(ctrl))
+    assert any(v.rule == 'R1_label_over_icon' for v in report2.violations), \
+        'el fix apagó la detección de R1 reales'

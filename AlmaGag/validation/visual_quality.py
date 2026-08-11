@@ -286,6 +286,19 @@ def _collect_icon_bboxes(root):
             continue
         if '_container' in fill or '_box' in fill:
             continue
+        # BUGS-VAL-005: los contenedores se marcan con class="ag-container"
+        # (contrato del renderer) — un contenedor CHICO pasaba el filtro de
+        # tamaño y contaba como icono: todo texto interior daba R1 falso
+        # (zona de 2 miembros: 3×R1 contra 0 con 3-4). Fallback para SVGs
+        # viejos sin la clase: los contenedores dibujan translúcido
+        # (fill-opacity ~0.15), los iconos opacos.
+        if 'ag-container' in rect.get('class', ''):
+            continue
+        try:
+            if float(rect.get('fill-opacity', 1)) < 0.9:
+                continue
+        except (TypeError, ValueError):
+            pass
         try:
             x = float(rect.get('x', 0))
             y = float(rect.get('y', 0))
