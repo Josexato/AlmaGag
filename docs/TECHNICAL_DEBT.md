@@ -1290,7 +1290,7 @@ intacto + infactible nombrado).
 > (los hijos de Indirectos ya salen en grilla 2×2 — gg/sup y=381, seg
 > y=502; falta el pulido de labels internos).
 
-### BUGS-ROUTE-004: Diagonales de última milla en aristas nodo→nodo (W85) 🆕 ABIERTO
+### BUGS-ROUTE-004: Diagonales de última milla (W85) ✅ RESUELTO (2026-08-11) — eran los EMPALMES de las bandas de journeys (4→0, empalme ortogonal en build_journey_points; tests/test_journeys.py)
 **Componente**: `routing/` (spread de puertos / reconstrucción V80)
 **Reportado**: 2026-08-11 (grupo W; verificado: 4 segmentos con Δx>8∧Δy>8
 en el presupuesto — p.ej. 335,463→375,415 y 877,463→837,415)
@@ -1303,7 +1303,7 @@ codo a ≥14px del borde. Audit H24 extendido: cero segmentos Δx>8∧Δy>8.
 
 ---
 
-### WISH-DRAW-006: Higiene de bandas de journeys — terminar en el nodo, corredor mínimo, nada encerrado (W83) 🆕 ABIERTO
+### WISH-DRAW-006: Higiene de bandas de journeys (W83) ✅ RESUELTO (2026-08-11) — el encierro ya no existía (re-medido: 0 violaciones); longitudes 1.07/1.11/1.20 (el 1.20 = cruces ortogonales legítimos). Residuo: _audit_band_hygiene NOMBRA banda que pisa icono ajeno o pasea >1.25×
 **Componente**: `draw/primitives/journeys.py`
 **Reportado**: 2026-08-11 (grupo W; verificado en PNG: la banda roja
 encierra a Mano de Obra en su arranque)
@@ -1316,7 +1316,7 @@ icono/label ajeno queda dentro del trazo (distancia icono↔eje > ancho/2
 
 ---
 
-### WISH-ROUTE-004: Los labels son obstáculos de ruteo (W87) 🆕 ABIERTO
+### WISH-ROUTE-004: El tramo que atraviesa el label de su propio extremo se ve y se resuelve (W87) ✅ RESUELTO (2026-08-11) — los 5 cruces eran todos PROPIOS (cero ajenos): exención abierta en detector (canal label_own_line, §H6) y score P61 (peso 0.5); candidatos negativos muertos. 5→3, restantes NOMBRADOS
 **Componente**: `routing/visibility_graph.py` (mapa de obstáculos)
 **Reportado**: 2026-08-11 (grupo W; verificado en PNG: la dashed
 resumen→cron atraviesa «Cron. Val. / desde hitos H1–H7»)
@@ -1328,7 +1328,7 @@ segmento↔bbox de label (hoy no se cuenta).
 
 ---
 
-### WISH-LAYOUT-018: Canal entre cadenas + pulido de labels de contenedor (W84 + W86) 🆕 ABIERTO
+### WISH-LAYOUT-018: La franja del journey es zona a evitar para labels ajenos (W84/W86) ✅ RESUELTO (2026-08-11) — iconos y contenedores ya cumplían (verificado); labels bajo banda ajena 2→0 (P61 puntúa franjas desde _journeys; sin lado limpio se nombra)
 **Componente**: `strategies/auto/` (colocación), `container_calculator`
 **Reportado**: 2026-08-11 (grupo W, re-medido: los ICONOS ya cumplen —
 gap mo↔dproc 144px; los hijos de Indirectos ya salen en grilla 2×2)
@@ -1342,7 +1342,7 @@ dentro de un contenedor.
 
 ---
 
-### WISH-LAYOUT-019: El journey es primitivo de COLOCACIÓN, no solo overlay (W88) 🆕 ABIERTO
+### WISH-LAYOUT-019: El journey es primitivo de COLOCACIÓN (W88) ✅ RESUELTO (2026-08-11) — contratos de columna derivados por journey (exclusivos, por-miembro, empuje en cadena, el autor gana); dispersión construcción 195→0 · procura 94→5 · ingeniería 154→0; bandas rectas como consecuencia
 **Componente**: `strategies/auto/positioner.py`
 **Reportado**: 2026-08-11 (grupo W; verificado: mo —cadena
 construcción— colocado junto a la columna de procura)

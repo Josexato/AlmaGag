@@ -1,6 +1,6 @@
 # Roadmap de AlmaGag
 
-**Versión actual**: v3.10.0 (pyproject; sube con cada iteración del review
+**Versión actual**: v3.11.0 (pyproject; sube con cada iteración del review
 cerrada — 6→3.6, 7→3.7, 8→3.8; 3.9 = consistencia del término «flow» —
 en sincronía con el skill) · **Actualizado**: 2026-08-11
 El backlog VIVO son los tickets de [`TECHNICAL_DEBT.md`](TECHNICAL_DEBT.md)
@@ -118,15 +118,21 @@ W86 matizado — ver TECHNICAL_DEBT).
 | Orden | Qué | Ticket |
 |---|---|---|
 | 1 ✅ | **align y entre rangos = FILA** — HECHO (11-ago): promoción de rango; la «capa de resúmenes» del presupuesto (ring/rproc/constr en una fila) con lo infactible nombrado | WISH-LAYOUT-017 |
-| 2 | **Cero diagonales de última milla** — 4 medidas en el presupuesto pese a preference vertical; audit H24 extendido (Δx>8∧Δy>8 = 0) | BUGS-ROUTE-004 |
-| 3 | **Higiene de bandas** — la banda termina bajo su nodo, corredor mínimo, nada ajeno encerrado (hoy: la roja envuelve a Mano de Obra); longitud ≤ 1.15× sus conexiones | WISH-DRAW-006 |
-| 4 | **Labels como obstáculos de ruteo** — la dashed resumen→cron cruza el label de Cron.Val; bboxes de labels al mapa de obstáculos + métrica nueva del audit | WISH-ROUTE-004 |
-| 5 | **Canal entre cadenas + labels de contenedor** — lo que queda de W84/W86 tras re-medir: es de labels, no de iconos | WISH-LAYOUT-018 |
-| 6 | **Journey como primitivo de colocación** — miembros exclusivos en corredor propio; la banda recta como consecuencia. El cambio de fondo del grupo | WISH-LAYOUT-019 |
+| 2 ✅ | **Cero diagonales** — HECHO (11-ago): eran los EMPALMES de las bandas (4→0, codo ortogonal en el nodo intermedio) | BUGS-ROUTE-004 |
+| 3 ✅ | **Higiene de bandas** — HECHO (11-ago): encierro ya inexistente (re-medido); audit que nombra bandas sobre iconos ajenos o que pasean >1.25× | WISH-DRAW-006 |
+| 4 ✅ | **Labels atravesados por su propia arista** — HECHO (11-ago): los 5 cruces eran PROPIOS; canal label_own_line + score P61 a 0.5; 5→3 con restantes nombrados | WISH-ROUTE-004 |
+| 5 ✅ | **Franjas ajenas como zona a evitar** — HECHO (11-ago): labels bajo banda ajena 2→0 | WISH-LAYOUT-018 |
+| 6 ✅ | **Journey como primitivo de colocación** — HECHO (11-ago): columnas derivadas (autor gana, empuje en cadena); dispersión 195/94/154 → 0/5/0; bandas rectas como consecuencia | WISH-LAYOUT-019 |
 
 **Mediano plazo del grupo**: WISH-ARCH-006 (derivabilidad W89 — el
 presupuesto de ~470 a ~200 líneas; fixture reducido ≡ completo como test
 de éxito).
+
+**Iteración 10 COMPLETA (11-ago)** — grupo W cerrado: bandas con
+empalmes ortogonales y vigiladas, labels atravesados vistos y resueltos,
+franjas ajenas como zona a evitar, y el journey como primitivo de
+colocación (las tres cadenas del presupuesto en columnas rectas con los
+5 aligns del autor intactos). Motor v3.11.0.
 
 ## Mediano plazo (sin fecha)
 
