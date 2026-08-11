@@ -172,7 +172,14 @@ def _group_transform_bbox(g):
     sm = _SCALE_RE.search(tr)
     sx = float(sm.group(1)) if sm else 1.0
     sy = float(sm.group(2)) if sm and sm.group(2) else sx
-    return (tx, ty, tx + _ICON_W * sx, ty + _ICON_H * sy)
+    # BUGS-VAL-006: el scale del transform NORMALIZA el viewBox intrínseco
+    # del icono a la ranura nominal (firewall: 51×43 → ×1.57/×1.16 = 80×50;
+    # embebidos: min(80/w, 50/h)) — ningún emisor magnifica más allá de la
+    # ranura. Multiplicar la ranura por el scale inflaba el bbox (FortiGate:
+    # 125×58 en vez de 80×50 → R1 falso de 512px² contra su PROPIO label).
+    return (tx, ty,
+            tx + min(_ICON_W * sx, _ICON_W),
+            ty + min(_ICON_H * sy, _ICON_H))
 
 
 def _group_children_bbox(g):

@@ -16,6 +16,9 @@ def test_firewall_detected_in_standalone_svg():
 
 
 def test_nonuniform_scale_bbox():
+    """BUGS-VAL-006: el scale NORMALIZA el viewBox intrínseco a la ranura
+    80×50 — el bbox se acota a la ranura (sx>1 no la infla); sy<1 sí
+    reduce (icono más chico que la ranura)."""
     g = ET.fromstring(
         f'<g xmlns="{SVG_NS}" transform="translate(10,20) scale(2,0.5)"/>')
-    assert _group_transform_bbox(g) == (10.0, 20.0, 10.0 + 80 * 2, 20.0 + 50 * 0.5)
+    assert _group_transform_bbox(g) == (10.0, 20.0, 10.0 + 80, 20.0 + 50 * 0.5)
