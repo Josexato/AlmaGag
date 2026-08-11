@@ -132,6 +132,26 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
                            f"se renombró a '{_new}' en v3.9 — se tratará "
                            f"como clase custom sin color")
 
+    # BUGS-ARCH-002: campos que deben ser OBJETO pero llegan como string
+    # (errores naturales de autor) se coercen con aviso — nunca un
+    # AttributeError crudo que mata la corrida sin decir dónde.
+    for _c in data.get('connections', []):
+        _r = _c.get('routing')
+        if isinstance(_r, str):
+            logger.warning(f"[formato] routing como string ('{_r}') — "
+                           f"interpretado como {{\"type\": \"{_r}\"}}")
+            _c['routing'] = {'type': _r}
+        elif _r is not None and not isinstance(_r, dict):
+            logger.warning(f"[formato] routing inválido ({type(_r).__name__})"
+                           f" en {_c.get('from')}→{_c.get('to')} — se ignora")
+            _c.pop('routing', None)
+    if isinstance(data.get('roles'), dict):
+        for _k, _v in list(data['roles'].items()):
+            if isinstance(_v, str):
+                logger.warning(f"[formato] roles['{_k}'] como string — "
+                               f"interpretado como {{\"label\": \"{_v}\"}}")
+                data['roles'][_k] = {'label': _v}
+
     # §H7: expandir `unions` (matrimonio) a nodo de barra + aristas padre→union
     # ANTES de decidir estrategia/template, para que el motor las trate como
     # nodos/aristas normales. No-op si el JSON no declara `unions`.

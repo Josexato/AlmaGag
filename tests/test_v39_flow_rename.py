@@ -70,3 +70,41 @@ def test_journeys_renders_with_new_legend(tmp_path):
     svg = out.read_text(encoding='utf-8')
     assert 'ag-journey' in svg and 'Recorridos:' in svg
     assert 'ag-flow"' not in svg
+
+
+def test_no_stale_flujos_strings_in_journeys_module():
+    """Hallazgo del GAG Skiller (11-ago): tras el rename, los mensajes al
+    usuario no pueden apuntar a la leyenda vieja «Flujos:»."""
+    src = open('AlmaGag/draw/primitives/journeys.py', encoding='utf-8').read()
+    assert 'Flujos:' not in src
+
+
+def test_routing_as_string_is_coerced_with_warning(tmp_path, caplog):
+    """BUGS-ARCH-002: `"routing": "orthogonal"` (string) se interpreta como
+    {"type": "orthogonal"} con aviso — antes: AttributeError crudo."""
+    d = {'elements': [{'id': 'a', 'type': 'server', 'label': 'A'},
+                      {'id': 'b', 'type': 'server', 'label': 'B'}],
+         'connections': [{'from': 'a', 'to': 'b', 'routing': 'orthogonal'}]}
+    p = tmp_path / 'r.sdjf'
+    p.write_text(json.dumps(d))
+    with caplog.at_level(logging.WARNING, logger='AlmaGag'):
+        assert generate_diagram(str(p), output_file=str(tmp_path / 'r.svg'),
+                                layout_algorithm='select')
+    assert 'routing como string' in caplog.text
+
+
+def test_roles_as_string_is_coerced_with_warning(tmp_path, caplog):
+    """BUGS-ARCH-002: `roles: {"soc": "SOC"}` (string) se interpreta como
+    {"label": "SOC"} con aviso — antes: AttributeError crudo."""
+    d = {'elements': [{'id': 'a', 'type': 'server', 'label': 'A',
+                       'role': 'soc'},
+                      {'id': 'b', 'type': 'server', 'label': 'B'}],
+         'connections': [{'from': 'a', 'to': 'b'}],
+         'areas': [{'id': 'f1', 'label': 'F1', 'members': ['a', 'b']}],
+         'roles': {'soc': 'SOC Claro'}}
+    p = tmp_path / 'ro.sdjf'
+    p.write_text(json.dumps(d))
+    with caplog.at_level(logging.WARNING, logger='AlmaGag'):
+        assert generate_diagram(str(p), output_file=str(tmp_path / 'ro.svg'),
+                                layout_algorithm='select')
+    assert "roles['soc'] como string" in caplog.text

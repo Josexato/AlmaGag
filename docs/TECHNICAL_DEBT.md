@@ -1115,6 +1115,57 @@ debía repetirse cuando esto aterrizara.
 
 ---
 
+### WISH-LAYOUT-015: `align[]` no se honra sobre miembros de ZONAS/grillas 🆕 ABIERTO
+**Componente**: `strategies/auto/positioner.py` (honor V79), `considerations.py`
+**Reportado**: 2026-08-11 (GAG Skiller; verificado ejecutando sus archivos)
+
+El honor de `align` de la iteración 8 (V79) vive en
+`_calculate_hierarchical_layout`: sólo alcanza a elementos posicionados
+por RANGOS. Los miembros de zonas near/contenedores se colocan por
+grilla de cluster y el honor no los toca — la vía blanda tampoco puede
+(la guarda de colisiones rechaza el movimiento). Medido con los archivos
+del Skiller (17 elementos, 3 zonas): align entre zonas distintas →
+`t1=112 · t2=216 · t3=840` (0/3); align dentro de una zona →
+`t1=112 · ge1=112 · cow1=216` (2/3 — la grilla alineó lo que su pitch
+permitió). El audit SÍ nombra ambas violaciones (esa mitad funciona).
+**Deseo**: que el align sea señal para la grilla de zona (ordenar
+columnas/filas del cluster respetándolo) o que se documente como límite
+explícito del contrato. Repro: `m_align.gag` / `m_align2.gag` del
+inventario del Skiller (viven en su sesión).
+
+---
+
+### BUGS-VAL-005: Falso positivo R1 en zonas near de 2 miembros 🆕 ABIERTO
+**Componente**: `AlmaGag/validation/visual_quality.py` (R1)
+**Reportado**: 2026-08-03 por el GAG Skiller; re-confirmado 2026-08-11 con motor 3.9.0
+
+Zona near con 2 miembros → 3×R1 (`'Equipo 0'` solapa icono 1035px²,
+`'Equipo 1'` 1035px², rótulo `'ZONA'` 583px²); con 3 y 4 miembros → 0
+violaciones, con geometría visualmente indistinguible (dato del Skiller:
+glifo-icono a 340px con 2 miembros vs 329px con 3). La métrica del motor
+da labels=0 en los tres casos — el desacuerdo es del validador sobre el
+SVG emitido, probablemente en la estimación de bbox de texto del caso
+2-miembros (pitch más angosto). Repro: `zon2.sdjf`/`zon3.sdjf`/
+`zon4.sdjf` del inventario del Skiller.
+
+---
+
+### BUGS-ARCH-002: Campos objeto que llegan como string matan la corrida con AttributeError crudo ✅ RESUELTO (2026-08-11)
+**Componente**: `AlmaGag/generator.py` (normalización de entrada)
+**Reportado**: 2026-08-11 (GAG Skiller: `routing: "orthogonal"` y
+`roles: {"soc": "SOC Claro"}` — dos casos, mismo patrón)
+
+Errores naturales de autor: `routing` espera objeto pero el string es la
+intención obvia. **Fix**: coerción con aviso en `generate_diagram` —
+`routing: "x"` → `{"type": "x"}`, `roles[k]: "x"` → `{"label": "x"}`,
+routing de tipo inválido se ignora con aviso nombrando la conexión.
+Nunca más un AttributeError sin contexto. De paso se migraron las dos
+strings «Flujos:» que el rename v3.9 dejó en `journeys.py:194,229`
+(mensaje de error y docstring — hallazgo del Skiller). Regresión en
+`tests/test_v39_flow_rename.py`.
+
+---
+
 ### WISH-ARCH-005: Consistencia del término «flow» — una palabra, un concepto ✅ RESUELTO (2026-08-11)
 **Componente**: formato + CLI + `draw/primitives/journeys.py`, `layout/templates/steps.py`, `hier`, `svg.py`
 **Reportado**: 2026-08-11 (revisión del autor: «flow» tenía 5 significados de cara al autor)
