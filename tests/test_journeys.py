@@ -175,3 +175,31 @@ def test_journeys_work_in_hier_strategy(tmp_path):
     out = tmp_path / 'hier.svg'
     generate_diagram(str(src), output_file=str(out), layout_algorithm='select')
     assert f'class="{JOURNEY_CLASS}"' in out.read_text()
+
+
+def test_band_junction_is_orthogonal_route004():
+    """BUGS-ROUTE-004 (W85): el empalme de la banda dentro del nodo
+    intermedio — puerto de llegada de una conexión → puerto de salida de
+    la siguiente — no salta en diagonal: se inserta el codo ortogonal
+    siguiendo el eje del tramo que llegó."""
+    from AlmaGag.draw.primitives.journeys import build_journey_points
+    els = {'a': {'id': 'a', 'x': 100, 'y': 300},
+           'b': {'id': 'b', 'x': 100, 'y': 150},
+           'c': {'id': 'c', 'x': 100, 'y': 0}}
+    conns = [
+        # a→b llega VERTICAL al puerto (140, 200) de b
+        {'from': 'a', 'to': 'b',
+         'computed_path': {'points': [(140, 300), (140, 200)]}},
+        # b→c sale de OTRO puerto de b (170, 150): desfase en ambos ejes
+        {'from': 'b', 'to': 'c',
+         'computed_path': {'points': [(170, 150), (170, 50)]}},
+    ]
+    j = {'id': 'j', 'label': 'J', 'path': ['a', 'b', 'c']}
+    pts = build_journey_points(j, els, conns)
+    assert pts is not None
+    for (ax, ay), (bx, by) in zip(pts, pts[1:]):
+        assert abs(ax - bx) < 0.5 or abs(ay - by) < 0.5, \
+            f'tramo diagonal en la banda: ({ax},{ay})->({bx},{by})'
+    # el codo insertado continúa el eje de llegada (vertical) y dobla
+    assert (140, 150) in [(round(x), round(y)) for x, y in pts], \
+        f'esperaba el codo (140,150) en {pts}'

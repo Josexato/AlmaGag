@@ -109,6 +109,20 @@ def build_journey_points(journey, elements_by_id, connections):
         if points and abs(points[-1][0] - seg[0][0]) < 0.5 \
                 and abs(points[-1][1] - seg[0][1]) < 0.5:
             seg = seg[1:]          # no duplicar el punto de empalme
+        elif points and seg:
+            # BUGS-ROUTE-004 (W85): el empalme dentro del nodo intermedio —
+            # del puerto de llegada de una conexión al puerto de salida de
+            # la siguiente — saltaba en DIAGONAL a través del icono. El
+            # empalme se hace ortogonal: si el tramo llegó vertical, sigue
+            # vertical hasta la altura del puerto de salida y dobla; si
+            # llegó horizontal, al revés.
+            ax, ay = points[-1]
+            bx, by = seg[0]
+            if abs(ax - bx) > 0.5 and abs(ay - by) > 0.5:
+                arrived_vertical = (len(points) < 2
+                                    or abs(points[-2][0] - ax) < 0.5)
+                corner = (ax, by) if arrived_vertical else (bx, ay)
+                points.append(corner)
         points.extend(seg)
     return points if len(points) >= 2 else None
 
