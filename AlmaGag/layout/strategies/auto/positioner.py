@@ -504,10 +504,49 @@ class AutoLayoutPositioner:
         if feeders and len(feeders) < len(elements):
             elements = [e for e in elements if e['id'] not in feeders]
 
+        # WISH-LAYOUT-017: un align de eje y entre RANGOS distintos es
+        # contrato de FILA (la «capa de resúmenes» del roll-up: cadenas de
+        # profundidad desigual cuyos cabezales deben compartir altura). Se
+        # honra por PROMOCIÓN DE RANGO: cada miembro sube al rango común
+        # factible — todos sus predecesores por debajo y sus sucesores por
+        # arriba. Si no existe rango factible, no se toca nada y el audit
+        # nombra la violación (mitad honesta, como V79).
+        topo = dict(layout.topological_levels)
+        _ids_here = {e['id'] for e in elements}
+        _preds: Dict[str, List[str]] = {}
+        _succs: Dict[str, List[str]] = {}
+        for conn in resolved_conns:
+            f, t = conn['from'], conn['to']
+            if f in _ids_here and t in _ids_here:
+                _succs.setdefault(f, []).append(t)
+                _preds.setdefault(t, []).append(f)
+        for cons in getattr(layout, '_considerations', None) or []:
+            if cons.get('kind') != 'align' or cons.get('axis') != 'y':
+                continue
+            mids = [i for i in cons.get('ids', [])
+                    if i in _ids_here and i in topo]
+            if len(mids) < 2 or len({topo[i] for i in mids}) < 2:
+                continue          # mismo rango: lo resuelve la vía blanda
+            lo = max((max((topo[p] for p in _preds.get(i, [])), default=-1) + 1)
+                     for i in mids)
+            hi = min((min((topo[s] for s in _succs.get(i, [])),
+                          default=float('inf')) - 1)
+                     for i in mids)
+            target = max(lo, max(topo[i] for i in mids))
+            if target > hi:
+                logger.debug(f"    V17: align y {mids} sin rango común "
+                             f"factible (lo={lo}, hi={hi}) — lo nombrará "
+                             f"el audit")
+                continue
+            for i in mids:
+                topo[i] = target
+            logger.debug(f"    V17: align y {mids} → rango {target} "
+                         f"(promoción de fila)")
+
         # 1. Agrupar por nivel topológico (element dicts, not IDs)
         by_level = {}
         for elem in elements:
-            level = layout.topological_levels.get(elem['id'], 0)
+            level = topo.get(elem['id'], 0)
             if level not in by_level:
                 by_level[level] = []
             by_level[level].append(elem)
@@ -528,7 +567,7 @@ class AutoLayoutPositioner:
         elif flow == 'up':
             mx = max(by_level.keys())
             by_level = {mx - k: v for k, v in by_level.items()}
-            flow_levels = {e['id']: mx - layout.topological_levels.get(e['id'], 0)
+            flow_levels = {e['id']: mx - topo.get(e['id'], 0)
                            for e in elements}
 
         # Build directed graphs for barycenter (use resolved connections)
@@ -550,11 +589,11 @@ class AutoLayoutPositioner:
         if folded:
             by_level, abstract_positions, levels_map = folded
         else:
-            levels_map = flow_levels or layout.topological_levels
+            levels_map = flow_levels or topo
 
             # Centrality scores (use resolved connections)
             centrality = self.graph_analyzer.calculate_centrality_scores(
-                elements, resolved_conns, layout.topological_levels
+                elements, resolved_conns, topo
             )
 
             # 2. Barycenter ordering (reorder elements within each level)

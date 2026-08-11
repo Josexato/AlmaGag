@@ -243,6 +243,14 @@ enruta el diagrama a AUTO). Si no las declaras, no cambia nada.
   construccion como zona (con expulsion de intrusos). Combínalas: `align`
   para formar una columna, `avoid`
   para que dos cajas no se pisen.
+- **`align` entre rangos topológicos distintos es CONTRATO duro** (no
+  best-effort): eje `x` = columna (V79: el tronco `dppto/ppto/constr` en
+  una vertical); eje `y` = FILA por promoción de rango (WISH-LAYOUT-017:
+  la «capa de resúmenes» — cabezales de cadenas de profundidad desigual
+  comparten altura; cada miembro sube al rango común factible, con sus
+  predecesores por debajo y sucesores por arriba). Si el contrato es
+  infactible (un miembro alimenta a otro del grupo; sin hueco en la
+  fila), no se fuerza y el **audit lo nombra** — nunca silencio.
 - Alias retrocompatible: también se acepta la clave `constraints`.
 
 Ver `AlmaGag/layout/considerations.py`,
