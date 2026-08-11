@@ -203,3 +203,35 @@ def test_band_junction_is_orthogonal_route004():
     # el codo insertado continúa el eje de llegada (vertical) y dobla
     assert (140, 150) in [(round(x), round(y)) for x, y in pts], \
         f'esperaba el codo (140,150) en {pts}'
+
+
+def test_band_hygiene_audit_names_violations(caplog):
+    """WISH-DRAW-006 (W83): el audit NOMBRA la banda que pisa un icono
+    ajeno y la banda que pasea (>1.25× sus conexiones); calla si no."""
+    import logging
+    from AlmaGag.draw.primitives.journeys import _audit_band_hygiene
+    els = {'a': {'id': 'a', 'x': 0, 'y': 200},
+           'b': {'id': 'b', 'x': 400, 'y': 200},
+           'intruso': {'id': 'intruso', 'x': 180, 'y': 200}}
+    conn = [{'from': 'a', 'to': 'b',
+             'computed_path': {'points': [(80, 225), (400, 225)]}}]
+    j = {'id': 'jx', 'label': 'JX', 'path': ['a', 'b']}
+
+    # 1. eje que atraviesa el icono ajeno
+    with caplog.at_level(logging.WARNING, logger='AlmaGag'):
+        _audit_band_hygiene(j, [(80, 225), (400, 225)], els, conn)
+    assert "banda 'jx' pasa por encima de 'intruso'" in caplog.text
+
+    # 2. banda que pasea (desvío enorme vs la conexión recta)
+    caplog.clear()
+    paseo = [(80, 225), (80, 500), (400, 500), (400, 225)]
+    with caplog.at_level(logging.WARNING, logger='AlmaGag'):
+        _audit_band_hygiene(j, paseo, els, conn)
+    assert "pasea" in caplog.text
+
+    # 3. banda limpia por un corredor libre: silencio
+    caplog.clear()
+    els2 = {k: v for k, v in els.items() if k != 'intruso'}
+    with caplog.at_level(logging.WARNING, logger='AlmaGag'):
+        _audit_band_hygiene(j, [(80, 225), (400, 225)], els2, conn)
+    assert 'W83' not in caplog.text
