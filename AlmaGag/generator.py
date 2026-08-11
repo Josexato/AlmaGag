@@ -154,6 +154,12 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
                                f"para conservarlo")
                 data['roles'][_k] = {'label': _v}
 
+    # BUGS-VAL-007 (X90): el schema habla — toda clave declarada que el motor
+    # no reconoce se NOMBRA antes de seguir; nunca silencio. Corre sobre el
+    # JSON del autor, antes de que el pipeline inyecte claves internas.
+    from AlmaGag.validation.schema import audit_schema
+    audit_schema(data)
+
     # §H7: expandir `unions` (matrimonio) a nodo de barra + aristas padre→union
     # ANTES de decidir estrategia/template, para que el motor las trate como
     # nodos/aristas normales. No-op si el JSON no declara `unions`.
@@ -259,7 +265,10 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
                    if isinstance(canvas, dict) and canvas.get('flow') else {}),
                 # WISH-DRAW-004 (V82): leyenda libre del autor
                 **({'legend': canvas['legend']}
-                   if isinstance(canvas, dict) and canvas.get('legend') else {})}
+                   if isinstance(canvas, dict) and canvas.get('legend') else {}),
+                # WISH-LAYOUT-021 (X91b): macro-plano declarado del lienzo
+                **({'partition': canvas['partition']}
+                   if isinstance(canvas, dict) and canvas.get('partition') else {})}
     )
 
     # Agregar nombre del diagrama para visualizador

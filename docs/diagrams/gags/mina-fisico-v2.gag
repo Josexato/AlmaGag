@@ -1,8 +1,5 @@
 {
  "_comment": "Vista fisica CobreSur L6-CS4-212 - config vigente 11 macros + 3 COW (Propuesta Tecnica v2, 30/07/2026)",
- "canvas": {
-  "background": "#FFFFFF"
- },
  "theme": {
   "transporte": "#2E75B6",
   "acceso_radio": "#C00000",

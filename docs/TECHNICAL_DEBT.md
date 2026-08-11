@@ -1386,7 +1386,7 @@ se declara no-derivable.
 > macro-grilla de 3 bandas y bus TI perimetral. Grupo X = iteración 11;
 > grupo Y = consolidación arquitectónica (decisión de José pendiente).
 
-### BUGS-VAL-007: Aceptación silenciosa de constructos no soportados (X90) 🆕 ABIERTO
+### BUGS-VAL-007: Aceptación silenciosa de constructos no soportados (X90) ✅ RESUELTO (2026-08-11) — audit_schema al cargar nombra claves desconocidas por superficie + spec_version; destapó claves MUERTAS en fixtures propios (priority ×7, canvas.background ×3 — quitadas); guarda de falsos positivos sobre los 40 archivos del repo
 **Componente**: `generator.py` / validación de entrada (capa nueva)
 **Reportado**: 2026-08-11 (grupo X; verificado: 0 menciones en el log)
 
@@ -1402,7 +1402,7 @@ y que declare la `spec_version` que el motor entiende.
 
 ---
 
-### BUGS-VAL-008: El contador `labels` es CIEGO en vistas agrupadas (X93) 🆕 ABIERTO
+### BUGS-VAL-008: El contador `labels` es CIEGO en vistas agrupadas (X93) ✅ RESUELTO (2026-08-11) — dos mitades: bbox estructural sintetizado en el detector (get_structural_label_bbox espeja draw_area_node_labels) + quality_counters mide bajo demanda cuando nadie pobló _collision_pairs (hier reportaba 0 SIEMPRE); tabernero 0→113 sincerado con geometría idéntica
 **Componente**: `layout/collision.py` + `strategies/auto/anticollision.py::seed_label_truth`
 **Reportado**: 2026-08-11 (grupo X; verificado: 28 pares reales con labels=0)
 
@@ -1419,7 +1419,7 @@ dibujado.
 
 ---
 
-### WISH-LAYOUT-020: El ÁREA como unidad de layout — macro-colocación bidimensional (X91) 🆕 ABIERTO
+### WISH-LAYOUT-020: El ÁREA como unidad de layout — macro-colocación bidimensional (X91) ✅ RESUELTO (2026-08-11) — _macro_rows: fila única sana se queda (fixtures estables); si viola §O52, envoltura a aspecto ~1.5 (jamás 1×N); area.role declara banda; ruteo inter-área por eje dominante; tabernero 14.36→0.75 y cruces 247→203
 **Componente**: `strategies/auto/zones.py` + `generator.py::select_strategy`
 **Reportado**: 2026-08-11 (grupo X; verificado: 9 áreas en una fila, aspecto 14.36)
 
@@ -1437,7 +1437,7 @@ artefacto: mismo contenido en 2600×1700 (aspecto 1.53) con 3 bandas.
 
 ---
 
-### WISH-LAYOUT-021: `canvas.partition` — macro-plano declarable (X91b) 🆕 ABIERTO
+### WISH-LAYOUT-021: `canvas.partition` — macro-plano declarable (X91b) ✅ RESUELTO (2026-08-11) — schemes bsp (base + at/of, proporciones escaladas al contenido §P59) y grid; precedencia partition > role > derivación; plan inválido NOMBRADO con caída al siguiente nivel; tabernero con el plan de 4 bandas: cruces 203→125
 **Componente**: formato SDJF + `strategies/auto/zones.py`
 **Reportado**: 2026-08-11 (grupo X)
 
@@ -1451,7 +1451,7 @@ derivación) — mismo espíritu que align/near: contrato del autor.
 
 ---
 
-### WISH-ROUTE-005: Hub multi-área = bus ortogonal con troncal y ramales (X92) 🆕 ABIERTO
+### WISH-ROUTE-005: Hub multi-área = bus ortogonal con troncal y ramales (X92) ✅ RESUELTO (2026-08-11) — _route_bus: hub con destinos en ≥3 áreas sale UNA vez a una troncal en el corredor + ramal vertical por destino, nombrado en el log; los 3 hubs TI del tabernero (wan/erp/observabilidad) detectados y ruteados
 **Componente**: `routing/` + troncales §P60
 **Reportado**: 2026-08-11 (grupo X)
 
@@ -1466,7 +1466,7 @@ zona destino) al caso hub→multi-área.
 
 ---
 
-### WISH-DRAW-007: Labels de aristas paralelas apilados en cascada (X93, mitad visible) 🆕 ABIERTO
+### WISH-DRAW-007: Labels de aristas paralelas apilados en cascada (X93, mitad visible) ✅ RESUELTO (2026-08-11) — lo dibujado es lo medido (bbox del rótulo anclado EN el ancla); anclas §G23 con obstáculos (títulos estructurales + iconos + anclas ya puestas) y cascada de 14px por la PERPENDICULAR del primer segmento (±6 pasos); activacion 7→2 · ciclo-retrabajo 4→0 · es-primo 4→0 · layout-opt 16→9 · tabernero 145→123
 **Componente**: `strategies/auto/anticollision.py` (P61)
 **Reportado**: 2026-08-11 (grupo X)
 

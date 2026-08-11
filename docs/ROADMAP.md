@@ -148,12 +148,20 @@ en 2600×1700 (aspecto 1.53) con macro-grilla de 3 bandas y bus TI.
 
 | Orden | Qué | Ticket |
 |---|---|---|
-| 1 | **Schema que habla**: constructo declarado = renderizado o error, nunca silencio (spec_version, members, claves ignoradas nombradas) | BUGS-VAL-007 |
-| 2 | **Contador labels veraz en vistas agrupadas**: las etiquetas estructurales entran al detector (28 pares invisibles hoy) | BUGS-VAL-008 |
-| 3 | **Área como unidad de layout**: grafo condensado + macro-colocación bidimensional envuelta al aspecto (jamás 1×N); `area.role` orienta bandas | WISH-LAYOUT-020 |
-| 4 | **`canvas.partition`**: el macro-plano declarable (bsp, proporciones) que gana a la derivación | WISH-LAYOUT-021 |
-| 5 | **Bus para hubs multi-área**: troncal ortogonal + ramales (las ~15 dashed del caso TI) | WISH-ROUTE-005 |
-| 6 | **Labels paralelos en cascada** (≥14px, tras el punto 2) | WISH-DRAW-007 |
+| 1 ✅ | **Schema que habla** — HECHO (11-ago): audit_schema nombra claves desconocidas + spec_version; destapó claves muertas en fixtures propios | BUGS-VAL-007 |
+| 2 ✅ | **Contador labels veraz** — HECHO (11-ago): bbox estructural sintetizado + medición bajo demanda (hier reportaba 0 SIEMPRE); tabernero 0→113 sincerado | BUGS-VAL-008 |
+| 3 ✅ | **Área como unidad de layout** — HECHO (11-ago): envoltura 2D al aspecto (jamás 1×N) + area.role + ruteo por eje dominante; tabernero aspecto 14.36→0.75, cruces 247→203 | WISH-LAYOUT-020 |
+| 4 ✅ | **`canvas.partition`** — HECHO (11-ago): bsp/grid en proporciones escaladas al contenido; con el plan de 4 bandas cruces 203→125 | WISH-LAYOUT-021 |
+| 5 ✅ | **Bus para hubs multi-área** — HECHO (11-ago): troncal + ramales; los 3 hubs TI del tabernero detectados | WISH-ROUTE-005 |
+| 6 ✅ | **Labels en cascada** — HECHO (11-ago): anclas §G23 medidas donde se dibujan + cascada perpendicular 14px; activacion 7→2, layout-opt 16→9, tabernero 145→123 | WISH-DRAW-007 |
+
+**Iteración 11 COMPLETA (11-ago)** — grupo X cerrado: el motor ya no
+acepta en silencio, ya no miente el contador, y las áreas son unidad
+de layout de verdad — macro-grilla 2D derivada o declarada
+(`canvas.partition`), buses para hubs multi-área y anclas en cascada.
+El tabernero pasó de una cinta 11129×893 ilegible (aspecto 14.36) a una
+lámina 2450×3352 en rango con la lectura del render de referencia.
+Motor v3.12.0.
 
 **Mediano plazo del grupo (Y94-Y97, requieren decisión de José)**:
 WISH-ARCH-007 (SDJF 2.0: JSON Schema en repo, sintaxis canónica,
