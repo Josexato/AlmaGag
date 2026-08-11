@@ -221,7 +221,7 @@ def draw_connection_type_legend(dwg, connections, canvas_width, canvas_height,
     y = canvas_height - 30 - y_offset
     x = 24
     legend.add(dwg.text('Enlaces:', insert=(x, y + 4),
-                        font_size='11px', font_weight='700',
+                        font_size=f'{FONT_SIZE_ZONE}px', font_weight='700',
                         font_family='Arial, sans-serif', fill='#5a5648'))
     x += 66
     for st in order:
@@ -475,7 +475,7 @@ def draw_canvas_legend(dwg, entries, canvas_width, canvas_height, y_offset=0):
     y = canvas_height - 30 - y_offset
     x = 24
     legend.add(dwg.text('Leyenda:', insert=(x, y + 4),
-                        font_size='11px', font_weight='700',
+                        font_size=f'{FONT_SIZE_ZONE}px', font_weight='700',
                         font_family='Arial, sans-serif', fill='#5a5648'))
     x += 68
     for label, color in items:
@@ -485,7 +485,7 @@ def draw_canvas_legend(dwg, entries, canvas_width, canvas_height, y_offset=0):
                                   stroke_width=0.6))
             x += 18
         legend.add(dwg.text(label, insert=(x, y + 4),
-                            font_size='11px',
+                            font_size=f'{FONT_SIZE_ZONE}px',
                             font_family='Arial, sans-serif', fill='#3a362c'))
         x += 22 + len(label) * 6.8
     dwg.add(legend)

@@ -35,7 +35,7 @@ defecto son la paleta de resaltador; `color` acepta hex/CSS o token §O57
 
 import logging
 
-from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
+from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT, FONT_SIZE_ZONE
 
 logger = logging.getLogger('AlmaGag')
 
@@ -244,7 +244,7 @@ def draw_journey_legend(dwg, journeys, canvas_width, canvas_height, y_offset=0):
     y = canvas_height - 30 - y_offset
     x = 24
     legend.add(dwg.text('Recorridos:', insert=(x, y + 4),
-                        font_size='11px', font_weight='700',
+                        font_size=f'{FONT_SIZE_ZONE}px', font_weight='700',
                         font_family='Arial, sans-serif', fill='#5a5648'))
     x += 60
     for label, color in entries:
@@ -252,7 +252,7 @@ def draw_journey_legend(dwg, journeys, canvas_width, canvas_height, y_offset=0):
                             stroke_width=10, stroke_opacity=JOURNEY_OPACITY,
                             stroke_linecap='round', class_=JOURNEY_CLASS))
         legend.add(dwg.text(label, insert=(x + 32, y + 4),
-                            font_size='11px', font_family='Arial, sans-serif',
+                            font_size=f'{FONT_SIZE_ZONE}px', font_family='Arial, sans-serif',
                             fill='#3a362c'))
         x += 58 + len(label) * 6.8
     dwg.add(legend)
