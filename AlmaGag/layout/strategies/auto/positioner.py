@@ -719,16 +719,54 @@ class AutoLayoutPositioner:
                     continue
                 rf = levels_map.get(f, 0)
                 rt = levels_map.get(t, 0)
-                if abs(rf - rt) != 1:
+                if rf == rt:
                     continue
-                if outgoing.get(f) != [t] or incoming.get(t) != [f]:
-                    continue
-                if deg.get(f) == 1:
-                    free, anchor = by_id[f], by_id[t]
-                elif deg.get(t) == 1:
-                    free, anchor = by_id[t], by_id[f]
-                else:
-                    continue
+                free = anchor = None
+                if (abs(rf - rt) == 1 and outgoing.get(f) == [t]
+                        and incoming.get(t) == [f]):
+                    # eslabón 1:1 puro (V80): mover el extremo de grado 1
+                    if deg.get(f) == 1:
+                        free, anchor = by_id[f], by_id[t]
+                    elif deg.get(t) == 1:
+                        free, anchor = by_id[t], by_id[f]
+                if free is None:
+                    # BUGS-ROUTE-003 (snap casi-alineados): un extremo cuya
+                    # ÚNICA arista hacia el otro lado queda a media ranura
+                    # (≤40px) de la columna del otro — el jog residual no
+                    # aporta información; alinear si la fila tiene hueco y
+                    # la columna nueva no pisa iconos de filas intermedias
+                    # (repro: rproc a 34px de la columna de resumen, 3
+                    # rangos más arriba).
+                    if outgoing.get(f) == [t]:
+                        cand_free, cand_anchor = by_id[f], by_id[t]
+                    elif incoming.get(t) == [f]:
+                        cand_free, cand_anchor = by_id[t], by_id[f]
+                    else:
+                        continue
+                    if 'contains' in cand_free:
+                        continue
+                    if abs(_center(cand_anchor) - _center(cand_free)) \
+                            > ICON_WIDTH / 2.0:
+                        continue
+                    # la vertical nueva debe librar los iconos intermedios
+                    new_col = _center(cand_anchor)
+                    lo = min(levels_map.get(cand_free['id'], 0),
+                             levels_map.get(cand_anchor['id'], 0))
+                    hi = max(levels_map.get(cand_free['id'], 0),
+                             levels_map.get(cand_anchor['id'], 0))
+                    blocked = False
+                    for mid_row in range(lo + 1, hi):
+                        for other in by_row.get(mid_row, []):
+                            clearance = (other.get('width', ICON_WIDTH) / 2.0
+                                         + MIN_GAP / 2.0)
+                            if abs(new_col - _center(other)) < clearance:
+                                blocked = True
+                                break
+                        if blocked:
+                            break
+                    if blocked:
+                        continue
+                    free, anchor = cand_free, cand_anchor
                 dx = _center(anchor) - _center(free)
                 if abs(dx) < 1.0:
                     continue
