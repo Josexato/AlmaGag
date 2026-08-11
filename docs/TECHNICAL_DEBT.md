@@ -1375,6 +1375,165 @@ se declara no-derivable.
 
 ---
 
+> **Tanda 2026-08-11 — grupos X e Y del artefacto de Claude Design**
+> (caso tabernero, paquete GAG-WV: 57 elementos, 75 conexiones, 9 `areas`
+> con `members`, 3 journeys, SDJF 2.0). Todos los claims medibles fueron
+> VERIFICADOS por ejecución contra master v3.11.0 antes de ticketear:
+> estrategia hier, cruces=247, arista×nodo=37, labels=0, aspecto=14.36,
+> lámina 11129×893, 9 títulos de área en y=58 (una sola fila), exit
+> code 0 pese a §O52 violado + 8 avisos W83. Referencia visual del
+> artefacto: la misma lámina cabe en 2600×1700 (aspecto 1.53) con
+> macro-grilla de 3 bandas y bus TI perimetral. Grupo X = iteración 11;
+> grupo Y = consolidación arquitectónica (decisión de José pendiente).
+
+### BUGS-VAL-007: Aceptación silenciosa de constructos no soportados (X90) 🆕 ABIERTO
+**Componente**: `generator.py` / validación de entrada (capa nueva)
+**Reportado**: 2026-08-11 (grupo X; verificado: 0 menciones en el log)
+
+El tabernero declara `spec_version: 2.0`, `areas[].members`,
+`canvas.legend` y prescinde de `canvas.width/height` — y el motor no dijo
+UNA palabra sobre qué entendió, qué ignoró y qué hizo a medias (dibujó
+las 9 cajas de área pero las tendió en fila; X91). Principio X90:
+**constructo declarado = renderizado o error explicable, nunca
+silencio**. Falta una pasada de validación de schema al cargar que nombre
+cada clave desconocida o no soportada por la estrategia elegida
+(`[schema] areas[].members no soportado por strategy=auto` o similar),
+y que declare la `spec_version` que el motor entiende.
+
+---
+
+### BUGS-VAL-008: El contador `labels` es CIEGO en vistas agrupadas (X93) 🆕 ABIERTO
+**Componente**: `layout/collision.py` + `strategies/auto/anticollision.py::seed_label_truth`
+**Reportado**: 2026-08-11 (grupo X; verificado: 28 pares reales con labels=0)
+
+El LOG del tabernero reporta `labels=0` mientras el SVG tiene **28 pares
+únicos** título-de-nodo ↔ label-de-arista solapados o a <11px (medidos
+sobre el SVG emitido; el artefacto contó 19 con otro método — ambos ≫ 0).
+Causa localizada: en vistas agrupadas (§I27/§I28) las etiquetas de nodo
+son estructurales (`draw_area_node_labels`) y NO viven en
+`label_positions` (`anticollision.py:119-125`) — el detector jamás las
+ve. La cifra oficial miente exactamente en la vista que más la necesita.
+El contador debe medir las etiquetas estructurales como bboxes de
+verdad (aunque no sean reubicables) para que `labels` cuente TODO solape
+dibujado.
+
+---
+
+### WISH-LAYOUT-020: El ÁREA como unidad de layout — macro-colocación bidimensional (X91) 🆕 ABIERTO
+**Componente**: `strategies/auto/zones.py` + `generator.py::select_strategy`
+**Reportado**: 2026-08-11 (grupo X; verificado: 9 áreas en una fila, aspecto 14.36)
+
+Con 57 nodos y 9 áreas el motor tendió las 9 cajas en UNA fila →
+11129×893 (aspecto 14.36, §O52 fuera de rango), cruces=247,
+arista×nodo=37. Criterio X91: sobre un umbral (~30 nodos o ≥4 áreas) el
+layout debe operar en DOS niveles — grafo condensado de áreas (un
+nodo por área, aristas ponderadas por conexiones inter-área) y
+macro-colocación BIDIMENSIONAL envuelta al aspecto objetivo (jamás
+1×N), con sub-layout normal (A–W) dentro de cada caja. `area.role`
+(`chain|feeder|control|overlay|external`) orienta la banda: control
+arriba, cadena al centro, external abajo. Precedencia: `partition`
+declarado (LAYOUT-021) > `role` > derivación. Referencia medida del
+artefacto: mismo contenido en 2600×1700 (aspecto 1.53) con 3 bandas.
+
+---
+
+### WISH-LAYOUT-021: `canvas.partition` — macro-plano declarable (X91b) 🆕 ABIERTO
+**Componente**: formato SDJF + `strategies/auto/zones.py`
+**Reportado**: 2026-08-11 (grupo X)
+
+Cuando el autor SABE el plano que quiere, lo declara:
+`canvas.partition` con `scheme: "bsp"` y `splits` de la forma
+`{area, size, anchor/at, of}` — proporciones, no píxeles. El motor
+coloca las áreas según el plano y hace sub-layout dentro. Enchufable
+(`bsp` | `grid` | futuros como voronoi). Es la vía declarativa que gana
+a la derivación de LAYOUT-020 (precedencia partition > role >
+derivación) — mismo espíritu que align/near: contrato del autor.
+
+---
+
+### WISH-ROUTE-005: Hub multi-área = bus ortogonal con troncal y ramales (X92) 🆕 ABIERTO
+**Componente**: `routing/` + troncales §P60
+**Reportado**: 2026-08-11 (grupo X)
+
+Un hub con ≥3 destinos en áreas DISTINTAS (en el tabernero: la capa TI
+objetivo — ERP, observabilidad, ciberseguridad — con ~15 aristas dashed
+que cruzan toda la lámina) debe rutearse como BUS: una troncal ortogonal
+única a lo largo del corredor y ramales perpendiculares cortos hacia
+cada destino, en vez de N rutas independientes que atraviesan el lienzo.
+Referencia del artefacto: troncal única horizontal + ramales
+perpendiculares, cero diagonales. Generaliza las troncales §P60 (hoy por
+zona destino) al caso hub→multi-área.
+
+---
+
+### WISH-DRAW-007: Labels de aristas paralelas apilados en cascada (X93, mitad visible) 🆕 ABIERTO
+**Componente**: `strategies/auto/anticollision.py` (P61)
+**Reportado**: 2026-08-11 (grupo X)
+
+Cuando varias aristas comparten corredor, sus labels deben apilarse en
+cascada con separación vertical ≥14px (≈ una línea de 13px + aire), no
+superponerse ni pelear el mismo punto medio. Depende de BUGS-VAL-008:
+primero el contador tiene que VER los solapes en vistas agrupadas;
+después P61 puede resolverlos apilando. Referencia: los labels en
+cascada del render del artefacto.
+
+---
+
+### WISH-ARCH-007: SDJF 2.0 — spec formal con una sintaxis canónica (Y94) 🆕 ABIERTO — mediano plazo
+**Componente**: formato SDJF + `docs/spec/FORMATO_ARCHIVOS.md`
+**Reportado**: 2026-08-11 (grupo Y — requiere decisión de José: hay deprecaciones)
+
+Formalizar el formato: campo `spec_version` reconocido; JSON Schema
+versionado EN el repo (validable por terceros); UNA sintaxis canónica
+por concepto — `areas[].members` canónico y `element.contains` azúcar
+que se normaliza al cargar. Deprecar con aviso `[deprecated]` durante
+una versión antes de retirar: `routing{}` por conexión (BUGS-ROUTE-003
+la honra, pero la meta es derivarla), `canvas.width/height` (O51 los
+deriva), color por conexión (theme §O57 los deriva).
+
+---
+
+### WISH-VAL-001: El audit es COMPUERTA, no comentarista (Y95) 🆕 ABIERTO — mediano plazo
+**Componente**: `validation/` + `main.py` (exit codes)
+**Reportado**: 2026-08-11 (grupo Y; verificado: exit 0 con §O52 violado + 8 W83)
+
+Hoy el motor emite el SVG y devuelve exit 0 aunque sus propios audits
+griten (tabernero: aspecto 14.36 fuera de [0.4, 3.0] y 8 bandas sobre
+nodos ajenos). Criterio Y95: umbrales DUROS (aspecto fuera de rango,
+arista×nodo>0, banda-sobre-nodo, label-solape, near/align violado,
+schema inválido) disparan un bucle de reparación de N intentos; si no
+se sanan, exit code ≠0 y SVG marcado DRAFT (visible en la lámina). El
+CI del repo falla ante duros nuevos. Requiere decisión de José: cambia
+el contrato del CLI para todo usuario.
+
+---
+
+### WISH-DRAW-008: Journeys = capa de presentación pura post-layout (Y96) 🆕 ABIERTO — mediano plazo
+**Componente**: `draw/primitives/journeys.py` + `strategies/auto/positioner.py`
+**Reportado**: 2026-08-11 (grupo Y)
+
+Contrato de idempotencia: el MISMO archivo con y sin `journeys` produce
+la MISMA geometría de iconos y aristas — la única influencia legítima de
+un journey sobre el layout es la membresía W88 (columnas derivadas,
+LAYOUT-019), y esa influencia debe ser idéntica se dibuje o no la banda.
+Test diferencial: render con journeys vs. render sin la sección → los
+elementos no se mueven ni un píxel.
+
+---
+
+### WISH-ARCH-008: Parejas de conformidad mínimo≡completo en CI (Y97) 🆕 ABIERTO — mediano plazo
+**Componente**: `tests/` + fixtures
+**Reportado**: 2026-08-11 (grupo Y; hermano operativo de WISH-ARCH-006/W89)
+
+Por cada fixture de referencia, DOS archivos: el mínimo (solo decisiones)
+y el completo (todo explícito). CI verifica que ambos emiten el MISMO
+SVG. Es el mecanismo de verificación continua de la derivabilidad
+WISH-ARCH-006: cada divergencia es o una derivación faltante o un campo
+que debe declararse no-derivable — y el par de archivos lo documenta
+solo.
+
+---
+
 ### Recalibración O56 (iteración 9): escala tipográfica 14/12/11 → 16/13/12 ✅ (2026-08-11)
 
 Con la lámina ya compacta (LAYOUT-016), el contrato tipográfico sube a
