@@ -191,7 +191,7 @@ def draw_journeys(dwg, journeys, elements_by_id, connections) -> int:
         if not journey.get('label'):
             raise ValueError(
                 f"[journeys] el recorrido '{journey.get('id', '?')}' no declara "
-                f"label — obligatorio (va a la leyenda «Flujos:»)")
+                f"label — obligatorio (va a la leyenda «Recorridos:»)")
     seen_colors = {}
     for f in declared:
         col = f.get('color')
@@ -226,7 +226,7 @@ def draw_journeys(dwg, journeys, elements_by_id, connections) -> int:
 
 
 def draw_journey_legend(dwg, journeys, canvas_width, canvas_height, y_offset=0):
-    """Leyenda «Flujos:» al pie (análoga a §N48). Un swatch de resaltador
+    """Leyenda «Recorridos:» al pie (análoga a §N48). Un swatch de resaltador
     por recorrido DIBUJABLE con label; sin labels no hay leyenda."""
     entries = []
     n = 0
