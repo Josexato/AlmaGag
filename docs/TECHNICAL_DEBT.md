@@ -1115,23 +1115,70 @@ debía repetirse cuando esto aterrizara.
 
 ---
 
-### WISH-LAYOUT-015: `align[]` no se honra sobre miembros de ZONAS/grillas 🆕 ABIERTO
+### WISH-LAYOUT-015: `align[]` no se honra sobre miembros de ZONAS/grillas ✅ CERRADO — sustituido por BUGS-LAYOUT-012 (2026-08-11)
 **Componente**: `strategies/auto/positioner.py` (honor V79), `considerations.py`
-**Reportado**: 2026-08-11 (GAG Skiller; verificado ejecutando sus archivos)
+**Reportado**: 2026-08-11 (GAG Skiller); **autocorregido por el Skiller en su reporte 2**
 
-El honor de `align` de la iteración 8 (V79) vive en
-`_calculate_hierarchical_layout`: sólo alcanza a elementos posicionados
-por RANGOS. Los miembros de zonas near/contenedores se colocan por
-grilla de cluster y el honor no los toca — la vía blanda tampoco puede
-(la guarda de colisiones rechaza el movimiento). Medido con los archivos
-del Skiller (17 elementos, 3 zonas): align entre zonas distintas →
-`t1=112 · t2=216 · t3=840` (0/3); align dentro de una zona →
-`t1=112 · ge1=112 · cow1=216` (2/3 — la grilla alineó lo que su pitch
-permitió). El audit SÍ nombra ambas violaciones (esa mitad funciona).
-**Deseo**: que el align sea señal para la grilla de zona (ordenar
-columnas/filas del cluster respetándolo) o que se documente como límite
-explícito del contrato. Repro: `m_align.gag` / `m_align2.gag` del
-inventario del Skiller (viven en su sesión).
+El repro original pedía `align` de eje x entre miembros de ZONAS
+DISTINTAS colocadas en la banda horizontal §P60 — imposible POR
+CONSTRUCCIÓN: la banda coloca las zonas lado a lado, así que sus
+miembros nunca pueden compartir columna. Ese límite queda documentado
+como contrato: dentro de una zona la grilla alinea lo que su pitch
+permite (2/3 medido), entre zonas de banda el align x no aplica, y el
+audit V79 NOMBRA toda violación restante (esa mitad siempre funcionó).
+La semántica que el autor buscaba de verdad — «miembros equivalentes de
+zonas hermanas en la MISMA FILA absoluta» — no se logra extendiendo
+`align` sino alineando los techos de las zonas: eso es BUGS-LAYOUT-012,
+que lo resuelve.
+
+---
+
+### BUGS-LAYOUT-012: Techos de zonas hermanas desfasados — el centrado vertical en la banda rompía la fila absoluta ✅ RESUELTO (2026-08-11)
+
+> **Causa raíz** (geometría medida): `zones.py` centraba cada caja de
+> zona verticalmente en la banda §P60 (`(band_h - h) / 2`). Dos zonas
+> hermanas de alto distinto (cajas de 269 y 287 en el repro del Skiller)
+> dejaban techos — y por tanto rótulos y PRIMERAS FILAS — desfasados los
+> 9px exactos que él midió (rótulos en y=85 vs y=76). **Fix**: las zonas
+> operativas se alinean al TECHO de la banda (`ZONE_MARGIN - y1`); los
+> miembros equivalentes caen en la misma fila absoluta por construcción
+> y la troncal inter-zona sale recta. `band_h` (alto real de la banda)
+> se conserva para situar la fila de periferia.
+
+**Componente**: `AlmaGag/layout/strategies/auto/zones.py` (§P60)
+**Reportado**: 2026-08-11 (GAG Skiller, reporte 2 — autocorrección de
+WISH-LAYOUT-015 con render objetivo)
+
+Verificado: `m_align2` → t1/t2/t3 en y=120 (antes 129/129/120);
+mina-arquitectura-fisica → z_mina y z_pila con el mismo techo (y=176).
+Recalibración medida y MIRADA en PNG del físico v2: +1 cruce (15→16) y
++1 par sobre icono en z_pila (4→5, emergente del optimizador con las
+nuevas coordenadas) a cambio de primeras filas alineadas y troncal de
+transporte recta — el render objetivo del Skiller. Regresión:
+`tests/test_layout012_zone_band.py` (fixture + sintético con zonas de
+alto desigual y periferia bajo la banda completa).
+
+---
+
+### BUGS-VAL-006: R1 falso — el scale normalizador del icono inflaba su bbox (FortiGate 512px²) ✅ RESUELTO (2026-08-11)
+
+> **Causa raíz**: `_group_transform_bbox` devolvía `ranura × scale`
+> (80·sx, 50·sy). Pero el `scale()` de los emisores NORMALIZA el viewBox
+> intrínseco del icono a la ranura 80×50 (firewall: 51×43 → ×1.57/×1.16;
+> embebidos: `min(80/w, 50/h)`) — ningún emisor magnifica más allá de la
+> ranura. El firewall quedaba con bbox de 125.5×58 y su PROPIO label
+> lateral (x=195, el icono real termina en 180) daba «solapa icono
+> (512px²)». **Fix**: el bbox se acota a la ranura nominal
+> (`min(80·sx, 80)`, `min(50·sy, 50)`); un scale reductor sí reduce.
+
+**Componente**: `AlmaGag/validation/visual_quality.py` (`_group_transform_bbox`)
+**Reportado**: 2026-08-11 (GAG Skiller, reportes 1 y 2: `t6-fw.sdjf`)
+
+Verificado con su repro exacto: 0 violaciones y las 3 conexiones siguen
+detectadas (sin regresión R3); control positivo con `<g>` escalado y
+texto encima sigue saltando. Guarda 40/40 idéntica (el validador no
+mueve geometría). Regresión en `tests/test_visual_quality.py` y contrato
+actualizado en `tests/test_val003_path_icons.py`.
 
 ---
 
@@ -1176,7 +1223,10 @@ Errores naturales de autor: `routing` espera objeto pero el string es la
 intención obvia. **Fix**: coerción con aviso en `generate_diagram` —
 `routing: "x"` → `{"type": "x"}`, `roles[k]: "x"` → `{"label": "x"}`,
 routing de tipo inválido se ignora con aviso nombrando la conexión.
-Nunca más un AttributeError sin contexto. De paso se migraron las dos
+Nunca más un AttributeError sin contexto. **Nota del reporte 2 del
+Skiller**: la coerción de `roles` pierde el color en silencio — el aviso
+ahora lo NOMBRA («SIN color; declarar {"label", "color"} para
+conservarlo»). De paso se migraron las dos
 strings «Flujos:» que el rename v3.9 dejó en `journeys.py:194,229`
 (mensaje de error y docstring — hallazgo del Skiller). Regresión en
 `tests/test_v39_flow_rename.py`.
