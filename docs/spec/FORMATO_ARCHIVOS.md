@@ -189,6 +189,28 @@ Cada área corre A–H sobre sus miembros y se dibuja como caja punteada rotulad
 las conexiones inter-área cruzan por el borde (§I29). Un nodo puede no pertenecer
 a ningún área.
 
+**Macro-grilla 2D (WISH-LAYOUT-020/X91)**: las cajas de área se colocan en
+DOS dimensiones. Si la fila única respeta el aspecto §O52 se queda tal cual;
+si lo viola, se envuelven en filas (orden declarado) hacia aspecto ~1.5 —
+nunca una cinta 1×N. El área puede declarar su banda con `role`:
+
+```json
+{ "id": "F9", "label": "9 · Bus TI", "members": [...], "role": "overlay" }
+```
+
+| `area.role` | banda | uso típico |
+|---|---|---|
+| `control` / `feeder` | superior | gobierno, riesgo, abastecimiento |
+| `chain` (default) | central | la cadena que se lee |
+| `external` | inferior | lo que sale de la lámina (exportación, clientes) |
+| `overlay` | fondo | buses/capas transversales |
+
+El ruteo inter-área elige el lado de salida/entrada por el eje dominante
+entre cajas (derecha/izquierda/abajo/arriba). Precedencia del macro-plano:
+`canvas.partition` declarado (WISH-LAYOUT-021, futuro) > `area.role` >
+derivación por aspecto. (Nota: este `role` de ÁREA es distinto del `role`
+de responsable por nodo §I30.)
+
 **`lanes`** (top-level, opcional) — carriles por responsable (§I28):
 ```json
 "lanes": [ { "id": "com", "label": "Consultor Comercial", "members": ["obtiene"] } ]

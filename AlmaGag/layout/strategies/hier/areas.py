@@ -37,6 +37,14 @@ AREA_HEAD = 30.0                        # banda superior para el rótulo de fase
 AREA_GAP = 70.0                         # corredor entre cajas de área
 MARGIN_X = 40.0
 MARGIN_Y = 40.0
+ASPECT_TARGET = 1.5                     # X91: objetivo de la envoltura 2D
+
+# WISH-LAYOUT-020 (X91): `area.role` orienta la banda de la macro-grilla —
+# control/feeder arriba (gobiernan/alimentan), chain al centro (la cadena se
+# lee), external abajo (sale de la lámina), overlay al fondo (banda de bus).
+_ROLE_BAND = {'feeder': 0, 'control': 0, 'chain': 1,
+              'external': 2, 'overlay': 3}
+_BAND_DEFAULT = 1
 LEGEND_BAND = 54.0                      # franja inferior para la leyenda de roles
 LABEL_LINE_H = 16.0                     # alto por línea de etiqueta (§J31)
 LABEL_GAP = 12.0                        # aire entre icono y su etiqueta inferior
@@ -189,9 +197,8 @@ def layout_by_areas(layout, areas_spec):
             area_of[e['id']] = aid
             order.append(aid)
 
-    # Sub-layout por área sobre su subgrafo intra-área.
-    boxes = []
-    x_cursor = MARGIN_X
+    # PASO 1 — sub-layout local por área (contenido en 0,0) y dimensiones.
+    dims = []
     for aid in order:
         spec = spec_by_id[aid]
         members = [by_id[m] for m in spec['members'] if m in by_id]
@@ -199,16 +206,31 @@ def layout_by_areas(layout, areas_spec):
         sub_conns = [c for c in conns
                      if c.get('from') in mset and c.get('to') in mset]
         w, h = _sub_layout(members, sub_conns)
-        bx = x_cursor
-        by = MARGIN_Y + AREA_HEAD
-        # desplazar el contenido del área a su posición global
-        _shift(members, sub_conns, bx + AREA_PAD, by + AREA_PAD)
-        box_w = w + 2 * AREA_PAD
-        box_h = h + 2 * AREA_PAD
-        boxes.append({'id': aid, 'label': spec.get('label', ''),
-                      'color': spec.get('color'), 'x': bx, 'y': MARGIN_Y,
-                      'w': box_w, 'h': box_h + AREA_HEAD, 'solo': aid.startswith('__solo_')})
-        x_cursor = bx + box_w + AREA_GAP
+        dims.append({'aid': aid, 'spec': spec, 'members': members,
+                     'conns': sub_conns,
+                     'w': w + 2 * AREA_PAD,
+                     'h': h + 2 * AREA_PAD + AREA_HEAD})
+
+    # PASO 2 — WISH-LAYOUT-020 (X91): macro-colocación BIDIMENSIONAL.
+    rows = _macro_rows(dims)
+
+    # PASO 3 — colocar fila por fila (dentro de la fila: orden declarado).
+    boxes = []
+    y_cursor = MARGIN_Y
+    for row in rows:
+        x_cursor = MARGIN_X
+        row_h = max(d['h'] for d in row)
+        for d in row:
+            spec = d['spec']
+            bx, by = x_cursor, y_cursor
+            _shift(d['members'], d['conns'],
+                   bx + AREA_PAD, by + AREA_HEAD + AREA_PAD)
+            boxes.append({'id': d['aid'], 'label': spec.get('label', ''),
+                          'color': spec.get('color'), 'x': bx, 'y': by,
+                          'w': d['w'], 'h': d['h'],
+                          'solo': d['aid'].startswith('__solo_')})
+            x_cursor = bx + d['w'] + AREA_GAP
+        y_cursor += row_h + AREA_GAP
 
     # §I29: ruteo inter-área — sale por el borde de la caja origen, corredor,
     # entra por el borde de la caja destino.
@@ -223,6 +245,52 @@ def layout_by_areas(layout, areas_spec):
     return boxes
 
 
+def _macro_rows(dims):
+    """WISH-LAYOUT-020 (X91): decide las FILAS de la macro-grilla de áreas.
+
+    Precedencia (partition > role > derivación; `canvas.partition` es
+    WISH-LAYOUT-021):
+    1. `area.role` declarado en ALGUNA área → bandas semánticas
+       (_ROLE_BAND); las áreas sin role van a la banda central.
+    2. Sin roles: si la fila única respeta el aspecto §O52 se queda tal
+       cual (estabilidad de los fixtures sanos); si lo viola, envoltura
+       tipo estantería EN ORDEN DECLARADO hacia ASPECT_TARGET — jamás una
+       cinta 1×N desproporcionada (tabernero: 9 áreas en 11129×893).
+    """
+    from AlmaGag.layout.metrics import ASPECT_RANGE
+    if not dims:
+        return []
+    roles = {d['aid']: (d['spec'].get('role') or '') for d in dims}
+    if any(r in _ROLE_BAND for r in roles.values()):
+        bands = {}
+        for d in dims:
+            b = _ROLE_BAND.get(roles[d['aid']], _BAND_DEFAULT)
+            bands.setdefault(b, []).append(d)
+        return [bands[k] for k in sorted(bands)]
+
+    total_w = sum(d['w'] for d in dims) + AREA_GAP * (len(dims) - 1)
+    max_h = max(d['h'] for d in dims)
+    if total_w / max_h <= ASPECT_RANGE[1] or len(dims) < 2:
+        return [dims]
+    # Envoltura: ancho objetivo hacia ASPECT_TARGET (nunca más angosto que
+    # la caja más ancha).
+    area_total = sum(d['w'] * d['h'] for d in dims)
+    target_w = max(max(d['w'] for d in dims),
+                   (area_total * ASPECT_TARGET) ** 0.5)
+    rows, row, roww = [], [], 0.0
+    for d in dims:
+        w = d['w'] + (AREA_GAP if row else 0.0)
+        if row and roww + w > target_w:
+            rows.append(row)
+            row, roww = [], 0.0
+            w = d['w']
+        row.append(d)
+        roww += w
+    if row:
+        rows.append(row)
+    return rows
+
+
 def _node_border_port(e, side):
     cx, cy = e['x'] + ICON_WIDTH / 2, e['y'] + ICON_HEIGHT / 2
     if side == 'R':
@@ -235,6 +303,10 @@ def _node_border_port(e, side):
 
 
 def _route_inter_area(layout, area_of, box_by_area):
+    """§I29 generalizado (WISH-LAYOUT-020): con la macro-grilla 2D las cajas
+    ya no están sólo a la derecha — el lado de salida/entrada se elige por el
+    EJE DOMINANTE entre centros de caja (R→L, L→R, B→T o T→B), con el
+    corredor a mitad de camino entre los bordes enfrentados."""
     by_id = {e['id']: e for e in layout.elements}
     for c in layout.connections:
         f, t = c.get('from'), c.get('to')
@@ -243,14 +315,30 @@ def _route_inter_area(layout, area_of, box_by_area):
         sb = box_by_area[area_of[f]]
         tb = box_by_area[area_of[t]]
         s, d = by_id[f], by_id[t]
-        # origen sale a la derecha de su caja, destino entra por la izquierda de
-        # la suya (áreas empaquetadas izq→der).
-        a = _node_border_port(s, 'R')
-        b = _node_border_port(d, 'L')
-        ex = sb['x'] + sb['w']            # borde derecho caja origen
-        en = tb['x']                       # borde izquierdo caja destino
-        corr = (ex + en) / 2               # corredor entre cajas
-        pts = [a, (ex, a[1]), (corr, a[1]), (corr, b[1]), (en, b[1]), b]
+        dx = (tb['x'] + tb['w'] / 2) - (sb['x'] + sb['w'] / 2)
+        dy = (tb['y'] + tb['h'] / 2) - (sb['y'] + sb['h'] / 2)
+        if abs(dx) >= abs(dy):
+            if dx >= 0:                    # destino a la derecha
+                a = _node_border_port(s, 'R')
+                b = _node_border_port(d, 'L')
+                ex, en = sb['x'] + sb['w'], tb['x']
+            else:                          # destino a la izquierda
+                a = _node_border_port(s, 'L')
+                b = _node_border_port(d, 'R')
+                ex, en = sb['x'], tb['x'] + tb['w']
+            corr = (ex + en) / 2
+            pts = [a, (ex, a[1]), (corr, a[1]), (corr, b[1]), (en, b[1]), b]
+        else:
+            if dy >= 0:                    # destino abajo
+                a = _node_border_port(s, 'B')
+                b = _node_border_port(d, 'T')
+                ex, en = sb['y'] + sb['h'], tb['y']
+            else:                          # destino arriba
+                a = _node_border_port(s, 'T')
+                b = _node_border_port(d, 'B')
+                ex, en = sb['y'], tb['y'] + tb['h']
+            corr = (ex + en) / 2
+            pts = [a, (a[0], ex), (a[0], corr), (b[0], corr), (b[0], en), b]
         c['computed_path'] = {'type': 'polyline', 'points': pts}
         c['_from_port'] = a
         c['_to_port'] = b

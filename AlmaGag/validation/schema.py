@@ -56,7 +56,8 @@ CONNECTION_KEYS = {
 
 CANVAS_KEYS = {'width', 'height', 'flow', 'legend'}
 
-AREA_KEYS = {'id', 'label', 'members', 'color'}
+AREA_KEYS = {'id', 'label', 'members', 'color',
+             'role'}                        # WISH-LAYOUT-020 (bandas X91)
 
 JOURNEY_KEYS = {'id', 'label', 'color', 'path'}
 
