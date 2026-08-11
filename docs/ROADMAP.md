@@ -134,6 +134,35 @@ franjas ajenas como zona a evitar, y el journey como primitivo de
 colocación (las tres cadenas del presupuesto en columnas rectas con los
 5 aligns del autor intactos). Motor v3.11.0.
 
+## Iteración 11 — grupo X del review (11-ago): el caso tabernero, áreas a escala
+
+Claude Design corrió un caso NUEVO (tabernero: vitivinícola GAG-WV, 57
+elementos, 75 conexiones, 9 áreas con members, SDJF 2.0) y abrió
+X90-X93. Todos los claims verificados por ejecución contra master
+v3.11.0 antes de ticketear: hier, cruces=247, arista×nodo=37, labels=0,
+aspecto=14.36, las 9 áreas en UNA fila (11129×893); el punto ciego X93
+resultó PEOR que lo reportado (28 pares título↔label-de-arista con el
+contador en cero — causa en `seed_label_truth`, etiquetas estructurales
+fuera de `label_positions`). Referencia del artefacto: la misma lámina
+en 2600×1700 (aspecto 1.53) con macro-grilla de 3 bandas y bus TI.
+
+| Orden | Qué | Ticket |
+|---|---|---|
+| 1 | **Schema que habla**: constructo declarado = renderizado o error, nunca silencio (spec_version, members, claves ignoradas nombradas) | BUGS-VAL-007 |
+| 2 | **Contador labels veraz en vistas agrupadas**: las etiquetas estructurales entran al detector (28 pares invisibles hoy) | BUGS-VAL-008 |
+| 3 | **Área como unidad de layout**: grafo condensado + macro-colocación bidimensional envuelta al aspecto (jamás 1×N); `area.role` orienta bandas | WISH-LAYOUT-020 |
+| 4 | **`canvas.partition`**: el macro-plano declarable (bsp, proporciones) que gana a la derivación | WISH-LAYOUT-021 |
+| 5 | **Bus para hubs multi-área**: troncal ortogonal + ramales (las ~15 dashed del caso TI) | WISH-ROUTE-005 |
+| 6 | **Labels paralelos en cascada** (≥14px, tras el punto 2) | WISH-DRAW-007 |
+
+**Mediano plazo del grupo (Y94-Y97, requieren decisión de José)**:
+WISH-ARCH-007 (SDJF 2.0: JSON Schema en repo, sintaxis canónica,
+deprecaciones con aviso), WISH-VAL-001 (audit como COMPUERTA: umbrales
+duros → reparación → exit ≠0 + DRAFT; hoy exit 0 con §O52 violado),
+WISH-DRAW-008 (journeys = presentación pura: mismo SVG con/sin bandas
+salvo membresía W88), WISH-ARCH-008 (parejas mínimo≡completo en CI,
+hermano operativo de WISH-ARCH-006).
+
 ## Mediano plazo (sin fecha)
 
 - **«El mapa» (WISH-ARCH-004)**: separar mapa (dato) de vista (representación)
