@@ -764,13 +764,44 @@ class AutoLayoutPositioner:
                         if c2.get('kind') == 'align' and c2.get('axis') == 'x'
                         for i in c2.get('ids', [])}
 
+        # WISH-LAYOUT-019 (W88): el journey es primitivo de COLOCACIÓN, no
+        # solo overlay. Cada journey cuyos miembros EXCLUSIVOS (no
+        # compartidos con otro journey) viven en rangos distintos deriva un
+        # contrato de columna implícito — mismo mecanismo que el honor V79,
+        # procesado DESPUÉS de los aligns declarados (el autor gana; un
+        # miembro de align declarado nunca es empujado por uno derivado).
+        # Los nodos compartidos (el consolidado) quedan libres: son la
+        # confluencia. El audit sólo vigila lo declarado — un derivado
+        # infactible simplemente no se aplica.
+        _jcount: Dict[str, int] = {}
+        for _j in (getattr(layout, '_journeys', None) or []):
+            if isinstance(_j, dict):
+                for _i in _j.get('path', []):
+                    if isinstance(_i, str):
+                        _jcount[_i] = _jcount.get(_i, 0) + 1
+        _derived_cons = []
+        for _j in (getattr(layout, '_journeys', None) or []):
+            if not isinstance(_j, dict):
+                continue
+            _excl = [i for i in _j.get('path', [])
+                     if isinstance(i, str) and _jcount.get(i) == 1
+                     and i in by_id and 'x' in by_id[i] and i in levels_map]
+            if len(_excl) < 2:
+                continue
+            if len({levels_map.get(i, 0) for i in _excl}) < 2:
+                continue
+            _derived_cons.append({'kind': 'align', 'axis': 'x',
+                                  'ids': _excl,
+                                  '_derived_journey': _j.get('id', '?')})
+
         def _pair_required(a, b):
             return max((a.get('width', ICON_WIDTH)
                         + b.get('width', ICON_WIDTH)) / 2.0 + MIN_GAP,
                        (label_ws.get(a['id'], 0)
                         + label_ws.get(b['id'], 0)) / 2.0 + LABEL_GAP)
 
-        for cons in getattr(layout, '_considerations', None) or []:
+        for cons in list(getattr(layout, '_considerations', None) or []) \
+                + _derived_cons:
             if cons.get('kind') != 'align' or cons.get('axis') != 'x':
                 continue
             members = [by_id[i] for i in cons.get('ids', [])
@@ -782,48 +813,71 @@ class AutoLayoutPositioner:
                 continue          # mismo rango: sigue en la vía blanda
             centers = sorted(_center(m) for m in members)
             target = centers[len(centers) // 2]
+            # W88: un contrato DERIVADO de journey se honra POR MIEMBRO
+            # (mueve los que caben, salta los que no) — el todo-o-nada
+            # queda para los aligns DECLARADOS, donde media columna sería
+            # peor que ninguna y el audit debe poder nombrar el todo.
+            derived = '_derived_journey' in cons
             moves = []
             honorable = True
             member_ids = {m['id'] for m in members}
+            # It9-3 + W88: entrada a columna con empuje EN CADENA — los
+            # vecinos no-contrato se corren hacia afuera lo mínimo, en
+            # cascada (una fila apretada necesita correr 2-3, no 1). Si un
+            # eslabón de la cadena es contrato (align x declarado, miembro
+            # del grupo o contenedor), el plan muere.
+            def _plan_column_entry(m, tgt, row):
+                pos = {id(e): _center(e) for e in row}
+                pos[id(m)] = tgt
+                others = sorted((e for e in row if e is not m),
+                                key=lambda e: pos[id(e)])
+                plan = []
+                for side in (1.0, -1.0):
+                    seq = [e for e in others
+                           if (pos[id(e)] >= tgt) == (side > 0)]
+                    if side < 0:
+                        seq = list(reversed(seq))
+                    cur, prev = tgt, m
+                    for e in seq:
+                        req = _pair_required(prev, e)
+                        need = cur + side * req
+                        if (pos[id(e)] - need) * side < 0:
+                            if (e['id'] in _x_align_ids
+                                    or e['id'] in member_ids
+                                    or 'contains' in e):
+                                return None
+                            plan.append((e, need - pos[id(e)]))
+                            pos[id(e)] = need
+                        cur, prev = pos[id(e)], e
+                return plan
+
             for m in members:
                 dx = target - _center(m)
                 if abs(dx) < 1.0:
                     continue
                 row = by_row.get(levels_map.get(m['id'], 0), [])
-                for other in row:
-                    if other is m:
-                        continue
-                    required = _pair_required(m, other)
-                    gap = abs(target - _center(other))
-                    if gap >= required:
-                        continue
-                    # It9-3: el vecino que bloquea la columna se APARTA si
-                    # no es contrato (miembro de otro align x / contenedor)
-                    # y su fila se lo permite — el contrato del autor gana
-                    # sobre la posición estética del vecino.
-                    if (other['id'] in _x_align_ids
-                            or other['id'] in member_ids
-                            or 'contains' in other):
-                        honorable = False
-                        break
-                    push = required - gap + 1.0
-                    direction = 1.0 if _center(other) >= target else -1.0
-                    new_oc = _center(other) + direction * push
-                    ok = True
-                    for o2 in row:
-                        if o2 is other or o2 is m:
-                            continue
-                        if abs(new_oc - _center(o2)) < _pair_required(other, o2):
-                            ok = False
-                            break
-                    if not ok:
-                        honorable = False
-                        break
-                    moves.append((other, direction * push))
-                if not honorable:
+                m_moves = _plan_column_entry(m, target, row)
+                m_ok = m_moves is not None
+                if not m_ok:
+                    if derived:
+                        continue          # este miembro no cabe: se salta
+                    honorable = False
                     break
-                moves.append((m, dx))
-            if honorable:
+                if derived:
+                    for o, odx in m_moves:
+                        o['x'] += odx
+                    m['x'] += dx
+                    moves.append((m, dx))
+                else:
+                    moves.extend(m_moves)
+                    moves.append((m, dx))
+            if derived:
+                if moves:
+                    logger.debug(
+                        f"    W88: journey '{cons['_derived_journey']}' — "
+                        f"{[m['id'] for m, _ in moves]} a la columna "
+                        f"{target:.0f}")
+            elif honorable:
                 for m, dx in moves:
                     m['x'] += dx
                 if moves:
@@ -885,6 +939,11 @@ class AutoLayoutPositioner:
                     if blocked:
                         continue
                     free, anchor = cand_free, cand_anchor
+                if free['id'] in _x_align_ids:
+                    # It10-6: un miembro de align x DECLARADO no se snapea —
+                    # el contrato del autor fija su columna (el snap corría
+                    # después del honor y lo deshacía).
+                    continue
                 dx = _center(anchor) - _center(free)
                 if abs(dx) < 1.0:
                     continue
