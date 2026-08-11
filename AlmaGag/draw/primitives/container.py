@@ -200,6 +200,10 @@ def draw_container(dwg, container, elements_by_id, draw_label=True, layout_algor
     # fill_opacity bajo: deja ver los hijos detrás del contenedor.
     # stroke_opacity alto: borde nítido para percibir el agrupamiento.
     # (Antes se usaba opacity=0.3 global, que dejaba el borde casi invisible.)
+    # BUGS-VAL-005: la clase marca el rect como CONTENEDOR — contrato
+    # explícito para el validador (antes dependía del nombre del gradiente
+    # o del tamaño, y un contenedor chico contaba como icono: todo texto
+    # interior daba R1 falso).
     rect = dwg.rect(
         insert=(x, y),
         size=(width, height),
@@ -210,6 +214,7 @@ def draw_container(dwg, container, elements_by_id, draw_label=True, layout_algor
         stroke='black',
         stroke_width=2,
         stroke_opacity=CONTAINER_STROKE_OPACITY,
+        class_='ag-container',
     )
     dwg.add(rect)
 
