@@ -1253,6 +1253,34 @@ Regresión: `tests/test_draw005_legend_reserve.py` (roja sin el fix).
 
 ---
 
+### WISH-LAYOUT-017: `align` de eje y entre rangos = contrato de FILA (promoción de rango) ✅ RESUELTO (2026-08-11)
+
+> En un roll-up con cadenas de profundidad desigual (presupuesto TM:
+> 6/4/3 eslabones), los cabezales de disciplina caían en filas distintas
+> por rango topológico — y el align y entre rangos sólo se nombraba en
+> el audit, sin honrarse. **Fix**: gemelo del V79 para el otro eje — un
+> align y cuyos miembros viven en rangos DISTINTOS se honra por
+> PROMOCIÓN DE RANGO: cada miembro sube al rango común factible (todos
+> sus predecesores por debajo, sucesores por arriba; target = máximo
+> entre el rango más profundo y las cotas de predecesores). Si no hay
+> rango factible (p.ej. un miembro alimenta a otro del grupo), no se
+> toca nada y el audit nombra la violación. La «capa de resúmenes» que
+> el autor no podía declarar.
+
+**Componente**: `strategies/auto/positioner.py` (antes de armar `by_level`)
+**Reportado**: 2026-08-11 (pregunta del autor sobre los tres resúmenes en
+filas distintas; el chat de diseño confirmó el descuido en sus aligns y
+re-declaró `{align: [ring, rproc, constr], axis: y}`)
+
+Verificado con la re-declaración exacta del chat de diseño: los tres
+cabezales comparten fila a un paso del consolidado (y=413) y el audit
+deja de dispararse; sin el align, el rango sigue escalonando (la
+profundidad es información). Guarda 40/40 idéntica; suite 541 verde.
+Regresión: `tests/test_layout017_row_contract.py` (honra + histórico
+intacto + infactible nombrado).
+
+---
+
 ### Recalibración O56 (iteración 9): escala tipográfica 14/12/11 → 16/13/12 ✅ (2026-08-11)
 
 Con la lámina ya compacta (LAYOUT-016), el contrato tipográfico sube a
