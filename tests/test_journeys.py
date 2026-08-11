@@ -175,3 +175,63 @@ def test_journeys_work_in_hier_strategy(tmp_path):
     out = tmp_path / 'hier.svg'
     generate_diagram(str(src), output_file=str(out), layout_algorithm='select')
     assert f'class="{JOURNEY_CLASS}"' in out.read_text()
+
+
+def test_band_junction_is_orthogonal_route004():
+    """BUGS-ROUTE-004 (W85): el empalme de la banda dentro del nodo
+    intermedio — puerto de llegada de una conexión → puerto de salida de
+    la siguiente — no salta en diagonal: se inserta el codo ortogonal
+    siguiendo el eje del tramo que llegó."""
+    from AlmaGag.draw.primitives.journeys import build_journey_points
+    els = {'a': {'id': 'a', 'x': 100, 'y': 300},
+           'b': {'id': 'b', 'x': 100, 'y': 150},
+           'c': {'id': 'c', 'x': 100, 'y': 0}}
+    conns = [
+        # a→b llega VERTICAL al puerto (140, 200) de b
+        {'from': 'a', 'to': 'b',
+         'computed_path': {'points': [(140, 300), (140, 200)]}},
+        # b→c sale de OTRO puerto de b (170, 150): desfase en ambos ejes
+        {'from': 'b', 'to': 'c',
+         'computed_path': {'points': [(170, 150), (170, 50)]}},
+    ]
+    j = {'id': 'j', 'label': 'J', 'path': ['a', 'b', 'c']}
+    pts = build_journey_points(j, els, conns)
+    assert pts is not None
+    for (ax, ay), (bx, by) in zip(pts, pts[1:]):
+        assert abs(ax - bx) < 0.5 or abs(ay - by) < 0.5, \
+            f'tramo diagonal en la banda: ({ax},{ay})->({bx},{by})'
+    # el codo insertado continúa el eje de llegada (vertical) y dobla
+    assert (140, 150) in [(round(x), round(y)) for x, y in pts], \
+        f'esperaba el codo (140,150) en {pts}'
+
+
+def test_band_hygiene_audit_names_violations(caplog):
+    """WISH-DRAW-006 (W83): el audit NOMBRA la banda que pisa un icono
+    ajeno y la banda que pasea (>1.25× sus conexiones); calla si no."""
+    import logging
+    from AlmaGag.draw.primitives.journeys import _audit_band_hygiene
+    els = {'a': {'id': 'a', 'x': 0, 'y': 200},
+           'b': {'id': 'b', 'x': 400, 'y': 200},
+           'intruso': {'id': 'intruso', 'x': 180, 'y': 200}}
+    conn = [{'from': 'a', 'to': 'b',
+             'computed_path': {'points': [(80, 225), (400, 225)]}}]
+    j = {'id': 'jx', 'label': 'JX', 'path': ['a', 'b']}
+
+    # 1. eje que atraviesa el icono ajeno
+    with caplog.at_level(logging.WARNING, logger='AlmaGag'):
+        _audit_band_hygiene(j, [(80, 225), (400, 225)], els, conn)
+    assert "banda 'jx' pasa por encima de 'intruso'" in caplog.text
+
+    # 2. banda que pasea (desvío enorme vs la conexión recta)
+    caplog.clear()
+    paseo = [(80, 225), (80, 500), (400, 500), (400, 225)]
+    with caplog.at_level(logging.WARNING, logger='AlmaGag'):
+        _audit_band_hygiene(j, paseo, els, conn)
+    assert "pasea" in caplog.text
+
+    # 3. banda limpia por un corredor libre: silencio
+    caplog.clear()
+    els2 = {k: v for k, v in els.items() if k != 'intruso'}
+    with caplog.at_level(logging.WARNING, logger='AlmaGag'):
+        _audit_band_hygiene(j, [(80, 225), (400, 225)], els2, conn)
+    assert 'W83' not in caplog.text

@@ -109,6 +109,20 @@ def build_journey_points(journey, elements_by_id, connections):
         if points and abs(points[-1][0] - seg[0][0]) < 0.5 \
                 and abs(points[-1][1] - seg[0][1]) < 0.5:
             seg = seg[1:]          # no duplicar el punto de empalme
+        elif points and seg:
+            # BUGS-ROUTE-004 (W85): el empalme dentro del nodo intermedio —
+            # del puerto de llegada de una conexión al puerto de salida de
+            # la siguiente — saltaba en DIAGONAL a través del icono. El
+            # empalme se hace ortogonal: si el tramo llegó vertical, sigue
+            # vertical hasta la altura del puerto de salida y dobla; si
+            # llegó horizontal, al revés.
+            ax, ay = points[-1]
+            bx, by = seg[0]
+            if abs(ax - bx) > 0.5 and abs(ay - by) > 0.5:
+                arrived_vertical = (len(points) < 2
+                                    or abs(points[-2][0] - ax) < 0.5)
+                corner = (ax, by) if arrived_vertical else (bx, ay)
+                points.append(corner)
         points.extend(seg)
     return points if len(points) >= 2 else None
 
@@ -179,6 +193,64 @@ def build_journey_lanes(journeys, elements_by_id, connections):
     return out
 
 
+def _audit_band_hygiene(journey, points, elements_by_id, connections):
+    """WISH-DRAW-006 (W83): higiene de bandas — toda violación se NOMBRA.
+
+    (a) Ningún icono ajeno al recorrido queda dentro del trazo: distancia
+        borde-del-icono ↔ eje de la banda > ancho/2 + 8px.
+    (b) La banda no pasea: longitud ≤ 1.25× la suma de sus conexiones
+        (el excedente legítimo son los cruces ortogonales de los nodos
+        intermedios, ~|Δpuertos| por nodo — BUGS-ROUTE-004).
+    Audit, no corrección: el render sale igual; la violación va al log.
+    """
+    import math
+    jid = journey.get('id', '?')
+    members = {i for i in journey.get('path', []) if isinstance(i, str)}
+
+    def _seg_dist(px, py, a, b):
+        ax, ay = a
+        bx, by = b
+        dx, dy = bx - ax, by - ay
+        l2 = dx * dx + dy * dy
+        if l2 == 0:
+            return math.hypot(px - ax, py - ay)
+        t = max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / l2))
+        return math.hypot(px - (ax + t * dx), py - (ay + t * dy))
+
+    half = JOURNEY_WIDTH / 2.0
+    for eid, e in elements_by_id.items():
+        if eid in members or 'contains' in e or 'x' not in e:
+            continue
+        w = e.get('width', 80)
+        h = e.get('height', 50)
+        cx, cy = e['x'] + w / 2.0, e['y'] + h / 2.0
+        dmin = min(_seg_dist(cx, cy, a, b)
+                   for a, b in zip(points, points[1:]))
+        edge = dmin - max(w, h) / 2.0        # aproximación por el radio mayor
+        if edge < half + 8.0 and dmin < max(w, h) / 2.0:
+            # sólo cuando el EJE entra al icono: la cota conservadora por
+            # radio castigaría vecinos legítimos de corredores compartidos
+            logger.warning(f"[journeys] banda '{jid}' pasa por encima de "
+                           f"'{eid}' (eje a {dmin:.0f}px del centro) — la "
+                           f"banda no debe encerrar nodos ajenos (W83)")
+
+    blen = sum(math.hypot(b[0] - a[0], b[1] - a[1])
+               for a, b in zip(points, points[1:]))
+    csum = 0.0
+    path_ids = [i for i in journey.get('path', []) if isinstance(i, str)]
+    for a, b in zip(path_ids, path_ids[1:]):
+        found = _find_conn(connections, a, b)
+        if not found:
+            continue
+        cpts = (found[0].get('computed_path') or {}).get('points') or []
+        csum += sum(math.hypot(q[0] - o[0], q[1] - o[1])
+                    for o, q in zip(cpts, cpts[1:]))
+    if csum and blen > 1.25 * csum:
+        logger.warning(f"[journeys] banda '{jid}' pasea: {blen:.0f}px de "
+                       f"trazo contra {csum:.0f}px de conexiones "
+                       f"(ratio {blen / csum:.2f} > 1.25, W83)")
+
+
 def draw_journeys(dwg, journeys, elements_by_id, connections) -> int:
     """Dibuja los recorridos como trazos de resaltador. Devuelve cuántos se
     dibujaron. No-op silencioso sin sección `journeys`."""
@@ -212,6 +284,7 @@ def draw_journeys(dwg, journeys, elements_by_id, connections) -> int:
             logger.warning(f"journeys: el recorrido '{journey.get('id', i)}' no tiene "
                            f"≥2 elementos dibujables — no se pinta")
             continue
+        _audit_band_hygiene(journey, points, elements_by_id, connections)
         color = journey.get('color') or JOURNEY_PALETTE[n % len(JOURNEY_PALETTE)]
         dwg.add(dwg.polyline(
             points=[(round(x, 2), round(y, 2)) for x, y in points],
