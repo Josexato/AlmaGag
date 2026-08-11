@@ -3,15 +3,13 @@
     {
       "id": "input_svg",
       "type": "cloud",
-      "label": "archivo.svg\n(input)",
-      "priority": "high"
+      "label": "archivo.svg\n(input)"
     },
     {
       "id": "parser",
       "type": "server",
       "label": "SVG Parser\n(Fase 1)",
-      "color": "#4c9aff",
-      "priority": "high"
+      "color": "#4c9aff"
     },
     {
       "id": "extract_elements",
@@ -29,8 +27,7 @@
       "id": "normalizer",
       "type": "server",
       "label": "Normalizer\n(Fase 2)",
-      "color": "#ffa64c",
-      "priority": "high"
+      "color": "#ffa64c"
     },
     {
       "id": "calc_bbox",
@@ -54,8 +51,7 @@
       "id": "simplifier",
       "type": "server",
       "label": "Simplifier\n(Fase 3)\nOpcional",
-      "color": "#a64ca6",
-      "priority": "high"
+      "color": "#a64ca6"
     },
     {
       "id": "combine_paths",
@@ -79,8 +75,7 @@
       "id": "codegen",
       "type": "server",
       "label": "Code Generator\n(Fase 4)",
-      "color": "#b1f3b1",
-      "priority": "high"
+      "color": "#b1f3b1"
     },
     {
       "id": "create_function",
@@ -103,8 +98,7 @@
     {
       "id": "output_py",
       "type": "cloud",
-      "label": "draw_<nombre>.py\n(output)",
-      "priority": "high"
+      "label": "draw_<nombre>.py\n(output)"
     },
     {
       "id": "register",
@@ -116,8 +110,7 @@
       "id": "ready",
       "type": "cloud",
       "label": "Ícono Listo\npara Usar en .gag",
-      "color": "#b1f3b1",
-      "priority": "high"
+      "color": "#b1f3b1"
     }
   ],
   "connections": [

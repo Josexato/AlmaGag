@@ -1,8 +1,5 @@
 {
  "_comment": "HLD CobreSur L6-CS4-212 - nivel 0 - base: Propuesta Tecnica v2 (30/07/2026)",
- "canvas": {
-  "background": "#FFFFFF"
- },
  "theme": {
   "acceso_radio": "#C00000",
   "transporte": "#2E75B6",

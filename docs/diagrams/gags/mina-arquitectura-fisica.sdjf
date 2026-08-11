@@ -1,7 +1,5 @@
 {
-  "canvas": {
-    "background": "#FFFFFF"
-  },
+  "canvas": {},
   "elements": [
     {
       "id": "z_mina",
