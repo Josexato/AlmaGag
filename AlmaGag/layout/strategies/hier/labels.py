@@ -108,13 +108,51 @@ def assign_label_sides(layout):
 # §G23 — etiqueta de conexión anclada junto al puerto de salida.
 LABEL_ALONG = 16.0     # avance máximo sobre el primer segmento
 LABEL_OFFSET = 9.0     # separación perpendicular a la línea
+CASCADE = 14.0         # WISH-DRAW-007 (X93): paso vertical de la cascada
+CASCADE_TRIES = (0, -1, 1, -2, 2, -3, 3,
+                 -4, 4, -5, 5, -6, 6)      # base, un lado, el otro, ...
+
+
+def _intersects(a, b) -> bool:
+    return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
+
+
+def _title_boxes(elements):
+    """Bboxes de los títulos ESTRUCTURALES (etiqueta centrada bajo el icono
+    — la geometría que dibujan draw_area_node_labels y el default bottom).
+    Son los obstáculos que el ancla §G23 no debe pisar (X93)."""
+    boxes = []
+    for e in elements:
+        lbl = e.get('label')
+        if not lbl or 'x' not in e or 'y' not in e:
+            continue
+        lines = lbl.split('\n')
+        cx = e['x'] + ICON_WIDTH / 2
+        top = e['y'] + ICON_HEIGHT + 14
+        w = max(len(ln) for ln in lines) * TEXT_CHAR_WIDTH
+        boxes.append((cx - w / 2, top - 14,
+                      cx + w / 2, top + (len(lines) - 1) * 16 + 5))
+    return boxes
 
 
 def assign_connection_label_anchors(layout):
     """§G23: fija `connection['_label_anchor']` (x,y) a ~14px del puerto de
     SALIDA, sobre el primer segmento del path, desplazado perpendicular para no
     quedar encima de la línea. Así el rótulo (sí/no/repetir) queda pegado a la
-    decisión que lo origina, no en el punto medio de un path largo."""
+    decisión que lo origina, no en el punto medio de un path largo.
+
+    WISH-DRAW-007 (X93): el ancla ya no pisa en silencio — si su bbox cae
+    sobre un título estructural o sobre el ancla de OTRA arista del mismo
+    corredor, se apila en CASCADA vertical de a CASCADE px (arriba primero,
+    después abajo) hasta el primer lugar limpio; si ninguno lo está, gana el
+    menos pisado. Los 28 pares título↔label del tabernero nacían aquí."""
+    obstacles = _title_boxes(layout.elements)
+    # los ICONOS también son obstáculo (icon_vs_conn_label es la violación
+    # más fea — WISH-LAYOUT-010)
+    obstacles += [(e['x'], e['y'], e['x'] + ICON_WIDTH, e['y'] + ICON_HEIGHT)
+                  for e in layout.elements
+                  if 'x' in e and 'y' in e and 'contains' not in e]
+    placed = []
     for c in layout.connections:
         if not c.get('label'):
             continue
@@ -132,4 +170,23 @@ def assign_connection_label_anchors(layout):
         ax, ay = x0 + ux * d, y0 + uy * d
         # perpendicular unitaria (rota 90°); lado hacia afuera del centro-x.
         px, py = -uy, ux
-        c['_label_anchor'] = (ax + px * LABEL_OFFSET, ay + py * LABEL_OFFSET)
+        bx, by = ax + px * LABEL_OFFSET, ay + py * LABEL_OFFSET
+        # cascada X93: por la PERPENDICULAR del primer segmento (corredor
+        # horizontal → apila vertical; segmento vertical → esquiva
+        # horizontal — deslizarse A LO LARGO de la línea no escapa de un
+        # pasillo emparedado). Primer candidato limpio o el menos pisado.
+        w = len(c['label']) * 7
+        best = None
+        for j in CASCADE_TRIES:
+            cx = bx + px * j * CASCADE
+            cy = by + py * j * CASCADE
+            bb = (cx - w / 2, cy - 12, cx + w / 2, cy + 4)
+            hits = sum(1 for ob in obstacles if _intersects(bb, ob)) \
+                + sum(1 for ob in placed if _intersects(bb, ob))
+            if best is None or hits < best[0]:
+                best = (hits, (cx, cy), bb)
+            if hits == 0:
+                break
+        _, anchor, bb = best
+        c['_label_anchor'] = anchor
+        placed.append(bb)

@@ -325,6 +325,18 @@ class GeometryCalculator:
         if not label:
             return None
 
+        # WISH-DRAW-007 (X93): los rótulos ANCLADOS (§G23, hier) se dibujan
+        # en `_label_anchor` — el bbox debe medir ESE punto (baseline del
+        # texto en el ancla), no el punto medio del path: lo dibujado es lo
+        # medido. Sin esto el contador reportaba los solapes de anclas en
+        # el lugar equivocado y la cascada era invisible.
+        anchor = connection.get('_label_anchor')
+        text_width = len(label) * 7
+        if anchor:
+            ax, ay = anchor
+            return (ax - text_width // 2, ay - 12,
+                    ax + text_width // 2, ay + 4)
+
         key = f"{connection['from']}->{connection['to']}"
         center = layout.connection_labels.get(
             key,
@@ -333,7 +345,6 @@ class GeometryCalculator:
         mid_x, mid_y = center
 
         # Estimación: 7px por caracter, 12px altura
-        text_width = len(label) * 7
         text_height = 16
 
         return (
