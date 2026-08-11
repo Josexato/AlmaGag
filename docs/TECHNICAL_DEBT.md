@@ -1182,6 +1182,93 @@ actualizado en `tests/test_val003_path_icons.py`.
 
 ---
 
+> **Tanda 2026-08-11 — iteración 9: el caso TM en el visor.** El autor
+> renderizó el presupuesto real en gag-viewer-poc y reportó tres molestias:
+> letra chica, flechas que doblan justo al llegar al icono, y distancia
+> vertical excesiva entre niveles. Diagnóstico medido: las tres nacen en el
+> motor. Tickets: WISH-LAYOUT-016, BUGS-ROUTE-003, recalibración O56 (16/13/12)
+> y BUGS-DRAW-005 (observada en el mismo PDF).
+
+### WISH-LAYOUT-016: Gap vertical por corredor medido, no constante ✅ RESUELTO (2026-08-11)
+
+> El pitch entre rangos era icono + `LAF_VERTICAL_SPACING` (240 fijo):
+> 100-180px de aire puro por corredor. El gap ahora se mide: cada MITAD
+> del corredor libra el stack de labels de su lado (label inferior del
+> rango de arriba / superior del de abajo + 12 de separación), piso
+> `SPACING_MEDIUM`, y el corredor con label de conexión entre rangos
+> adyacentes reserva su alto (los labels viven en las conexiones
+> ORIGINALES — `resolved_conns` viene sin `label`). Gemelo vertical de
+> WISH-LAYOUT-009.
+
+**Componente**: `strategies/auto/positioner.py` (asignación de Y por nivel)
+**Reportado**: 2026-08-11 (caso TM en el visor: lámina 1891px de alto →
+letra de ~7px aparentes al ajustar a pantalla)
+
+Medido: TM 1891 → 1267 de alto (−33%); tinta sube en toda la lámina
+(stresstest 6.7→11.3, presupuesto 11.8→15.7), aspectos hacia 1. Fix
+acompañante en `considerations.apply_one`: las pasadas blandas
+(align/near/avoid) arrastran el label almacenado junto con el icono —
+la compresión expuso el bug latente (align x movía el icono +79 tras el
+cálculo de labels y el texto quedaba huérfano ENCIMA del icono nuevo).
+Regresión: `tests/test_layout016_vertical_pitch.py`.
+
+---
+
+### BUGS-ROUTE-003: `routing.preference` ignorada — el codo «justo al llegar» ✅ RESUELTO (2026-08-11)
+
+> `routing.preference` sólo vivía en el fallback naive: el grafo de
+> visibilidad no la recibía y el simplificador de zigzags colapsaba a L —
+> el barrido perpendicular corría PEGADO al borde del icono (9/19
+> llegadas H en el TM aunque el autor declaró `vertical` en todas).
+> **Fix**: `_reshape_terminal_elbows` como último paso de `route()` —
+> el codo terminal se retira a la MITAD del tramo largo (V-H-V), que por
+> LAYOUT-016 es la línea libre de labels; consciente de obstáculos (sólo
+> se adopta si los tramos nuevos no pisan lo que el A* esquivó). La
+> preferencia efectiva: la declarada gana, `auto` toma el eje dominante.
+> **Snap casi-alineados**: un extremo cuya única arista queda a ≤ media
+> ranura de la columna del otro se alinea aunque salte rangos (hueco en
+> su fila + columna libre en filas intermedias).
+
+**Componente**: `routing/orthogonal_router.py`, `strategies/auto/positioner.py`
+**Reportado**: 2026-08-11 (caso TM en el visor)
+
+Medido: llegadas H 9→1 en el TM (la restante es un vecino horizontal —
+llegada lateral legítima); rproc en la columna exacta de resumen.
+Regresión: `tests/test_route003_preference.py`.
+
+---
+
+### BUGS-DRAW-005: El recorte O51 estacionaba las leyendas ENCIMA de la última fila ✅ RESUELTO (2026-08-11)
+
+> El reanclaje de `ag-bottom-anchored` conserva la distancia de cada
+> leyenda al borde inferior, pero el borde recortado quedaba a sólo
+> `CROP_MARGIN` del contenido: la pila Estados/Recorridos/Enlaces caía
+> sobre los labels de la última fila. El borde inferior ahora se
+> extiende para alojar la pila completa + 12px de respiro.
+
+**Componente**: `draw/primitives/viewbox.py` (`crop_viewbox`)
+**Reportado**: 2026-08-11 (PDF del visor: leyenda sobre 'Ingeniería')
+
+Regresión: `tests/test_draw005_legend_reserve.py` (roja sin el fix).
+
+---
+
+### Recalibración O56 (iteración 9): escala tipográfica 14/12/11 → 16/13/12 ✅ (2026-08-11)
+
+Con la lámina ya compacta (LAYOUT-016), el contrato tipográfico sube a
+nodo 16 · conexión 13 · rótulo 12 bold; `TEXT_CHAR_WIDTH` (8→9.2) y
+`TEXT_LINE_HEIGHT` (18→20.6) escalan para que la estimación de labels
+siga siendo VERAZ. Los `11px` hardcodeados en phase_areas/journeys/svg
+pasaron a `FONT_SIZE_ZONE` (los cazó el test O56 estricto). Acompañante:
+el honor V79 puede APARTAR al vecino que bloquea la columna si no es
+contrato (align x/contenedor) y su fila lo permite — el contrato del
+autor gana sobre la posición estética del vecino; el honor corre ahora
+ANTES de los snaps V80/casi-alineados. Medido: presupuesto 2→0 cruces y
+5/5 aligns; labels BAJAN en cadena con la re-medición veraz
+(arquitectura 13→8, físico 15→12, git 12→11).
+
+---
+
 ### BUGS-VAL-005: Falso positivo R1 en contenedores chicos (zona de 2 miembros) ✅ RESUELTO (2026-08-11)
 
 > **Causa raíz** (geometría medida, no estimada): el rect del contenedor
