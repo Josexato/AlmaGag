@@ -1,4 +1,8 @@
-"""§O56 — escala tipográfica declarada: nodo 14 · conexión 12 · rótulo 11 bold.
+"""§O56 — escala tipográfica declarada: nodo 16 · conexión 13 · rótulo 12 bold.
+
+Recalibrada en iteración 9 (caso TM en el visor: letra de ~7px aparentes
+al ajustar a pantalla): 14/12/11 → 16/13/12, con TEXT_CHAR_WIDTH y
+TEXT_LINE_HEIGHT escalados para que la estimación siga siendo veraz.
 
 El contrato vive en config (FONT_SIZE_NODE/CONNECTION/ZONE) y los tres
 niveles se emiten con esos valores; la jerarquía se completa por peso
@@ -15,7 +19,7 @@ NS = '{http://www.w3.org/2000/svg}'
 
 
 def test_declared_scale_values():
-    assert (FONT_SIZE_NODE, FONT_SIZE_CONNECTION, FONT_SIZE_ZONE) == (14, 12, 11)
+    assert (FONT_SIZE_NODE, FONT_SIZE_CONNECTION, FONT_SIZE_ZONE) == (16, 13, 12)
     assert FONT_WEIGHT_ZONE == '700'
 
 
@@ -57,7 +61,7 @@ def test_near_zone_label_at_zone_level(tmp_path):
 
 def test_no_font_size_outside_declared_scale(tmp_path):
     """Verifica O56 estricta (observación de la iteración 5): ningún
-    font-size fuera de {14, 12, 11} en TODO el SVG emitido, en las cuatro
+    font-size fuera de la escala declarada en TODO el SVG emitido, en las cuatro
     clases de emisión (arquitectura, WAN, flowchart, organigrama)."""
     allowed = {f'{FONT_SIZE_NODE}px', f'{FONT_SIZE_CONNECTION}px',
                f'{FONT_SIZE_ZONE}px',

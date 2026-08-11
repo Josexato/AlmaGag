@@ -19,7 +19,8 @@ from AlmaGag.layout.graph_analysis import GraphAnalyzer
 from AlmaGag.layout.container_calculator import is_band, band_label_margin, band_left_region
 from AlmaGag.config import (
     ICON_WIDTH, ICON_HEIGHT,
-    SPACING_SMALL, SPACING_XLARGE, SPACING_XXLARGE,
+    SPACING_SMALL, SPACING_MEDIUM, SPACING_LARGE, SPACING_XLARGE, SPACING_XXLARGE,
+    LABEL_OFFSET_BOTTOM, LABEL_OFFSET_TOP,
     CONTAINER_PADDING, CONTAINER_SPACING, CONTAINER_ELEMENT_SPACING, CONTAINER_ICON_HEIGHT,
     TEXT_LINE_HEIGHT, TEXT_CHAR_WIDTH,
     LABEL_OFFSET_VERTICAL,
@@ -29,9 +30,8 @@ from AlmaGag.config import (
     CONTAINER_GRID_ROW_SPACING,
     RADIUS_NORMAL_MAX, RADIUS_LOW_MAX,
     TOP_MARGIN_DEBUG, TOP_MARGIN_NORMAL,
-    LAF_VERTICAL_SPACING
 )
-from AlmaGag.utils import extract_item_id
+from AlmaGag.utils import extract_item_id, calculate_label_dimensions
 
 logger = logging.getLogger('AlmaGag.AutoPositioner')
 
@@ -573,7 +573,6 @@ class AutoLayoutPositioner:
 
         # 5. Compute real coordinates with global X scale
         TOP_MARGIN = TOP_MARGIN_DEBUG if self.visualdebug else TOP_MARGIN_NORMAL
-        VERTICAL_SPACING = LAF_VERTICAL_SPACING  # 240px (same as LAF)
         MIN_GAP = SPACING_SMALL  # 40px minimum gap between elements
         LEFT_MARGIN = CANVAS_MARGIN_LARGE  # 100px
 
@@ -622,13 +621,65 @@ class AutoLayoutPositioner:
         all_abs_x = [abstract_positions[e['id']][0] for e in elements]
         abs_x_shift = -min(all_abs_x) if all_abs_x else 0
 
-        # Assign Y positions per level
+        # Assign Y positions per level.
+        # WISH-LAYOUT-016: el gap entre rangos no es la constante de 240 —
+        # es lo que de verdad vive en el corredor: el label inferior del
+        # rango de arriba + aire para los barridos horizontales (+ el label
+        # de conexión si algún enlace entre rangos adyacentes lo trae) + el
+        # label superior del rango de abajo. El 240 fijo regalaba 100-180px
+        # de aire puro por corredor (lámina TM: 8 corredores, 1891px de
+        # alto). Labels de enlaces que saltan >1 rango no reservan aquí:
+        # los coloca el optimizador veraz y los vigila §P61.
+        def _bottom_stack(elems):
+            h = 0.0
+            for e in elems:
+                if e.get('label') and e.get('label_position', 'bottom') != 'top':
+                    _, lh, _ = calculate_label_dimensions(e['label'])
+                    h = max(h, LABEL_OFFSET_BOTTOM + lh)
+            return h
+
+        def _top_stack(elems):
+            h = 0.0
+            for e in elems:
+                if e.get('label') and e.get('label_position') == 'top':
+                    _, lh, _ = calculate_label_dimensions(e['label'])
+                    h = max(h, lh + LABEL_OFFSET_TOP)
+            return h
+
+        lvl_of = {e['id']: lv for lv, es in by_level.items() for e in es}
+        corridor_conn_label: Dict[int, float] = {}
+        # OJO: resolved_conns viene sin 'label' (se reconstruye con
+        # from/to/weight) — los labels viven en las conexiones ORIGINALES.
+        for conn in layout.connections:
+            la, lb = lvl_of.get(conn['from']), lvl_of.get(conn['to'])
+            if la is None or lb is None or abs(la - lb) != 1:
+                continue
+            if not conn.get('label'):
+                continue
+            _, lh, _ = calculate_label_dimensions(conn['label'])
+            lo = min(la, lb)
+            corridor_conn_label[lo] = max(corridor_conn_label.get(lo, 0.0),
+                                          lh + 10.0)
+
+        # Los barridos horizontales del ruteo corren a MITAD del corredor:
+        # cada mitad debe librar el stack de labels de su lado (si no, el
+        # barrido pisa el label, el optimizador lo echa del 'bottom' y
+        # termina sobre el icono). half = stack más alto + separación, con
+        # piso de SPACING_MEDIUM para flechas/carriles en rangos sin label.
+        LABEL_CLEAR = 12.0
         current_y = TOP_MARGIN
         level_y = {}
-        for level_num in sorted(by_level.keys()):
+        sorted_levels = sorted(by_level.keys())
+        for i, level_num in enumerate(sorted_levels):
+            if i > 0:
+                prev = sorted_levels[i - 1]
+                half = max(_bottom_stack(by_level[prev]) + LABEL_CLEAR,
+                           _top_stack(by_level[level_num]) + LABEL_CLEAR,
+                           SPACING_MEDIUM)
+                current_y += 2 * half + corridor_conn_label.get(prev, 0.0)
             level_y[level_num] = current_y
             max_h = max((e.get('height', ICON_HEIGHT) for e in by_level[level_num]), default=ICON_HEIGHT)
-            current_y += max_h + VERTICAL_SPACING
+            current_y += max_h
 
         # Assign real X, Y
         for elem in elements:
@@ -661,6 +712,85 @@ class AutoLayoutPositioner:
         def _center(e):
             return e['x'] + e.get('width', ICON_WIDTH) / 2.0
 
+        # WISH-LAYOUT-013 (V79): un align de eje x entre RANGOS distintos
+        # — CONTRATO del autor: se honra ANTES que los snaps estéticos
+        # (V80/casi-alineados), para que una hoja recién alineada a su
+        # ancla no bloquee el hueco de la columna del tronco (It9-3).
+        # es contrato de COLUMNA (dppto/ppto/constr = un solo tronco). El
+        # camino blando no puede honrarlo (mueve todo o nada contra la
+        # guarda de colisiones); aquí se honra en el origen: cada miembro
+        # va a la columna objetivo (mediana) si TODOS tienen hueco en su
+        # fila — pitch label-aware, como el snap V80.
+        _x_align_ids = {i for c2 in (getattr(layout, '_considerations', None) or [])
+                        if c2.get('kind') == 'align' and c2.get('axis') == 'x'
+                        for i in c2.get('ids', [])}
+
+        def _pair_required(a, b):
+            return max((a.get('width', ICON_WIDTH)
+                        + b.get('width', ICON_WIDTH)) / 2.0 + MIN_GAP,
+                       (label_ws.get(a['id'], 0)
+                        + label_ws.get(b['id'], 0)) / 2.0 + LABEL_GAP)
+
+        for cons in getattr(layout, '_considerations', None) or []:
+            if cons.get('kind') != 'align' or cons.get('axis') != 'x':
+                continue
+            members = [by_id[i] for i in cons.get('ids', [])
+                       if i in by_id and 'x' in by_id[i]
+                       and i in levels_map]
+            if len(members) < 2:
+                continue
+            if len({levels_map.get(m['id'], 0) for m in members}) < 2:
+                continue          # mismo rango: sigue en la vía blanda
+            centers = sorted(_center(m) for m in members)
+            target = centers[len(centers) // 2]
+            moves = []
+            honorable = True
+            member_ids = {m['id'] for m in members}
+            for m in members:
+                dx = target - _center(m)
+                if abs(dx) < 1.0:
+                    continue
+                row = by_row.get(levels_map.get(m['id'], 0), [])
+                for other in row:
+                    if other is m:
+                        continue
+                    required = _pair_required(m, other)
+                    gap = abs(target - _center(other))
+                    if gap >= required:
+                        continue
+                    # It9-3: el vecino que bloquea la columna se APARTA si
+                    # no es contrato (miembro de otro align x / contenedor)
+                    # y su fila se lo permite — el contrato del autor gana
+                    # sobre la posición estética del vecino.
+                    if (other['id'] in _x_align_ids
+                            or other['id'] in member_ids
+                            or 'contains' in other):
+                        honorable = False
+                        break
+                    push = required - gap + 1.0
+                    direction = 1.0 if _center(other) >= target else -1.0
+                    new_oc = _center(other) + direction * push
+                    ok = True
+                    for o2 in row:
+                        if o2 is other or o2 is m:
+                            continue
+                        if abs(new_oc - _center(o2)) < _pair_required(other, o2):
+                            ok = False
+                            break
+                    if not ok:
+                        honorable = False
+                        break
+                    moves.append((other, direction * push))
+                if not honorable:
+                    break
+                moves.append((m, dx))
+            if honorable:
+                for m, dx in moves:
+                    m['x'] += dx
+                if moves:
+                    logger.debug(f"    V79: align x honrado — "
+                                 f"{[m['id'] for m, _ in moves]} → {target:.0f}")
+
         for _ in range(2):
             for conn in resolved_conns:
                 f, t = conn.get('from'), conn.get('to')
@@ -668,16 +798,54 @@ class AutoLayoutPositioner:
                     continue
                 rf = levels_map.get(f, 0)
                 rt = levels_map.get(t, 0)
-                if abs(rf - rt) != 1:
+                if rf == rt:
                     continue
-                if outgoing.get(f) != [t] or incoming.get(t) != [f]:
-                    continue
-                if deg.get(f) == 1:
-                    free, anchor = by_id[f], by_id[t]
-                elif deg.get(t) == 1:
-                    free, anchor = by_id[t], by_id[f]
-                else:
-                    continue
+                free = anchor = None
+                if (abs(rf - rt) == 1 and outgoing.get(f) == [t]
+                        and incoming.get(t) == [f]):
+                    # eslabón 1:1 puro (V80): mover el extremo de grado 1
+                    if deg.get(f) == 1:
+                        free, anchor = by_id[f], by_id[t]
+                    elif deg.get(t) == 1:
+                        free, anchor = by_id[t], by_id[f]
+                if free is None:
+                    # BUGS-ROUTE-003 (snap casi-alineados): un extremo cuya
+                    # ÚNICA arista hacia el otro lado queda a media ranura
+                    # (≤40px) de la columna del otro — el jog residual no
+                    # aporta información; alinear si la fila tiene hueco y
+                    # la columna nueva no pisa iconos de filas intermedias
+                    # (repro: rproc a 34px de la columna de resumen, 3
+                    # rangos más arriba).
+                    if outgoing.get(f) == [t]:
+                        cand_free, cand_anchor = by_id[f], by_id[t]
+                    elif incoming.get(t) == [f]:
+                        cand_free, cand_anchor = by_id[t], by_id[f]
+                    else:
+                        continue
+                    if 'contains' in cand_free:
+                        continue
+                    if abs(_center(cand_anchor) - _center(cand_free)) \
+                            > ICON_WIDTH / 2.0:
+                        continue
+                    # la vertical nueva debe librar los iconos intermedios
+                    new_col = _center(cand_anchor)
+                    lo = min(levels_map.get(cand_free['id'], 0),
+                             levels_map.get(cand_anchor['id'], 0))
+                    hi = max(levels_map.get(cand_free['id'], 0),
+                             levels_map.get(cand_anchor['id'], 0))
+                    blocked = False
+                    for mid_row in range(lo + 1, hi):
+                        for other in by_row.get(mid_row, []):
+                            clearance = (other.get('width', ICON_WIDTH) / 2.0
+                                         + MIN_GAP / 2.0)
+                            if abs(new_col - _center(other)) < clearance:
+                                blocked = True
+                                break
+                        if blocked:
+                            break
+                    if blocked:
+                        continue
+                    free, anchor = cand_free, cand_anchor
                 dx = _center(anchor) - _center(free)
                 if abs(dx) < 1.0:
                     continue
@@ -699,52 +867,6 @@ class AutoLayoutPositioner:
                     free['x'] += dx
                     logger.debug(f"    V80: {free['id']} alineado a la "
                                  f"columna de {anchor['id']} (dx {dx:+.0f})")
-
-        # WISH-LAYOUT-013 (V79): un align de eje x entre RANGOS distintos
-        # es contrato de COLUMNA (dppto/ppto/constr = un solo tronco). El
-        # camino blando no puede honrarlo (mueve todo o nada contra la
-        # guarda de colisiones); aquí se honra en el origen: cada miembro
-        # va a la columna objetivo (mediana) si TODOS tienen hueco en su
-        # fila — pitch label-aware, como el snap V80.
-        for cons in getattr(layout, '_considerations', None) or []:
-            if cons.get('kind') != 'align' or cons.get('axis') != 'x':
-                continue
-            members = [by_id[i] for i in cons.get('ids', [])
-                       if i in by_id and 'x' in by_id[i]
-                       and i in levels_map]
-            if len(members) < 2:
-                continue
-            if len({levels_map.get(m['id'], 0) for m in members}) < 2:
-                continue          # mismo rango: sigue en la vía blanda
-            centers = sorted(_center(m) for m in members)
-            target = centers[len(centers) // 2]
-            moves = []
-            honorable = True
-            for m in members:
-                dx = target - _center(m)
-                if abs(dx) < 1.0:
-                    continue
-                row = by_row.get(levels_map.get(m['id'], 0), [])
-                for other in row:
-                    if other is m:
-                        continue
-                    required = max(
-                        (m.get('width', ICON_WIDTH)
-                         + other.get('width', ICON_WIDTH)) / 2.0 + MIN_GAP,
-                        (label_ws.get(m['id'], 0)
-                         + label_ws.get(other['id'], 0)) / 2.0 + LABEL_GAP)
-                    if abs(target - _center(other)) < required:
-                        honorable = False
-                        break
-                if not honorable:
-                    break
-                moves.append((m, dx))
-            if honorable:
-                for m, dx in moves:
-                    m['x'] += dx
-                if moves:
-                    logger.debug(f"    V79: align x honrado — "
-                                 f"{[m['id'] for m, _ in moves]} → {target:.0f}")
 
         # WISH-LAYOUT-014: cada feeder va al costado del rango de su
         # destino — el lado de la arista más corta — fuera de lo ya tendido

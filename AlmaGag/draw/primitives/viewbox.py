@@ -325,6 +325,21 @@ def crop_viewbox(root, margin=CROP_MARGIN):
     y0 = max(vy, miny - margin)
     x1 = min(vx + vw, maxx + margin)
     y1 = min(vy + vh, maxy + margin)
+
+    # BUGS-DRAW-005: el reanclaje conserva la distancia de cada leyenda al
+    # borde inferior — si el nuevo borde queda a sólo `margin` del
+    # contenido, la pila de leyendas cae ENCIMA de la última fila (caso TM:
+    # Estados/Recorridos/Enlaces sobre 'Ingeniería'). El borde inferior
+    # debe dejar sitio para la pila completa + un respiro.
+    if legends:
+        dist_max = 0.0
+        for g in legends:
+            sub = content_bbox(g)
+            if sub:
+                dist_max = max(dist_max, (vy + vh) - sub[1])
+        if dist_max:
+            y1 = min(vy + vh, max(y1, maxy + 12.0 + dist_max))
+
     if x1 - x0 >= vw and y1 - y0 >= vh:
         return False                      # nada que contraer
     if x1 <= x0 or y1 <= y0:

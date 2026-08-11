@@ -7,9 +7,9 @@ HEIGHT = 900
 #   nodo 14 (negro, peso normal) · conexión 12 (color semántico si lo hay) ·
 #   rótulo de zona/fase 11 bold (tinta apagada #6b6558, ver §O54).
 # Todo texto nuevo del render principal debe usar uno de estos niveles.
-FONT_SIZE_NODE = 14
-FONT_SIZE_CONNECTION = 12
-FONT_SIZE_ZONE = 11
+FONT_SIZE_NODE = 16
+FONT_SIZE_CONNECTION = 13
+FONT_SIZE_ZONE = 12
 FONT_WEIGHT_ZONE = '700'
 
 # Icon base dimensions (reference size)
@@ -39,8 +39,8 @@ CONTAINER_FILL_OPACITY = 0.15           # Relleno semi-transparente (no oculta h
 CONTAINER_STROKE_OPACITY = 0.8          # Borde sólido y perceptible
 
 # Text and label dimensions
-TEXT_LINE_HEIGHT = ICON_WIDTH * 0.225   # 18px - height per line of text
-TEXT_CHAR_WIDTH = ICON_WIDTH * 0.1      # 8px - approximate width per character
+TEXT_LINE_HEIGHT = ICON_WIDTH * 0.2575  # 20.6px por línea (16px de fuente; iteración 9)
+TEXT_CHAR_WIDTH = ICON_WIDTH * 0.115    # 9.2px por carácter (16px de fuente; iteración 9)
 TEXT_CHAR_WIDTH_NARROW = ICON_WIDTH * 0.0875  # 7px - narrow character width for connections
 
 # Label offsets from icons

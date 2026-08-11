@@ -1,6 +1,6 @@
 # Roadmap de AlmaGag
 
-**Versión actual**: v3.9.0 (pyproject; sube con cada iteración del review
+**Versión actual**: v3.10.0 (pyproject; sube con cada iteración del review
 cerrada — 6→3.6, 7→3.7, 8→3.8; 3.9 = consistencia del término «flow» —
 en sincronía con el skill) · **Actualizado**: 2026-08-11
 El backlog VIVO son los tickets de [`TECHNICAL_DEBT.md`](TECHNICAL_DEBT.md)
@@ -87,6 +87,25 @@ pre-iteración 7) y el hack f4 ya lo caza U74/U77 con error duro.
 2/5 aligns y lectura invertida a una pirámide de agregación 0/0/1 con
 5/5 aligns, `flow: "up"`, feeder lateral, puertos ≥18px y estados de
 primera clase.
+
+## Iteración 9 — el caso TM en el visor (11-ago): densidad y llegadas
+
+El autor renderizó el presupuesto real en gag-viewer-poc y reportó tres
+molestias: letra chica, flechas que doblan justo al llegar al icono, y
+distancia vertical excesiva. Diagnóstico medido: las tres nacen en el
+motor (el visor es sólo capa de presentación).
+
+| Orden | Qué | Ticket |
+|---|---|---|
+| 1 ✅ | **Gap vertical medido** — HECHO (11-ago): cada mitad del corredor libra el stack de labels de su lado (+label de conexión si lo hay); TM 1891→1267 de alto (−33%); las pasadas blandas arrastran el label con el icono | WISH-LAYOUT-016 |
+| 2 ✅ | **El codo nunca justo en el icono** — HECHO (11-ago): `routing.preference` honrada hasta el final del pipeline; codo terminal a mitad del tramo largo, consciente de obstáculos; llegadas H 9→1 en TM; snap casi-alineados (≤ media ranura) | BUGS-ROUTE-003 |
+| 3 ✅ | **Tipografía 16/13/12** — HECHO (11-ago): recalibración O56 con estimaciones veraces (char 9.2, línea 20.6); honor V79 con empuje de vecinos no-contrato; presupuesto 2→0 cruces, labels bajan en cadena | O56 recalibrado |
+| 4 ✅ | **Leyendas con franja propia** — HECHO (11-ago): el recorte O51 extiende el borde inferior para alojar la pila completa + 12px | BUGS-DRAW-005 |
+
+**Iteración 9 COMPLETA (11-ago)** — el TM pasó de 1371×1891 con letra de
+~7px aparentes, 9 llegadas de codo pegado y leyenda sobre la última fila
+a 1483×1391 con letra 16px, llegadas verticales a mitad de corredor y
+leyenda en franja propia. Motor v3.10.0.
 
 ## Mediano plazo (sin fecha)
 

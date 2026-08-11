@@ -21,6 +21,69 @@ from AlmaGag.routing.visibility_graph import (
 )
 
 
+_ELBOW_MIN_LEG = 60.0   # tramo paralelo mínimo para poder retirar el codo
+
+
+def _reshape_terminal_elbows(path: List[Point], vertical: bool,
+                             obstacles=None) -> List[Point]:
+    """BUGS-ROUTE-003: el codo nunca JUSTO en el icono.
+
+    Con preferencia vertical, un extremo que sale/llega con tramo H pegado
+    al borde (H en el puerto, tras/antes de un tramo V largo) se remodela
+    V-H-V: el barrido horizontal se corre a la MITAD del tramo vertical —
+    el centro del corredor, que WISH-LAYOUT-016 mantiene libre de labels.
+    Simétrico para preferencia horizontal. Sólo se toca la forma del
+    extremo; el resto del camino y los puertos quedan como estaban.
+    """
+    from AlmaGag.routing.visibility_graph import _segment_blocked
+
+    def _is_h(p, q):
+        return abs(p.y - q.y) < 0.5 and abs(p.x - q.x) >= 0.5
+
+    def _is_v(p, q):
+        return abs(p.x - q.x) < 0.5 and abs(p.y - q.y) >= 0.5
+
+    def _clear(*segs):
+        """Los tramos nuevos no pueden pisar lo que el A* esquivó."""
+        if not obstacles:
+            return True
+        return not any(_segment_blocked(p.x, p.y, q.x, q.y, obstacles)
+                       for p, q in segs)
+
+    # cabeza: sale perpendicular y dobla — el codo va a mitad del 2º tramo
+    if len(path) >= 3:
+        s, b, c = path[0], path[1], path[2]
+        if vertical and _is_h(s, b) and _is_v(b, c) \
+                and abs(c.y - b.y) >= _ELBOW_MIN_LEG:
+            ym = (b.y + c.y) / 2.0
+            p1, p2 = Point(s.x, ym), Point(b.x, ym)
+            if _clear((s, p1), (p1, p2), (p2, c)):
+                path = [s, p1, p2] + path[2:]
+        elif not vertical and _is_v(s, b) and _is_h(b, c) \
+                and abs(c.x - b.x) >= _ELBOW_MIN_LEG:
+            xm = (b.x + c.x) / 2.0
+            p1, p2 = Point(xm, s.y), Point(xm, b.y)
+            if _clear((s, p1), (p1, p2), (p2, c)):
+                path = [s, p1, p2] + path[2:]
+
+    # cola: llega perpendicular tras tramo largo — retirar el codo
+    if len(path) >= 3:
+        a, b, e = path[-3], path[-2], path[-1]
+        if vertical and _is_v(a, b) and _is_h(b, e) \
+                and abs(b.y - a.y) >= _ELBOW_MIN_LEG:
+            ym = (a.y + b.y) / 2.0
+            p1, p2 = Point(a.x, ym), Point(e.x, ym)
+            if _clear((a, p1), (p1, p2), (p2, e)):
+                path = path[:-2] + [p1, p2, e]
+        elif not vertical and _is_h(a, b) and _is_v(b, e) \
+                and abs(b.x - a.x) >= _ELBOW_MIN_LEG:
+            xm = (a.x + b.x) / 2.0
+            p1, p2 = Point(xm, a.y), Point(xm, e.y)
+            if _clear((a, p1), (p1, p2), (p2, e)):
+                path = path[:-2] + [p1, p2, e]
+    return path
+
+
 class OrthogonalRouter(ConnectionRouter):
     """
     Router that creates orthogonal (H-V or V-H) paths between elements.
@@ -171,6 +234,17 @@ class OrthogonalRouter(ConnectionRouter):
             obstacles = [o for o in obstacles if o.elem_id not in parent_ids]
         waypoints = simplify_orthogonal_zigzag(waypoints, obstacles)
 
+        # BUGS-ROUTE-003: `routing.preference` se honraba sólo en el fallback
+        # naive — el grafo de visibilidad (y el simplificador de zigzags, que
+        # colapsa a L) dejaban el barrido perpendicular PEGADO al borde del
+        # icono: el codo «justo al llegar» del caso TM. Último paso SIEMPRE:
+        # retirar el codo terminal a la mitad del tramo largo — el centro del
+        # corredor, que WISH-LAYOUT-016 mantiene libre de labels.
+        waypoints = _reshape_terminal_elbows(
+            waypoints,
+            self._prefers_vertical(preference, from_center, to_center),
+            obstacles=obstacles)
+
         return Path(
             type='polyline',
             points=waypoints,
@@ -289,6 +363,16 @@ class OrthogonalRouter(ConnectionRouter):
 
         # Fallback: naive midpoint routing
         return self._calculate_orthogonal_waypoints(from_center, to_center, preference)
+
+    @staticmethod
+    def _prefers_vertical(preference: str, a: Point, b: Point) -> bool:
+        """Preferencia efectiva del eje: la declarada gana; 'auto' toma el
+        eje dominante del par (misma regla que el fallback naive)."""
+        if preference == 'vertical':
+            return True
+        if preference == 'horizontal':
+            return False
+        return abs(b.y - a.y) >= abs(b.x - a.x)
 
     def _calculate_orthogonal_waypoints(
         self,

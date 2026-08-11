@@ -136,7 +136,7 @@ def draw_role_legend(dwg, roles, used_roles, canvas_width, canvas_height):
     y = canvas_height - 30
     x = 24
     legend.add(dwg.text('Responsable:', insert=(x, y + 11),
-                        font_size='11px', font_weight='700',
+                        font_size=f'{FONT_SIZE_ZONE}px', font_weight='700',
                         font_family='Arial, sans-serif', fill='#5a5648'))
     x += 96
     for k in order:
