@@ -54,7 +54,8 @@ CONNECTION_KEYS = {
     'waypoints', 'routing_type',                 # compat v1.5 (router_manager)
 }
 
-CANVAS_KEYS = {'width', 'height', 'flow', 'legend'}
+CANVAS_KEYS = {'width', 'height', 'flow', 'legend',
+               'partition'}                 # WISH-LAYOUT-021 (X91b)
 
 AREA_KEYS = {'id', 'label', 'members', 'color',
              'role'}                        # WISH-LAYOUT-020 (bandas X91)

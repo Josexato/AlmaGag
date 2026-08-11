@@ -265,7 +265,10 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
                    if isinstance(canvas, dict) and canvas.get('flow') else {}),
                 # WISH-DRAW-004 (V82): leyenda libre del autor
                 **({'legend': canvas['legend']}
-                   if isinstance(canvas, dict) and canvas.get('legend') else {})}
+                   if isinstance(canvas, dict) and canvas.get('legend') else {}),
+                # WISH-LAYOUT-021 (X91b): macro-plano declarado del lienzo
+                **({'partition': canvas['partition']}
+                   if isinstance(canvas, dict) and canvas.get('partition') else {})}
     )
 
     # Agregar nombre del diagrama para visualizador

@@ -207,9 +207,36 @@ nunca una cinta 1×N. El área puede declarar su banda con `role`:
 
 El ruteo inter-área elige el lado de salida/entrada por el eje dominante
 entre cajas (derecha/izquierda/abajo/arriba). Precedencia del macro-plano:
-`canvas.partition` declarado (WISH-LAYOUT-021, futuro) > `area.role` >
-derivación por aspecto. (Nota: este `role` de ÁREA es distinto del `role`
-de responsable por nodo §I30.)
+`canvas.partition` declarado > `area.role` > derivación por aspecto.
+(Nota: este `role` de ÁREA es distinto del `role` de responsable por
+nodo §I30.)
+
+**`canvas.partition` (WISH-LAYOUT-021/X91b)** — el macro-plano DECLARADO:
+
+```json
+"canvas": {
+  "partition": {
+    "scheme": "bsp",
+    "ratio": [8, 5],
+    "splits": [
+      { "area": "A1", "size": [4, 1], "anchor": "base" },
+      { "area": "A7", "size": [4, 1], "at": "right_of", "of": "A1" },
+      { "area": "A9", "size": [8, 1], "at": "below",    "of": "A1" }
+    ]
+  }
+}
+```
+
+Los tamaños son PROPORCIONES, nunca píxeles: el motor escala la partición
+entera al contenido real (§P59 — si los miembros no caben en la proporción
+de su celda, toda la grilla crece manteniendo los ratios). `at` ∈
+{`right_of`, `below`, `left_of`, `above`} referencia un área YA colocada;
+el primer split lleva `anchor: "base"`. Schemes enchufables: `bsp`,
+`grid` (`"rows": [["A1","A2"],["A3"]]`, azúcar) — candidatos futuros:
+voronoi/delaunay. Un plan inválido (of sin colocar, área inexistente,
+scheme desconocido) se NOMBRA en el log y la colocación cae a
+role/derivación; áreas fuera del plan van en fila propia al final, también
+nombradas; si la suma de splits no cuadra con `ratio`, manda la suma.
 
 **`lanes`** (top-level, opcional) — carriles por responsable (§I28):
 ```json

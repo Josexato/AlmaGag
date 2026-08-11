@@ -21,6 +21,7 @@ Schema SDJF (top-level, opcional):
 Retrocompatible: sin `areas`, el optimizer usa su pipeline normal.
 """
 
+import logging
 from typing import Dict, List
 from AlmaGag.layout.layout import Layout
 from AlmaGag.layout.strategies.hier.leveling import compute_levels
@@ -29,6 +30,8 @@ from AlmaGag.layout.strategies.hier.routing import route_connections
 from AlmaGag.layout.strategies.hier.arcs import route_cycle_arcs
 from AlmaGag.layout.strategies.hier.labels import assign_label_sides, assign_connection_label_anchors
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
+
+logger = logging.getLogger('AlmaGag')
 
 COL_SPACING = 200.0
 LEVEL_SPACING = ICON_HEIGHT + 42.0     # §J30
@@ -211,26 +214,50 @@ def layout_by_areas(layout, areas_spec):
                      'w': w + 2 * AREA_PAD,
                      'h': h + 2 * AREA_PAD + AREA_HEAD})
 
-    # PASO 2 — WISH-LAYOUT-020 (X91): macro-colocación BIDIMENSIONAL.
-    rows = _macro_rows(dims)
+    # PASO 2 — macro-plano. Precedencia (X91/X91b): `canvas.partition`
+    # declarado > `area.role` > derivación por aspecto.
+    partition = (layout.canvas or {}).get('partition') \
+        if isinstance(layout.canvas, dict) else None
+    cells = rows = None
+    if partition:
+        placed = _place_partition(dims, partition)
+        if placed:
+            kind, payload = placed
+            if kind == 'cells':
+                cells = payload
+            else:
+                rows = payload
+    if rows is None and cells is None:
+        rows = _macro_rows(dims)
 
-    # PASO 3 — colocar fila por fila (dentro de la fila: orden declarado).
+    # PASO 3 — colocar: en su celda declarada (X91b) o fila por fila (X91).
     boxes = []
-    y_cursor = MARGIN_Y
-    for row in rows:
-        x_cursor = MARGIN_X
-        row_h = max(d['h'] for d in row)
-        for d in row:
+    if cells is not None:
+        for d in dims:
             spec = d['spec']
-            bx, by = x_cursor, y_cursor
+            bx, by, bw, bh = cells[d['aid']]
             _shift(d['members'], d['conns'],
                    bx + AREA_PAD, by + AREA_HEAD + AREA_PAD)
             boxes.append({'id': d['aid'], 'label': spec.get('label', ''),
                           'color': spec.get('color'), 'x': bx, 'y': by,
-                          'w': d['w'], 'h': d['h'],
+                          'w': bw, 'h': bh,
                           'solo': d['aid'].startswith('__solo_')})
-            x_cursor = bx + d['w'] + AREA_GAP
-        y_cursor += row_h + AREA_GAP
+    else:
+        y_cursor = MARGIN_Y
+        for row in rows:
+            x_cursor = MARGIN_X
+            row_h = max(d['h'] for d in row)
+            for d in row:
+                spec = d['spec']
+                bx, by = x_cursor, y_cursor
+                _shift(d['members'], d['conns'],
+                       bx + AREA_PAD, by + AREA_HEAD + AREA_PAD)
+                boxes.append({'id': d['aid'], 'label': spec.get('label', ''),
+                              'color': spec.get('color'), 'x': bx, 'y': by,
+                              'w': d['w'], 'h': d['h'],
+                              'solo': d['aid'].startswith('__solo_')})
+                x_cursor = bx + d['w'] + AREA_GAP
+            y_cursor += row_h + AREA_GAP
 
     # §I29: ruteo inter-área — sale por el borde de la caja origen, corredor,
     # entra por el borde de la caja destino.
@@ -243,6 +270,133 @@ def layout_by_areas(layout, areas_spec):
     layout.canvas = {'width': max_x + MARGIN_X,
                      'height': max_y + LEGEND_BAND + MARGIN_Y}
     return boxes
+
+
+def _place_partition(dims, partition):
+    """WISH-LAYOUT-021 (X91b): `canvas.partition` — el macro-plano DECLARADO.
+
+    Schemes enchufables: `bsp` (lista ordenada de colocaciones relativas —
+    la primera con anchor "base", las demás con at right_of|below|left_of|
+    above de un área YA colocada) y `grid` (filas de ids, azúcar). Los
+    tamaños son PROPORCIONES, nunca píxeles: la partición entera se escala
+    al contenido real (§P59 — si los miembros no caben en la proporción de
+    su celda, toda la grilla crece manteniendo los ratios).
+
+    Devuelve ('cells', {aid: (x, y, w, h)}) para bsp, ('rows', filas) para
+    grid, o None si el plan es inválido — el porqué se NOMBRA y la
+    precedencia cae a role/derivación (X90: nunca silencio).
+    """
+    by_aid = {d['aid']: d for d in dims}
+    scheme = (partition or {}).get('scheme', 'bsp')
+    if scheme == 'grid':
+        declared = partition.get('rows') or []
+        rows, seen = [], set()
+        for r in declared:
+            row = []
+            for aid in r:
+                if aid not in by_aid:
+                    logger.warning(f"[partition] área '{aid}' del plan no "
+                                   f"existe en areas[] — se ignora")
+                    continue
+                row.append(by_aid[aid])
+                seen.add(aid)
+            if row:
+                rows.append(row)
+        rest = [d for d in dims if d['aid'] not in seen]
+        named = [d['aid'] for d in rest if not d['aid'].startswith('__solo_')]
+        if named:
+            logger.warning(f"[partition] área(s) fuera del plan: "
+                           f"{', '.join(named)} — van en fila propia al final")
+        if rest:
+            rows.append(rest)
+        return ('rows', rows) if rows else None
+    if scheme != 'bsp':
+        logger.warning(f"[partition] scheme '{scheme}' desconocido "
+                       f"(bsp | grid) — cae a role/derivación")
+        return None
+
+    splits = partition.get('splits') or []
+    if not splits:
+        logger.warning("[partition] bsp sin splits — cae a role/derivación")
+        return None
+    units = {}                      # aid -> (ux, uy, uw, uh) en unidades
+    for i, s in enumerate(splits):
+        aid = s.get('area')
+        if aid not in by_aid:
+            logger.warning(f"[partition] splits[{i}]: área '{aid}' no existe "
+                           f"en areas[] — plan inválido, cae a role/derivación")
+            return None
+        size = s.get('size') or []
+        if len(size) != 2 or not all(
+                isinstance(v, (int, float)) and v > 0 for v in size):
+            logger.warning(f"[partition] splits[{i}] ('{aid}'): size debe ser "
+                           f"[ancho, alto] en proporciones — plan inválido")
+            return None
+        uw, uh = float(size[0]), float(size[1])
+        if i == 0:
+            if s.get('anchor') != 'base':
+                logger.warning(f"[partition] el primer split debe ser "
+                               f"anchor 'base' — plan inválido")
+                return None
+            units[aid] = (0.0, 0.0, uw, uh)
+            continue
+        at, of = s.get('at'), s.get('of')
+        if of not in units:
+            logger.warning(f"[partition] splits[{i}] ('{aid}'): of='{of}' "
+                           f"aún no está colocado — plan inválido")
+            return None
+        ox, oy, ow, oh = units[of]
+        if at == 'right_of':
+            units[aid] = (ox + ow, oy, uw, uh)
+        elif at == 'below':
+            units[aid] = (ox, oy + oh, uw, uh)
+        elif at == 'left_of':
+            units[aid] = (ox - uw, oy, uw, uh)
+        elif at == 'above':
+            units[aid] = (ox, oy - uh, uw, uh)
+        else:
+            logger.warning(f"[partition] splits[{i}] ('{aid}'): at='{at}' "
+                           f"desconocido (right_of|below|left_of|above) — "
+                           f"plan inválido")
+            return None
+
+    # Escala px/unidad: TODA celda aloja su contenido (+ corredor).
+    sx = max((by_aid[a]['w'] + AREA_GAP) / u[2] for a, u in units.items())
+    sy = max((by_aid[a]['h'] + AREA_GAP) / u[3] for a, u in units.items())
+    minx = min(u[0] for u in units.values())
+    miny = min(u[1] for u in units.values())
+    cells = {}
+    for aid, (ux, uy, uw, uh) in units.items():
+        cells[aid] = (MARGIN_X + (ux - minx) * sx + AREA_GAP / 2,
+                      MARGIN_Y + (uy - miny) * sy + AREA_GAP / 2,
+                      uw * sx - AREA_GAP, uh * sy - AREA_GAP)
+
+    # Áreas fuera del plan: fila propia bajo la grilla, nombradas.
+    rest = [d for d in dims if d['aid'] not in units]
+    named = [d['aid'] for d in rest if not d['aid'].startswith('__solo_')]
+    if named:
+        logger.warning(f"[partition] área(s) fuera del plan: "
+                       f"{', '.join(named)} — van en fila propia al final")
+    if rest:
+        base_y = MARGIN_Y + max(
+            (u[1] - miny + u[3]) * sy for u in units.values()) + AREA_GAP / 2
+        x_cursor = MARGIN_X
+        for d in rest:
+            cells[d['aid']] = (x_cursor, base_y, d['w'], d['h'])
+            x_cursor += d['w'] + AREA_GAP
+
+    ratio = partition.get('ratio')
+    if isinstance(ratio, (list, tuple)) and len(ratio) == 2 and all(ratio):
+        gw = max(u[0] - minx + u[2] for u in units.values())
+        gh = max(u[1] - miny + u[3] for u in units.values())
+        want = float(ratio[0]) / float(ratio[1])
+        got = gw / gh
+        if abs(got - want) / want > 0.02:
+            logger.warning(f"[partition] los splits arman {gw:g}×{gh:g} "
+                           f"(={got:.2f}) pero ratio declara "
+                           f"{ratio[0]}:{ratio[1]} (={want:.2f}) — "
+                           f"manda la suma de los splits")
+    return ('cells', cells)
 
 
 def _macro_rows(dims):
