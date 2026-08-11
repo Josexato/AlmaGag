@@ -119,9 +119,28 @@ class CollisionDetector:
                 continue
 
             for segments, conn_key in lines:
-                # No contar colisión si la línea conecta este elemento
                 from_id, to_id = conn_key.split('->')
                 if bbox_id in (from_id, to_id):
+                    # WISH-ROUTE-004 (W87): el cruce con el label del PROPIO
+                    # extremo SÍ cuenta cuando un tramo lo ATRAVIESA de lado
+                    # a lado (ambos extremos del segmento fuera del bbox) —
+                    # la dashed resumen→cron cortaba «Cron. Val.» y P61 no
+                    # lo veía por esta exención. El roce del stub de puerto
+                    # (un extremo dentro del bbox) sigue exento: un label
+                    # pegado a su icono siempre convive con su llegada.
+                    def _outside(px, py):
+                        return not (bbox[0] <= px <= bbox[2]
+                                    and bbox[1] <= py <= bbox[3])
+                    if any(self.geometry.line_intersects_rect(seg, bbox)
+                           and _outside(seg[0], seg[1])
+                           and _outside(seg[2], seg[3])
+                           for seg in segments):
+                        # canal PROPIO (§H6): el par se nombra para el audit
+                        # y el contador label_own_line, pero no suma al
+                        # agregado — no es un solape de bboxes y contarlo
+                        # ahí re-basaría todas las métricas históricas.
+                        collision_pairs.append(
+                            (bbox_id, conn_key, 'label_vs_own_line'))
                     continue
 
                 if any(self.geometry.line_intersects_rect(seg, bbox)

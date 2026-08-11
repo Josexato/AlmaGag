@@ -36,8 +36,13 @@ def test_label_bbox_stored_follows_position():
     geo = GeometryCalculator()
     e = {'id': 'a', 'label': 'dos\nlineas de texto', 'x': 0, 'y': 0}
     bb = geo.get_label_bbox_stored(e, (500.0, 700.0, 'middle', 'bottom'))
-    w = len('lineas de texto') * 8
-    assert bb == (500 - w // 2, 700 - 14, 500 + w // 2, 700 - 14 + 36)
+    # It10-4: el detector mide con las MISMAS constantes que el renderer
+    # (TEXT_CHAR_WIDTH/TEXT_LINE_HEIGHT) — los 8/18 rancios escondían
+    # solapes reales tras la recalibracion tipografica de la iteracion 9.
+    from AlmaGag.config import TEXT_CHAR_WIDTH, TEXT_LINE_HEIGHT
+    w = len('lineas de texto') * TEXT_CHAR_WIDTH
+    assert bb == (500 - w // 2, 700 - 14, 500 + w // 2,
+                  700 - 14 + 2 * TEXT_LINE_HEIGHT)
     # anclas start/end desplazan el rango x
     st = geo.get_label_bbox_stored(e, (500.0, 700.0, 'start', 'bottom'))
     en = geo.get_label_bbox_stored(e, (500.0, 700.0, 'end', 'bottom'))
@@ -70,7 +75,10 @@ def test_mina_labels_below_baseline(result):
     pairs = [p for p in (result._collision_pairs or []) if 'label' in p[2]]
     assert len(pairs) <= 26, f'{len(pairs)} pares con etiqueta (base: 55)'
     fusions = [p for p in pairs if p[2] == 'icon_label_vs_icon_label']
-    assert len(fusions) <= 3, \
+    # tope 3→5 (It10-4): con el detector veraz (char 9.2 / linea 20.6)
+    # aparecen 2 fusiones que el estimador rancio de 8/18 no veia —
+    # existian visualmente desde la tipografia 16px; mirado en PNG.
+    assert len(fusions) <= 5, \
         f'fusiones icono↔icono restantes: {[(p[0], p[1]) for p in fusions]}'
 
 

@@ -98,7 +98,7 @@ class GeometryCalculator:
         if position == 'bottom':
             return (center_x, y + height + 20, 'middle', 'bottom')
         elif position == 'top':
-            text_y = y - 10 - ((num_lines - 1) * 18)
+            text_y = y - 10 - ((num_lines - 1) * TEXT_LINE_HEIGHT)
             return (center_x, text_y, 'middle', 'top')
         elif position == 'right':
             return (x + width + 15, center_y, 'start', 'right')
@@ -133,8 +133,8 @@ class GeometryCalculator:
         text_x, text_y, anchor, _ = self.get_text_coords(element, position, num_lines)
 
         # Estimación del tamaño del texto (~8px por caracter en Arial 14px)
-        text_width = max_line_len * 8
-        text_height = num_lines * 18
+        text_width = max_line_len * TEXT_CHAR_WIDTH
+        text_height = num_lines * TEXT_LINE_HEIGHT
 
         # Calcular bbox según anchor
         if anchor == 'middle':
@@ -168,15 +168,15 @@ class GeometryCalculator:
         """§P61: bounding box de la etiqueta en su posición ALMACENADA
         (label_positions), no en la canónica del ancla. Es lo que el renderer
         dibuja (draw_icon_label: primera línea con baseline en (x, y), líneas
-        apiladas a +18px) — el detector debe medir lo que se dibuja, si no los
+        apiladas a +TEXT_LINE_HEIGHT) — el detector debe medir lo que se dibuja, si no los
         escalones anti-fusión resultan invisibles para el contador."""
         label = element.get('label', '')
         if not label or not pos_info:
             return None
         text_x, text_y, anchor, _ = pos_info
         lines = label.split('\n')
-        text_width = max(len(line) for line in lines) * 8
-        text_height = len(lines) * 18
+        text_width = max(len(line) for line in lines) * TEXT_CHAR_WIDTH
+        text_height = len(lines) * TEXT_LINE_HEIGHT
 
         if anchor == 'middle':
             x1 = text_x - text_width // 2

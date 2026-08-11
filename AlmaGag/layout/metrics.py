@@ -170,17 +170,23 @@ def quality_counters(layout) -> Dict[str, int]:
     - edge_x_edge:  cruces arista×arista (count_crossings)
     - edge_x_node:  aristas sobre icono/contenedor ajeno (count_edge_node_overlaps)
     - label_overlap: solapes que involucran etiquetas (del CollisionDetector)
+    - label_own_line: tramos que ATRAVIESAN el label de su propio extremo
+      (W87 — canal aparte: no es un solape de bboxes)
     """
     exe = count_crossings(layout)
     exn = count_edge_node_overlaps(layout)
     label_overlap = 0
+    label_own_line = 0
     pairs = getattr(layout, '_collision_pairs', None)
     if pairs:
-        label_overlap = sum(1 for p in pairs if 'label' in p[2])
+        label_overlap = sum(1 for p in pairs
+                            if 'label' in p[2] and p[2] != 'label_vs_own_line')
+        label_own_line = sum(1 for p in pairs if p[2] == 'label_vs_own_line')
     return {
         'edge_x_edge': exe,
         'edge_x_node': exn,
         'label_overlap': label_overlap,
+        'label_own_line': label_own_line,
     }
 
 
