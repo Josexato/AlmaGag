@@ -149,7 +149,9 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
         for _k, _v in list(data['roles'].items()):
             if isinstance(_v, str):
                 logger.warning(f"[formato] roles['{_k}'] como string — "
-                               f"interpretado como {{\"label\": \"{_v}\"}}")
+                               f"interpretado como {{\"label\": \"{_v}\"}} "
+                               f"SIN color; declarar {{\"label\", \"color\"}} "
+                               f"para conservarlo")
                 data['roles'][_k] = {'label': _v}
 
     # §H7: expandir `unions` (matrimonio) a nodo de barra + aristas padre→union

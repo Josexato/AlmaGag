@@ -197,13 +197,22 @@ def apply_zone_banding(layout, shift_subtree, considerations=None) -> int:
         ordered_blocks.append(best)
     band_order = [z for blk in ordered_blocks for z in blk]
 
+    # band_h sigue siendo el alto de la banda: sitúa la fila de periferia.
     band_h = max(_box(z)[3] - _box(z)[1] for z in operational)
+
     x = ZONE_MARGIN
     band_cx: Dict[str, float] = {}
     for z in band_order:
         x1, y1, x2, y2 = _box(z)
         w, h = x2 - x1, y2 - y1
-        shift_subtree(z, layout, x - x1, (ZONE_MARGIN + (band_h - h) / 2.0) - y1)
+        # BUGS-LAYOUT-012 (hallazgo GAG Skiller): las cajas se centraban
+        # verticalmente en la banda ((band_h - h)/2), así que dos zonas de
+        # alto distinto dejaban techos — y con la banda de rótulo constante,
+        # PRIMERAS FILAS — desfasados (~9px medidos: cajas de 269 y 287).
+        # Alineadas al TECHO de la banda, los miembros equivalentes caen en
+        # la misma fila absoluta por construcción y las troncales
+        # inter-zona salen rectas.
+        shift_subtree(z, layout, x - x1, ZONE_MARGIN - y1)
         band_cx[z['id']] = x + w / 2.0
         x += w + ZONE_BAND_GAP
     band_w = x - ZONE_BAND_GAP - ZONE_MARGIN

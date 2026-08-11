@@ -94,9 +94,13 @@ def test_member_labels_off_header_text_real_fixtures():
 
 def test_fisico_v2_labels_on_icons_do_not_regress():
     """Guarda de composición: pares «algo sobre un ICONO» (violación R1)
-    en el físico v2 — 7 en el baseline, 4 tras LAYOUT-010."""
+    en el físico v2 — 7 en el baseline, 4 tras LAYOUT-010; 5 tras
+    BUGS-LAYOUT-012 (techos de zona alineados: el corrimiento de 9px
+    movió decisiones del optimizador dentro de z_pila — trade medido y
+    verificado en PNG a cambio de primeras filas en la misma fila
+    absoluta y troncal inter-zona recta)."""
     out = _optimize_file(FISICO)
     on_icon = [p for p in (out._collision_pairs or [])
                if p[2].startswith('icon_vs_')]
-    assert len(on_icon) <= 4, \
-        f'{len(on_icon)} pares sobre icono (tope 4): {on_icon}'
+    assert len(on_icon) <= 5, \
+        f'{len(on_icon)} pares sobre icono (tope 5): {on_icon}'

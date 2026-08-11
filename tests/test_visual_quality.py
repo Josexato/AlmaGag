@@ -210,3 +210,46 @@ def test_small_container_is_not_an_icon_for_r1(tmp_path):
     report2 = validate_svg(str(ctrl))
     assert any(v.rule == 'R1_label_over_icon' for v in report2.violations), \
         'el fix apagó la detección de R1 reales'
+
+
+def test_normalizing_scale_does_not_inflate_icon_bbox(tmp_path):
+    """BUGS-VAL-006 (GAG Skiller): el scale del transform normaliza el
+    viewBox intrínseco del icono a la ranura 80×50 (firewall: 51×43 →
+    ×1.57/×1.16) — ningún emisor magnifica más allá de la ranura. El
+    validador multiplicaba la ranura por el scale: bbox de 125×58 y R1
+    falso de 512px² del FortiGate contra su PROPIO label lateral."""
+    import json
+    from AlmaGag.generator import generate_diagram
+    d = {'elements': [
+            {'id': 'i', 'type': 'cloud', 'label': 'Internet'},
+            {'id': 'fw', 'type': 'firewall', 'label': 'FortiGate'},
+            {'id': 'sw', 'type': 'router', 'label': 'Switch'},
+            {'id': 's', 'type': 'server', 'label': 'Servidor'}],
+         'connections': [
+            {'from': 'i', 'to': 'fw', 'direction': 'bidirectional'},
+            {'from': 'fw', 'to': 'sw', 'direction': 'none'},
+            {'from': 'sw', 'to': 's', 'direction': 'none'}]}
+    src = tmp_path / 't6fw.sdjf'
+    src.write_text(json.dumps(d))
+    out = tmp_path / 't6fw.svg'
+    generate_diagram(str(src), output_file=str(out),
+                     layout_algorithm='select')
+    report = validate_svg(str(out))
+    r1 = [v for v in report.violations if v.rule == 'R1_label_over_icon']
+    assert not r1, f'bbox inflado por scale normalizador: {r1}'
+    # el clamp no debe apagar la detección de conexiones (R3)
+    assert report.n_connections == 3
+
+    # control positivo: un <g> escalado con texto ENCIMA sí es R1
+    svg = ('<?xml version="1.0"?>'
+           '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300">'
+           '<g id="fw2" transform="translate(80,80) '
+           'scale(1.5686274509803921,1.1627906976744187)">'
+           '<path d="M0 0 L51 0 L51 43 L0 43 Z" fill="#a90000"/></g>'
+           '<text x="120" y="110" text-anchor="middle" font-size="14px">'
+           'encima del icono</text></svg>')
+    ctrl = tmp_path / 'ctrl6.svg'
+    ctrl.write_text(svg)
+    report2 = validate_svg(str(ctrl))
+    assert any(v.rule == 'R1_label_over_icon' for v in report2.violations), \
+        'el clamp apagó la detección de R1 reales dentro de la ranura'
