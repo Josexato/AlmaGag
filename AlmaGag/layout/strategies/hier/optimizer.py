@@ -55,11 +55,11 @@ class HierLayoutOptimizer(LayoutOptimizer):
         L._areas = getattr(layout, '_areas', None)
         L._roles = getattr(layout, '_roles', None)
         L._lanes = getattr(layout, '_lanes', None)
-        # Vista resuelta por el generator (§I): 'flow' | 'areas' | 'lanes' |
+        # Vista resuelta por el generator (§I): 'columns' | 'areas' | 'lanes' |
         # 'matrix'. Sin resolver (llamada directa a optimize), se infiere.
         view = getattr(layout, '_layout_view', None)
         if view is None:
-            view = 'areas' if L._areas else 'flow'
+            view = 'areas' if L._areas else 'columns'
 
         elements = L.elements
         connections = L.connections
@@ -76,7 +76,7 @@ class HierLayoutOptimizer(LayoutOptimizer):
         if view == 'matrix':
             logger.warning("[HIER] vista 'matrix' requiere `areas`; usando flujo")
         # compat: si pidieron 'areas' sin declararlas, sigue el flujo normal.
-        if L._areas and view == 'flow':
+        if L._areas and view == 'columns':
             pass  # ignora las áreas, layout de flujo plano
 
         # §A niveles + §B columnas.

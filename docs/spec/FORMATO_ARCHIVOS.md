@@ -81,7 +81,7 @@ Templates disponibles:
 | Nombre | Patron | Cuando usarlo |
 |---|---|---|
 | `"architecture"` | T vertical con shared al centro | Diagramas arquitectonicos con containers y un nodo "compartido" |
-| `"flow"` | Cadena vertical centrada | Pipelines, secuencias de pasos |
+| `"steps"` | Cadena vertical centrada | Pipelines, secuencias de pasos (hasta v3.8: `"flow"`) |
 | `"hub_and_spoke"` | Hub central + spokes radiales (círculo) | SD-WAN, redes, federacion |
 | `"dashboard"` | Grid de containers paralelos | Posters, paneles independientes |
 | `"er"` | Radial-concéntrico | Entidades con relaciones (DBs/tablas) |
@@ -130,7 +130,7 @@ Un container puede declarar SU PROPIO template, que se aplica a sus hijos antes 
     {
       "id": "main_app",
       "contains": ["s1", "s2", "s3", "s4"],
-      "layout_template": "flow"   // estos 4 hijos van en cadena vertical
+      "layout_template": "steps"  // estos 4 hijos van en cadena vertical
     },
     {
       "id": "shared_box",
@@ -167,13 +167,13 @@ semántica `areas`/`roles`); el algoritmo decide *cómo se ve*. La representaci�
 archivo** — no hay `layout_view` en el JSON.
 
 ```
---view {auto|flow|areas|lanes|matrix}     # override, sólo por CLI
+--view {auto|columns|areas|lanes|matrix}  # override, sólo por CLI
 # (default: auto → el algoritmo elige a partir del JSON: areas si las declara)
 ```
 
 | Vista | Qué hace | Criterio |
 |-------|----------|----------|
-| `flow` | columnas por flujo (una tira/mariposa) | A–H |
+| `columns` | columnas del grafo dirigido (una tira/mariposa; hasta v3.8: `flow`) | A–H |
 | `areas` | una caja por fase, sub-layout A–H interno, a lo ancho | §I27 |
 | `lanes` | un carril vertical por rol, flujo en Y | §I28 |
 | `matrix` | grilla fase (columna) × rol (fila); flowchart transfuncional | §I |
@@ -249,6 +249,23 @@ Ver `AlmaGag/layout/considerations.py`,
 `docs/diagrams/gags/considerations-demo.sdjf` y `tests/test_considerations.py`.
 
 ---
+
+
+## Consistencia del termino «flow» (v3.9)
+
+Decision del autor (11-ago-2026): **una palabra = un concepto**. «flow»
+quedo reservado para UN solo significado — `canvas.flow`, la direccion de
+lectura del grafo dirigido (el unico uso literal de «flujo»). Todo lo
+demas se renombro; el nombre viejo NO se acepta (el motor corta con
+error/warning que nombra el reemplazo):
+
+| Hasta v3.8 | Desde v3.9 | Concepto |
+|---|---|---|
+| `flows` (top-level) | `journeys` | Recorrido narrativo resaltado (highlighter) |
+| `canvas.flow` | `canvas.flow` (queda) | Direccion de lectura del grafo (up/down) |
+| `layout_template: "flow"` | `"steps"` | Cadena vertical de pasos |
+| `--view flow` | `--view columns` | Vista plana de hier (columnas, sin agrupar) |
+| `data_flow` / `control_flow` | `data_link` / `control_link` | Que viaja por el enlace |
 
 ## 1. canvas (opcional)
 
@@ -357,8 +374,8 @@ color a mano. `connection.color` lo sobreescribe si quieres un color exacto.
 
 | `semantic_type` | Color | Uso tipico |
 |-----------------|-------|-----------|
-| `data_flow` | naranja | Flujo de datos |
-| `control_flow` | azul | Flujo de control |
+| `data_link` | naranja | Datos por el enlace (hasta v3.8: `data_flow`) |
+| `control_link` | azul | Control por el enlace (hasta v3.8: `control_flow`) |
 | `sync` | verde | Sincronizacion / bidireccional |
 | `event` | purpura | Eventos / mensajes |
 | `callback` | teal | Callbacks |
@@ -610,7 +627,7 @@ Ver canonical `docs/diagrams/gags/16-contract-band.gag`.
 
 ---
 
-## 5.8. `flows` — flujos de informacion resaltados (WISH-DRAW-002)
+## 5.8. `journeys` — recorridos narrativos resaltados (WISH-DRAW-002; hasta v3.8: `flows`)
 
 Capa de ANOTACION, no de topologia: un flujo narra un recorrido sobre el
 diagrama ya tendido (el camino de un paquete, un tramite, una cadena de
@@ -618,7 +635,7 @@ aprobacion) como un trazo de RESALTADOR — ancho, semitransparente, puntas
 redondas — sin agregar aristas ni alterar layout ni metricas.
 
 ```json
-"flows": [
+"journeys": [
   {"id": "scada", "label": "Datos SCADA", "color": "#f7e017",
    "path": ["cpe_mina", "est2", "dc_mina", "cco"]}
 ]
@@ -632,7 +649,7 @@ redondas — sin agregar aristas ni alterar layout ni metricas.
 | `id` | string | no | Para logs/WARNINGs. |
 
 Ids inexistentes se omiten con WARNING; un flujo con <2 elementos
-dibujables no se pinta. Los trazos llevan `class="ag-flow"`: invisibles
+dibujables no se pinta. Los trazos llevan `class="ag-journey"`: invisibles
 para metricas, ruteo y validador (como el halo `ag-text-halo`).
 
 ---
@@ -974,7 +991,7 @@ Archivo .sdjf o .gag
   +-- "theme" (opcional): { "token": "#hex" }             # §O57
   +-- "semantics" (opcional): { "clase": ["keywords"] }   # §Q63
   +-- "unions" (opcional): [ { "id", "between": [a, b] } ]  # §H7
-  +-- "flows" (opcional): [ { "path": [ids...], "label", "color" } ]  # resaltador
+  +-- "journeys" (opcional): [ { "path": [ids...], "label", "color" } ]  # resaltador
   +-- "considerations" (opcional): [ align | near | avoid ]
   +-- "areas" / "lanes" / "roles" (opcional)              # vistas §I
 ```
@@ -989,7 +1006,7 @@ La spec describe el ARCHIVO; el comando se documenta completo en
 | Flag | Que hace |
 |------|----------|
 | `-o` / `--output` | Ruta del SVG de salida |
-| `--view {auto\|flow\|areas\|lanes\|matrix}` | Forzar REPRESENTACION (hier) |
+| `--view {auto\|columns\|areas\|lanes\|matrix}` | Forzar REPRESENTACION (hier) |
 | `--layout-algorithm {select\|auto\|hier\|legacy}` | Forzar estrategia (debug; default `select` = el motor decide) |
 | `--exportpng` | PNG ademas del SVG (§O58: Chrome→cairosvg; `ALMAGAG_CHROME`) |
 | `--epifania` (alias `--debug-phases`, `--visualize-growth`) | Un SVG por fase + index.html |

@@ -152,7 +152,7 @@ class GraphFeatures:
         SEMANTIC_TOKENS = {
             'shared', 'compart', 'agnost', 'common',
             'hub', 'spoke', 'branch', 'edge', 'central',
-            'step', 'phase', 'stage', 'flow', 'pipeline',
+            'step', 'phase', 'stage', 'flow', 'pipeline', 'steps',
             'entry', 'input', 'output', 'sink', 'source',
             'state', 'transition',
             'entity', 'table', 'database',

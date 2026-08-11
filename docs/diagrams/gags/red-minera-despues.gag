@@ -99,7 +99,7 @@
       "from": "inet_si",
       "to": "internet",
       "direction": "bidirectional",
-      "semantic_type": "data_flow"
+      "semantic_type": "data_link"
     },
     {
       "from": "internet",
@@ -113,7 +113,7 @@
       "to": "rpv_mpls",
       "direction": "bidirectional",
       "label": "2 accesos RPV",
-      "semantic_type": "control_flow"
+      "semantic_type": "control_link"
     },
     {
       "from": "fgvm",
@@ -127,13 +127,13 @@
       "from": "internet",
       "to": "camp_rtr_inet",
       "direction": "bidirectional",
-      "semantic_type": "data_flow"
+      "semantic_type": "data_link"
     },
     {
       "from": "rpv_mpls",
       "to": "camp_rtr_rpv",
       "direction": "bidirectional",
-      "semantic_type": "control_flow"
+      "semantic_type": "control_link"
     },
     {
       "from": "camp_red",
@@ -154,7 +154,7 @@
       "from": "rpv_mpls",
       "to": "cir_rtr",
       "direction": "bidirectional",
-      "semantic_type": "control_flow"
+      "semantic_type": "control_link"
     },
     {
       "from": "cir_rtr",

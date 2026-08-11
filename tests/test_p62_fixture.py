@@ -76,7 +76,7 @@ def test_v2_fixtures_structure():
 
 def test_presupuesto_structure():
     """El fixture del grupo V conserva la estructura real: 23 elementos /
-    19 conexiones, 5 align[] declarados (4 en y, 1 en x), 3 flows válidos
+    19 conexiones, 5 align[] declarados (4 en y, 1 en x), 3 journeys válidos
     (el hack f4 no viaja: U74/U77 lo caza), 1 contenedor-feeder, y cero
     coordenadas (layout 100% derivado)."""
     d = json.load(open('docs/diagrams/gags/mina-presupuesto.sdjf'))
@@ -84,8 +84,8 @@ def test_presupuesto_structure():
     aligns = [c for c in d['considerations'] if 'align' in c]
     assert len(aligns) == 5
     assert sum(1 for a in aligns if a['axis'] == 'x') == 1
-    assert len(d['flows']) == 3
-    assert all(f.get('label') for f in d['flows'])
+    assert len(d['journeys']) == 3
+    assert all(f.get('label') for f in d['journeys'])
     contains = [e for e in d['elements'] if 'contains' in e]
     assert len(contains) == 1 and contains[0]['id'] == 'indir'
     assert not any('x' in e or 'y' in e for e in d['elements'])

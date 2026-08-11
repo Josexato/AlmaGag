@@ -378,7 +378,7 @@ def _collect_connection_endpoints(root):
 
     endpoints = []
     for ln in root.iter(f'{{{SVG_NS}}}line'):
-        if ln.get('class') == 'ag-flow':      # WISH-DRAW-002: anotación
+        if ln.get('class') == 'ag-journey':      # WISH-DRAW-002: anotación
             continue
         if not _is_connection_stroke(ln.get('stroke', '')):
             continue
@@ -396,7 +396,7 @@ def _collect_connection_endpoints(root):
         endpoints.append((x1, y1, x2, y2))
 
     for pl in root.iter(f'{{{SVG_NS}}}polyline'):
-        if pl.get('class') == 'ag-flow':      # WISH-DRAW-002: anotación
+        if pl.get('class') == 'ag-journey':      # WISH-DRAW-002: anotación
             continue
         if not _is_connection_stroke(pl.get('stroke', '')):
             continue

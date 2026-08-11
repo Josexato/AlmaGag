@@ -1,13 +1,17 @@
 """
-WISH-DRAW-002 — Flujos de información resaltados («highlighter»).
+WISH-DRAW-002 — Recorridos narrativos resaltados («highlighter»).
 
-Capa de ANOTACIÓN, no de topología: un flujo narra un recorrido sobre el
+Renombrado en v3.9: la sección top-level pasó de `journeys` a `journeys`
+(decisión de consistencia: «journey» quedó reservado para canvas.journey, la
+dirección de lectura del grafo).
+
+Capa de ANOTACIÓN, no de topología: un recorrido narra un recorrido sobre el
 diagrama ya tendido — el camino de un paquete, un trámite, una cadena de
 aprobación — sin agregar aristas ni alterar el layout.
 
 Formato (top-level):
 
-    "flows": [
+    "journeys": [
       {"id": "scada", "label": "Datos SCADA", "color": "#f7e017",
        "path": ["cpe_mina", "est2", "dc_mina", "cco"]}
     ]
@@ -17,13 +21,13 @@ elementos del `path` EN ORDEN. Entre dos elementos consecutivos, el trazo
 SIGUE el `computed_path` de la conexión declarada (en cualquier sentido) —
 el resaltador pasa por donde pasan los cables, troncales §P60 incluidas.
 
-Contrato de autoría (U74/U77): un flujo sólo recorre ARISTAS EXISTENTES —
+Contrato de autoría (U74/U77): un recorrido sólo recorre ARISTAS EXISTENTES —
 cero geometría propia. Un par consecutivo sin conexión declarada, un id
-inexistente o un flujo sin `label` son ERROR DURO (ValueError); dos flujos
-con el mismo color o más de 4 flujos por lámina, WARNING. Capa: sobre
+inexistente o un recorrido sin `label` son ERROR DURO (ValueError); dos recorridos
+con el mismo color o más de 4 recorridos por lámina, WARNING. Capa: sobre
 fondos/zonas y bajo iconos, líneas y textos.
 
-Todo elemento del flujo lleva `class="ag-flow"`: invisible para métricas,
+Todo elemento del recorrido lleva `class="ag-journey"`: invisible para métricas,
 ruteo y validadores (mismo mecanismo que `ag-text-halo`). Los colores por
 defecto son la paleta de resaltador; `color` acepta hex/CSS o token §O57
 (resuelto antes por apply_theme).
@@ -35,11 +39,11 @@ from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 
 logger = logging.getLogger('AlmaGag')
 
-FLOW_CLASS = 'ag-flow'
-FLOW_WIDTH = 28.0          # ancho del trazo (px)
-FLOW_OPACITY = 0.30        # transparencia de resaltador
-# paleta de resaltador (se cicla si hay más flujos que colores)
-FLOW_PALETTE = ('#f7e017', '#7ce07c', '#ff9ad5', '#7cd6e0')
+JOURNEY_CLASS = 'ag-journey'
+JOURNEY_WIDTH = 28.0          # ancho del trazo (px)
+JOURNEY_OPACITY = 0.30        # transparencia de resaltador
+# paleta de resaltador (se cicla si hay más recorridos que colores)
+JOURNEY_PALETTE = ('#f7e017', '#7ce07c', '#ff9ad5', '#7cd6e0')
 
 
 def _center(e):
@@ -67,21 +71,21 @@ def _conn_points(conn, reverse):
     return list(reversed(xy)) if reverse else xy
 
 
-def build_flow_points(flow, elements_by_id, connections):
-    """Polilínea completa de un flujo: concatena los tramos entre elementos
+def build_journey_points(journey, elements_by_id, connections):
+    """Polilínea completa de un recorrido: concatena los tramos entre elementos
     consecutivos del path siguiendo la conexión declarada de cada par (U74:
     cero geometría propia — sin conexión no hay tramo, es error duro).
-    Devuelve la lista de puntos, o None si el flujo no es dibujable."""
-    fid = flow.get('id', '?')
-    ids = [i for i in flow.get('path', []) if isinstance(i, str)]
+    Devuelve la lista de puntos, o None si el recorrido no es dibujable."""
+    fid = journey.get('id', '?')
+    ids = [i for i in journey.get('path', []) if isinstance(i, str)]
     known = []
     for i in ids:
         e = elements_by_id.get(i)
         if e is None:
             raise ValueError(
-                f"[flows] id '{i}' del flujo '{fid}' no existe en elements")
+                f"[journeys] id '{i}' del recorrido '{fid}' no existe en elements")
         if 'x' not in e:
-            logger.warning(f"flows: '{i}' del flujo '{fid}' no tiene "
+            logger.warning(f"journeys: '{i}' del recorrido '{fid}' no tiene "
                            f"posición — se omite del recorrido")
             continue
         known.append(e)
@@ -93,8 +97,8 @@ def build_flow_points(flow, elements_by_id, connections):
         found = _find_conn(connections, a['id'], b['id'])
         if found is None:
             raise ValueError(
-                f"[flows] par ({a['id']}, {b['id']}) del flujo '{fid}' sin "
-                f"conexión declarada — un flujo sólo recorre aristas "
+                f"[journeys] par ({a['id']}, {b['id']}) del recorrido '{fid}' sin "
+                f"conexión declarada — un recorrido sólo recorre aristas "
                 f"existentes (U74)")
         conn, reverse = found
         seg = _conn_points(conn, reverse)
@@ -118,7 +122,7 @@ def _seg_key(p, q):
 
 def _canonical_normal(key):
     """Normal unitaria del tramo en su orientación canónica: todos los
-    flujos que lo comparten se reparten hacia los MISMOS lados del mundo,
+    recorridos que lo comparten se reparten hacia los MISMOS lados del mundo,
     recorran el tramo en el sentido que lo recorran."""
     (ax, ay), (bx, by) = key
     dx, dy = bx - ax, by - ay
@@ -128,18 +132,18 @@ def _canonical_normal(key):
     return (-dy / L, dx / L)
 
 
-def build_flow_lanes(flows, elements_by_id, connections):
+def build_journey_lanes(journeys, elements_by_id, connections):
     """U75: puntos finales de cada flujo con reparto en CARRILES.
 
-    Construye las polilíneas (contrato U74/U77 mediante build_flow_points),
-    detecta los tramos compartidos por varios flujos y desplaza cada uno
-    perpendicularmente: N flujos sobre un tramo común quedan lado a lado
-    (paso = FLOW_WIDTH, carril por orden de aparición), ninguno tapado.
-    Devuelve [(flow, points)] sólo con los dibujables."""
+    Construye las polilíneas (contrato U74/U77 mediante build_journey_points),
+    detecta los tramos compartidos por varios recorridos y desplaza cada uno
+    perpendicularmente: N recorridos sobre un tramo común quedan lado a lado
+    (paso = JOURNEY_WIDTH, carril por orden de aparición), ninguno tapado.
+    Devuelve [(journey, points)] sólo con los dibujables."""
     built = []
-    for flow in flows:
-        points = build_flow_points(flow, elements_by_id, connections)
-        built.append((flow, points))
+    for journey in journeys:
+        points = build_journey_points(journey, elements_by_id, connections)
+        built.append((journey, points))
 
     occupancy = {}            # seg_key -> [índices de flujo, orden estable]
     for fi, (_, pts) in enumerate(built):
@@ -152,9 +156,9 @@ def build_flow_lanes(flows, elements_by_id, connections):
                 riders.append(fi)
 
     out = []
-    for fi, (flow, pts) in enumerate(built):
+    for fi, (journey, pts) in enumerate(built):
         if not pts:
-            out.append((flow, None))
+            out.append((journey, None))
             continue
         lane_pts = []
         for p, q in zip(pts, pts[1:]):
@@ -162,7 +166,7 @@ def build_flow_lanes(flows, elements_by_id, connections):
             riders = occupancy.get(key, [fi])
             n = _canonical_normal(key)
             if len(riders) > 1 and n is not None:
-                off = (riders.index(fi) - (len(riders) - 1) / 2.0) * FLOW_WIDTH
+                off = (riders.index(fi) - (len(riders) - 1) / 2.0) * JOURNEY_WIDTH
                 pp = (p[0] + n[0] * off, p[1] + n[1] * off)
                 qq = (q[0] + n[0] * off, q[1] + n[1] * off)
             else:
@@ -171,82 +175,82 @@ def build_flow_lanes(flows, elements_by_id, connections):
                 if not lane_pts or abs(lane_pts[-1][0] - pt[0]) > 0.05 \
                         or abs(lane_pts[-1][1] - pt[1]) > 0.05:
                     lane_pts.append(pt)
-        out.append((flow, lane_pts if len(lane_pts) >= 2 else None))
+        out.append((journey, lane_pts if len(lane_pts) >= 2 else None))
     return out
 
 
-def draw_flows(dwg, flows, elements_by_id, connections) -> int:
-    """Dibuja los flujos como trazos de resaltador. Devuelve cuántos se
-    dibujaron. No-op silencioso sin sección `flows`."""
-    if not flows:
+def draw_journeys(dwg, journeys, elements_by_id, connections) -> int:
+    """Dibuja los recorridos como trazos de resaltador. Devuelve cuántos se
+    dibujaron. No-op silencioso sin sección `journeys`."""
+    if not journeys:
         return 0
     # U77: audit de autoría — label obligatorio, colores sin repetir,
-    # recomendación ≤4 flujos por lámina.
-    declared = [f for f in flows if isinstance(f, dict)]
-    for flow in declared:
-        if not flow.get('label'):
+    # recomendación ≤4 recorridos por lámina.
+    declared = [f for f in journeys if isinstance(f, dict)]
+    for journey in declared:
+        if not journey.get('label'):
             raise ValueError(
-                f"[flows] el flujo '{flow.get('id', '?')}' no declara "
+                f"[journeys] el recorrido '{journey.get('id', '?')}' no declara "
                 f"label — obligatorio (va a la leyenda «Flujos:»)")
     seen_colors = {}
     for f in declared:
         col = f.get('color')
         if col and col in seen_colors:
-            logger.warning(f"flows: '{f.get('id', '?')}' repite el color "
-                           f"{col} de '{seen_colors[col]}' — dos flujos "
+            logger.warning(f"journeys: '{f.get('id', '?')}' repite el color "
+                           f"{col} de '{seen_colors[col]}' — dos recorridos "
                            f"iguales no se distinguen")
         elif col:
             seen_colors[col] = f.get('id', '?')
     if len(declared) > 4:
-        logger.warning(f"flows: {len(declared)} flujos en una lámina — la "
+        logger.warning(f"journeys: {len(declared)} recorridos en una lámina — la "
                        f"recomendación de autoría es ≤4 (el resaltador "
                        f"pierde contraste)")
     n = 0
-    for i, (flow, points) in enumerate(
-            build_flow_lanes(declared, elements_by_id, connections)):
+    for i, (journey, points) in enumerate(
+            build_journey_lanes(declared, elements_by_id, connections)):
         if points is None:
-            logger.warning(f"flows: el flujo '{flow.get('id', i)}' no tiene "
+            logger.warning(f"journeys: el recorrido '{journey.get('id', i)}' no tiene "
                            f"≥2 elementos dibujables — no se pinta")
             continue
-        color = flow.get('color') or FLOW_PALETTE[n % len(FLOW_PALETTE)]
+        color = journey.get('color') or JOURNEY_PALETTE[n % len(JOURNEY_PALETTE)]
         dwg.add(dwg.polyline(
             points=[(round(x, 2), round(y, 2)) for x, y in points],
             fill='none', stroke=color,
-            stroke_width=FLOW_WIDTH, stroke_opacity=FLOW_OPACITY,
+            stroke_width=JOURNEY_WIDTH, stroke_opacity=JOURNEY_OPACITY,
             stroke_linecap='round', stroke_linejoin='round',
-            class_=FLOW_CLASS))
+            class_=JOURNEY_CLASS))
         n += 1
     if n:
-        logger.info(f"flows: {n} flujo(s) resaltado(s) sobre el diagrama")
+        logger.info(f"journeys: {n} recorrido(s) resaltado(s) sobre el diagrama")
     return n
 
 
-def draw_flow_legend(dwg, flows, canvas_width, canvas_height, y_offset=0):
+def draw_journey_legend(dwg, journeys, canvas_width, canvas_height, y_offset=0):
     """Leyenda «Flujos:» al pie (análoga a §N48). Un swatch de resaltador
-    por flujo DIBUJABLE con label; sin labels no hay leyenda."""
+    por recorrido DIBUJABLE con label; sin labels no hay leyenda."""
     entries = []
     n = 0
-    for i, flow in enumerate(flows or []):
-        if not isinstance(flow, dict):
+    for i, journey in enumerate(journeys or []):
+        if not isinstance(journey, dict):
             continue
-        color = flow.get('color') or FLOW_PALETTE[n % len(FLOW_PALETTE)]
+        color = journey.get('color') or JOURNEY_PALETTE[n % len(JOURNEY_PALETTE)]
         n += 1
-        if flow.get('label'):
-            entries.append((str(flow['label']), color))
+        if journey.get('label'):
+            entries.append((str(journey['label']), color))
     if not entries:
         return False
 
     legend = dwg.g(class_='ag-bottom-anchored')
     y = canvas_height - 30 - y_offset
     x = 24
-    legend.add(dwg.text('Flujos:', insert=(x, y + 4),
+    legend.add(dwg.text('Recorridos:', insert=(x, y + 4),
                         font_size='11px', font_weight='700',
                         font_family='Arial, sans-serif', fill='#5a5648'))
     x += 60
     for label, color in entries:
         legend.add(dwg.line(start=(x, y), end=(x + 26, y), stroke=color,
-                            stroke_width=10, stroke_opacity=FLOW_OPACITY,
-                            stroke_linecap='round', class_=FLOW_CLASS))
+                            stroke_width=10, stroke_opacity=JOURNEY_OPACITY,
+                            stroke_linecap='round', class_=JOURNEY_CLASS))
         legend.add(dwg.text(label, insert=(x + 32, y + 4),
                             font_size='11px', font_family='Arial, sans-serif',
                             fill='#3a362c'))

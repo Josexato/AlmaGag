@@ -69,7 +69,7 @@ def test_engine_ships_no_vocabulary():
     import AlmaGag.layout.semantics as m
     src = inspect.getsource(m)
     body = src.split('"""', 2)[2]          # sin los docstrings de ejemplo
-    for word in ('backhaul', 'energia', 'FAT', 'Mbps', 'data_flow'):
+    for word in ('backhaul', 'energia', 'FAT', 'Mbps', 'data_link'):
         assert word not in body, f'vocabulario {word!r} embebido en el motor'
 
 

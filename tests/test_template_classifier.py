@@ -11,7 +11,7 @@ Verifica:
 from AlmaGag.layout.templates import (
     GraphFeatures,
     ArchitectureTemplate,
-    FlowTemplate,
+    StepsTemplate,
     HubAndSpokeTemplate,
     TemplateClassifier,
     get_default_classifier,
@@ -145,7 +145,7 @@ def test_architecture_scores_arch_data_high():
 
 def test_flow_scores_chain_high():
     f = GraphFeatures.extract(_flow_data()['elements'], _flow_data()['connections'])
-    score = FlowTemplate().detect_score(f)
+    score = StepsTemplate().detect_score(f)
     assert score >= 0.6
 
 
@@ -157,7 +157,7 @@ def test_hub_scores_star_topology_high():
 
 def test_flow_scores_arch_data_lower_than_arch():
     f = GraphFeatures.extract(_arch_data()['elements'], _arch_data()['connections'])
-    assert ArchitectureTemplate().detect_score(f) > FlowTemplate().detect_score(f)
+    assert ArchitectureTemplate().detect_score(f) > StepsTemplate().detect_score(f)
 
 
 # ============================================================================
@@ -173,7 +173,7 @@ def test_classifier_picks_architecture_for_arch():
 def test_classifier_picks_flow_for_chain():
     tpl, scores = get_default_classifier().classify(_flow_data())
     assert tpl is not None
-    assert tpl.name == 'flow'
+    assert tpl.name == 'steps'
 
 
 def test_classifier_picks_hub_for_star():
@@ -224,7 +224,7 @@ def test_manual_override_takes_precedence():
     """`layout_template: 'flow'` debe aplicar flow aunque el grafo se parezca a arch."""
     data = _arch_data()
     # Aplicar override directo (simula que el usuario lo declaró)
-    applied = apply_template('flow', data)
+    applied = apply_template('steps', data)
     assert applied is True
     # Todos los elementos non-contained deben tener x/y
     for e in data['elements']:

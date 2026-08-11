@@ -119,9 +119,9 @@ class AutoSVGRenderer:
         # WISH-DRAW-002: flujos resaltados — capa de anotación sobre los
         # fondos y BAJO iconos/líneas/textos (el trazo sigue los
         # computed_path ya calculados; no toca layout ni métricas).
-        from AlmaGag.draw.primitives.flows import draw_flows
-        _flows = getattr(layout, '_flows', None)
-        draw_flows(dwg, _flows, elements_by_id, connections)
+        from AlmaGag.draw.primitives.journeys import draw_journeys
+        _journeys = getattr(layout, '_journeys', None)
+        draw_journeys(dwg, _journeys, elements_by_id, connections)
 
         # 2. Iconos de elementos normales
         self._render_icons(dwg, normal_elements, ndfn_labels, embedded_icons=embedded_icons)
@@ -160,13 +160,13 @@ class AutoSVGRenderer:
         draw_connection_type_legend(dwg, connections, canvas_width, canvas_height,
                                     y_offset=24 if role_legend_drawn else 0)
 
-        # WISH-DRAW-002: leyenda «Flujos:» apilada sobre las otras franjas
+        # WISH-DRAW-002: leyenda «Recorridos:» apilada sobre las otras franjas
         _n_legends = (1 if role_legend_drawn else 0) + \
             (1 if len({c.get('semantic_type') for c in connections
                        if c.get('semantic_type')}) >= 3 else 0)
-        if _flows:
-            from AlmaGag.draw.primitives.flows import draw_flow_legend
-            if draw_flow_legend(dwg, _flows, canvas_width, canvas_height,
+        if _journeys:
+            from AlmaGag.draw.primitives.journeys import draw_journey_legend
+            if draw_journey_legend(dwg, _journeys, canvas_width, canvas_height,
                                 y_offset=24 * _n_legends):
                 _n_legends += 1
 

@@ -75,10 +75,10 @@ Ejemplos:
     parser.add_argument(
         "--view",
         type=str,
-        choices=['auto', 'flow', 'areas', 'lanes', 'matrix'],
+        choices=['auto', 'columns', 'areas', 'lanes', 'matrix'],
         default='auto',
         help="Fuerza la REPRESENTACIÓN (solo por CLI, nunca por el JSON): "
-             "'flow' (columnas por flujo), 'areas' (cajas por fase §I27), "
+             "'columns' (columnas del grafo dirigido), 'areas' (cajas por fase §I27), "
              "'lanes' (carriles por rol §I28), 'matrix' (fase×rol). "
              "'auto' (default) la decide el algoritmo a partir del JSON "
              "(areas si el archivo declara la metadata)."

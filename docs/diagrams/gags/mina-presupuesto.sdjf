@@ -209,7 +209,7 @@
       "from": "mo",
       "to": "dppto",
       "direction": "forward",
-      "semantic_type": "data_flow",
+      "semantic_type": "data_link",
       "routing": {
         "type": "orthogonal",
         "corner_radius": 10,
@@ -220,7 +220,7 @@
       "from": "mat",
       "to": "dppto",
       "direction": "forward",
-      "semantic_type": "data_flow",
+      "semantic_type": "data_link",
       "routing": {
         "type": "orthogonal",
         "corner_radius": 10,
@@ -231,7 +231,7 @@
       "from": "eq",
       "to": "dppto",
       "direction": "forward",
-      "semantic_type": "data_flow",
+      "semantic_type": "data_link",
       "routing": {
         "type": "orthogonal",
         "corner_radius": 10,
@@ -242,7 +242,7 @@
       "from": "sub",
       "to": "dppto",
       "direction": "forward",
-      "semantic_type": "data_flow",
+      "semantic_type": "data_link",
       "routing": {
         "type": "orthogonal",
         "corner_radius": 10,
@@ -253,7 +253,7 @@
       "from": "dppto",
       "to": "ppto",
       "direction": "forward",
-      "semantic_type": "data_flow",
+      "semantic_type": "data_link",
       "routing": {
         "type": "orthogonal",
         "corner_radius": 10,
@@ -264,7 +264,7 @@
       "from": "ppto",
       "to": "constr",
       "direction": "forward",
-      "semantic_type": "data_flow",
+      "semantic_type": "data_link",
       "routing": {
         "type": "orthogonal",
         "corner_radius": 10,
@@ -275,7 +275,7 @@
       "from": "mproc",
       "to": "dproc",
       "direction": "forward",
-      "semantic_type": "data_flow",
+      "semantic_type": "data_link",
       "routing": {
         "type": "orthogonal",
         "corner_radius": 10,
@@ -286,7 +286,7 @@
       "from": "eproc",
       "to": "dproc",
       "direction": "forward",
-      "semantic_type": "data_flow",
+      "semantic_type": "data_link",
       "routing": {
         "type": "orthogonal",
         "corner_radius": 10,
@@ -297,7 +297,7 @@
       "from": "dproc",
       "to": "rproc",
       "direction": "forward",
-      "semantic_type": "data_flow",
+      "semantic_type": "data_link",
       "routing": {
         "type": "orthogonal",
         "corner_radius": 10,
@@ -308,7 +308,7 @@
       "from": "ing",
       "to": "ring",
       "direction": "forward",
-      "semantic_type": "data_flow",
+      "semantic_type": "data_link",
       "routing": {
         "type": "orthogonal",
         "corner_radius": 10,
@@ -319,7 +319,7 @@
       "from": "ring",
       "to": "resumen",
       "direction": "forward",
-      "semantic_type": "data_flow",
+      "semantic_type": "data_link",
       "routing": {
         "type": "orthogonal",
         "corner_radius": 10,
@@ -330,7 +330,7 @@
       "from": "rproc",
       "to": "resumen",
       "direction": "forward",
-      "semantic_type": "data_flow",
+      "semantic_type": "data_link",
       "routing": {
         "type": "orthogonal",
         "corner_radius": 10,
@@ -341,7 +341,7 @@
       "from": "constr",
       "to": "resumen",
       "direction": "forward",
-      "semantic_type": "data_flow",
+      "semantic_type": "data_link",
       "routing": {
         "type": "orthogonal",
         "corner_radius": 10,
@@ -388,10 +388,10 @@
       "from": "indir",
       "to": "constr",
       "direction": "forward",
-      "semantic_type": "data_flow"
+      "semantic_type": "data_link"
     }
   ],
-  "flows": [
+  "journeys": [
     {
       "id": "f1",
       "label": "Cadena Construcción",

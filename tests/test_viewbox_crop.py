@@ -100,7 +100,7 @@ def test_fixture_ratio_over_060(tmp_path):
 
 def test_legend_reanchored_to_new_bottom(tmp_path):
     """La leyenda §N48 (anclada al canvas) baja/sube con el recorte."""
-    types = ['data_flow', 'control_flow', 'dependency']
+    types = ['data_link', 'control_link', 'dependency']
     els = [{'id': f'n{i}', 'type': 'server', 'label': f'N{i}'} for i in range(4)]
     conns = [{'from': f'n{i}', 'to': f'n{i+1}', 'semantic_type': t}
              for i, t in enumerate(types)]
