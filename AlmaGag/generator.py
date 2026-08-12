@@ -360,8 +360,13 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     engine = getattr(optimizer, 'chosen', None) or resolved_strategy or 'auto'
     # §O52: la línea de métricas incluye densidad de tinta y aspecto de la
     # lámina estimada (bbox+margen, espejo del recorte §O51).
+    # BUGS-LOG-001 (hallazgo del Skiller, v3.12): label_own_line se calculaba
+    # (§H6/W87) pero jamás llegaba al log — «leer 4 contadores» era imposible
+    # desde la línea de métricas. Se imprime como canal de diagnóstico; NO
+    # suma al umbral de WARNING (decisión §H6: no es un solape de bboxes).
     line = (f"[{engine}] cruces(arista×arista)={q['edge_x_edge']} "
             f"arista×nodo={q['edge_x_node']} labels={q['label_overlap']} "
+            f"own-line={q['label_own_line']} "
             f"tinta={em['ink_pct']:.1f}% aspecto={em['aspect']:.2f}")
     if q['edge_x_edge'] + q['edge_x_node'] + q['label_overlap'] > 0:
         logger.warning(line)

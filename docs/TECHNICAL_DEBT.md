@@ -1479,6 +1479,27 @@ cascada del render del artefacto.
 
 ---
 
+### BUGS-LOG-001: `label_own_line` se calculaba pero jamás llegaba al log ✅ RESUELTO (2026-08-12)
+**Componente**: `generator.py:360`
+**Reportado**: 2026-08-12 (hallazgo del GAG Skiller, reporte v3.12 — verificado:
+presupuesto con `label_own_line=4` en `quality_counters` y la línea `[auto]`
+imprimiendo solo tres contadores)
+
+`quality_counters` calcula el cuarto contador desde W87 (§H6) y su
+docstring lo documenta, pero la línea de métricas armaba solo
+`cruces/arista×nodo/labels` — la instrucción «leer 4 contadores» era
+imposible desde el log. Fix: `own-line=N` en la línea, como canal de
+diagnóstico; NO suma al umbral de WARNING (decisión §H6 intacta: no es
+un solape de bboxes). Del mismo reporte: su segundo hallazgo («ni
+`partition` ni `role` emiten log alguno» al salir de rango) quedó
+REFUTADO por ejecución — §O52 SÍ advierte en sus dos casos (`aspecto
+0.23/0.18 fuera de [0.4, 3.0]`); su arnés filtraba los WARNING. Sus
+números de aspecto eran exactos y su guía («declarar de más empeora
+láminas chicas — medir antes y después») quedó bien escrita en el skill.
+Test: `test_emission_metrics.py` exige los 4 contadores en la línea.
+
+---
+
 ### WISH-ARCH-007: SDJF 2.0 — spec formal con una sintaxis canónica (Y94) 🆕 ABIERTO — mediano plazo
 **Componente**: formato SDJF + `docs/spec/FORMATO_ARCHIVOS.md`
 **Reportado**: 2026-08-11 (grupo Y — requiere decisión de José: hay deprecaciones)
