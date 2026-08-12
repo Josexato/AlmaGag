@@ -1500,6 +1500,41 @@ Test: `test_emission_metrics.py` exige los 4 contadores en la línea.
 
 ---
 
+### WISH-ROUTE-006: Ruteo por corredores de la macro-grilla ✅ RESUELTO (2026-08-12)
+**Componente**: `strategies/hier/areas.py`
+**Reportado**: 2026-08-12 (autodiagnóstico sobre el paquete GAG-WV del
+tabernero: 101 de 123 pares `labels` eran rutas inter-área atravesando
+cajas ajenas; los 4 W83 «0px» eran la banda siguiendo esas rutas)
+
+La macro-grilla se descompone en filas y corredores (`_corridor_grid`);
+toda ruta inter-área (bus incluido) viaja por los pasillos entre filas
+y cruza cada fila intermedia por su hueco vertical (`_corridor_route`)
+— jamás a través de una caja ajena. La última milla no atraviesa
+hermanos: columna bloqueada → sale/entra por el costado
+(`_exit_to_corridor`/`_enter_from_corridor`). Vecinos de la misma fila
+sin obstrucción conservan la ruta directa; grilla no descomponible cae
+al ruteo de LAYOUT-020. Medido (tabernero): arista×nodo 33→12, labels
+123→51, W83 10→6 (los restantes son intra-área, otra causa). Tests:
+`test_route006_corridors.py`.
+
+---
+
+### WISH-LAYOUT-022: Paso vertical label-aware en el sub-layout de áreas ✅ RESUELTO (2026-08-12)
+**Componente**: `strategies/hier/areas.py::_sub_layout` + `hier/labels.py`
+**Reportado**: 2026-08-12 (el amasijo del almacén en el visor GAG-WV:
+títulos y ≈70%/≈30% montados — 20 pares intra-área)
+
+Dos mitades: (1) §J30 reserva el corredor — si el subgrafo del área
+lleva rótulos de arista, el paso vertical suma su línea (la lección de
+LAYOUT-016 en hier/areas); (2) la cascada de anclas §G23 gana la
+segunda dimensión — si la perpendicular no escapa de un título ancho,
+el ancla se desliza A LO LARGO del segmento de a 14px hacia el aire que
+el paso nuevo dejó. Medido: tabernero labels 51→33 (123 al abrir la
+iteración 12); layout-optimization-flow 9→7; activacion aspecto
+1.95→1.67 con labels igual. PNG verificado: el almacén se lee.
+
+---
+
 ### WISH-ARCH-007: SDJF 2.0 — spec formal con una sintaxis canónica (Y94) 🆕 ABIERTO — mediano plazo
 **Componente**: formato SDJF + `docs/spec/FORMATO_ARCHIVOS.md`
 **Reportado**: 2026-08-11 (grupo Y — requiere decisión de José: hay deprecaciones)

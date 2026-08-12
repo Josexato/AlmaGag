@@ -171,6 +171,22 @@ WISH-DRAW-008 (journeys = presentación pura: mismo SVG con/sin bandas
 salvo membresía W88), WISH-ARCH-008 (parejas mínimo≡completo en CI,
 hermano operativo de WISH-ARCH-006).
 
+## Iteración 12 — el tabernero en el visor (12-ago): rutas que no perforan
+
+Autodiagnóstico sobre el paquete GAG-WV re-renderizado con v3.12.1: de
+los 123 labels veraces, 101 eran rutas inter-área atravesando cajas
+ajenas (misma causa que los 4 W83 «0px»); los 20 intra-área eran el
+paso vertical del almacén sin espacio para rótulos de corredor.
+
+| Orden | Qué | Ticket |
+|---|---|---|
+| 1 ✅ | **Ruteo por corredores** — HECHO (12-ago): filas + pasillos + huecos; última milla sin atravesar hermanos; arista×nodo 33→12, labels 123→51, W83 10→6 | WISH-ROUTE-006 |
+| 2 ✅ | **Paso label-aware en áreas + cascada 2D** — HECHO (12-ago): §J30 reserva el rótulo del corredor; el ancla se desliza a lo largo del segmento; labels 51→33, el almacén se lee | WISH-LAYOUT-022 |
+
+**Iteración 12 COMPLETA (12-ago)** — el tabernero quedó presentable en
+GAG-WV sin tocar el visor: labels 123→33, arista×nodo 33→12, W83 10→6
+(los restantes son de bandas intra-área, nombrados). Motor v3.13.0.
+
 ## Mediano plazo (sin fecha)
 
 - **«El mapa» (WISH-ARCH-004)**: separar mapa (dato) de vista (representación)
