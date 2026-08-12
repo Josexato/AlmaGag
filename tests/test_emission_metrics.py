@@ -53,12 +53,15 @@ def test_labels_count_as_ink():
 
 
 def test_motor_line_includes_ink_and_aspect(caplog, tmp_path):
-    """La línea [motor] emitida por generate_diagram trae tinta= y aspecto=."""
+    """La línea [motor] emitida por generate_diagram trae los CUATRO
+    contadores (§H6 — BUGS-LOG-001: own-line se calculaba pero no se
+    imprimía) más tinta= y aspecto=."""
     with caplog.at_level(logging.INFO, logger='AlmaGag'):
         generate_diagram('docs/diagrams/gags/03-conexiones.sdjf',
                          output_file=str(tmp_path / 'o.svg'),
                          layout_algorithm='select')
     text = '\n'.join(r.message for r in caplog.records)
     m = re.search(r'\[\w+\] cruces\(arista×arista\)=\d+ arista×nodo=\d+ '
-                  r'labels=\d+ tinta=[\d.]+% aspecto=[\d.]+', text)
-    assert m, f'línea de métricas sin tinta/aspecto: {text}'
+                  r'labels=\d+ own-line=\d+ tinta=[\d.]+% aspecto=[\d.]+',
+                  text)
+    assert m, f'línea de métricas sin own-line/tinta/aspecto: {text}'
