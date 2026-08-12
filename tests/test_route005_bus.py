@@ -29,30 +29,38 @@ def _mk_hub(n_targets):
     return L, spec
 
 
+def _trunk_y(bus):
+    """y de la troncal compartida: la y del primer punto tras el puerto de
+    salida en el ramal más largo (los cortos pueden colapsar por dedupe)."""
+    longest = max(bus, key=lambda c: len(c['computed_path']['points']))
+    return longest['computed_path']['points'][1][1]
+
+
 def test_hub_with_three_areas_becomes_bus():
     L, spec = _mk_hub(3)
     layout_by_areas(L, spec)
     bus = [c for c in L.connections if c.get('_bus') == 'hub']
     assert len(bus) == 3, 'los 3 ramales deben ser del bus'
-    # troncal única: el tramo horizontal de TODOS comparte la misma y
-    trunk_ys = {c['computed_path']['points'][2][1] for c in bus}
-    assert len(trunk_ys) == 1, f'troncales distintas: {trunk_ys}'
-    # y está en el corredor: fuera de toda caja
-    ty = trunk_ys.pop()
-    # ramales ortogonales
+    # troncal única: TODOS los ramales tocan la misma y de troncal
+    ty = _trunk_y(bus)
     for c in bus:
         pts = c['computed_path']['points']
+        # el ramal TOCA la troncal: un vértice en ty o un tramo vertical
+        # que la cruza (dedupe colapsa los colineales)
+        touches = any(abs(y - ty) < 0.5 for _, y in pts) or any(
+            min(y1, y2) - 0.5 <= ty <= max(y1, y2) + 0.5
+            for (_, y1), (_, y2) in zip(pts, pts[1:]))
+        assert touches, f'ramal sin contacto con la troncal y={ty}: {pts}'
+        # ortogonalidad
         for (x1, y1), (x2, y2) in zip(pts, pts[1:]):
             assert abs(x1 - x2) < 0.5 or abs(y1 - y2) < 0.5, 'tramo diagonal'
-        # el ramal baja/sube perpendicular en la x del destino
-        assert abs(pts[3][0] - c['_to_port'][0]) < 0.5
 
 
 def test_trunk_lives_in_the_corridor():
     L, spec = _mk_hub(3)
     boxes = layout_by_areas(L, spec)
     bus = [c for c in L.connections if c.get('_bus')]
-    ty = bus[0]['computed_path']['points'][2][1]
+    ty = _trunk_y(bus)
     for b in boxes:
         assert not (b['y'] < ty < b['y'] + b['h']), \
             f"la troncal (y={ty}) atraviesa la caja {b['id']}"

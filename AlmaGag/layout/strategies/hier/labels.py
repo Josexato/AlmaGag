@@ -171,21 +171,31 @@ def assign_connection_label_anchors(layout):
         # perpendicular unitaria (rota 90°); lado hacia afuera del centro-x.
         px, py = -uy, ux
         bx, by = ax + px * LABEL_OFFSET, ay + py * LABEL_OFFSET
-        # cascada X93: por la PERPENDICULAR del primer segmento (corredor
-        # horizontal → apila vertical; segmento vertical → esquiva
-        # horizontal — deslizarse A LO LARGO de la línea no escapa de un
-        # pasillo emparedado). Primer candidato limpio o el menos pisado.
+        # cascada X93 en DOS dimensiones: perpendicular del primer segmento
+        # (corredor horizontal → apila vertical; vertical → esquiva
+        # horizontal) y, si no alcanza, DESLIZARSE a lo largo del segmento
+        # (WISH-LAYOUT-022: un título ancho bloquea ±84px perpendiculares,
+        # pero el paso label-aware deja aire más adelante sobre la línea).
+        # Primer candidato limpio o el menos pisado; k=0 primero conserva
+        # el comportamiento previo.
         w = len(c['label']) * 7
+        max_along = max(0.0, seg - d - 6.0)
         best = None
-        for j in CASCADE_TRIES:
-            cx = bx + px * j * CASCADE
-            cy = by + py * j * CASCADE
-            bb = (cx - w / 2, cy - 12, cx + w / 2, cy + 4)
-            hits = sum(1 for ob in obstacles if _intersects(bb, ob)) \
-                + sum(1 for ob in placed if _intersects(bb, ob))
-            if best is None or hits < best[0]:
-                best = (hits, (cx, cy), bb)
-            if hits == 0:
+        for k in range(0, 4):
+            if k * CASCADE > max_along:
+                break
+            kx, ky = bx + ux * k * CASCADE, by + uy * k * CASCADE
+            for j in CASCADE_TRIES:
+                cx = kx + px * j * CASCADE
+                cy = ky + py * j * CASCADE
+                bb = (cx - w / 2, cy - 12, cx + w / 2, cy + 4)
+                hits = sum(1 for ob in obstacles if _intersects(bb, ob)) \
+                    + sum(1 for ob in placed if _intersects(bb, ob))
+                if best is None or hits < best[0]:
+                    best = (hits, (cx, cy), bb)
+                if hits == 0:
+                    break
+            if best[0] == 0:
                 break
         _, anchor, bb = best
         c['_label_anchor'] = anchor
