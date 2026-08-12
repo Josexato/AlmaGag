@@ -458,35 +458,213 @@ def _node_border_port(e, side):
 
 BUS_MIN_AREAS = 3      # WISH-ROUTE-005 (X92): umbral de destinos en áreas distintas
 
+# WISH-ROUTE-006: holgura mínima para atravesar una fila por un hueco
+_GAP_PAD = 8.0
 
-def _route_bus(src_id, conns, area_of, box_by_area, by_id):
+
+def _corridor_grid(boxes):
+    """WISH-ROUTE-006: descompone la macro-grilla en FILAS y corredores.
+
+    Devuelve (rows, corr_ys, row_of) o (None, None, None) si la grilla no
+    es descomponible en filas limpias (cajas solapadas — p.ej. un bsp
+    irregular): el llamador cae al ruteo directo de LAYOUT-020.
+
+    - rows: [{'y0','y1','boxes':[caja...]}] ordenadas de arriba a abajo.
+    - corr_ys[i]: y del corredor ARRIBA de la fila i; corr_ys[n] = debajo
+      de la última.
+    - row_of: id de caja → índice de fila.
+    """
+    rows = []
+    for b in sorted(boxes, key=lambda b: b['y']):
+        for r in rows:
+            if b['y'] < r['y1'] and r['y0'] < b['y'] + b['h']:
+                r['boxes'].append(b)
+                r['y0'] = min(r['y0'], b['y'])
+                r['y1'] = max(r['y1'], b['y'] + b['h'])
+                break
+        else:
+            rows.append({'y0': b['y'], 'y1': b['y'] + b['h'], 'boxes': [b]})
+    rows.sort(key=lambda r: r['y0'])
+    for r1, r2 in zip(rows, rows[1:]):
+        if r2['y0'] < r1['y1']:
+            return None, None, None
+    for r in rows:
+        bs = sorted(r['boxes'], key=lambda b: b['x'])
+        for a, c in zip(bs, bs[1:]):
+            if c['x'] < a['x'] + a['w']:
+                return None, None, None
+    corr_ys = [rows[0]['y0'] - AREA_GAP / 2]
+    for r1, r2 in zip(rows, rows[1:]):
+        corr_ys.append((r1['y1'] + r2['y0']) / 2)
+    corr_ys.append(rows[-1]['y1'] + AREA_GAP / 2)
+    row_of = {}
+    for i, r in enumerate(rows):
+        for b in r['boxes']:
+            row_of[b['id']] = i
+    return rows, corr_ys, row_of
+
+
+def _row_gap_x(row, x_pref):
+    """x libre para atravesar la fila verticalmente, lo más cerca posible
+    de x_pref (los costados abiertos de la fila también son hueco)."""
+    bs = sorted(row['boxes'], key=lambda b: b['x'])
+    edges = []
+    prev = None
+    for b in bs:
+        edges.append((prev, b['x']))
+        prev = b['x'] + b['w']
+    edges.append((prev, None))
+    best = None
+    for g0, g1 in edges:
+        lo = (g0 if g0 is not None else -1e9) + _GAP_PAD
+        hi = (g1 if g1 is not None else 1e9) - _GAP_PAD
+        if hi < lo:
+            continue
+        x = min(max(x_pref, lo), hi)
+        d = abs(x - x_pref)
+        if best is None or d < best[0]:
+            best = (d, x)
+    return best[1] if best else x_pref
+
+
+def _dedupe(pts):
+    """Quita puntos duplicados y colineales consecutivos."""
+    out = []
+    for p in pts:
+        if out and abs(p[0] - out[-1][0]) < 0.01 and abs(p[1] - out[-1][1]) < 0.01:
+            continue
+        if len(out) >= 2:
+            a, b = out[-2], out[-1]
+            if (abs(a[0] - b[0]) < 0.01 and abs(b[0] - p[0]) < 0.01) or \
+                    (abs(a[1] - b[1]) < 0.01 and abs(b[1] - p[1]) < 0.01):
+                out[-1] = p
+                continue
+        out.append(p)
+    return out
+
+
+def _exit_to_corridor(node, box, siblings, corr_y):
+    """WISH-ROUTE-006: puntos desde `node` hasta el corredor horizontal
+    corr_y SIN atravesar hermanos de su propia caja. Si la columna vertical
+    está libre, sale por T/B; si un hermano la bloquea, sale por el costado
+    de la caja y baja/sube por el hueco lateral (fuera de la caja).
+    Devuelve (puerto, pts, x_out)."""
+    going_down = corr_y > node['y']
+    cx = node['x'] + ICON_WIDTH / 2
+    ny0, ny1 = node['y'], node['y'] + ICON_HEIGHT
+    blocked = any(
+        abs((sib['x'] + ICON_WIDTH / 2) - cx) < ICON_WIDTH * 0.9
+        and ((going_down and sib['y'] >= ny1 - 1)
+             or (not going_down and sib['y'] + ICON_HEIGHT <= ny0 + 1))
+        for sib in siblings if sib is not node and 'x' in sib)
+    if not blocked:
+        a = _node_border_port(node, 'B' if going_down else 'T')
+        return a, [a, (a[0], corr_y)], a[0]
+    # costado más cercano de la caja
+    left = (cx - box['x']) <= (box['x'] + box['w'] - cx)
+    a = _node_border_port(node, 'L' if left else 'R')
+    sx = box['x'] - AREA_GAP / 2 if left else box['x'] + box['w'] + AREA_GAP / 2
+    return a, [a, (sx, a[1]), (sx, corr_y)], sx
+
+
+def _enter_from_corridor(node, box, siblings, corr_y):
+    """Espejo de _exit_to_corridor: puntos desde el corredor corr_y hasta
+    `node` sin atravesar hermanos. Devuelve (puerto, pts_previos)."""
+    from_above = corr_y < node['y']
+    cx = node['x'] + ICON_WIDTH / 2
+    ny0, ny1 = node['y'], node['y'] + ICON_HEIGHT
+    blocked = any(
+        abs((sib['x'] + ICON_WIDTH / 2) - cx) < ICON_WIDTH * 0.9
+        and ((from_above and sib['y'] + ICON_HEIGHT <= ny0 + 1)
+             or (not from_above and sib['y'] >= ny1 - 1))
+        for sib in siblings if sib is not node and 'x' in sib)
+    if not blocked:
+        b = _node_border_port(node, 'T' if from_above else 'B')
+        return b, [(b[0], corr_y)]
+    left = (cx - box['x']) <= (box['x'] + box['w'] - cx)
+    b = _node_border_port(node, 'L' if left else 'R')
+    sx = box['x'] - AREA_GAP / 2 if left else box['x'] + box['w'] + AREA_GAP / 2
+    return b, [(sx, corr_y), (sx, b[1])]
+
+
+def _corridor_route(x0, c0, tb, tx, rows, corr_ys, row_of):
+    """WISH-ROUTE-006: waypoints desde (x0, corr_ys[c0]) hasta el corredor
+    ADYACENTE a la caja destino tb, cruzando las filas intermedias por sus
+    huecos (jamás a través de una caja ajena). Devuelve (pts, entra_por),
+    con entra_por 'T'|'B' según el corredor de llegada."""
+    ti = row_of[tb['id']]
+    pts = []
+    x_cur, c_cur = x0, c0
+    if c_cur <= ti:
+        # bajando: cruzar filas c_cur .. ti-1; llegar a corr_ys[ti]
+        for r in range(c_cur, ti):
+            gx = _row_gap_x(rows[r], tx)
+            pts += [(gx, corr_ys[r]), (gx, corr_ys[r + 1])]
+            x_cur = gx
+        pts.append((tx, corr_ys[ti]))
+        return pts, 'T'
+    # subiendo: cruzar filas c_cur-1 .. ti+1; llegar a corr_ys[ti+1]
+    for r in range(c_cur - 1, ti, -1):
+        gx = _row_gap_x(rows[r], tx)
+        pts += [(gx, corr_ys[r + 1]), (gx, corr_ys[r])]
+        x_cur = gx
+    pts.append((tx, corr_ys[ti + 1]))
+    return pts, 'B'
+
+
+def _route_bus(src_id, conns, area_of, box_by_area, by_id, grid=None):
     """WISH-ROUTE-005 (X92): un hub con destinos en ≥BUS_MIN_AREAS áreas
     distintas se rutea como BUS — una troncal horizontal en el corredor
     pegado a la caja del hub (arriba o abajo, según la mayoría de destinos)
-    y un ramal vertical por destino. Los tramos compartidos de la troncal se
+    y un ramal por destino. Los tramos compartidos de la troncal se
     superponen: la lámina muestra UNA línea con derivaciones, no N rutas
     independientes cruzando el lienzo (tabernero: las ~15 dashed de la capa
-    TI). v1: troncal horizontal + ramales verticales, hubs por nodo ORIGEN."""
+    TI). WISH-ROUTE-006: con `grid`, los ramales viajan por los corredores
+    de la macro-grilla — cruzan filas por sus huecos, jamás a través de una
+    caja ajena."""
     s = by_id[src_id]
     sb = box_by_area[area_of[src_id]]
     scy = sb['y'] + sb['h'] / 2
     ups = sum(1 for c in conns
               if box_by_area[area_of[c['to']]]['y']
               + box_by_area[area_of[c['to']]]['h'] / 2 < scy)
+    rows = corr_ys = row_of = None
+    members = {}
+    if grid:
+        rows, corr_ys, row_of = grid
+        si = row_of[sb['id']]
+        for eid, aid in area_of.items():
+            if eid in by_id:
+                members.setdefault(aid, []).append(by_id[eid])
     if ups >= len(conns) / 2:              # mayoría arriba → troncal superior
         a = _node_border_port(s, 'T')
-        exit_edge, trunk_y = sb['y'], sb['y'] - AREA_GAP / 2
+        c_trunk = si if grid else None
+        trunk_y = corr_ys[si] if grid else sb['y'] - AREA_GAP / 2
     else:                                  # mayoría abajo → troncal inferior
         a = _node_border_port(s, 'B')
-        exit_edge, trunk_y = sb['y'] + sb['h'], sb['y'] + sb['h'] + AREA_GAP / 2
+        c_trunk = si + 1 if grid else None
+        trunk_y = corr_ys[si + 1] if grid else sb['y'] + sb['h'] + AREA_GAP / 2
+    if grid:
+        # salida del hub SIN atravesar hermanos (WISH-ROUTE-006)
+        a, head, x_out = _exit_to_corridor(
+            s, sb, members.get(area_of[src_id], []), trunk_y)
     for c in conns:
         d = by_id[c['to']]
         tb = box_by_area[area_of[c['to']]]
-        b_side = 'B' if tb['y'] + tb['h'] / 2 < trunk_y else 'T'
-        b = _node_border_port(d, b_side)
-        entry = tb['y'] + tb['h'] if b_side == 'B' else tb['y']
-        pts = [a, (a[0], exit_edge), (a[0], trunk_y),
-               (b[0], trunk_y), (b[0], entry), b]
+        tx = d['x'] + ICON_WIDTH / 2
+        if grid:
+            ti = row_of[tb['id']]
+            mid, side = _corridor_route(x_out, c_trunk, tb, tx,
+                                        rows, corr_ys, row_of)
+            c_in = corr_ys[ti] if side == 'T' else corr_ys[ti + 1]
+            b, tail = _enter_from_corridor(
+                d, tb, members.get(area_of[c['to']], []), c_in)
+            pts = _dedupe(head + mid + tail + [b])
+        else:
+            b_side = 'B' if tb['y'] + tb['h'] / 2 < trunk_y else 'T'
+            b = _node_border_port(d, b_side)
+            entry = tb['y'] + tb['h'] if b_side == 'B' else tb['y']
+            pts = [a, (a[0], trunk_y), (b[0], trunk_y), (b[0], entry), b]
         c['computed_path'] = {'type': 'polyline', 'points': pts}
         c['_from_port'] = a
         c['_to_port'] = b
@@ -505,6 +683,16 @@ def _route_inter_area(layout, area_of, box_by_area):
     multi-área van aparte como BUS (WISH-ROUTE-005)."""
     by_id = {e['id']: e for e in layout.elements}
 
+    # WISH-ROUTE-006: la macro-grilla como sistema de corredores. Si no es
+    # descomponible en filas limpias, grid=None y todo cae al ruteo directo.
+    rows, corr_ys, row_of = _corridor_grid(list(box_by_area.values()))
+    grid = (rows, corr_ys, row_of) if rows else None
+    members: Dict[str, list] = {}
+    if grid:
+        for eid, aid in area_of.items():
+            if eid in by_id:
+                members.setdefault(aid, []).append(by_id[eid])
+
     # WISH-ROUTE-005 (X92): detectar hubs por nodo origen ANTES del ruteo
     # par-a-par.
     inter = [c for c in layout.connections
@@ -516,7 +704,7 @@ def _route_inter_area(layout, area_of, box_by_area):
     bussed = set()
     for src, cs in by_src.items():
         if len({area_of[c['to']] for c in cs}) >= BUS_MIN_AREAS:
-            _route_bus(src, cs, area_of, box_by_area, by_id)
+            _route_bus(src, cs, area_of, box_by_area, by_id, grid=grid)
             bussed.update(id(c) for c in cs)
 
     for c in layout.connections:
@@ -528,6 +716,37 @@ def _route_inter_area(layout, area_of, box_by_area):
         sb = box_by_area[area_of[f]]
         tb = box_by_area[area_of[t]]
         s, d = by_id[f], by_id[t]
+
+        if grid:
+            si, ti = row_of[sb['id']], row_of[tb['id']]
+            same_row_clear = False
+            if si == ti:
+                lo = min(sb['x'] + sb['w'], tb['x'] + tb['w'])
+                hi = max(sb['x'], tb['x'])
+                same_row_clear = not any(
+                    b['x'] < hi and lo < b['x'] + b['w']
+                    for b in rows[si]['boxes']
+                    if b['id'] not in (sb['id'], tb['id']))
+            if not same_row_clear:
+                # WISH-ROUTE-006: por los corredores — sale hacia el
+                # corredor que mira al destino (sin atravesar hermanos) y
+                # cruza filas por huecos.
+                tx = d['x'] + ICON_WIDTH / 2
+                c0 = si + 1 if ti > si else si
+                a, head, x_out = _exit_to_corridor(
+                    s, sb, members.get(area_of[f], []), corr_ys[c0])
+                mid, side = _corridor_route(x_out, c0, tb, tx,
+                                            rows, corr_ys, row_of)
+                c_in = corr_ys[ti] if side == 'T' else corr_ys[ti + 1]
+                b, tail = _enter_from_corridor(
+                    d, tb, members.get(area_of[t], []), c_in)
+                pts = _dedupe(head + mid + tail + [b])
+                c['computed_path'] = {'type': 'polyline', 'points': pts}
+                c['_from_port'] = a
+                c['_to_port'] = b
+                c['_inter_area'] = True
+                continue
+
         dx = (tb['x'] + tb['w'] / 2) - (sb['x'] + sb['w'] / 2)
         dy = (tb['y'] + tb['h'] / 2) - (sb['y'] + sb['h'] / 2)
         if abs(dx) >= abs(dy):
