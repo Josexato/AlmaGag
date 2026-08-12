@@ -287,12 +287,13 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     from AlmaGag.layout.considerations import (
         extract_considerations, areas_to_near_seeds)
     # §O53 (mediano plazo): si el motor quedó en AUTO habiendo `areas` (una
-    # señal blanda las anuló, o el CLI forzó auto), las áreas se siembran
-    # como zonas near §N46 — la caja de fase no se pierde, cambia de traje.
-    # Con `contains` no se convierte (la grilla near asume elementos
-    # normales) y el WARNING §O53 sigue avisando la anulación.
-    if resolved_strategy == 'auto' and data.get('areas') and \
-            not any('contains' in e for e in data.get('elements', [])):
+    # señal las anuló — blanda, `contains`, o el CLI forzó auto), las áreas
+    # se siembran como zonas near §N46 — la caja de fase no se pierde,
+    # cambia de traje. La siembra ya excluye a los miembros CONTENEDORES de
+    # la grilla near (la grilla asume elementos normales), así que la vía
+    # mixta «áreas + contenedores» convive: la fase es zona, el cluster
+    # denso es contenedor.
+    if resolved_strategy == 'auto' and data.get('areas'):
         n_zonas = areas_to_near_seeds(data)
         if n_zonas:
             logger.info(f"§O53: {n_zonas} área(s) sembrada(s) como zona(s) "
