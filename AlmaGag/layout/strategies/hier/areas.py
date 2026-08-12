@@ -95,8 +95,14 @@ def _sub_layout(members: List[dict], conns: List[dict]):
     min_lvl = min(lv.level.values()) if lv.level else 0
 
     # §J30: paso vertical = icono + etiqueta multilínea + aire.
+    # WISH-LAYOUT-022: si el corredor lleva rótulos de arista, el paso
+    # reserva su línea también — el título del nivel N y el rótulo anclado
+    # junto al nivel N+1 peleaban el mismo espacio (los ≈70%/≈30% del
+    # tabernero montados sobre los títulos del almacén).
     maxlines = max([e['label'].count('\n') + 1 for e in members if e.get('label')] + [1])
-    pitch = max(LEVEL_SPACING, ICON_HEIGHT + LABEL_GAP + maxlines * LABEL_LINE_H)
+    conn_lines = LABEL_LINE_H + 6.0 if any(c.get('label') for c in conns) else 0.0
+    pitch = max(LEVEL_SPACING,
+                ICON_HEIGHT + LABEL_GAP + maxlines * LABEL_LINE_H + conn_lines)
 
     def to_x(col):
         return (col - min_col) * COL_SPACING
