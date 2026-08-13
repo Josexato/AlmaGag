@@ -82,11 +82,17 @@ def _label_boxes(members):
     return boxes
 
 
-def _sub_layout(members: List[dict], conns: List[dict]):
+def _sub_layout(members: List[dict], conns: List[dict], aspect_hint=None):
     """Corre A–H sobre el subgrafo de un área. Devuelve (bbox_w, bbox_h) en
     coords locales (esquina sup-izq del contenido en 0,0). Muta members/conns
     in-place con x/y/computed_path locales. Las etiquetas van CENTRADAS bajo el
-    icono; el paso vertical se amplía para alojarlas (§J30)."""
+    icono; el paso vertical se amplía para alojarlas (§J30).
+
+    `aspect_hint` (WISH-LAYOUT-024): proporción ancho/alto de la CELDA
+    declarada en `canvas.partition` para esta área. Un bloque-LISTA (sin
+    aristas internas) no tiene forma propia — sin la pista sale en fila
+    (nivel 0 de A); con ella se envuelve en la grilla que mejor aproxima
+    la celda (BMC: celda [2,4] → columna, [5,2] → fila)."""
     lv = compute_levels(members, conns)
     cols, wp_abstract = compute_columns(lv, members, conns)
 
@@ -107,13 +113,26 @@ def _sub_layout(members: List[dict], conns: List[dict]):
     def to_x(col):
         return (col - min_col) * COL_SPACING
 
-    for e in members:
-        eid = e['id']
-        if eid not in cols:
-            continue
-        e['x'] = to_x(cols[eid])
-        e['y'] = (lv.level[eid] - min_lvl) * pitch
-        e['label_position'] = 'bottom'          # §I27: etiqueta bajo el icono
+    if not conns and len(members) > 2 and aspect_hint:
+        # WISH-LAYOUT-024: bloque-lista con celda declarada — grilla que
+        # aproxima la proporción de la celda (cols candidatas 1..n).
+        n = len(members)
+        best_cols = min(
+            range(1, n + 1),
+            key=lambda k: abs((k * COL_SPACING)
+                              / ((-(-n // k)) * pitch) - aspect_hint))
+        for i, e in enumerate(members):
+            e['x'] = (i % best_cols) * COL_SPACING
+            e['y'] = (i // best_cols) * pitch
+            e['label_position'] = 'bottom'
+    else:
+        for e in members:
+            eid = e['id']
+            if eid not in cols:
+                continue
+            e['x'] = to_x(cols[eid])
+            e['y'] = (lv.level[eid] - min_lvl) * pitch
+            e['label_position'] = 'bottom'      # §I27: etiqueta bajo el icono
 
     icon_half = ICON_WIDTH / 2
     for c in conns:
@@ -206,6 +225,19 @@ def layout_by_areas(layout, areas_spec):
             area_of[e['id']] = aid
             order.append(aid)
 
+    # WISH-LAYOUT-024: si hay partition bsp declarada, la PROPORCIÓN de la
+    # celda de cada área se conoce antes del sub-layout — informa la forma
+    # de los bloques-lista (celda alta → columna, celda ancha → fila).
+    partition_spec = (layout.canvas or {}).get('partition') \
+        if isinstance(layout.canvas, dict) else None
+    cell_hint = {}
+    if partition_spec and partition_spec.get('scheme', 'bsp') == 'bsp':
+        for s in partition_spec.get('splits') or []:
+            size = s.get('size') or []
+            if s.get('area') and len(size) == 2 and all(
+                    isinstance(v, (int, float)) and v > 0 for v in size):
+                cell_hint[s['area']] = float(size[0]) / float(size[1])
+
     # PASO 1 — sub-layout local por área (contenido en 0,0) y dimensiones.
     dims = []
     for aid in order:
@@ -214,7 +246,8 @@ def layout_by_areas(layout, areas_spec):
         mset = set(spec['members'])
         sub_conns = [c for c in conns
                      if c.get('from') in mset and c.get('to') in mset]
-        w, h = _sub_layout(members, sub_conns)
+        w, h = _sub_layout(members, sub_conns,
+                           aspect_hint=cell_hint.get(aid))
         dims.append({'aid': aid, 'spec': spec, 'members': members,
                      'conns': sub_conns,
                      'w': w + 2 * AREA_PAD,
