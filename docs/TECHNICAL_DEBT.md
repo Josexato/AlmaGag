@@ -1535,6 +1535,23 @@ iteración 12); layout-optimization-flow 9→7; activacion aspecto
 
 ---
 
+### BUGS-LAYOUT-013: El honor V79 rechaza un align x FACTIBLE en grafos chicos densos 🆕 ABIERTO
+**Componente**: `strategies/auto/positioner.py` (honor V79 / `_plan_column_entry`)
+**Reportado**: 2026-08-12 (vista condensada del tabernero: 9 nodos, 18 aristas)
+
+Repro: grafo de 9 nodos con un hub en nivel 0 que alimenta a casi todos
+(la vista condensada por áreas del tabernero). Un `align` x de tres
+miembros en rangos DISTINTOS (1-2-3, encadenados A2→A3→A4) — factible en
+principio — termina en `[CONSIDERACIONES] no se pudo cumplir` y el audit
+nombra los ids desalineados (A2=142 · A3=380 · A4=86). El mismo contrato
+funciona en el presupuesto (5/5 aligns, grafos más grandes y ralos).
+Sospecha: en grafos chicos y densos el empuje en cadena no encuentra
+lugar o el loop de optimización deshace la columna después del honor.
+Pendiente de diagnóstico con el repro guardado (scratchpad,
+tabernero_areas.sdjf con considerations align x A2/A3/A4).
+
+---
+
 ### WISH-ARCH-007: SDJF 2.0 — spec formal con una sintaxis canónica (Y94) 🆕 ABIERTO — mediano plazo
 **Componente**: formato SDJF + `docs/spec/FORMATO_ARCHIVOS.md`
 **Reportado**: 2026-08-11 (grupo Y — requiere decisión de José: hay deprecaciones)
