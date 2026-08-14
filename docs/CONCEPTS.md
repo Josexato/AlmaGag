@@ -117,6 +117,20 @@ anterior (era AUTO-vs-LAF) está en
   ver nacer la forma. Pariente conceptual: la **vista condensada** (un
   nodo por área, enlaces agregados) es el fotograma CERO de esa
   revelación — el diagrama cuando todavía es sólo semántica.
+- **Escenografía** (principio de autoría, del autor 12-ago-2026) — las
+  áreas se definen ANTES que la historia, como el mapa general de una
+  idea: *«Hogsmeade está al norte del colegio, el bosque a la
+  izquierda»*. El autor setea el escenario y los elementos lo habitan.
+  Cada narrativa pide su plano y todos son declarables hoy:
+  posiciones relativas (`partition` bsp con `at`/`of` — el mapa de
+  Hogwarts), recorrido lineal (`grid` de una fila — Versalles→camino→
+  Buckingham, ida y vuelta; una cinta 1×N es CORRECTA cuando la
+  historia es lineal), o pesos asimétricos (`size` como significado —
+  el mundo moderno grande, la reserva chica, la isla aparte, como en
+  Un mundo feliz). Orden conceptual: escenografía (áreas + partition)
+  → historia (elementos, conexiones, journeys) → revelación
+  (Epifanía). Guía de autoría derivada: al escribir un `.sdjf` grande,
+  declarar primero el mapa, después poblarlo.
 - **`--exportpng` (§O58)** — Chrome/Chromium/Edge headless si hay
   (`ALMAGAG_CHROME` como override), cairosvg si no.
 
