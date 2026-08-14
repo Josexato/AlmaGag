@@ -35,6 +35,13 @@ Ejemplos:
         help="Activa logs detallados del procesamiento (optimizacion, colisiones, decisiones)"
     )
     parser.add_argument(
+        "--sugerir-escenografia",
+        action="store_true",
+        help="No renderiza: analiza el archivo (contenido por área, grafo "
+             "condensado, journeys, hubs) y emite un canvas.partition "
+             "recomendado con sus razones — para pegar, ajustar o ignorar"
+    )
+    parser.add_argument(
         "--visualdebug",
         action="store_true",
         help="Activa elementos visuales de debug (grilla, franja de debug, badge)"
@@ -127,6 +134,13 @@ Ejemplos:
     )
 
     args = parser.parse_args()
+
+    # WISH-LAYOUT-025: la escenografía asistida no renderiza — recomienda.
+    if args.sugerir_escenografia:
+        import logging
+        logging.basicConfig(level=logging.INFO)
+        from AlmaGag.layout.strategies.hier.escenografia import sugerir_cli
+        sys.exit(0 if sugerir_cli(args.input_file) else 1)
 
     # Construir dict de centralidad solo con los valores explícitos
     centrality_kwargs = {}

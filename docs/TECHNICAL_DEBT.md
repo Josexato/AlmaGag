@@ -1552,6 +1552,25 @@ tabernero_areas.sdjf con considerations align x A2/A3/A4).
 
 ---
 
+### WISH-LAYOUT-025: Escenografía asistida — la derivación que confiesa su plan ✅ RESUELTO (2026-08-12)
+**Componente**: `strategies/hier/escenografia.py` + `main.py` (`--sugerir-escenografia`)
+**Reportado**: 2026-08-12 (principio de Escenografía del autor: «las áreas
+se definen antes que la historia»)
+
+El motor MIDE el contenido de cada área (sub-layout sobre copias),
+CONDENSA el grafo (quién habla con quién y cuánto), LEE las señales
+narrativas (roles declarados → bandas; el journey condensado más largo →
+columna vertebral; alimentadores arriba y destinos abajo por balanza de
+salidas/entradas hacia la columna; hubs ≥3 áreas → bandas de ancho
+completo) y emite un `canvas.partition` con proporciones fieles al
+contenido (unidad 150px — ninguna celda domina la escala) y las razones
+NOMBRADAS. Recomienda, jamás impone (§R): JSON a stdout para
+pegar/ajustar/ignorar. Medido: la sugerencia sobre el tabernero rinde
+como la escenografía manual (aspecto 1.33 vs 1.32, arista×nodo 11 vs 12)
+sin intervención humana. Tests: `test_layout025_escenografia.py`.
+
+---
+
 ### WISH-ARCH-007: SDJF 2.0 — spec formal con una sintaxis canónica (Y94) 🆕 ABIERTO — mediano plazo
 **Componente**: formato SDJF + `docs/spec/FORMATO_ARCHIVOS.md`
 **Reportado**: 2026-08-11 (grupo Y — requiere decisión de José: hay deprecaciones)

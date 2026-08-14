@@ -187,6 +187,16 @@ paso vertical del almacén sin espacio para rótulos de corredor.
 GAG-WV sin tocar el visor: labels 123→33, arista×nodo 33→12, W83 10→6
 (los restantes son de bandas intra-área, nombrados). Motor v3.13.0.
 
+## Iteración 13 — escenografía asistida (12-ago): la derivación confiesa su plan
+
+Del principio de Escenografía del autor («las áreas se definen antes que
+la historia») salió la feature: `--sugerir-escenografia` mide, condensa,
+lee las señales narrativas y emite un `canvas.partition` recomendado con
+razones nombradas — el motor sabe de geometría medida, el skill decide
+la narrativa. Verificado: la sugerencia sobre el tabernero rinde como la
+escenografía hecha a mano (aspecto 1.33/1.32, arista×nodo 11/12).
+Motor v3.14.0. Ticket: WISH-LAYOUT-025.
+
 ## Mediano plazo (sin fecha)
 
 - **«El mapa» (WISH-ARCH-004)**: separar mapa (dato) de vista (representación)
