@@ -205,6 +205,12 @@ nunca una cinta 1×N. El área puede declarar su banda con `role`:
 | `external` | inferior | lo que sale de la lámina (exportación, clientes) |
 | `overlay` | fondo | buses/capas transversales |
 
+**Escenografía asistida (WISH-LAYOUT-025)**: `--sugerir-escenografia`
+no renderiza — el motor mide el contenido por área, condensa el grafo y
+lee las señales narrativas (roles, journeys, hubs) para emitir un
+`canvas.partition` recomendado con sus razones en el log, listo para
+pegar/ajustar/ignorar. Recomienda, jamás impone (§R).
+
 El ruteo inter-área elige el lado de salida/entrada por el eje dominante
 entre cajas (derecha/izquierda/abajo/arriba). **Bus (WISH-ROUTE-005/X92)**:
 un nodo con destinos inter-área en ≥3 áreas distintas se rutea como bus —
