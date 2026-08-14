@@ -106,6 +106,17 @@ anterior (era AUTO-vs-LAF) está en
   con línea guía; override con `"callout": true|false`.
 - **Epifanía** — `--epifania`: un SVG por fase del pipeline + flipbook, con
   colisiones marcadas. 📍 `layout/epifania.py`.
+  **El porqué del nombre** (definición del autor): la revelación
+  progresiva — *«cómo va definiéndose la arquitectura desde algo
+  conceptual hasta algo cercano al producto final»*. El grafo no se
+  calcula de golpe: primero es puro concepto (nodos y relaciones, sin
+  lugar), luego insinúa su forma (niveles, columnas), y fase a fase la
+  abstracción encarna en el SVG — la última foto es byte-idéntica al
+  producto: la epifanía completa ES el producto. El nombre no describe
+  el mecanismo (eso es el alias `debug-phases`) sino la experiencia:
+  ver nacer la forma. Pariente conceptual: la **vista condensada** (un
+  nodo por área, enlaces agregados) es el fotograma CERO de esa
+  revelación — el diagrama cuando todavía es sólo semántica.
 - **`--exportpng` (§O58)** — Chrome/Chromium/Edge headless si hay
   (`ALMAGAG_CHROME` como override), cairosvg si no.
 
