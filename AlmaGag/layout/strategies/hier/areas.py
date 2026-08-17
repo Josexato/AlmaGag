@@ -582,7 +582,7 @@ def _dedupe(pts):
     return out
 
 
-def _exit_to_corridor(node, box, siblings, corr_y):
+def _exit_to_corridor(node, box, siblings, corr_y, ln=None):
     """WISH-ROUTE-006: puntos desde `node` hasta el corredor horizontal
     corr_y SIN atravesar hermanos de su propia caja. Si la columna vertical
     está libre, sale por T/B; si un hermano la bloquea, sale por el costado
@@ -603,10 +603,12 @@ def _exit_to_corridor(node, box, siblings, corr_y):
     left = (cx - box['x']) <= (box['x'] + box['w'] - cx)
     a = _node_border_port(node, 'L' if left else 'R')
     sx = box['x'] - AREA_GAP / 2 if left else box['x'] + box['w'] + AREA_GAP / 2
+    # WISH-ROUTE-007 v2: la vertical lateral también lleva carril propio
+    sx += ln('s', (box['id'], 'L' if left else 'R')) if ln else 0.0
     return a, [a, (sx, a[1]), (sx, corr_y)], sx
 
 
-def _enter_from_corridor(node, box, siblings, corr_y):
+def _enter_from_corridor(node, box, siblings, corr_y, ln=None):
     """Espejo de _exit_to_corridor: puntos desde el corredor corr_y hasta
     `node` sin atravesar hermanos. Devuelve (puerto, pts_previos)."""
     from_above = corr_y < node['y']
@@ -623,6 +625,7 @@ def _enter_from_corridor(node, box, siblings, corr_y):
     left = (cx - box['x']) <= (box['x'] + box['w'] - cx)
     b = _node_border_port(node, 'L' if left else 'R')
     sx = box['x'] - AREA_GAP / 2 if left else box['x'] + box['w'] + AREA_GAP / 2
+    sx += ln('s', (box['id'], 'L' if left else 'R')) if ln else 0.0
     return b, [(sx, corr_y), (sx, b[1])]
 
 
@@ -631,6 +634,7 @@ def _enter_from_corridor(node, box, siblings, corr_y):
 # montadas en la línea central; sólo los ramales de un MISMO bus comparten
 # carril (la troncal superpuesta es adrede, X92).
 _LANE_STEP = 9.0
+_CURVE_R = 12.0        # quiebres curvos: la curva dice «doblo», el cruce seco dice «cruzo»
 _LANE_MAX = AREA_GAP / 2 - 8.0
 
 
@@ -723,7 +727,7 @@ def _route_bus(src_id, conns, area_of, box_by_area, by_id, grid=None,
     if grid:
         # salida del hub SIN atravesar hermanos (WISH-ROUTE-006)
         a, head, x_out = _exit_to_corridor(
-            s, sb, members.get(area_of[src_id], []), trunk_y)
+            s, sb, members.get(area_of[src_id], []), trunk_y, ln=ln)
     for c in conns:
         d = by_id[c['to']]
         tb = box_by_area[area_of[c['to']]]
@@ -736,14 +740,17 @@ def _route_bus(src_id, conns, area_of, box_by_area, by_id, grid=None,
             c_idx = ti if side == 'T' else ti + 1
             c_in = corr_ys[c_idx] + ln('h', c_idx)
             b, tail = _enter_from_corridor(
-                d, tb, members.get(area_of[c['to']], []), c_in)
+                d, tb, members.get(area_of[c['to']], []), c_in, ln=ln)
             pts = _dedupe(head + mid + tail + [b])
+            c['computed_path'] = {'type': 'polyline', 'points': pts,
+                                  'corner_radius': _CURVE_R}
         else:
             b_side = 'B' if tb['y'] + tb['h'] / 2 < trunk_y else 'T'
             b = _node_border_port(d, b_side)
             entry = tb['y'] + tb['h'] if b_side == 'B' else tb['y']
             pts = [a, (a[0], trunk_y), (b[0], trunk_y), (b[0], entry), b]
-        c['computed_path'] = {'type': 'polyline', 'points': pts}
+        c['computed_path'] = {'type': 'polyline', 'points': pts,
+                              'corner_radius': _CURVE_R}
         c['_from_port'] = a
         c['_to_port'] = b
         c['_inter_area'] = True
@@ -814,18 +821,20 @@ def _route_inter_area(layout, area_of, box_by_area):
                 tx = d['x'] + ICON_WIDTH / 2
                 c0 = si + 1 if ti > si else si
                 key = (f, t)                 # WISH-ROUTE-007: carril propio
+                ln_c = lambda kind, idx: lane(kind, idx, key)
                 a, head, x_out = _exit_to_corridor(
                     s, sb, members.get(area_of[f], []),
-                    corr_ys[c0] + lane('h', c0, key))
+                    corr_ys[c0] + lane('h', c0, key), ln=ln_c)
                 mid, side = _corridor_route(x_out, c0, tb, tx,
                                             rows, corr_ys, row_of,
                                             lane=lane, key=key)
                 c_idx = ti if side == 'T' else ti + 1
                 c_in = corr_ys[c_idx] + lane('h', c_idx, key)
                 b, tail = _enter_from_corridor(
-                    d, tb, members.get(area_of[t], []), c_in)
+                    d, tb, members.get(area_of[t], []), c_in, ln=ln_c)
                 pts = _dedupe(head + mid + tail + [b])
-                c['computed_path'] = {'type': 'polyline', 'points': pts}
+                c['computed_path'] = {'type': 'polyline', 'points': pts,
+                                      'corner_radius': _CURVE_R}
                 c['_from_port'] = a
                 c['_to_port'] = b
                 c['_inter_area'] = True
@@ -855,7 +864,8 @@ def _route_inter_area(layout, area_of, box_by_area):
                 ex, en = sb['y'], tb['y'] + tb['h']
             corr = (ex + en) / 2
             pts = [a, (a[0], ex), (a[0], corr), (b[0], corr), (b[0], en), b]
-        c['computed_path'] = {'type': 'polyline', 'points': pts}
+        c['computed_path'] = {'type': 'polyline', 'points': pts,
+                              'corner_radius': _CURVE_R}
         c['_from_port'] = a
         c['_to_port'] = b
         c['_inter_area'] = True
