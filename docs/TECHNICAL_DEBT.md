@@ -1571,7 +1571,7 @@ sin intervención humana. Tests: `test_layout025_escenografia.py`.
 
 ---
 
-### WISH-ROUTE-007: Carriles dentro del corredor — las rutas no se montan ✅ RESUELTO (2026-08-12)
+### WISH-ROUTE-007: Carriles dentro del corredor — las rutas no se montan ✅ RESUELTO (2026-08-12) — v2 mismo día: carriles también en las VERTICALES LATERALES de salida/entrada (el ± AREA_GAP/2 junto al borde era compartido — la mostaza seguía montada) + quiebres CURVOS (corner_radius 12 en rutas de corredor, idea del autor: la curva dice «doblo», el cruce seco dice «cruzo» — el mecanismo _draw_rounded_polyline ya existía y nadie lo pedía)
 **Componente**: `strategies/hier/areas.py` (router de corredores)
 **Reportado**: 2026-08-12 (el autor, sobre el showcase del tabernero: «las
 líneas comparten los mismos carriles exactamente, no permite
