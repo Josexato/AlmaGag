@@ -154,11 +154,18 @@ def suggest_partition(data):
                 bottom.append(a)
                 razones.append(f'{a} → fila inferior (destino: '
                                f'{in_from} entradas vs {out_to} salidas)')
-        rows = [r for r in (top, spine or rest, bottom) if r]
+        # los HUBS van al MEDIO (observación del autor): un área que
+        # conecta con todo, en el fondo obliga a cada ramal a cruzar la
+        # lámina entera y apila el tráfico en los márgenes; al centro, los
+        # ramales son cortos en ambas direcciones.
+        rows = [r for r in (top, spine or rest) if r]
         for h in hubs:
             rows.append([h])
-            razones.append(f'{h} → banda de ancho completo '
-                           f'({len(out_targets[h])} áreas destino — hub/bus)')
+            razones.append(f'{h} → banda CENTRAL '
+                           f'({len(out_targets[h])} áreas destino — el hub '
+                           f'va al medio, cerca de todo)')
+        if bottom:
+            rows.append(bottom)
 
     # celdas: alto uniforme por fila; los hubs se estiran al ancho máximo
     row_dims = []

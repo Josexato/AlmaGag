@@ -1588,6 +1588,27 @@ showcase es rastreable. Fixtures: métricas idénticas.
 
 ---
 
+### WISH-LAYOUT-026: El hub va al MEDIO — banda central para el que conecta con todo ✅ RESUELTO (2026-08-13)
+**Componente**: `strategies/hier/areas.py` (`_ROLE_BAND`) + `strategies/hier/escenografia.py`
+**Reportado**: 2026-08-13 (el autor, sobre el PDF del showcase en GAG-WV:
+«el área de arquitectura que se conecta con tantas cosas debería estar
+al medio»)
+
+La escenografía asistida mandaba los hubs (≥3 áreas destino) al FONDO
+como banda de ancho completo: cada ramal cruzaba la lámina entera y el
+tráfico se apilaba en los márgenes. Dos cambios: (1) `_ROLE_BAND` gana
+`hub: 2` — role declarable que coloca el área en banda MEDIA, entre la
+cadena y las externas; (2) `suggest_partition` emite los hubs como
+bandas CENTRALES entre la columna vertebral y los destinos, con la
+razón nombrada («el hub va al medio, cerca de todo»). Showcase del
+tabernero medido: labels 6→4, cruces 15→14, ramales cortos en ambas
+direcciones y margen izquierdo descongestionado. Resto honesto: el haz
+spine→destinos ahora cruza las bandas centrales por los corredores —
+tráfico legítimo, cada línea sigue rastreable por su carril. Fixtures:
+métricas idénticas.
+
+---
+
 ### WISH-ARCH-007: SDJF 2.0 — spec formal con una sintaxis canónica (Y94) 🆕 ABIERTO — mediano plazo
 **Componente**: formato SDJF + `docs/spec/FORMATO_ARCHIVOS.md`
 **Reportado**: 2026-08-11 (grupo Y — requiere decisión de José: hay deprecaciones)

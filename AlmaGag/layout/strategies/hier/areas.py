@@ -46,7 +46,8 @@ ASPECT_TARGET = 1.5                     # X91: objetivo de la envoltura 2D
 # control/feeder arriba (gobiernan/alimentan), chain al centro (la cadena se
 # lee), external abajo (sale de la lámina), overlay al fondo (banda de bus).
 _ROLE_BAND = {'feeder': 0, 'control': 0, 'chain': 1,
-              'external': 2, 'overlay': 3}
+              'hub': 2,                  # al MEDIO: conecta con todo
+              'external': 3, 'overlay': 4}
 _BAND_DEFAULT = 1
 LEGEND_BAND = 54.0                      # franja inferior para la leyenda de roles
 LABEL_LINE_H = 16.0                     # alto por línea de etiqueta (§J31)
