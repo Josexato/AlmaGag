@@ -202,6 +202,7 @@ nunca una cinta 1×N. El área puede declarar su banda con `role`:
 |---|---|---|
 | `control` / `feeder` | superior | gobierno, riesgo, abastecimiento |
 | `chain` (default) | central | la cadena que se lee |
+| `hub` | media (bajo la cadena) | el que conecta con todo — al MEDIO los ramales son cortos |
 | `external` | inferior | lo que sale de la lámina (exportación, clientes) |
 | `overlay` | fondo | buses/capas transversales |
 
