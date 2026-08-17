@@ -626,32 +626,62 @@ def _enter_from_corridor(node, box, siblings, corr_y):
     return b, [(sx, corr_y), (sx, b[1])]
 
 
-def _corridor_route(x0, c0, tb, tx, rows, corr_ys, row_of):
-    """WISH-ROUTE-006: waypoints desde (x0, corr_ys[c0]) hasta el corredor
-    ADYACENTE a la caja destino tb, cruzando las filas intermedias por sus
-    huecos (jamás a través de una caja ajena). Devuelve (pts, entra_por),
-    con entra_por 'T'|'B' según el corredor de llegada."""
+# WISH-ROUTE-007: carriles dentro del corredor — rutas independientes que
+# comparten un pasillo van en carriles paralelos (paso _LANE_STEP), no
+# montadas en la línea central; sólo los ramales de un MISMO bus comparten
+# carril (la troncal superpuesta es adrede, X92).
+_LANE_STEP = 9.0
+_LANE_MAX = AREA_GAP / 2 - 8.0
+
+
+def _make_lanes():
+    """Registro de carriles: (tipo, índice) → {clave_de_ruta: offset}.
+    El primero va al centro (0); los siguientes alternan ±paso."""
+    reg = {}
+
+    def lane(kind, idx, key):
+        d = reg.setdefault((kind, idx), {})
+        if key not in d:
+            n = len(d)
+            k = (n + 1) // 2
+            off = 0.0 if n == 0 else k * _LANE_STEP * (1 if n % 2 else -1)
+            d[key] = max(-_LANE_MAX, min(_LANE_MAX, off))
+        return d[key]
+    return lane
+
+
+def _corridor_route(x0, c0, tb, tx, rows, corr_ys, row_of, lane=None,
+                    key=None):
+    """WISH-ROUTE-006: waypoints desde (x0, corr del índice c0) hasta el
+    corredor ADYACENTE a la caja destino tb, cruzando las filas intermedias
+    por sus huecos (jamás a través de una caja ajena). Devuelve
+    (pts, entra_por), con entra_por 'T'|'B' según el corredor de llegada.
+    Con `lane`/`key`, cada corredor y cada hueco usados llevan el offset
+    del carril de ESTA ruta (WISH-ROUTE-007)."""
+    ln = (lambda kind, idx: lane(kind, idx, key)) if lane else \
+        (lambda kind, idx: 0.0)
     ti = row_of[tb['id']]
     pts = []
-    x_cur, c_cur = x0, c0
+    c_cur = c0
     if c_cur <= ti:
-        # bajando: cruzar filas c_cur .. ti-1; llegar a corr_ys[ti]
+        # bajando: cruzar filas c_cur .. ti-1; llegar al corredor de ti
         for r in range(c_cur, ti):
-            gx = _row_gap_x(rows[r], tx)
-            pts += [(gx, corr_ys[r]), (gx, corr_ys[r + 1])]
-            x_cur = gx
-        pts.append((tx, corr_ys[ti]))
+            gx = _row_gap_x(rows[r], tx) + ln('v', r)
+            pts += [(gx, corr_ys[r] + ln('h', r)),
+                    (gx, corr_ys[r + 1] + ln('h', r + 1))]
+        pts.append((tx, corr_ys[ti] + ln('h', ti)))
         return pts, 'T'
-    # subiendo: cruzar filas c_cur-1 .. ti+1; llegar a corr_ys[ti+1]
+    # subiendo: cruzar filas c_cur-1 .. ti+1; llegar al corredor bajo ti
     for r in range(c_cur - 1, ti, -1):
-        gx = _row_gap_x(rows[r], tx)
-        pts += [(gx, corr_ys[r + 1]), (gx, corr_ys[r])]
-        x_cur = gx
-    pts.append((tx, corr_ys[ti + 1]))
+        gx = _row_gap_x(rows[r], tx) + ln('v', r)
+        pts += [(gx, corr_ys[r + 1] + ln('h', r + 1)),
+                (gx, corr_ys[r] + ln('h', r))]
+    pts.append((tx, corr_ys[ti + 1] + ln('h', ti + 1)))
     return pts, 'B'
 
 
-def _route_bus(src_id, conns, area_of, box_by_area, by_id, grid=None):
+def _route_bus(src_id, conns, area_of, box_by_area, by_id, grid=None,
+               lane=None):
     """WISH-ROUTE-005 (X92): un hub con destinos en ≥BUS_MIN_AREAS áreas
     distintas se rutea como BUS — una troncal horizontal en el corredor
     pegado a la caja del hub (arriba o abajo, según la mayoría de destinos)
@@ -675,14 +705,21 @@ def _route_bus(src_id, conns, area_of, box_by_area, by_id, grid=None):
         for eid, aid in area_of.items():
             if eid in by_id:
                 members.setdefault(aid, []).append(by_id[eid])
+    # WISH-ROUTE-007: todos los ramales del bus comparten CLAVE de carril —
+    # la troncal superpuesta es adrede; contra otras rutas, carril propio.
+    key = ('bus', src_id)
+    ln = (lambda kind, idx: lane(kind, idx, key)) if (grid and lane) else \
+        (lambda kind, idx: 0.0)
     if ups >= len(conns) / 2:              # mayoría arriba → troncal superior
         a = _node_border_port(s, 'T')
         c_trunk = si if grid else None
-        trunk_y = corr_ys[si] if grid else sb['y'] - AREA_GAP / 2
+        trunk_y = corr_ys[si] + ln('h', si) if grid \
+            else sb['y'] - AREA_GAP / 2
     else:                                  # mayoría abajo → troncal inferior
         a = _node_border_port(s, 'B')
         c_trunk = si + 1 if grid else None
-        trunk_y = corr_ys[si + 1] if grid else sb['y'] + sb['h'] + AREA_GAP / 2
+        trunk_y = corr_ys[si + 1] + ln('h', si + 1) if grid \
+            else sb['y'] + sb['h'] + AREA_GAP / 2
     if grid:
         # salida del hub SIN atravesar hermanos (WISH-ROUTE-006)
         a, head, x_out = _exit_to_corridor(
@@ -694,8 +731,10 @@ def _route_bus(src_id, conns, area_of, box_by_area, by_id, grid=None):
         if grid:
             ti = row_of[tb['id']]
             mid, side = _corridor_route(x_out, c_trunk, tb, tx,
-                                        rows, corr_ys, row_of)
-            c_in = corr_ys[ti] if side == 'T' else corr_ys[ti + 1]
+                                        rows, corr_ys, row_of,
+                                        lane=lane, key=key)
+            c_idx = ti if side == 'T' else ti + 1
+            c_in = corr_ys[c_idx] + ln('h', c_idx)
             b, tail = _enter_from_corridor(
                 d, tb, members.get(area_of[c['to']], []), c_in)
             pts = _dedupe(head + mid + tail + [b])
@@ -727,6 +766,7 @@ def _route_inter_area(layout, area_of, box_by_area):
     rows, corr_ys, row_of = _corridor_grid(list(box_by_area.values()))
     grid = (rows, corr_ys, row_of) if rows else None
     members: Dict[str, list] = {}
+    lane = _make_lanes() if grid else None   # WISH-ROUTE-007
     if grid:
         for eid, aid in area_of.items():
             if eid in by_id:
@@ -743,7 +783,8 @@ def _route_inter_area(layout, area_of, box_by_area):
     bussed = set()
     for src, cs in by_src.items():
         if len({area_of[c['to']] for c in cs}) >= BUS_MIN_AREAS:
-            _route_bus(src, cs, area_of, box_by_area, by_id, grid=grid)
+            _route_bus(src, cs, area_of, box_by_area, by_id, grid=grid,
+                       lane=lane)
             bussed.update(id(c) for c in cs)
 
     for c in layout.connections:
@@ -772,11 +813,15 @@ def _route_inter_area(layout, area_of, box_by_area):
                 # cruza filas por huecos.
                 tx = d['x'] + ICON_WIDTH / 2
                 c0 = si + 1 if ti > si else si
+                key = (f, t)                 # WISH-ROUTE-007: carril propio
                 a, head, x_out = _exit_to_corridor(
-                    s, sb, members.get(area_of[f], []), corr_ys[c0])
+                    s, sb, members.get(area_of[f], []),
+                    corr_ys[c0] + lane('h', c0, key))
                 mid, side = _corridor_route(x_out, c0, tb, tx,
-                                            rows, corr_ys, row_of)
-                c_in = corr_ys[ti] if side == 'T' else corr_ys[ti + 1]
+                                            rows, corr_ys, row_of,
+                                            lane=lane, key=key)
+                c_idx = ti if side == 'T' else ti + 1
+                c_in = corr_ys[c_idx] + lane('h', c_idx, key)
                 b, tail = _enter_from_corridor(
                     d, tb, members.get(area_of[t], []), c_in)
                 pts = _dedupe(head + mid + tail + [b])
