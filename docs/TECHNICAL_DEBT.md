@@ -1571,6 +1571,23 @@ sin intervención humana. Tests: `test_layout025_escenografia.py`.
 
 ---
 
+### WISH-ROUTE-007: Carriles dentro del corredor — las rutas no se montan ✅ RESUELTO (2026-08-12)
+**Componente**: `strategies/hier/areas.py` (router de corredores)
+**Reportado**: 2026-08-12 (el autor, sobre el showcase del tabernero: «las
+líneas comparten los mismos carriles exactamente, no permite
+diferenciarlas»)
+
+Todas las rutas usaban la línea CENTRAL del pasillo (`corr_ys[i]`) y el
+mismo hueco de cruce: las independientes quedaban montadas una sobre
+otra. Registro de carriles (_make_lanes): la primera ruta de cada
+corredor va al centro y las siguientes alternan ±9px (tope ±27); los
+huecos verticales igual. Los ramales de un MISMO bus comparten CLAVE de
+carril — la troncal superpuesta sigue siendo adrede (X92). La lección
+U75 de los flows aplicada al corredor. PNG verificado: cada línea del
+showcase es rastreable. Fixtures: métricas idénticas.
+
+---
+
 ### WISH-ARCH-007: SDJF 2.0 — spec formal con una sintaxis canónica (Y94) 🆕 ABIERTO — mediano plazo
 **Componente**: formato SDJF + `docs/spec/FORMATO_ARCHIVOS.md`
 **Reportado**: 2026-08-11 (grupo Y — requiere decisión de José: hay deprecaciones)

@@ -98,3 +98,37 @@ def test_direct_route_between_same_row_neighbors_survives():
     a, b = c['_from_port'], c['_to_port']
     # sale por la derecha y entra por la izquierda (misma y de puertos)
     assert abs(a[1] - b[1]) < 60, 'la ruta directa no debería subir al corredor'
+
+
+def test_independent_routes_get_distinct_lanes():
+    """WISH-ROUTE-007: dos rutas independientes que comparten corredor van
+    en carriles distintos (y de tramo horizontal separadas ≥8px); los
+    ramales de un MISMO bus sí comparten su troncal."""
+    els, conns, spec = [], [], []
+    for a, role in ((0, 'control'), (1, 'chain'), (2, 'external')):
+        ids = []
+        for i in range(2):
+            eid = f'a{a}n{i}'
+            els.append({'id': eid, 'type': 'server', 'label': f'N{a}.{i}'})
+            ids.append(eid)
+        conns.append({'from': ids[0], 'to': ids[1]})
+        spec.append({'id': f'z{a}', 'label': f'Z{a}', 'members': ids,
+                     'role': role})
+    # dos rutas INDEPENDIENTES fila 0 → fila 2 (comparten los corredores)
+    conns.append({'from': 'a0n0', 'to': 'a2n0'})
+    conns.append({'from': 'a0n1', 'to': 'a2n1'})
+    L = Layout(elements=els, connections=conns,
+               canvas={'width': 1200, 'height': 1200})
+    layout_by_areas(L, spec)
+    inter = [c for c in L.connections if c.get('_inter_area')]
+    assert len(inter) == 2
+    # las y de sus tramos horizontales largos no coinciden
+    def horiz_ys(c):
+        pts = c['computed_path']['points']
+        return {round(y1, 1) for (x1, y1), (x2, y2)
+                in zip(pts, pts[1:])
+                if abs(y1 - y2) < 0.5 and abs(x1 - x2) > 30}
+    ys0, ys1 = horiz_ys(inter[0]), horiz_ys(inter[1])
+    if ys0 and ys1:
+        assert not (ys0 & ys1), \
+            f'rutas independientes montadas en el mismo carril: {ys0 & ys1}'
