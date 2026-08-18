@@ -279,10 +279,14 @@ def _fat_sub_layout(members, conns, cont_of):
             synth.append({'from': f, 'to': t})
     lv = compute_levels(members, synth)
     cols, _wp = compute_columns(lv, members, synth)
+    # Los medios-niveles (tomas laterales) comparten FILA con su nivel
+    # entero: un contenedor a nivel 0.5 en fila propia apila la cadena en
+    # columna 1×N (zona alta y flaca) — como caja gorda, convive mejor al
+    # lado que a medio nivel.
     rows = {}
     for e in sorted(members, key=lambda e: (lv.level.get(e['id'], 0),
                                             cols.get(e['id'], 0))):
-        rows.setdefault(lv.level.get(e['id'], 0), []).append(e)
+        rows.setdefault(int(lv.level.get(e['id'], 0)), []).append(e)
     y = 0.0
     for lvl in sorted(rows):
         row = rows[lvl]
