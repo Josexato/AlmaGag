@@ -313,7 +313,8 @@ def _fat_sub_layout(members, conns, cont_of):
         y += row_h + _FAT_GAP_Y
 
     lvl_of = {e['id']: int(lv.level.get(e['id'], 0)) for e in members}
-    _route_fat_conns(members, conns, cont_of, mset, lvl_of)
+    _route_fat_conns(members, conns, cont_of, mset, lvl_of,
+                     lane=_make_lanes())
 
     # bbox local: cajas gordas + iconos/etiquetas sueltos + paths.
     maxx = maxy = 0.0
@@ -332,7 +333,7 @@ def _fat_sub_layout(members, conns, cont_of):
     return maxx, maxy
 
 
-def _route_fat_conns(members, conns, cont_of, mset, lvl_of=None):
+def _route_fat_conns(members, conns, cont_of, mset, lvl_of=None, lane=None):
     """Conexiones que cruzan de un miembro gordo a otro DENTRO del área:
     puertos en el borde del hijo real, corredor ortogonal a mitad de camino
     entre las cajas enfrentadas (T71 en miniatura). Los enlaces LARGOS
@@ -362,6 +363,9 @@ def _route_fat_conns(members, conns, cont_of, mset, lvl_of=None):
             continue
         fx, fy, fw, fh = box_of[cf]
         tx, ty, tw, th = box_of[ct]
+        key = ('fan', f)               # abanico por origen, como el bus X92
+        ln_f = (lambda kind, idx: lane(kind, idx, key)) if lane else \
+            (lambda kind, idx: 0.0)
 
         if abs(lvl_of.get(cf, 0) - lvl_of.get(ct, 0)) >= 2:
             ef = by_local[cf].get('_edge', '')
@@ -388,6 +392,8 @@ def _route_fat_conns(members, conns, cont_of, mset, lvl_of=None):
         dxc = (tx + tw / 2) - (fx + fw / 2)
         dyc = (ty + th / 2) - (fy + fh / 2)
         if abs(dyc) >= abs(dxc):
+            pa = max(-30.0, min(30.0, ln_f('p', f)))
+            pb = max(-30.0, min(30.0, ln_f('p', t)))
             if dyc >= 0:
                 a = _node_border_port(s, 'B')
                 b = _node_border_port(d, 'T')
@@ -396,8 +402,13 @@ def _route_fat_conns(members, conns, cont_of, mset, lvl_of=None):
                 a = _node_border_port(s, 'T')
                 b = _node_border_port(d, 'B')
                 corr = (fy + (ty + th)) / 2
+            a = (a[0] + pa, a[1])
+            b = (b[0] + pb, b[1])
+            corr += ln_f('fc', round(corr))
             pts = [a, (a[0], corr), (b[0], corr), b]
         else:
+            pa = max(-18.0, min(18.0, ln_f('p', f)))
+            pb = max(-18.0, min(18.0, ln_f('p', t)))
             if dxc >= 0:
                 a = _node_border_port(s, 'R')
                 b = _node_border_port(d, 'L')
@@ -406,6 +417,9 @@ def _route_fat_conns(members, conns, cont_of, mset, lvl_of=None):
                 a = _node_border_port(s, 'L')
                 b = _node_border_port(d, 'R')
                 corr = (fx + (tx + tw)) / 2
+            a = (a[0], a[1] + pa)
+            b = (b[0], b[1] + pb)
+            corr += ln_f('fc', round(corr))
             pts = [a, (corr, a[1]), (corr, b[1]), b]
         c['computed_path'] = {'type': 'polyline', 'points': _dedupe(pts),
                               'corner_radius': _CURVE_R}
@@ -573,10 +587,12 @@ def layout_by_areas(layout, areas_spec):
                   for c in containers.values()
                   if c.get('_is_container_calculated')]
     if cont_boxes:
+        dodge_reg = {}          # ROUTE-008: desvíos escalonados por caja+lado
         for c in conns:
             cp = c.get('computed_path')
             if cp and cp.get('type') == 'polyline':
-                cp['points'] = _dodge_boxes(list(cp['points']), cont_boxes)
+                cp['points'] = _dodge_boxes(list(cp['points']), cont_boxes,
+                                            reg=dodge_reg)
 
     # canvas: cajas + banda de leyenda inferior
     max_x = max(b['x'] + b['w'] for b in boxes)
@@ -848,11 +864,21 @@ def _row_gap_x(row, x_pref):
 _DODGE_M = 12.0     # holgura del desvío alrededor de un contenedor ajeno
 
 
-def _dodge_boxes(pts, boxes):
+def _dodge_boxes(pts, boxes, reg=None):
     """ARCH-009 v2: ninguna ruta atraviesa un contenedor AJENO — cada
     segmento ortogonal que corta una caja se desvía por el borde más
     cercano (rectángulo + holgura). Se repite hasta limpiar o agotar el
-    presupuesto (los desvíos nuevos pueden cortar otra caja)."""
+    presupuesto (los desvíos nuevos pueden cortar otra caja).
+
+    `reg` (ROUTE-008): registro COMPARTIDO entre rutas — dos rutas que
+    rodean la misma caja por el mismo lado se escalonan (+7px cada una)
+    en vez de montarse en la misma línea de desvío."""
+    def _m(box, side):
+        if reg is None:
+            return _DODGE_M
+        n = reg.get((box, side), 0)
+        reg[(box, side)] = n + 1
+        return _DODGE_M + 7.0 * n
     for _ in range(24):
         changed = False
         for i in range(len(pts) - 1):
@@ -877,9 +903,12 @@ def _dodge_boxes(pts, boxes):
             if not hit:
                 continue
             axis, (x0, y0, x1, y1) = hit
+            box = (x0, y0, x1, y1)
             if axis == 'h':
                 y = p[1]
-                yd = y0 - _DODGE_M if y - y0 <= y1 - y else y1 + _DODGE_M
+                top = y - y0 <= y1 - y
+                m = _m(box, 'T' if top else 'B')
+                yd = y0 - m if top else y1 + m
                 if p[0] < q[0]:
                     xa, xb = x0 - _DODGE_M, x1 + _DODGE_M
                 else:
@@ -887,7 +916,9 @@ def _dodge_boxes(pts, boxes):
                 detour = [(xa, y), (xa, yd), (xb, yd), (xb, y)]
             else:
                 x = p[0]
-                xd = x0 - _DODGE_M if x - x0 <= x1 - x else x1 + _DODGE_M
+                left = x - x0 <= x1 - x
+                m = _m(box, 'L' if left else 'R')
+                xd = x0 - m if left else x1 + m
                 if p[1] < q[1]:
                     ya, yb = y0 - _DODGE_M, y1 + _DODGE_M
                 else:
@@ -1179,6 +1210,18 @@ def _route_inter_area(layout, area_of, box_by_area):
 
         dx = (tb['x'] + tb['w'] / 2) - (sb['x'] + sb['w'] / 2)
         dy = (tb['y'] + tb['h'] / 2) - (sb['y'] + sb['h'] / 2)
+        # ROUTE-008: la vía directa entre cajas enfrentadas (misma fila /
+        # sin grilla) era ANTERIOR a los carriles — todas las rutas de un
+        # mismo par de zonas se montaban en la vertical del corredor y en
+        # los puertos. Política de ABANICO por origen (la del bus X92):
+        # las rutas de un MISMO origen comparten troncal en el corredor
+        # (superposición adrede: una línea que se ramifica — carriles
+        # por-ruta las trenzaban, medido 0→19 cruces); orígenes distintos
+        # van en carriles distintos, y las entradas a un mismo destino se
+        # reparten por origen en el borde del icono (T72 en miniatura).
+        key = ('fan', f)
+        ln_d = (lambda kind, idx: lane(kind, idx, key)) if lane else \
+            (lambda kind, idx: 0.0)
         if abs(dx) >= abs(dy):
             if dx >= 0:                    # destino a la derecha
                 a = _node_border_port(s, 'R')
@@ -1188,7 +1231,11 @@ def _route_inter_area(layout, area_of, box_by_area):
                 a = _node_border_port(s, 'L')
                 b = _node_border_port(d, 'R')
                 ex, en = sb['x'], tb['x'] + tb['w']
-            corr = (ex + en) / 2
+            pa = max(-18.0, min(18.0, ln_d('p', f)))
+            pb = max(-18.0, min(18.0, ln_d('p', t)))
+            a = (a[0], a[1] + pa)
+            b = (b[0], b[1] + pb)
+            corr = (ex + en) / 2 + ln_d('c', (sb['id'], tb['id']))
             pts = [a, (ex, a[1]), (corr, a[1]), (corr, b[1]), (en, b[1]), b]
         else:
             if dy >= 0:                    # destino abajo
@@ -1199,7 +1246,11 @@ def _route_inter_area(layout, area_of, box_by_area):
                 a = _node_border_port(s, 'T')
                 b = _node_border_port(d, 'B')
                 ex, en = sb['y'], tb['y'] + tb['h']
-            corr = (ex + en) / 2
+            pa = max(-30.0, min(30.0, ln_d('p', f)))
+            pb = max(-30.0, min(30.0, ln_d('p', t)))
+            a = (a[0] + pa, a[1])
+            b = (b[0] + pb, b[1])
+            corr = (ex + en) / 2 + ln_d('c', (sb['id'], tb['id']))
             pts = [a, (a[0], ex), (a[0], corr), (b[0], corr), (b[0], en), b]
         c['computed_path'] = {'type': 'polyline', 'points': pts,
                               'corner_radius': _CURVE_R}
