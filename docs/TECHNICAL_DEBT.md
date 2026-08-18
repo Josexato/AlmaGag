@@ -1656,7 +1656,7 @@ colateral fichado: BUGS-LOG-002.
 
 ---
 
-### BUGS-LOG-002: `cruces(arista×arista)` mide centros, no el trazado dibujado 🆕 ABIERTO
+### BUGS-LOG-002: `cruces(arista×arista)` mide centros, no el trazado dibujado ✅ RESUELTO (2026-08-18)
 **Componente**: `layout/metrics.py::count_crossings`
 **Reportado**: 2026-08-18 (destapado por ARCH-009 v3: los cruces reales
 bajaron 13→6 y la métrica quedó clavada en 27)
@@ -1670,9 +1670,21 @@ castiga el malo. Viola «lo dibujado es lo medido» (doctrina VAL-008).
 Criterio: cuando una conexión tiene `computed_path`, contar cruces
 sobre la polilínea real (compartir extremo sigue sin ser cruce; la
 troncal superpuesta de un bus X92 tampoco). Requiere recalibración
-única de la línea base de fixtures (patrón It6-2c) — por eso se ficha
+única de la línea base de fixtures (patrón It6-2c) — por eso se fichó
 en vez de arreglarse al paso: decisión de José sobre cuándo pagar esa
 recalibración.
+
+**Resolución** (luz verde de José, mismo día): `count_crossings` mide
+el trazado real vía `_conn_segments` (el mismo que usa arista×nodo §H6)
+con `_strict_cross` — cruce = intersección INTERIOR de segmentos;
+tocarse en extremo, en T o solaparse colineales (carriles, troncal de
+bus) no cuentan. Recalibración única medida: 13 fixtures cambian SOLO
+el campo cruces, 12 bajan (15→5, 24→7, 36→19, 16→4, cuatro 1→0…) y
+UNO sube (git.sdjf 5→6 — un cruce genuino del trazado que el segmento
+abstracto no veía: la ceguera denunciada, en la otra dirección). El
+showcase_v2 del pipeline real da cruces=0 (con labels envueltos, los 6
+«topológicos» de la geometría cruda tampoco ocurren). Suite 634 verde
+sin recalibrar ningún test — ninguno fijaba valores absolutos.
 
 ---
 

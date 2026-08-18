@@ -1,11 +1,10 @@
 """
 Métricas de calidad de layout, agnósticas del motor (WISH-ARCH-002, rescate ③).
 
-`count_crossings` viene del `abstract_placer` de LAF (motor histórico): cuenta los
-cruces reales entre conexiones con un test de orientación O(n²). Es una métrica
-barata y objetiva de calidad — cuántas aristas se cruzan — que ni AUTO ni hier
-tenían. Acá se generaliza para operar sobre cualquier `Layout` ya posicionado
-(usa los centros de los iconos), así sirve como:
+`count_crossings` nació del `abstract_placer` de LAF (motor histórico) midiendo
+segmentos centro-a-centro; desde BUGS-LOG-002 mide el TRAZADO REAL
+(`computed_path` si existe, fallback centro-a-centro) con test de cruce
+interior estricto — lo dibujado es lo medido. Sirve como:
 
 - criterio de calidad visible en Epifanía (se ve el número bajar por fase),
 - métrica de regresión en tests.
@@ -67,32 +66,58 @@ def segments_intersect(p1: Point, p2: Point, p3: Point, p4: Point) -> bool:
     return False
 
 
-def count_crossings(layout) -> int:
-    """Cuenta cruces entre conexiones del layout (segmentos centro-a-centro).
+def _strict_cross(a, b) -> bool:
+    """True si los segmentos (x1,y1,x2,y2) se cruzan en su INTERIOR.
+    Tocarse en un extremo, en T, o solaparse colineales (carriles
+    paralelos, la troncal superpuesta de un bus X92) NO es un cruce
+    genuino."""
+    ax, ay, bx, by = a
+    cx, cy, dx, dy = b
+    d1x, d1y = bx - ax, by - ay
+    d2x, d2y = dx - cx, dy - cy
+    den = d1x * d2y - d1y * d2x
+    if abs(den) < 1e-9:
+        return False
+    t = ((cx - ax) * d2y - (cy - ay) * d2x) / den
+    u = ((cx - ax) * d1y - (cy - ay) * d1x) / den
+    return 0.001 < t < 0.999 and 0.001 < u < 0.999
 
-    O(n²) sobre las conexiones. Usa los centros de los iconos ya posicionados;
-    ignora conexiones sin ambos extremos posicionados, self-loops, y pares de
-    conexiones que comparten un nodo (se tocan en el nodo, no cruzan).
+
+def count_crossings(layout) -> int:
+    """Cuenta los PARES de conexiones cuyo TRAZADO se cruza.
+
+    BUGS-LOG-002: antes medía segmentos rectos centro-a-centro (herencia
+    del abstract_placer de LAF) — con corredores, carriles, curvas y
+    canales laterales lo dibujado ya no se parece al segmento abstracto
+    y la métrica quedaba ciega al ruteo (el showcase mejoró 13→6 cruces
+    reales y el contador seguía clavado en 27). Ahora cada conexión
+    aporta su `computed_path` si lo tiene (fallback: centro-a-centro,
+    vía _conn_segments — el mismo trazado que mide arista×nodo §H6) y
+    un cruce es un cruce INTERIOR genuino: compartir un extremo,
+    tocarse en T o solaparse en paralelo no cuentan. Lo dibujado es lo
+    medido (doctrina VAL-008).
     """
     centers = _icon_centers(layout)
 
-    edges: List[Tuple[str, str]] = []
+    conns = []
     for c in layout.connections:
         a, b = c.get('from'), c.get('to')
-        if a in centers and b in centers and a != b:
-            edges.append((a, b))
+        if a == b:
+            continue
+        segs = _conn_segments(c, centers)
+        if segs:
+            conns.append((a, b, segs))
 
     crossings = 0
-    n = len(edges)
+    n = len(conns)
     for i in range(n):
-        a1, a2 = edges[i]
-        p1, p2 = centers[a1], centers[a2]
+        a1, a2, s1 = conns[i]
         for j in range(i + 1, n):
-            b1, b2 = edges[j]
+            b1, b2, s2 = conns[j]
             # Comparten un extremo → concurren en el nodo, no es un cruce.
             if a1 == b1 or a1 == b2 or a2 == b1 or a2 == b2:
                 continue
-            if segments_intersect(p1, p2, centers[b1], centers[b2]):
+            if any(_strict_cross(sa, sb) for sa in s1 for sb in s2):
                 crossings += 1
     return crossings
 
