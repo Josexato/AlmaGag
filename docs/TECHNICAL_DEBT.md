@@ -1630,11 +1630,18 @@ del área (puertos en el hijo real, corredor T71 en miniatura) e
 inter-área (corredores/carriles/curvas de ROUTE-006/007 intactos).
 Guarda de regresión: un área sin contenedores sigue el camino viejo
 byte a byte; fixtures idénticos. Showcase_v2 medido: 2 marcos + 9
-contenedores en su zona, aspecto 1.28, labels 4. v1 con límites
-nombrados: un nivel de anidamiento (contenedor-en-contenedor cae a
-icono con WARNING) y toma lateral del condensado apila la cadena en
-columna (el `partition` declarado manda, como siempre). Tests:
-`test_arch009_areas_contains.py` (6).
+contenedores en su zona, aspecto 1.28, labels 4. v1 con límite
+nombrado: un nivel de anidamiento (contenedor-en-contenedor cae a
+icono con WARNING). Tests: `test_arch009_areas_contains.py` (6).
+
+**v2 mismo día** (el autor, sobre el render en GAG-WV: «mira las rutas
+y las distribuciones»): (a) las tomas laterales del condensado (nivel
+0.5) comparten fila ENTERA — la fila propia apilaba la cadena en
+columna 1×N (tinta 33.1%→40.2%, cadena en 2 columnas); (b) pasada
+`_dodge_boxes` tras el ruteo — un segmento que cruza un contenedor
+ajeno de lado a lado se desvía por su borde (+12px, iterado), el que
+ENTRA a una caja para rematar en su hijo se respeta (T71). Medido:
+arista×nodo 8→0, labels 4→0.
 
 ---
 

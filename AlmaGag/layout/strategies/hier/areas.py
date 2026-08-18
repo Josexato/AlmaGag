@@ -279,10 +279,14 @@ def _fat_sub_layout(members, conns, cont_of):
             synth.append({'from': f, 'to': t})
     lv = compute_levels(members, synth)
     cols, _wp = compute_columns(lv, members, synth)
+    # Los medios-niveles (tomas laterales) comparten FILA con su nivel
+    # entero: un contenedor a nivel 0.5 en fila propia apila la cadena en
+    # columna 1×N (zona alta y flaca) — como caja gorda, convive mejor al
+    # lado que a medio nivel.
     rows = {}
     for e in sorted(members, key=lambda e: (lv.level.get(e['id'], 0),
                                             cols.get(e['id'], 0))):
-        rows.setdefault(lv.level.get(e['id'], 0), []).append(e)
+        rows.setdefault(int(lv.level.get(e['id'], 0)), []).append(e)
     y = 0.0
     for lvl in sorted(rows):
         row = rows[lvl]
@@ -525,6 +529,18 @@ def layout_by_areas(layout, areas_spec):
     # entra por el borde de la caja destino.
     box_by_area = {b['id']: b for b in boxes}
     _route_inter_area(layout, area_of, box_by_area)
+
+    # ARCH-009 v2: desvío de contenedores ajenos — un segmento que cruza
+    # una caja de lado a lado se desvía por su borde; el que ENTRA a una
+    # caja (para llegar a su hijo) se respeta.
+    cont_boxes = [(c['x'], c['y'], c['x'] + c['width'], c['y'] + c['height'])
+                  for c in containers.values()
+                  if c.get('_is_container_calculated')]
+    if cont_boxes:
+        for c in conns:
+            cp = c.get('computed_path')
+            if cp and cp.get('type') == 'polyline':
+                cp['points'] = _dodge_boxes(list(cp['points']), cont_boxes)
 
     # canvas: cajas + banda de leyenda inferior
     max_x = max(b['x'] + b['w'] for b in boxes)
@@ -791,6 +807,62 @@ def _row_gap_x(row, x_pref):
         if best is None or d < best[0]:
             best = (d, x)
     return best[1] if best else x_pref
+
+
+_DODGE_M = 12.0     # holgura del desvío alrededor de un contenedor ajeno
+
+
+def _dodge_boxes(pts, boxes):
+    """ARCH-009 v2: ninguna ruta atraviesa un contenedor AJENO — cada
+    segmento ortogonal que corta una caja se desvía por el borde más
+    cercano (rectángulo + holgura). Se repite hasta limpiar o agotar el
+    presupuesto (los desvíos nuevos pueden cortar otra caja)."""
+    for _ in range(24):
+        changed = False
+        for i in range(len(pts) - 1):
+            p, q = pts[i], pts[i + 1]
+            hit = None
+            if abs(p[1] - q[1]) < 0.01:                      # horizontal
+                y = p[1]
+                a, b = sorted((p[0], q[0]))
+                for x0, y0, x1, y1 in boxes:
+                    if y0 < y < y1 and min(b, x1) - max(a, x0) > 0.01 \
+                            and a < x0 and b > x1:
+                        hit = ('h', (x0, y0, x1, y1))
+                        break
+            elif abs(p[0] - q[0]) < 0.01:                    # vertical
+                x = p[0]
+                a, b = sorted((p[1], q[1]))
+                for x0, y0, x1, y1 in boxes:
+                    if x0 < x < x1 and min(b, y1) - max(a, y0) > 0.01 \
+                            and a < y0 and b > y1:
+                        hit = ('v', (x0, y0, x1, y1))
+                        break
+            if not hit:
+                continue
+            axis, (x0, y0, x1, y1) = hit
+            if axis == 'h':
+                y = p[1]
+                yd = y0 - _DODGE_M if y - y0 <= y1 - y else y1 + _DODGE_M
+                if p[0] < q[0]:
+                    xa, xb = x0 - _DODGE_M, x1 + _DODGE_M
+                else:
+                    xa, xb = x1 + _DODGE_M, x0 - _DODGE_M
+                detour = [(xa, y), (xa, yd), (xb, yd), (xb, y)]
+            else:
+                x = p[0]
+                xd = x0 - _DODGE_M if x - x0 <= x1 - x else x1 + _DODGE_M
+                if p[1] < q[1]:
+                    ya, yb = y0 - _DODGE_M, y1 + _DODGE_M
+                else:
+                    ya, yb = y1 + _DODGE_M, y0 - _DODGE_M
+                detour = [(x, ya), (xd, ya), (xd, yb), (x, yb)]
+            pts = pts[:i + 1] + detour + pts[i + 1:]
+            changed = True
+            break
+        if not changed:
+            return _dedupe(pts)
+    return _dedupe(pts)
 
 
 def _dedupe(pts):
