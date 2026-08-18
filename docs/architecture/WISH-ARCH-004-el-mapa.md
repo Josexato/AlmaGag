@@ -1,6 +1,6 @@
 # WISH-ARCH-004 — "El Mapa": contenedor · carril · ámbito como capas componibles
 
-**Estado**: 🟡 Diseño (en revisión — NO implementado)
+**Estado**: 🟡 Diseño (en revisión — NO implementado; ver §10, revisión 2026-08-18)
 **Fecha**: 2026-07-16
 **Origen**: conversación José + Claude sobre el error conceptual en `areas`/`lanes`.
 **Relación**: consolida WISH-ARCH-002 (convergencia a un motor). No agrega deuda:
@@ -188,6 +188,39 @@ Cada fase: visible en Epifanía y con tests, como el rescate de LAF.
    de `considerations` (misma guarda blanda), o son campos aparte?
 
 ---
+
+## 10. Revisión 2026-08-18 — el Mapa se simplifica: de tres conceptos a dos
+
+Revisión de José con la evidencia de las iteraciones 11-13 (macro-grilla,
+`canvas.partition`, corredores, roles de banda), que este doc no podía
+anticipar porque son posteriores a él. El destino del wish no cambia; la
+ruta sí:
+
+1. **El carril es un caso particular de área.** Con `partition`, una celda
+   de fila/columna completa ES un carril — demostrado sin buscarlo: las
+   bandas hub del showcase del tabernero (LAYOUT-026) son carriles
+   horizontales hechos con una celda estirada. La fase 2 («generalizar
+   lanes a H/V») deja de ser una obra propia: los carriles H y V salen de
+   la macro-grilla que ya existe. La matriz = dos particiones cruzadas.
+2. **El ámbito multiforme (fase 4) se re-lee como estrategia de
+   partición.** `partition.scheme` hoy vale `'bsp'`; el open pit circular
+   o la silueta de oficina no son un constructo nuevo sino `scheme`s
+   nuevos (`radial`, `path`). La fase 5 (layout dentro de forma
+   arbitraria) sigue siendo la parte genuinamente difícil y sigue siendo
+   opt-in posterior.
+3. **Quedan DOS constructos, no tres**: el **área** (top-down: se declara
+   y el contenido se posa sobre ella — escenografía) y el **contenedor**
+   (bottom-up: crece hacia su contenido — profundidad). Regla del autor
+   (18-ago-2026): dos niveles bastan; no hay super-zonas de super-zonas.
+4. **La decisión §9.2 la resolvió la práctica, al revés de lo sugerido**:
+   la capa macro (grilla, partition, corredores, hub) se construyó en
+   `hier` durante las iteraciones 11-13; AUTO queda como layout de celda.
+   WISH-ARCH-009 (contenedores como miembros de área — la fase 3 de este
+   plan) consolida esa dirección.
+5. **Método, para el próximo lector**: un WISH fija el *destino*, no la
+   *ruta*. La ruta se descubre iterando, y cuando la realidad la mejora,
+   este doc se revisa con adenda fechada — no se congela ni se reescribe
+   la historia.
 
 *Este documento es diseño en papel. No hay código asociado todavía. Próximo paso:
 revisión de José sobre §9 antes de abrir la fase 1.*
