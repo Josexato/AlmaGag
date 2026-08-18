@@ -1688,6 +1688,33 @@ sin recalibrar ningún test — ninguno fijaba valores absolutos.
 
 ---
 
+### WISH-ROUTE-008: Abanicos por origen en la vía directa + desvíos escalonados ✅ RESUELTO (2026-08-18)
+**Componente**: `strategies/hier/areas.py` (vía directa L/R·T/B, `_route_fat_conns`, `_dodge_boxes`)
+**Reportado**: 2026-08-18 (el autor, con el resaltado de rutas de GAG-WV
+sobre el showcase_v2: «los enlaces siguen superponiéndose»)
+
+Tres coladores de superposición que los carriles de ROUTE-007 no
+cubrían, medidos con instrumento de solapes colineales (52 pares, hasta
+1381px montados): (1) la vía DIRECTA entre cajas enfrentadas (misma
+fila / sin grilla) era anterior a los carriles — todas las rutas de un
+par de zonas compartían la vertical del corredor; (2) todas las
+entradas/salidas de un mismo hijo usaban el MISMO punto de puerto;
+(3) dos rutas que rodeaban la misma caja (dodge) caían en la misma
+línea de desvío. Política de ABANICO por origen (la del bus X92): las
+rutas de un mismo origen comparten troncal (superposición adrede — una
+línea que se ramifica; el carril por-ruta las trenzaba: 0→19 cruces
+medidos y descartado), orígenes distintos van en carriles distintos,
+las entradas a un mismo destino se reparten por origen en el borde del
+icono (T72 en miniatura) y los desvíos se escalonan +7px por caja+lado.
+Medido en el showcase: superposición entre orígenes distintos 52→6
+pares (536px residuales, cortos); los cruces reales suben 0→22 porque
+el contador nuevo (BUGS-LOG-002) ya no puede confundir un montón
+colineal con «cero cruces» — antes estaban montados, ahora se ven y se
+cuentan. Fixtures idénticos (la grilla de corredores no pasa por la vía
+directa).
+
+---
+
 ### WISH-ARCH-007: SDJF 2.0 — spec formal con una sintaxis canónica (Y94) 🆕 ABIERTO — mediano plazo
 **Componente**: formato SDJF + `docs/spec/FORMATO_ARCHIVOS.md`
 **Reportado**: 2026-08-11 (grupo Y — requiere decisión de José: hay deprecaciones)
