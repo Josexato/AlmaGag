@@ -1643,6 +1643,37 @@ ajeno de lado a lado se desvía por su borde (+12px, iterado), el que
 ENTRA a una caja para rematar en su hijo se respeta (T71). Medido:
 arista×nodo 8→0, labels 4→0.
 
+**v3 mismo día** (el autor: «la distribución de los contenedores podría
+mejorar para que eviten menos cruces»): instrumentado el showcase par a
+par — de 13 cruces reales de trazado, 7 los causaba UNA línea
+(r_a1→r_a5) bajando por el pasillo central del área. Los enlaces
+intra-área que saltan ≥2 filas entre miembros que tocan un mismo borde
+van ahora por el CANAL LATERAL del área (margen libre por construcción
+del empaque por filas; escalonado 8px si comparten canal). Medido:
+cruces reales de trazado 13→6; los 6 restantes son topológicos (la
+horizontal 8→3 contra los descensos de 7 y 9 en el corredor). Hallazgo
+colateral fichado: BUGS-LOG-002.
+
+---
+
+### BUGS-LOG-002: `cruces(arista×arista)` mide centros, no el trazado dibujado 🆕 ABIERTO
+**Componente**: `layout/metrics.py::count_crossings`
+**Reportado**: 2026-08-18 (destapado por ARCH-009 v3: los cruces reales
+bajaron 13→6 y la métrica quedó clavada en 27)
+
+`count_crossings` cuenta cruces entre segmentos RECTOS centro-a-centro
+de los iconos (herencia del abstract_placer de LAF) — ignora
+`computed_path`. Era razonable cuando el trazado seguía al centro; con
+corredores, carriles, curvas y canales laterales, lo dibujado ya no se
+parece al segmento abstracto: la métrica ni premia el ruteo bueno ni
+castiga el malo. Viola «lo dibujado es lo medido» (doctrina VAL-008).
+Criterio: cuando una conexión tiene `computed_path`, contar cruces
+sobre la polilínea real (compartir extremo sigue sin ser cruce; la
+troncal superpuesta de un bus X92 tampoco). Requiere recalibración
+única de la línea base de fixtures (patrón It6-2c) — por eso se ficha
+en vez de arreglarse al paso: decisión de José sobre cuándo pagar esa
+recalibración.
+
 ---
 
 ### WISH-ARCH-007: SDJF 2.0 — spec formal con una sintaxis canónica (Y94) 🆕 ABIERTO — mediano plazo

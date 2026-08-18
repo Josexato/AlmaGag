@@ -292,8 +292,13 @@ def _fat_sub_layout(members, conns, cont_of):
         row = rows[lvl]
         row_h = max(_node_dims(e)[1] for e in row)
         x = 0.0
-        for e in row:
+        for i, e in enumerate(row):
             w, _h = _node_dims(e)
+            # bordes de fila: el canal lateral del área sólo sirve a
+            # miembros que tocan ese borde (el pasillo queda libre por
+            # construcción del empaque por filas).
+            e['_edge'] = ('L' if i == 0 else '') + \
+                ('R' if i == len(row) - 1 else '')
             if e.get('_cw'):
                 e['x'], e['y'] = x, y
                 e['width'], e['height'] = e['_cw'], e['_ch']
@@ -307,7 +312,8 @@ def _fat_sub_layout(members, conns, cont_of):
             x += w + _FAT_GAP_X
         y += row_h + _FAT_GAP_Y
 
-    _route_fat_conns(members, conns, cont_of, mset)
+    lvl_of = {e['id']: int(lv.level.get(e['id'], 0)) for e in members}
+    _route_fat_conns(members, conns, cont_of, mset, lvl_of)
 
     # bbox local: cajas gordas + iconos/etiquetas sueltos + paths.
     maxx = maxy = 0.0
@@ -326,10 +332,15 @@ def _fat_sub_layout(members, conns, cont_of):
     return maxx, maxy
 
 
-def _route_fat_conns(members, conns, cont_of, mset):
+def _route_fat_conns(members, conns, cont_of, mset, lvl_of=None):
     """Conexiones que cruzan de un miembro gordo a otro DENTRO del área:
     puertos en el borde del hijo real, corredor ortogonal a mitad de camino
-    entre las cajas enfrentadas (T71 en miniatura)."""
+    entre las cajas enfrentadas (T71 en miniatura). Los enlaces LARGOS
+    (saltan ≥2 filas) entre miembros que tocan un mismo borde van por el
+    CANAL LATERAL del área — el pasillo central es de los que entran, no
+    de los que pasan (ARCH-009 v3: r_a1→r_a5 causaba 7 de los 13 cruces
+    del showcase atravesando el medio)."""
+    lvl_of = lvl_of or {}
     by_local = {e['id']: e for e in members}
     for e in members:
         for k in e.get('_kids', []):
@@ -339,6 +350,8 @@ def _route_fat_conns(members, conns, cont_of, mset):
         w, h = _node_dims(e)
         ex = e['x'] if e.get('_cw') else e['x'] - (w - ICON_WIDTH) / 2
         box_of[e['id']] = (ex, e['y'], w, h)
+    maxx_all = max((b[0] + b[2] for b in box_of.values()), default=0.0)
+    side_used = {'L': 0, 'R': 0}
     for c in conns:
         f, t = c.get('from'), c.get('to')
         cf, ct = cont_of.get(f, f), cont_of.get(t, t)
@@ -349,6 +362,29 @@ def _route_fat_conns(members, conns, cont_of, mset):
             continue
         fx, fy, fw, fh = box_of[cf]
         tx, ty, tw, th = box_of[ct]
+
+        if abs(lvl_of.get(cf, 0) - lvl_of.get(ct, 0)) >= 2:
+            ef = by_local[cf].get('_edge', '')
+            et = by_local[ct].get('_edge', '')
+            side = 'L' if ('L' in ef and 'L' in et) else \
+                ('R' if ('R' in ef and 'R' in et) else None)
+            if side:
+                side_used[side] += 1
+                if side == 'L':
+                    chx = -(16.0 + 8.0 * (side_used['L'] - 1))
+                    a = _node_border_port(s, 'L')
+                    b = _node_border_port(d, 'L')
+                else:
+                    chx = maxx_all + 16.0 + 8.0 * (side_used['R'] - 1)
+                    a = _node_border_port(s, 'R')
+                    b = _node_border_port(d, 'R')
+                pts = [a, (chx, a[1]), (chx, b[1]), b]
+                c['computed_path'] = {'type': 'polyline',
+                                      'points': _dedupe(pts),
+                                      'corner_radius': _CURVE_R}
+                c['_from_port'] = a
+                c['_to_port'] = b
+                continue
         dxc = (tx + tw / 2) - (fx + fw / 2)
         dyc = (ty + th / 2) - (fy + fh / 2)
         if abs(dyc) >= abs(dxc):
