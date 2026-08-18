@@ -657,6 +657,25 @@ motor AUTO aplica un macro-layout de zonas:
 - **No uses `hp`/`wp` en contenedores.** Su tamano se calcula automaticamente.
 - Los hijos no necesitan `x`/`y` — AlmaGag los posiciona dentro del contenedor.
 
+### Contenedores dentro de areas (WISH-ARCH-009)
+
+Un contenedor puede ser **miembro de un area**: zonas para la escenografia,
+contenedores para la profundidad — dos niveles y nada mas. La vista por
+ambitos mide cada contenedor (sub-layout de sus hijos, bottom-up) y lo
+coloca dentro de su area como una caja; los hijos heredan el area de su
+contenedor para el ruteo inter-area.
+
+```json
+"elements": [ { "id": "c1", "label": "Modulo", "contains": ["n1", "n2"] }, ... ],
+"areas":    [ { "id": "Z1", "label": "Zona", "members": ["c1"] } ]
+```
+
+- **Precedencia**: antes `contains` forzaba AUTO y anulaba las areas; ahora
+  `areas` + `contains` van a la vista por ambitos (§O53 lo nombra en el log).
+  `contains` SIN areas sigue en AUTO, igual que siempre.
+- Un nivel de anidamiento: un contenedor dentro de otro contenedor que a su
+  vez es miembro de area se nombra en el log y se coloca como icono normal.
+
 ### Campo `scope` en hijos (opcional)
 
 ```json

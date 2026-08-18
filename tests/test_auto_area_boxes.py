@@ -4,7 +4,8 @@ Cuando una señal blanda (considerations/constraints) fuerza AUTO habiendo
 `areas`, cada área con 2+ miembros se siembra como zona `near` (§N46): la
 caja punteada rotulada, la banda §O54 y la expulsión de intrusos salen de la
 maquinaria existente. La señal ya no se pierde — cambia de representación.
-Con `contains` no se convierte y el WARNING de anulación se mantiene.
+Con `contains` (desde ARCH-009) tampoco se pierde: el archivo va a la
+vista por ámbitos de hier y §O53 nombra la decisión.
 """
 
 import json
@@ -70,8 +71,11 @@ def test_auto_renders_area_as_zone_box(tmp_path):
     assert labels and labels[0].get('fill') == '#6b6558'
 
 
-def test_contains_case_keeps_warning(tmp_path, caplog):
-    """Con contenedores no hay conversión: el WARNING §O53 sigue avisando."""
+def test_contains_case_goes_hier_and_names_it(tmp_path, caplog):
+    """ARCH-009 (recalibrado): areas + contains ya no se anula — el archivo
+    va a la vista por ámbitos y §O53 lo nombra. El conflicto de este caso
+    (el hijo 'x' del contenedor declara área propia) también se nombra: la
+    membresía declarada gana. Nunca silencio, ahora en positivo."""
     import logging
     data = {
         'areas': [{'id': 'F1', 'label': 'Fase', 'members': ['x', 'y']}],
@@ -80,7 +84,8 @@ def test_contains_case_keeps_warning(tmp_path, caplog):
                      {'id': 'y', 'type': 'server'}],
         'connections': [],
     }
-    with caplog.at_level(logging.WARNING, logger='AlmaGag'):
+    with caplog.at_level(logging.INFO, logger='AlmaGag'):
         _emit(data, tmp_path)
     text = '\n'.join(r.message for r in caplog.records)
-    assert '§O53' in text and 'anulada' in text
+    assert '§O53' in text and 'ARCH-009' in text
+    assert 'membresía declarada gana' in text
