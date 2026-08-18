@@ -1609,6 +1609,35 @@ métricas idénticas.
 
 ---
 
+### WISH-ARCH-009: Contenedores como miembros de área — convergencia áreas⇄contenedores ✅ RESUELTO (2026-08-18, iteración 14)
+**Componente**: `generator.py::select_strategy` + `strategies/hier/areas.py`
+**Reportado**: 2026-08-18 (el autor: «pensaba usar zonas y los humildes
+contenedores que ya tenemos» — dos niveles bastan, sin super-zonas;
+fase 3 del Mapa, WISH-ARCH-004 §10)
+
+`contains` forzaba AUTO para todo el archivo y las áreas degradaban a
+zonas near — el showcase_v2 (2 zonas + 9 contenedores) rendía sin marcos
+y con los grupos entreverados. Tres cambios: (1) precedencia invertida
+en `select_strategy` — `areas` + `contains` → hier, nombrado en §O53;
+(2) el contenedor se MIDE bottom-up (`_measure_container`: sub-layout de
+sus hijos + padding/header, espejo de ContainerCalculator, caja dibujada
+= caja reservada vía `_is_container_calculated`) y entra a la grilla del
+área como nodo gordo (`_fat_sub_layout`: niveles sobre el grafo
+condensado hijo→contenedor, filas por nivel, empaque por anchos reales);
+(3) los hijos heredan el área de su contenedor y el ruteo funciona en
+los tres niveles: intra-contenedor (A–H local), miembro→miembro dentro
+del área (puertos en el hijo real, corredor T71 en miniatura) e
+inter-área (corredores/carriles/curvas de ROUTE-006/007 intactos).
+Guarda de regresión: un área sin contenedores sigue el camino viejo
+byte a byte; fixtures idénticos. Showcase_v2 medido: 2 marcos + 9
+contenedores en su zona, aspecto 1.28, labels 4. v1 con límites
+nombrados: un nivel de anidamiento (contenedor-en-contenedor cae a
+icono con WARNING) y toma lateral del condensado apila la cadena en
+columna (el `partition` declarado manda, como siempre). Tests:
+`test_arch009_areas_contains.py` (6).
+
+---
+
 ### WISH-ARCH-007: SDJF 2.0 — spec formal con una sintaxis canónica (Y94) 🆕 ABIERTO — mediano plazo
 **Componente**: formato SDJF + `docs/spec/FORMATO_ARCHIVOS.md`
 **Reportado**: 2026-08-11 (grupo Y — requiere decisión de José: hay deprecaciones)

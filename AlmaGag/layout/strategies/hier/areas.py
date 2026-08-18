@@ -23,6 +23,7 @@ Retrocompatible: sin `areas`, el optimizer usa su pipeline normal.
 
 import logging
 from typing import Dict, List
+from AlmaGag.utils import extract_item_id
 from AlmaGag.layout.layout import Layout
 from AlmaGag.layout.strategies.hier.leveling import compute_levels
 from AlmaGag.layout.strategies.hier.columns import compute_columns
@@ -70,10 +71,12 @@ def _label_halfwidth(e):
 
 
 def _label_boxes(members):
-    """Cajas de etiqueta (centradas bajo cada icono) para incluir en el bbox."""
+    """Cajas de etiqueta (centradas bajo cada icono) para incluir en el bbox.
+    Los contenedores no llevan etiqueta inferior — su label vive en el header
+    de la caja (ARCH-009)."""
     boxes = []
     for e in members:
-        if 'x' not in e or not e.get('label'):
+        if 'x' not in e or not e.get('label') or e.get('contains'):
             continue
         lines = e['label'].count('\n') + 1
         cx = e['x'] + ICON_WIDTH / 2
@@ -202,11 +205,194 @@ def _shift(members, conns, dx, dy):
                 c[k] = (c[k][0] + dx, c[k][1] + dy)
 
 
+# ---------------------------------------------------------------------------
+# WISH-ARCH-009: contenedores como miembros de área — «zonas para la
+# escenografía, contenedores para la profundidad» (el autor, 18-ago-2026).
+# El contenedor se MIDE primero (sub-layout de sus hijos, bottom-up) y entra
+# a la grilla del área como un nodo gordo; su caja dibujada = la reservada
+# (se fijan x/y/width/height + _is_container_calculated, el mismo contrato
+# que ContainerCalculator le da a draw_container).
+# ---------------------------------------------------------------------------
+_CONT_PAD = 10.0        # espejo de container.get('padding', 10)
+_FAT_GAP_X = 60.0       # aire horizontal entre nodos gordos
+_FAT_GAP_Y = 46.0       # aire vertical entre filas de nodos gordos
+
+
+def _container_header_h(cont):
+    """Alto del header (icono+label) — espejo de ContainerCalculator."""
+    if not cont.get('label'):
+        return 0.0
+    return float(max(50, len(cont['label'].split('\n')) * 18))
+
+
+def _measure_container(cont, by_id, conns, cont_of):
+    """Sub-layout local de los hijos y footprint del contenedor. Deja en el
+    dict: _cw/_ch (caja completa), _koff (offset del contenido dentro de la
+    caja), _kids/_kconns (para trasladar junto con la caja). Sólo cuentan
+    los hijos cuya pertenencia sigue en `cont_of` (un hijo con área propia
+    declarada ya no es de este contenedor para el layout)."""
+    kid_ids = [k for k in (extract_item_id(i)
+                           for i in cont.get('contains', []))
+               if cont_of.get(k) == cont['id']]
+    kids = [by_id[k] for k in kid_ids if k in by_id]
+    kset = set(kid_ids)
+    kconns = [c for c in conns
+              if c.get('from') in kset and c.get('to') in kset]
+    cw, ch = _sub_layout(kids, kconns)
+    pad = float(cont.get('padding', _CONT_PAD))
+    head = _container_header_h(cont)
+    fw = cw + 2 * pad
+    if cont.get('label'):
+        # mínimo para que el label del header quepa (BUGS-AUTO-007)
+        lw = max(len(ln) for ln in cont['label'].split('\n')) * 10
+        fw = max(fw, 10 + ICON_WIDTH + 10 + lw + 10)
+    fh = ch + 2 * pad + head
+    cont['_cw'], cont['_ch'] = fw, fh
+    cont['_koff'] = ((fw - cw) / 2, head + pad)
+    cont['_kids'], cont['_kconns'] = kids, kconns
+    return fw, fh
+
+
+def _node_dims(e):
+    """(w, h) del miembro como unidad de empaque: contenedor medido o
+    icono + bloque de etiqueta."""
+    if e.get('_cw'):
+        return e['_cw'], e['_ch']
+    lines = e['label'].count('\n') + 1 if e.get('label') else 0
+    h = ICON_HEIGHT + (LABEL_GAP + lines * LABEL_LINE_H if lines else 0.0)
+    return max(ICON_WIDTH, 2 * _label_halfwidth(e)), h
+
+
+def _fat_sub_layout(members, conns, cont_of):
+    """ARCH-009: sub-layout de un área con contenedores entre sus miembros.
+    Niveles sobre el grafo CONDENSADO (cada hijo cuenta como su contenedor),
+    filas por nivel, empaque horizontal por anchos reales. Muta members (y
+    los hijos de cada contenedor) a coords locales del área; rutea las
+    conexiones que cruzan de un miembro a otro. Devuelve (w, h)."""
+    mset = {e['id'] for e in members}
+    synth, seen = [], set()
+    for c in conns:
+        f = cont_of.get(c.get('from'), c.get('from'))
+        t = cont_of.get(c.get('to'), c.get('to'))
+        if f in mset and t in mset and f != t and (f, t) not in seen:
+            seen.add((f, t))
+            synth.append({'from': f, 'to': t})
+    lv = compute_levels(members, synth)
+    cols, _wp = compute_columns(lv, members, synth)
+    rows = {}
+    for e in sorted(members, key=lambda e: (lv.level.get(e['id'], 0),
+                                            cols.get(e['id'], 0))):
+        rows.setdefault(lv.level.get(e['id'], 0), []).append(e)
+    y = 0.0
+    for lvl in sorted(rows):
+        row = rows[lvl]
+        row_h = max(_node_dims(e)[1] for e in row)
+        x = 0.0
+        for e in row:
+            w, _h = _node_dims(e)
+            if e.get('_cw'):
+                e['x'], e['y'] = x, y
+                e['width'], e['height'] = e['_cw'], e['_ch']
+                e['_is_container_calculated'] = True
+                ox, oy = e['_koff']
+                _shift(e['_kids'], e['_kconns'], x + ox, y + oy)
+            else:
+                e['x'] = x + (w - ICON_WIDTH) / 2
+                e['y'] = y
+                e['label_position'] = 'bottom'
+            x += w + _FAT_GAP_X
+        y += row_h + _FAT_GAP_Y
+
+    _route_fat_conns(members, conns, cont_of, mset)
+
+    # bbox local: cajas gordas + iconos/etiquetas sueltos + paths.
+    maxx = maxy = 0.0
+    for e in members:
+        w, h = _node_dims(e)
+        ex = e['x'] if e.get('_cw') else e['x'] - (w - ICON_WIDTH) / 2
+        maxx = max(maxx, ex + w)
+        maxy = max(maxy, e['y'] + h)
+    for b in _label_boxes([e for e in members if not e.get('_cw')]):
+        maxx = max(maxx, b[2])
+        maxy = max(maxy, b[3])
+    for c in conns:
+        for px, py in _all_points([], [c]):
+            maxx = max(maxx, px)
+            maxy = max(maxy, py)
+    return maxx, maxy
+
+
+def _route_fat_conns(members, conns, cont_of, mset):
+    """Conexiones que cruzan de un miembro gordo a otro DENTRO del área:
+    puertos en el borde del hijo real, corredor ortogonal a mitad de camino
+    entre las cajas enfrentadas (T71 en miniatura)."""
+    by_local = {e['id']: e for e in members}
+    for e in members:
+        for k in e.get('_kids', []):
+            by_local[k['id']] = k
+    box_of = {}
+    for e in members:
+        w, h = _node_dims(e)
+        ex = e['x'] if e.get('_cw') else e['x'] - (w - ICON_WIDTH) / 2
+        box_of[e['id']] = (ex, e['y'], w, h)
+    for c in conns:
+        f, t = c.get('from'), c.get('to')
+        cf, ct = cont_of.get(f, f), cont_of.get(t, t)
+        if cf not in mset or ct not in mset or cf == ct:
+            continue
+        s, d = by_local.get(f), by_local.get(t)
+        if s is None or d is None or 'x' not in s or 'x' not in d:
+            continue
+        fx, fy, fw, fh = box_of[cf]
+        tx, ty, tw, th = box_of[ct]
+        dxc = (tx + tw / 2) - (fx + fw / 2)
+        dyc = (ty + th / 2) - (fy + fh / 2)
+        if abs(dyc) >= abs(dxc):
+            if dyc >= 0:
+                a = _node_border_port(s, 'B')
+                b = _node_border_port(d, 'T')
+                corr = ((fy + fh) + ty) / 2
+            else:
+                a = _node_border_port(s, 'T')
+                b = _node_border_port(d, 'B')
+                corr = (fy + (ty + th)) / 2
+            pts = [a, (a[0], corr), (b[0], corr), b]
+        else:
+            if dxc >= 0:
+                a = _node_border_port(s, 'R')
+                b = _node_border_port(d, 'L')
+                corr = ((fx + fw) + tx) / 2
+            else:
+                a = _node_border_port(s, 'L')
+                b = _node_border_port(d, 'R')
+                corr = (fx + (tx + tw)) / 2
+            pts = [a, (corr, a[1]), (corr, b[1]), b]
+        c['computed_path'] = {'type': 'polyline', 'points': _dedupe(pts),
+                              'corner_radius': _CURVE_R}
+        c['_from_port'] = a
+        c['_to_port'] = b
+
+
 def layout_by_areas(layout, areas_spec):
     """Posiciona `layout` por áreas (§I27) y rutea inter-área (§I29).
     Devuelve la lista de cajas [{id,label,color,x,y,w,h}]. Muta layout."""
     by_id = {e['id']: e for e in layout.elements}
     conns = layout.connections
+
+    # ARCH-009: mapa hijo → contenedor (un nivel; un contenedor anidado
+    # dentro de otro se nombra y se trata como icono normal en v1).
+    containers = {e['id']: e for e in layout.elements if e.get('contains')}
+    cont_of: Dict[str, str] = {}
+    for cid, cont in containers.items():
+        for item in cont.get('contains', []):
+            kid = extract_item_id(item)
+            if kid in containers:
+                logger.warning(f"[areas] contenedor '{kid}' anidado dentro "
+                               f"de '{cid}' — ARCH-009 v1 soporta UN nivel; "
+                               f"se coloca como icono")
+                continue
+            if kid in by_id:
+                cont_of[kid] = cid
 
     # Miembros por área + área de cada nodo. Los nodos sin área declarada van a
     # un área implícita propia (singleton) para no perderlos.
@@ -219,12 +405,27 @@ def layout_by_areas(layout, areas_spec):
         for m in a.get('members', []):
             if m in by_id:
                 area_of[m] = a['id']
+    # conflicto: un hijo de contenedor que ADEMÁS declara área propia — la
+    # membresía declarada gana y el contenedor lo pierde para el layout
+    # (nunca dos dueños, nunca silencio).
+    for kid in list(cont_of):
+        if kid in area_of:
+            logger.warning(f"[areas] '{kid}' es hijo del contenedor "
+                           f"'{cont_of[kid]}' pero declara área propia — la "
+                           f"membresía declarada gana (ARCH-009)")
+            del cont_of[kid]
     for e in layout.elements:
-        if e['id'] not in area_of:
-            aid = f"__solo_{e['id']}"
-            spec_by_id[aid] = {'id': aid, 'label': '', 'members': [e['id']]}
-            area_of[e['id']] = aid
-            order.append(aid)
+        if e['id'] in area_of or e['id'] in cont_of:
+            continue        # los hijos viajan con su contenedor (ARCH-009)
+        aid = f"__solo_{e['id']}"
+        spec_by_id[aid] = {'id': aid, 'label': '', 'members': [e['id']]}
+        area_of[e['id']] = aid
+        order.append(aid)
+    # los hijos heredan el área de su contenedor (para el ruteo inter-área);
+    # una membresía declarada explícita del hijo gana.
+    for kid, cid in cont_of.items():
+        if cid in area_of:
+            area_of.setdefault(kid, area_of[cid])
 
     # WISH-LAYOUT-024: si hay partition bsp declarada, la PROPORCIÓN de la
     # celda de cada área se conoce antes del sub-layout — informa la forma
@@ -244,6 +445,27 @@ def layout_by_areas(layout, areas_spec):
     for aid in order:
         spec = spec_by_id[aid]
         members = [by_id[m] for m in spec['members'] if m in by_id]
+        fat = [m for m in members if m.get('contains')]
+        if fat:
+            # ARCH-009: la clausura del área incluye a los hijos de sus
+            # contenedores; las conexiones internas del contenedor viajan
+            # con él y las miembro-a-miembro se rutean a nivel de área.
+            closure = set(spec['members'])
+            for cont in fat:
+                closure.update(k for k, c in cont_of.items()
+                               if c == cont['id'])
+            sub_conns = [c for c in conns
+                         if c.get('from') in closure
+                         and c.get('to') in closure]
+            for cont in fat:
+                _measure_container(cont, by_id, conns, cont_of)
+            w, h = _fat_sub_layout(members, sub_conns, cont_of)
+            movers = members + [k for cont in fat for k in cont['_kids']]
+            dims.append({'aid': aid, 'spec': spec, 'members': movers,
+                         'conns': sub_conns,
+                         'w': w + 2 * AREA_PAD,
+                         'h': h + 2 * AREA_PAD + AREA_HEAD})
+            continue
         mset = set(spec['members'])
         sub_conns = [c for c in conns
                      if c.get('from') in mset and c.get('to') in mset]
@@ -486,14 +708,18 @@ def _macro_rows(dims):
 
 
 def _node_border_port(e, side):
-    cx, cy = e['x'] + ICON_WIDTH / 2, e['y'] + ICON_HEIGHT / 2
+    # ARCH-009: si el nodo es un contenedor medido, el puerto va en el borde
+    # de su caja real, no en un icono imaginario de 80×50.
+    w = e.get('width', ICON_WIDTH) if e.get('contains') else ICON_WIDTH
+    h = e.get('height', ICON_HEIGHT) if e.get('contains') else ICON_HEIGHT
+    cx, cy = e['x'] + w / 2, e['y'] + h / 2
     if side == 'R':
-        return (e['x'] + ICON_WIDTH, cy)
+        return (e['x'] + w, cy)
     if side == 'L':
         return (e['x'], cy)
     if side == 'T':
         return (cx, e['y'])
-    return (cx, e['y'] + ICON_HEIGHT)
+    return (cx, e['y'] + h)
 
 
 BUS_MIN_AREAS = 3      # WISH-ROUTE-005 (X92): umbral de destinos en áreas distintas
@@ -708,7 +934,7 @@ def _route_bus(src_id, conns, area_of, box_by_area, by_id, grid=None,
         rows, corr_ys, row_of = grid
         si = row_of[sb['id']]
         for eid, aid in area_of.items():
-            if eid in by_id:
+            if eid in by_id and not by_id[eid].get('contains'):
                 members.setdefault(aid, []).append(by_id[eid])
     # WISH-ROUTE-007: todos los ramales del bus comparten CLAVE de carril —
     # la troncal superpuesta es adrede; contra otras rutas, carril propio.
@@ -777,7 +1003,9 @@ def _route_inter_area(layout, area_of, box_by_area):
     lane = _make_lanes() if grid else None   # WISH-ROUTE-007
     if grid:
         for eid, aid in area_of.items():
-            if eid in by_id:
+            # ARCH-009: los contenedores no entran como hermanos-obstáculo
+            # (la guarda de columna asume dimensiones de icono).
+            if eid in by_id and not by_id[eid].get('contains'):
                 members.setdefault(aid, []).append(by_id[eid])
 
     # WISH-ROUTE-005 (X92): detectar hubs por nodo origen ANTES del ruteo

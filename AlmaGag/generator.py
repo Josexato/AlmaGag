@@ -20,7 +20,9 @@ def select_strategy(data, view='auto'):
 
     Política (conservadora, no regresiona los canónicos de arquitectura):
     - una vista explícita (`--view`) → esa vista es de hier
-    - contenedores anidados (`contains`) → AUTO (hier aún no los soporta)
+    - `areas` + `contains` → hier: la vista por ámbitos monta los
+      contenedores DENTRO de sus áreas (WISH-ARCH-009)
+    - contenedores (`contains`) sin áreas → AUTO
     - metadata de fases (`areas`) → flujo por ámbitos (hier)
     - nodos de decisión (rombos) → flowchart → hier
     - flujo CON CICLO, sin coords manuales → hier (niveles + arcos de ciclo)
@@ -49,11 +51,13 @@ def select_strategy(data, view='auto'):
         return 'auto'                       # consideraciones (align/near/avoid): sólo AUTO
     if any('contains' in e for e in elements):
         if data.get('areas'):
-            logger.warning(
-                "§O53: 'contains' (contenedores) fuerza AUTO — señal anulada: "
-                "'areas' (§I27): las cajas de fase no se dibujarán como vista "
-                "por ámbitos")
-        return 'auto'                       # hier no maneja contenedores anidados
+            # WISH-ARCH-009: las áreas ganan — escenografía primero. Antes
+            # `contains` forzaba AUTO y las cajas de fase se anulaban.
+            logger.info(
+                "§O53: 'areas' + 'contains' — la vista por ámbitos (hier) "
+                "monta los contenedores DENTRO de sus áreas (ARCH-009)")
+            return 'hier'
+        return 'auto'                       # contenedores sin áreas: AUTO
     if data.get('areas'):
         return 'hier'
     types = {e.get('type') for e in elements}

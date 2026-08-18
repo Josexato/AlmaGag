@@ -197,6 +197,19 @@ la narrativa. Verificado: la sugerencia sobre el tabernero rinde como la
 escenografía hecha a mano (aspecto 1.33/1.32, arista×nodo 11/12).
 Motor v3.14.0. Ticket: WISH-LAYOUT-025.
 
+## Iteración 14 — contenedores dentro de áreas (18-ago): dos niveles y nada más
+
+Del rechazo del autor a las super-zonas («va a parecer película de Marvel
+donde siempre sale un malo más malo») salió la doctrina y la obra: zonas
+para la escenografía, contenedores para la profundidad. `areas` +
+`contains` ya no cede a AUTO — la vista por ámbitos mide cada contenedor
+bottom-up y lo monta dentro de su área; los hijos heredan el área para el
+ruteo. Es la fase 3 del Mapa (WISH-ARCH-004 §10: el Mapa se simplifica a
+dos constructos). Verificado con el showcase_v2 del tabernero: 2 marcos
+(Cadena de valor / Orquestación) + 9 contenedores cada uno en su zona,
+aspecto 1.28. Motor v3.15.0. Tickets: WISH-ARCH-009, WISH-LAYOUT-026
+(hub al medio, previa). Extra de la ronda: adenda §10 al diseño del Mapa.
+
 ## Mediano plazo (sin fecha)
 
 - **«El mapa» (WISH-ARCH-004)**: separar mapa (dato) de vista (representación)

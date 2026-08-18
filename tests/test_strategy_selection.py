@@ -85,14 +85,17 @@ def test_considerations_beat_areas_with_notice(caplog):
     assert '§O53' in text and 'areas' in text and 'zonas near' in text
 
 
-def test_containers_beat_areas_with_warning(caplog):
+def test_areas_beat_containers_arch009(caplog):
+    """ARCH-009 (recalibrado): antes `contains` anulaba las áreas; ahora las
+    áreas GANAN — la vista por ámbitos monta los contenedores adentro, y
+    §O53 nombra la decisión en el log (nunca silencio)."""
     import logging
-    data = {'areas': [{'id': 'F1', 'members': ['x']}],
+    data = {'areas': [{'id': 'F1', 'members': ['box']}],
             'elements': [{'id': 'box', 'contains': ['x']}, {'id': 'x'}]}
-    with caplog.at_level(logging.WARNING, logger='AlmaGag'):
-        assert select_strategy(data) == 'auto'
+    with caplog.at_level(logging.INFO, logger='AlmaGag'):
+        assert select_strategy(data) == 'hier'
     text = '\n'.join(r.message for r in caplog.records)
-    assert '§O53' in text and 'contains' in text and 'areas' in text
+    assert '§O53' in text and 'ARCH-009' in text
 
 
 def test_explicit_view_annuls_considerations_with_warning(caplog):
