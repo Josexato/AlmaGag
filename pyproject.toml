@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "AlmaGag"
-version = "3.16.2"
+version = "3.16.3"
 description = "Generador Automático de Grafos - Genera diagramas SVG con layout jerárquico inteligente desde archivos JSON (SDJF v2.1)"
 readme = "README.md"
 requires-python = ">=3.8"

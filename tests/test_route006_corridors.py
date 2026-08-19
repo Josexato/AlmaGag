@@ -132,3 +132,42 @@ def test_independent_routes_get_distinct_lanes():
     if ys0 and ys1:
         assert not (ys0 & ys1), \
             f'rutas independientes montadas en el mismo carril: {ys0 & ys1}'
+
+
+def test_entries_to_same_node_get_distinct_ports():
+    """BUGS-ROUTE-005 (hallazgo del Skiller v3.16): dos orígenes distintos
+    entrando al MISMO hijo por la vía de corredores llegaban al punto
+    idéntico — las entradas se reparten en el borde del icono, como en la
+    vía directa (ROUTE-008)."""
+    import copy
+    from AlmaGag.layout.layout import Layout
+    from AlmaGag.layout.strategies.hier.areas import layout_by_areas
+    data = {
+        'elements': [
+            {'id': 'o1', 'type': 'server', 'label': 'O1'},
+            {'id': 'o2', 'type': 'server', 'label': 'O2'},
+            {'id': 'd0', 'type': 'database', 'label': 'D0'},
+            {'id': 'x0', 'type': 'database', 'label': 'X0'},
+        ],
+        'connections': [
+            {'from': 'o1', 'to': 'd0'},
+            {'from': 'o2', 'to': 'd0'},
+            {'from': 'o1', 'to': 'x0'},
+        ],
+        'areas': [
+            {'id': 'A', 'label': 'Arriba', 'members': ['o1', 'o2']},
+            {'id': 'B', 'label': 'Abajo', 'members': ['d0', 'x0']},
+        ],
+        'canvas': {'partition': {'scheme': 'grid',
+                                 'rows': [['A'], ['B']]}},
+    }
+    L = Layout(elements=copy.deepcopy(data['elements']),
+               connections=copy.deepcopy(data['connections']),
+               canvas={'width': 900, 'height': 700,
+                       'partition': data['canvas']['partition']})
+    layout_by_areas(L, data['areas'])
+    puertos = [c['_to_port'] for c in L.connections
+               if c.get('to') == 'd0' and c.get('_to_port')]
+    assert len(puertos) == 2
+    assert puertos[0] != puertos[1], \
+        f"dos orígenes llegan al punto idéntico: {puertos}"
