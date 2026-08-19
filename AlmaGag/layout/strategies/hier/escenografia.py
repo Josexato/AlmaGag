@@ -30,12 +30,73 @@ import json
 import logging
 from collections import Counter
 
+from AlmaGag.utils import extract_item_id
 from AlmaGag.layout.layout import Layout
 
 logger = logging.getLogger('AlmaGag')
 
 UNIT = 150.0          # px de contenido por unidad de proporción
 HUB_MIN_AREAS = 3     # mismo umbral que el bus X92
+
+
+def _build_area_of(data):
+    """Elemento → área, incluyendo la herencia ARCH-009: los hijos de un
+    contenedor miembro de área pertenecen a esa área (las conexiones
+    viajan entre hijos — sin esto el grafo condensado queda VACÍO en el
+    patrón zona+contenedor y el análisis es ciego)."""
+    by_elem = {e['id']: e for e in data.get('elements', [])}
+    area_of = {}
+    for a in data.get('areas') or []:
+        for m in a.get('members', []):
+            area_of[m] = a['id']
+    for m, aid in list(area_of.items()):
+        e = by_elem.get(m)
+        if e and e.get('contains'):
+            for item in e['contains']:
+                area_of.setdefault(extract_item_id(item), aid)
+    return area_of
+
+
+def connectivity_table(data):
+    """La tabla del autor (18-ago-2026, armada a mano en Excel): por cada
+    elemento conectado, enlaces INTERNOS (misma área) y ENTRE ÁREAS, con
+    hallazgos nombrados — un elemento sin enlaces internos y con varios
+    externos es un hub puro: su membresía es narrativa, no estructural.
+    Devuelve (filas, hallazgos): filas = [(id, internos, externos, área)]."""
+    area_of = _build_area_of(data)
+    interno, externo = Counter(), Counter()
+    for c in data.get('connections', []):
+        f, t = c.get('from'), c.get('to')
+        fa, ta = area_of.get(f), area_of.get(t)
+        if fa is None or ta is None:
+            continue
+        if fa == ta:
+            interno[f] += 1
+            interno[t] += 1
+        else:
+            externo[f] += 1
+            externo[t] += 1
+    ids = sorted(set(interno) | set(externo),
+                 key=lambda i: (area_of.get(i, ''), i))
+    filas = [(i, interno[i], externo[i], area_of.get(i, '?')) for i in ids]
+    hallazgos = []
+    for i, n_in, n_ex, aid in filas:
+        if n_in == 0 and n_ex >= HUB_MIN_AREAS:
+            hallazgos.append(
+                f"'{i}': 0 enlaces internos y {n_ex} entre áreas — hub "
+                f"puro: su membresía en {aid} es narrativa, no "
+                f"estructural (candidato a role 'hub' o al borde)")
+    coh = {}
+    for i, n_in, n_ex, aid in filas:
+        a, b = coh.get(aid, (0, 0))
+        coh[aid] = (a + n_in, b + n_ex)
+    for aid, (n_in, n_ex) in sorted(coh.items()):
+        if n_ex > n_in:
+            hallazgos.append(
+                f"área {aid}: {n_in // 2} enlace(s) interno(s) contra "
+                f"{n_ex} hacia afuera — más pasillo que casa: revisar si "
+                f"la agrupación cuenta la historia o sólo la decora")
+    return filas, hallazgos
 
 
 def _measure_areas(data):
@@ -104,7 +165,7 @@ def suggest_partition(data):
                        "sugerir un plano — nada que recomendar")
         return None
     area_ids = [a['id'] for a in areas]
-    area_of = {m: a['id'] for a in areas for m in a.get('members', [])}
+    area_of = _build_area_of(data)    # ARCH-009: los hijos heredan el área
     razones = []
 
     dims = _measure_areas(data)
@@ -210,6 +271,14 @@ def sugerir_cli(input_file) -> bool:
     out = suggest_partition(data)
     if out is None:
         return False
+    filas, hallazgos = connectivity_table(data)
+    if filas:
+        logger.info("[escenografia] conectividad medida "
+                    "(internos | entre-áreas | área):")
+        for i, n_in, n_ex, aid in filas:
+            logger.info(f"  {i:>12}  {n_in:2d} | {n_ex:2d} | {aid}")
+        for h in hallazgos:
+            logger.warning(f"[escenografia] {h}")
     logger.info("[escenografia] razones del plano sugerido:")
     for r in out['razones']:
         logger.info(f"  - {r}")
