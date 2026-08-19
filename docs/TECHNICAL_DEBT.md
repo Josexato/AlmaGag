@@ -1715,6 +1715,29 @@ directa).
 
 ---
 
+### WISH-LAYOUT-027: La tabla de conectividad — el motor confiesa la cohesión ✅ RESUELTO (2026-08-18)
+**Componente**: `strategies/hier/escenografia.py` (`connectivity_table`, `_build_area_of`)
+**Reportado**: 2026-08-18 (el autor llegó con la tabla armada A MANO en
+Excel: enlaces internos | entre áreas | área, por elemento — el análisis
+que el motor debería regalar)
+
+Dos piezas: (1) BUG curado — la escenografía asistida era CIEGA al
+patrón zona+contenedor (ARCH-009): las conexiones viajan entre HIJOS y
+`area_of` sólo mapeaba miembros, así que el grafo condensado quedaba
+vacío («G2 alimenta: 0 salidas vs 0 entradas» con 11 enlaces reales);
+`_build_area_of` hereda el área del contenedor a sus hijos y la
+dirección se mide (11 vs 0). (2) `connectivity_table` emite la tabla
+del autor en `--sugerir-escenografia` — por elemento conectado,
+internos | entre-áreas | área — con hallazgos nombrados: elemento con 0
+internos y ≥3 externos = «hub puro: su membresía es narrativa, no
+estructural (candidato a role 'hub' o al borde)»; área con más enlaces
+hacia afuera que adentro = «más pasillo que casa». Verificado contra el
+Excel del autor: coincidencia 100% en los 9 elementos del showcase_v2
+(r_a7: 0|5 hub puro; G2: 1 interno contra 11 afuera). Tests:
+`test_layout025_escenografia.py` (+2).
+
+---
+
 ### WISH-ARCH-007: SDJF 2.0 — spec formal con una sintaxis canónica (Y94) 🆕 ABIERTO — mediano plazo
 **Componente**: formato SDJF + `docs/spec/FORMATO_ARCHIVOS.md`
 **Reportado**: 2026-08-11 (grupo Y — requiere decisión de José: hay deprecaciones)

@@ -91,3 +91,54 @@ def test_too_few_areas_is_named(caplog):
                                  'areas': [{'id': 'x', 'members': []}]})
     assert out is None
     assert '≥2 áreas' in caplog.text
+
+
+def _mk_zonas_contenedores():
+    """Patrón ARCH-009: 2 zonas cuyos miembros son contenedores; las
+    conexiones viajan entre los HIJOS."""
+    return {
+        'elements': [
+            {'id': 'c1', 'label': 'Caja Uno', 'contains': ['n1', 'n2']},
+            {'id': 'c2', 'label': 'Caja Dos', 'contains': ['n3']},
+            {'id': 'c3', 'label': 'Caja Tres', 'contains': ['n4']},
+            {'id': 'n1', 'type': 'server', 'label': 'N1'},
+            {'id': 'n2', 'type': 'server', 'label': 'N2'},
+            {'id': 'n3', 'type': 'server', 'label': 'N3'},
+            {'id': 'n4', 'type': 'database', 'label': 'N4'},
+        ],
+        'connections': [
+            {'from': 'n1', 'to': 'n2'},          # interno (c1, Z1)
+            {'from': 'n2', 'to': 'n3'},          # interno (Z1: c1→c2)
+            {'from': 'n4', 'to': 'n1'},          # entre áreas (Z2→Z1)
+            {'from': 'n4', 'to': 'n3'},          # entre áreas (Z2→Z1)
+            {'from': 'n4', 'to': 'n2'},          # entre áreas (Z2→Z1)
+        ],
+        'areas': [
+            {'id': 'Z1', 'label': 'Zona Uno', 'members': ['c1', 'c2']},
+            {'id': 'Z2', 'label': 'Zona Dos', 'members': ['c3']},
+        ],
+    }
+
+
+def test_tabla_de_conectividad_del_autor():
+    """LAYOUT-027: la tabla que el autor armó a mano en Excel, emitida por
+    el motor — internos | entre-áreas | área, con herencia ARCH-009."""
+    from AlmaGag.layout.strategies.hier.escenografia import connectivity_table
+    filas, hallazgos = connectivity_table(_mk_zonas_contenedores())
+    por_id = {f[0]: f for f in filas}
+    assert por_id['n1'] == ('n1', 1, 1, 'Z1')
+    assert por_id['n2'] == ('n2', 2, 1, 'Z1')
+    assert por_id['n3'] == ('n3', 1, 1, 'Z1')
+    assert por_id['n4'] == ('n4', 0, 3, 'Z2')
+    # n4: 0 internos y 3 entre áreas → hub puro, nombrado
+    assert any('hub puro' in h and 'n4' in h for h in hallazgos)
+
+
+def test_escenografia_ve_a_traves_de_los_contenedores():
+    """La herencia ARCH-009 cura la ceguera: el condensado de zonas con
+    contenedores ya no es vacío — la dirección Z2→Z1 se mide."""
+    out = suggest_partition(_mk_zonas_contenedores())
+    assert out is not None
+    # el condensado ya no es vacío: la cadena Z2 → Z1 se detecta como
+    # columna vertebral (antes de la herencia, ninguna razón veía enlaces)
+    assert any('Z2 → Z1' in r for r in out['razones']), out['razones']
