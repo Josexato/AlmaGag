@@ -1738,6 +1738,28 @@ Excel del autor: coincidencia 100% en los 9 elementos del showcase_v2
 
 ---
 
+### BUGS-ROUTE-005: Entradas al punto idéntico en la vía por corredores ✅ RESUELTO (2026-08-19)
+**Componente**: `strategies/hier/areas.py::_enter_from_corridor`
+**Reportado**: 2026-08-19 (el GAG Skiller, reporte v3.16, con repro
+`abanico.sdjf`: «dos rutas de orígenes distintos llegan al mismo punto
+exacto (1302, 314)» — y con la hipótesis correcta: «quizá la política
+aplique solo a la vía directa y estas rutas estén tomando corredor»)
+
+CONFIRMADO ejecutando su repro: ROUTE-008 repartió los puertos de
+entrada sólo en la vía DIRECTA entre cajas enfrentadas;
+`_enter_from_corridor` (la vía por corredores de la macro-grilla,
+ROUTE-006) seguía entregando el centro exacto del borde del icono a
+toda ruta entrante — D0 recibía O1 y O2 en (102, 314), D3 recibía O2 y
+O3 en (1302, 314). Fix: la entrada se desplaza por el carril de la ruta
+(canal ('p', hijo), ±30px en T/B, ±18px en entradas laterales) — mismo
+contrato T72-en-miniatura de la vía directa. Verificado sobre el repro
+del Skiller: 102 vs 111, 1302 vs 1311 — cero puertos duplicados.
+Fixtures idénticos (ningún fixture tiene dos orígenes entrando al mismo
+hijo por corredor). Test: `test_route006_corridors.py::
+test_entries_to_same_node_get_distinct_ports`.
+
+---
+
 ### WISH-ARCH-007: SDJF 2.0 — spec formal con una sintaxis canónica (Y94) 🆕 ABIERTO — mediano plazo
 **Componente**: formato SDJF + `docs/spec/FORMATO_ARCHIVOS.md`
 **Reportado**: 2026-08-11 (grupo Y — requiere decisión de José: hay deprecaciones)

@@ -976,7 +976,12 @@ def _exit_to_corridor(node, box, siblings, corr_y, ln=None):
 
 def _enter_from_corridor(node, box, siblings, corr_y, ln=None):
     """Espejo de _exit_to_corridor: puntos desde el corredor corr_y hasta
-    `node` sin atravesar hermanos. Devuelve (puerto, pts_previos)."""
+    `node` sin atravesar hermanos. Devuelve (puerto, pts_previos).
+
+    BUGS-ROUTE-005 (hallazgo del Skiller, v3.16): las entradas a un mismo
+    hijo se reparten en el borde del icono TAMBIÉN en la vía por
+    corredores — ROUTE-008 sólo cubría la vía directa y dos orígenes
+    distintos llegaban al punto idéntico."""
     from_above = corr_y < node['y']
     cx = node['x'] + ICON_WIDTH / 2
     ny0, ny1 = node['y'], node['y'] + ICON_HEIGHT
@@ -986,10 +991,14 @@ def _enter_from_corridor(node, box, siblings, corr_y, ln=None):
              or (not from_above and sib['y'] >= ny1 - 1))
         for sib in siblings if sib is not node and 'x' in sib)
     if not blocked:
+        off = max(-30.0, min(30.0, ln('p', node['id']))) if ln else 0.0
         b = _node_border_port(node, 'T' if from_above else 'B')
+        b = (b[0] + off, b[1])
         return b, [(b[0], corr_y)]
     left = (cx - box['x']) <= (box['x'] + box['w'] - cx)
     b = _node_border_port(node, 'L' if left else 'R')
+    off = max(-18.0, min(18.0, ln('p', node['id']))) if ln else 0.0
+    b = (b[0], b[1] + off)
     sx = box['x'] - AREA_GAP / 2 if left else box['x'] + box['w'] + AREA_GAP / 2
     sx += ln('s', (box['id'], 'L' if left else 'R')) if ln else 0.0
     return b, [(sx, corr_y), (sx, b[1])]
