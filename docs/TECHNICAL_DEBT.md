@@ -1760,6 +1760,25 @@ test_entries_to_same_node_get_distinct_ports`.
 
 ---
 
+### BUGS-LOG-003: Los arcos se miden por su CUERDA, no por la curva dibujada 🆕 ABIERTO
+**Componente**: `layout/metrics.py::_conn_segments`
+**Reportado**: 2026-08-20 (auditoría de criterios de Claude Design sobre
+14-stresstest: `arista×nodo=1` señala K→I tocando a J, pero la curva
+DIBUJADA rodea a J con comba de 135px — exactamente lo que E17 manda)
+
+Para conexiones bezier, `_conn_segments` devuelve el segmento recto
+entre extremos (la cuerda) porque `points` sólo trae los extremos y los
+`control_points` se ignoran. Todo lo que mide sobre ese trazado
+(arista×nodo §H6 y, desde BUGS-LOG-002, cruces) evalúa una línea que no
+existe en la lámina. Primo directo de BUGS-LOG-002: lo dibujado ≠ lo
+medido, ahora en los arcos. Criterio: muestrear la curva (puntos en
+t=0.25/0.5/0.75 con los control_points, o poligonalizarla) y medir esa
+polilínea. Recalibración esperada: los fixtures con arcos de ciclo
+(14-stresstest, ciclo-retrabajo, es-primo…) pueden mover cruces y
+arista×nodo en ±1-2 — revisar el delta como en It6-2c/LOG-002.
+
+---
+
 ### WISH-ARCH-007: SDJF 2.0 — spec formal con una sintaxis canónica (Y94) 🆕 ABIERTO — mediano plazo
 **Componente**: formato SDJF + `docs/spec/FORMATO_ARCHIVOS.md`
 **Reportado**: 2026-08-11 (grupo Y — requiere decisión de José: hay deprecaciones)
