@@ -83,3 +83,20 @@ def test_aa100_labels_pegados_y_uniformes():
         assert abs(cx - (e['x'] + ICON_WIDTH / 2)) < 1, f'{eid} descentrado'
         gap = ly - (e['y'] + ICON_HEIGHT)
         assert 0 < gap <= 20, f'{eid}: label a {gap:.0f}px del icono'
+
+
+def test_bugs_draw006_la_barra_de_union_dice_su_nombre(tmp_path):
+    """BUGS-DRAW-006: la barra §H7 llevaba O55 a la violación — forma muda.
+    Ahora rotula su type en la escala de zona (el halo lo pone O50); y un
+    icono EMBEBIDO llamado 'union' gana sobre la barra."""
+    from AlmaGag.generator import generate_diagram
+    out = tmp_path / 'fam.svg'
+    assert generate_diagram(FIXTURE, output_file=str(out),
+                            layout_algorithm='select')
+    svg = out.read_text(encoding='utf-8')
+    import re
+    labels = re.findall(r'<text[^>]*>union</text>', svg)
+    assert labels, 'la barra de unión sigue muda'
+    assert any('#6b6558' in t for t in labels), 'rótulo fuera del gris AA'
+    assert any('font-size="12px"' in t for t in labels), \
+        'rótulo fuera de la escala tipográfica O56'

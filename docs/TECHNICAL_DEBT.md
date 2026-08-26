@@ -1779,7 +1779,7 @@ arista×nodo en ±1-2 — revisar el delta como en It6-2c/LOG-002.
 
 ---
 
-### WISH-LAYOUT-028: AA98 — la unión genealógica es un T-joint, no un nodo más 🆕 ABIERTO
+### WISH-LAYOUT-028: AA98 — la unión genealógica es un T-joint, no un nodo más ✅ RESUELTO (2026-08-20, iteración 15)
 **Componente**: layout AUTO (árboles con nodos-unión)
 **Reportado**: 2026-08-20 (grupo AA de Claude Design, sobre 13-stresstest)
 
@@ -1793,7 +1793,7 @@ arista unión→hijo (hoy 2-3); cero codos cónyuge→unión.
 
 ---
 
-### WISH-ROUTE-009: AA99 — fan-out 1→N como peine (troncal + bajadas) 🆕 ABIERTO
+### WISH-ROUTE-009: AA99 — fan-out 1→N como peine (troncal + bajadas) ✅ RESUELTO (2026-08-20, iteración 15)
 **Componente**: ruteo AUTO (organigramas/genealogías)
 **Reportado**: 2026-08-20 (grupo AA: union_padres→5 hermanos rutea como
 5 curvas independientes; a Lika ~700px de corredor con 4 codos)
@@ -1806,7 +1806,7 @@ AUTO. Verifica: N+1 verticales + 1 horizontal; tinta del fan-out −40%.
 
 ---
 
-### WISH-LAYOUT-029: AA100 — label pegado a su icono, lado uniforme por fila 🆕 ABIERTO
+### WISH-LAYOUT-029: AA100 — label pegado a su icono, lado uniforme por fila ✅ RESUELTO (2026-08-20, iteración 15)
 **Componente**: etiquetado (anticolisión global §P61 / F18)
 **Reportado**: 2026-08-20 (grupo AA: en la fila 2 los nombres alternan
 arriba/abajo a 65-145px del icono — Elmer arriba, Silvia abajo — y el
@@ -1820,7 +1820,7 @@ Verifica: máx 14px en el corpus; un solo lado por fila; cero solapes.
 
 ---
 
-### BUGS-DRAW-006: La barra de unión (§H7) es muda — viola O55 🆕 ABIERTO
+### BUGS-DRAW-006: La barra de unión (§H7) es muda — viola O55 ✅ RESUELTO (2026-08-20, iteración 15)
 **Componente**: `draw/` (expansión de uniones §H7)
 **Reportado**: 2026-08-20 (grupo AA: `type: union` salió como barra
 dorada SIN rótulo junto a 4 `marriage` con anillos — fallback silencioso
