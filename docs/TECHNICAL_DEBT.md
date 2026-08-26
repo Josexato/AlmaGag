@@ -1836,6 +1836,25 @@ registrado en el corpus.
 
 ---
 
+### BUGS-DRAW-007: El header del contenedor no resolvía iconos embebidos ✅ RESUELTO (2026-08-26)
+**Componente**: `draw/primitives/container.py` + `auto_renderer`
+**Reportado**: 2026-08-26 (paquete de análisis GAG-WV del caso real,
+scratchpad: contenedor `type: truck` con el icono EMBEBIDO en el
+archivo salía como cuadrado gris mudo en el header, mientras su hijo
+con el mismo type dibujaba el camión perfecto)
+
+`draw_container` resolvía el icono decorativo SOLO vía módulos
+registrados (`draw/icons/{type}.py`); los iconos embebidos del archivo
+(§Q63) nunca llegaban a ese camino y el `except` caía a un rect gris
+sin aviso — doble violación O55 (fallback silencioso + forma muda).
+Fix: el header sigue la MISMA precedencia que `draw_icon_shape`
+(embebido → módulo → BWT rotulado §Q64 con WARNING), y el renderer
+AUTO le enhebra `embedded_icons`. LAF ya lo hacía por su lado (dibuja
+el icono del contenedor como elemento). Corpus: cero avisos nuevos;
+fixtures idénticos.
+
+---
+
 ### WISH-LAYOUT-030: Grupo Z residual — refinamiento post-partición ◐ PARCIAL (2026-08-26, iteración 16)
 **Componente**: hier/areas (dentro y entre celdas) + draw/journeys + metrics
 **Reportado**: 2026-08-16 (grupo Z de Claude Design, escenografía del
