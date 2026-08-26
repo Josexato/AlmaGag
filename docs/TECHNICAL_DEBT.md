@@ -1880,11 +1880,22 @@ Hecho en iteración 16 (medido sobre el tabernero, scratchpad):
   23→17) + audit de subutilización (<35% del área → celda nombrada con
   la proporción que su contenido pide).
 
-Pendiente nombrado (el resto del wish): el re-ruteo completo de
-overlays por el perímetro de celdas (Z96 corrige hoy vía corredores
-ROUTE-006 + audit; falta prohibir el atajo por celda ajena) y el
-re-solver de compactación (Z97 completo: recortar celdas al contenido
-y re-escalar hermanas para devolver el aire; meta tinta ≥12% — hoy 5%).
+**Z96 fase 2** ✅ (2026-08-26, iteración 17): la ruta no atraviesa lo
+que no es suyo — el post-pass de layout_by_areas desvía travesías
+completas de iconos ajenos y celdas de área ajenas (además de los
+contenedores de ARCH-009 v2); detección con el icono pelado, desvío
+rodeando icono+label (`_dodge_boxes(outers=)`). Medido: caso real A
+arista×nodo 4→0; caso real B 11→2 y celdas-ajenas 1→0 (el Verifica).
+La medición previa mostró que el atajo-por-celda-ajena casi no existía
+(1 caso en el corpus real) — el grueso eran travesías de ICONOS
+hermanos, y eso es lo que esta fase mata.
+
+Pendiente nombrado (el resto del wish): el re-solver de compactación
+(Z97 completo: recortar celdas al contenido y re-escalar hermanas para
+devolver el aire; meta tinta ≥12% — hoy 5%). Clase residual nombrada:
+CODOS de ruta dentro de un icono ajeno (el sub-layout pone la esquina
+ahí; el desvío de travesías no los ve — 2 casos en el caso real B,
+misma familia que el corner del cable bajo 'horeca' en Z95).
 
 ---
 
