@@ -210,6 +210,17 @@ dos constructos). Verificado con el showcase_v2 del tabernero: 2 marcos
 aspecto 1.28. Motor v3.15.0. Tickets: WISH-ARCH-009, WISH-LAYOUT-026
 (hub al medio, previa). Extra de la ronda: adenda §10 al diseño del Mapa.
 
+## Iteración 15 — el árbol familiar como primitivo (20-ago): grupo AA completo
+
+De la re-revisión de los criterios de Claude Design (el doc seguía
+hasta el grupo AA y la primera lectura se quedó en Q5) salió la
+iteración: AUTO detecta el árbol familiar puro y lo rinde con la
+convención genealógica — unión como T-joint en el carril de la pareja,
+fan-out como peine de troncal única, labels estructurales bajo su
+icono, barra de unión rotulada. Verificado sobre 13-stresstest:
+contadores 0-0-0-0 y el PNG que un genealogista reconocería. Motor
+v3.17.0. Tickets: WISH-LAYOUT-028/029, WISH-ROUTE-009, BUGS-DRAW-006.
+
 ## Mediano plazo (sin fecha)
 
 - **«El mapa» (WISH-ARCH-004)**: separar mapa (dato) de vista (representación)

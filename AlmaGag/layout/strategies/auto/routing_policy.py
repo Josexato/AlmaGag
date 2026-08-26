@@ -48,3 +48,8 @@ class AutoRoutingPolicy:
         # ≥2 puntas en el mismo lado se reparten (≥18px) y el tramo final
         # se hace perpendicular al borde.
         route_node_ports(layout)
+        # Grupo AA (AA98/AA99): en árboles familiares, cónyuge—unión en
+        # horizontal pura y unión→hijos como peine — se re-aplica en cada
+        # re-ruteo pisando el path individual (patrón route_zone_trunks).
+        from AlmaGag.layout.strategies.auto.genealogy import route_family_joints
+        route_family_joints(layout)

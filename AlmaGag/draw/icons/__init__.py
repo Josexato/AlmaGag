@@ -372,8 +372,17 @@ def draw_icon_shape(dwg, element, embedded_icons=None):
     color = element.get('color', 'gray')
     element_id = element.get('id', f'{elem_type}_{x}_{y}')
 
-    # §H7: nodo de UNION (matrimonio) → barra corta discreta centrada en el slot
-    # (no un icono grande). Es el punto del que baja un solo tronco por hijo.
+    # Prioridad 1: icono SVG embebido (.gag format) — TAMBIÉN para 'union':
+    # un archivo que embebe su glifo de unión gana sobre la barra §H7
+    # (BUGS-DRAW-006: la barra se dibujaba antes de mirar los embebidos).
+    if embedded_icons and elem_type in embedded_icons:
+        draw_embedded_icon(dwg, x, y, color, element_id, embedded_icons[elem_type])
+        return
+
+    # §H7: nodo de UNION (matrimonio) → barra corta discreta centrada en el
+    # slot. BUGS-DRAW-006 (grupo AA): la barra era MUDA — violaba O55 («lo
+    # indefinido disfrazado de resuelto»); ahora lleva su rótulo BWT con el
+    # type, en el gris AA de O54 (el halo lo inyecta el post-proceso O50).
     if elem_type == 'union':
         cx = x + ICON_WIDTH / 2
         cy = y + ICON_HEIGHT / 2
@@ -385,11 +394,15 @@ def draw_icon_shape(dwg, element, embedded_icons=None):
             fill=(color if color and color != 'gray' else '#5a5a5a'),
             stroke='#333', stroke_width=1,
         ))
-        return
-
-    # Prioridad 1: icono SVG embebido (.gag format)
-    if embedded_icons and elem_type in embedded_icons:
-        draw_embedded_icon(dwg, x, y, color, element_id, embedded_icons[elem_type])
+        from AlmaGag.config import FONT_SIZE_ZONE
+        dwg.add(dwg.text(
+            elem_type,
+            insert=(cx, cy + bar_h / 2 + 13),
+            text_anchor='middle',
+            font_size=f'{FONT_SIZE_ZONE}px',
+            font_family='Arial, sans-serif',
+            fill='#6b6558',
+        ))
         return
 
     # §O55: alias explícitos tipo→icono. `inet`/`wan`/`internet` ya cuentan
