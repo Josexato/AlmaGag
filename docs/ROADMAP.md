@@ -236,6 +236,19 @@ la celda subutilizada queda nombrada con la proporción que su contenido
 pide. Motor v3.18.0. Pendiente nombrado en el ticket: re-ruteo
 perímetro de overlays y re-solver de compactación (meta tinta ≥12%).
 
+## Iteración 17 — perímetro antes que atajo (26-ago): Z96 fase 2
+
+Primero se midió (regla de oro): el atajo-por-celda-ajena que el doc
+diagnosticaba casi no existía (1 conexión en el corpus real) — el
+grueso de arista×nodo eran travesías de ICONOS hermanos dentro de la
+propia celda o contenedor. El post-pass de rutas ahora desvía
+travesías completas de iconos ajenos y celdas ajenas (detección con el
+icono pelado, desvío rodeando icono+label). Números: caso real A
+arista×nodo 4→0; caso real B 11→2 con labels en línea base y
+celdas-ajenas 1→0. También BUGS-DRAW-007: el header del contenedor
+resuelve iconos embebidos (§Q63) en vez de caer a un rect gris mudo.
+Motor v3.19.0. Residual nombrado: codos de ruta dentro de iconos.
+
 ## Mediano plazo (sin fecha)
 
 - **«El mapa» (WISH-ARCH-004)**: separar mapa (dato) de vista (representación)
