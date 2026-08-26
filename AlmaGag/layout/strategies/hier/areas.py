@@ -761,6 +761,13 @@ def layout_by_areas(layout, areas_spec):
                 if aid not in (area_of.get(f), area_of.get(t))]
         cp['points'] = _dodge_boxes(list(cp['points']), obs, reg=dodge_reg,
                                     outers=icon_outer)
+        # Z96 fase 3: el codo fuera del icono — el vértice que cae DENTRO
+        # de un icono ajeno (invisible para el dodge de travesías) se
+        # recorta rodeando la esquina. Solo iconos: un codo dentro de un
+        # contenedor o una celda es legítimo (la ruta entra a su destino).
+        my_icons = [bx for eid, bx in icon_box.items() if eid not in (f, t)]
+        cp['points'] = _relocate_corners(list(cp['points']), my_icons,
+                                         reg=dodge_reg)
 
     # canvas: cajas + banda de leyenda inferior
     max_x = max(b['x'] + b['w'] for b in boxes)
@@ -1103,6 +1110,62 @@ def _dodge_boxes(pts, boxes, reg=None, outers=None):
             changed = True
             break
         if not changed:
+            return _dedupe(pts)
+    return _dedupe(pts)
+
+
+def _relocate_corners(pts, boxes, reg=None):
+    """Z96 fase 3: el CODO fuera del icono. Un vértice de ruta que cae
+    DENTRO de un icono ajeno es la clase que el desvío de travesías no
+    ve (cada segmento solo ENTRA o solo SALE — nada lo cruza de lado a
+    lado). El codo en L se recorta rodeando la esquina del icono: el
+    tramo horizontal se clipea en el borde por el que venía, baja/sube
+    por fuera, y retoma la vertical ya pasado el icono — tres puntos
+    ortogonales en vez de un vértice adentro.
+
+    Solo se toca el codo cuyos DOS vecinos están fuera de la caja (el
+    caso medido); `reg` escalona igual que _dodge_boxes."""
+    def _m(box, side):
+        if reg is None:
+            return _DODGE_M
+        n = reg.get((box, side), 0)
+        reg[(box, side)] = n + 1
+        return _DODGE_M + 7.0 * n
+
+    def _inside(p, b):
+        return b[0] < p[0] < b[2] and b[1] < p[1] < b[3]
+
+    for _ in range(8):
+        moved = False
+        for i in range(1, len(pts) - 1):
+            p = pts[i]
+            box = next((b for b in boxes if _inside(p, b)), None)
+            if box is None:
+                continue
+            a, b_ = pts[i - 1], pts[i + 1]
+            if _inside(a, box) or _inside(b_, box):
+                continue                      # vecino adentro: otra clase
+            a_h = abs(a[1] - p[1]) < 0.01     # tramo a→p horizontal
+            b_h = abs(b_[1] - p[1]) < 0.01
+            if a_h == b_h:
+                continue                      # no es un codo en L limpio
+            qh, qv = (a, b_) if a_h else (b_, a)
+            x0, y0, x1, y1 = box
+            if qh[0] < p[0]:
+                x_esc = x0 - _m(box, 'L')
+            else:
+                x_esc = x1 + _m(box, 'R')
+            if qv[1] > p[1]:
+                y_esc = y1 + _m(box, 'B')
+            else:
+                y_esc = y0 - _m(box, 'T')
+            corte = [(x_esc, p[1]), (x_esc, y_esc), (p[0], y_esc)]
+            if not a_h:
+                corte.reverse()
+            pts = pts[:i] + corte + pts[i + 1:]
+            moved = True
+            break
+        if not moved:
             return _dedupe(pts)
     return _dedupe(pts)
 
