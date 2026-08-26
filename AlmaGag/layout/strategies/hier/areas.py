@@ -674,12 +674,31 @@ def layout_by_areas(layout, areas_spec):
         for d in dims:
             spec = d['spec']
             bx, by, bw, bh = cells[d['aid']]
+            # Z97 (WISH-LAYOUT-030): el contenido va CENTRADO en su celda,
+            # no pegado arriba-izquierda — la escala global px/unidad la
+            # fija la celda más densa y a las demás les sobra aire; ese
+            # aire se reparte simétrico. El re-solver que DEVUELVE el aire
+            # (re-escalar celdas hermanas) sigue pendiente en el ticket.
+            ex = max(0.0, (bw - d['w']) / 2.0)
+            ey = max(0.0, (bh - d['h']) / 2.0)
             _shift(d['members'], d['conns'],
-                   bx + AREA_PAD, by + AREA_HEAD + AREA_PAD)
+                   bx + AREA_PAD + ex, by + AREA_HEAD + AREA_PAD + ey)
             boxes.append({'id': d['aid'], 'label': spec.get('label', ''),
                           'color': spec.get('color'), 'x': bx, 'y': by,
                           'w': bw, 'h': bh,
                           'solo': d['aid'].startswith('__solo_')})
+            # Z97 audit: celda subutilizada NOMBRADA, con la proporción
+            # que su contenido pide — el autor ajusta size[] con dato,
+            # no a ojo (los ratios declarados son máximos de proporción,
+            # no mínimos de tamaño).
+            util = (d['w'] * d['h']) / (bw * bh) if bw and bh else 1.0
+            if not d['aid'].startswith('__solo_') and util < 0.35:
+                logger.warning(
+                    f"[partition] Z97: celda '{d['aid']}' usa "
+                    f"{util * 100:.0f}% de su área ({d['w']:.0f}×"
+                    f"{d['h']:.0f} en {bw:.0f}×{bh:.0f}) — su contenido "
+                    f"pide proporción ~{d['w'] / d['h']:.1f}:1 (la celda "
+                    f"da {bw / bh:.1f}:1)")
     else:
         y_cursor = MARGIN_Y
         for row in rows:
