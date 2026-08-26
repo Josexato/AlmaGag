@@ -1779,6 +1779,81 @@ arista×nodo en ±1-2 — revisar el delta como en It6-2c/LOG-002.
 
 ---
 
+### WISH-LAYOUT-028: AA98 — la unión genealógica es un T-joint, no un nodo más 🆕 ABIERTO
+**Componente**: layout AUTO (árboles con nodos-unión)
+**Reportado**: 2026-08-20 (grupo AA de Claude Design, sobre 13-stresstest)
+
+Las uniones caen una fila entera bajo la pareja y cada cónyuge llega con
+curva en S de 2 codos. Criterio: en árboles con nodos-unión (sin label,
+2 entradas del mismo rango, ≥1 salida al siguiente), el rango es la
+GENERACIÓN y la unión va al punto medio de la pareja, en su carril o a
+≤½ fila: cónyuge—unión—cónyuge como T de 3 puertos, hijos del pie del T
+por baricentro. Verifica: |y(unión)−y(pareja)| ≤ ½ fila; ≤1 codo por
+arista unión→hijo (hoy 2-3); cero codos cónyuge→unión.
+
+---
+
+### WISH-ROUTE-009: AA99 — fan-out 1→N como peine (troncal + bajadas) 🆕 ABIERTO
+**Componente**: ruteo AUTO (organigramas/genealogías)
+**Reportado**: 2026-08-20 (grupo AA: union_padres→5 hermanos rutea como
+5 curvas independientes; a Lika ~700px de corredor con 4 codos)
+
+Un nodo con ≥3 salidas al mismo rango emite UNA troncal horizontal a la
+altura media del corredor (del primer al último hijo) con bajada
+vertical única por hijo y subida única del padre — el peine de
+organigrama. Pariente del bus X92 y del abanico ROUTE-008, ahora en
+AUTO. Verifica: N+1 verticales + 1 horizontal; tinta del fan-out −40%.
+
+---
+
+### WISH-LAYOUT-029: AA100 — label pegado a su icono, lado uniforme por fila 🆕 ABIERTO
+**Componente**: etiquetado (anticolisión global §P61 / F18)
+**Reportado**: 2026-08-20 (grupo AA: en la fila 2 los nombres alternan
+arriba/abajo a 65-145px del icono — Elmer arriba, Silvia abajo — y el
+lector no puede asignar nombre→persona sin seguir la vertical)
+
+La alternancia de lados fue el parche para no solapar; el fix correcto
+es espaciar columnas. Criterio: distancia icono→label ≤14px y lado
+UNIFORME por fila (debajo por defecto); si dos labels vecinos chocan,
+primero se ensancha el paso de columna (J30), nunca alejar ni alternar.
+Verifica: máx 14px en el corpus; un solo lado por fila; cero solapes.
+
+---
+
+### BUGS-DRAW-006: La barra de unión (§H7) es muda — viola O55 🆕 ABIERTO
+**Componente**: `draw/` (expansión de uniones §H7)
+**Reportado**: 2026-08-20 (grupo AA: `type: union` salió como barra
+dorada SIN rótulo junto a 4 `marriage` con anillos — fallback silencioso
+otra vez, la clase de defecto que O55 prohíbe)
+
+Nota honesta: en la auditoría del 20-ago este render se reportó como
+«distinción intencional H7» — el doc de criterios corrige esa lectura:
+una forma muda que no dice su tipo es exactamente lo que O55 llama
+«lo indefinido disfrazado de resuelto». Criterio: la barra de unión
+lleva rótulo BWT con su type (o un glifo propio registrado); ningún
+type resuelve a forma muda. Verifica: cero formas sin rótulo ni icono
+registrado en el corpus.
+
+---
+
+### WISH-LAYOUT-030: Grupo Z residual — refinamiento post-partición 🆕 ABIERTO — consolidado
+**Componente**: hier/areas (dentro y entre celdas)
+**Reportado**: 2026-08-16 (grupo Z de Claude Design, escenografía del
+tabernero; consolidado aquí el 20-ago tras re-revisión del doc)
+
+Los cuatro pendientes del grupo Z siguen abiertos: **Z94** cadenas
+largas serpentean según el aspecto de su celda (boustrophedon — la
+columna 1×8 dentro de una celda ancha es J33 a escala intra-área);
+**Z95** W83 pasa de warning a corrección (desplazar el eje de la banda
+al carril libre; hoy el aviso queda sin re-ruteo); **Z96** presupuesto
+de cruces para overlays (cruces ≤ 2×|overlay|, excedente nombrado);
+**Z97** compactación intra-celda (tinta ≥12%; celdas recortadas al
+contenido, ratios re-escalados). Parcial ya cubierto: corredores
+inter-área (ROUTE-006) y desvío de cajas ajenas (ARCH-009 v2) atacan el
+espíritu de Z96 en la vía de contenedores.
+
+---
+
 ### WISH-ARCH-007: SDJF 2.0 — spec formal con una sintaxis canónica (Y94) 🆕 ABIERTO — mediano plazo
 **Componente**: formato SDJF + `docs/spec/FORMATO_ARCHIVOS.md`
 **Reportado**: 2026-08-11 (grupo Y — requiere decisión de José: hay deprecaciones)
