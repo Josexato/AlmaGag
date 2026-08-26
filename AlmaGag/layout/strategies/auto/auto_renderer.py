@@ -114,7 +114,9 @@ class AutoSVGRenderer:
 
         # === Orden de dibujo ===
         # 1. Containers (rect de fondo, icono va inline)
-        self._render_containers(dwg, containers, elements_by_id, ndfn_labels)
+        # BUGS-DRAW-007: el header también resuelve iconos EMBEBIDOS (§Q63)
+        self._render_containers(dwg, containers, elements_by_id, ndfn_labels,
+                                embedded_icons=embedded_icons)
 
         # WISH-DRAW-002: flujos resaltados — capa de anotación sobre los
         # fondos y BAJO iconos/líneas/textos (el trazo sigue los
@@ -223,7 +225,8 @@ class AutoSVGRenderer:
                     sub_idx += 1
         return ndfn_labels
 
-    def _render_containers(self, dwg, containers, elements_by_id, ndfn_labels):
+    def _render_containers(self, dwg, containers, elements_by_id, ndfn_labels,
+                           embedded_icons=None):
         """Dibuja los contenedores (rect de fondo). El icono se dibuja inline por draw_container."""
         for container in containers:
             if logger.isEnabledFor(logging.DEBUG):
@@ -239,6 +242,7 @@ class AutoSVGRenderer:
             _draw_container(
                 draw_target, container, elements_by_id,
                 draw_label=False, layout_algorithm='auto', draw_icon=True,
+                embedded_icons=embedded_icons,
             )
             if ndfn_group is not None:
                 dwg.add(ndfn_group)

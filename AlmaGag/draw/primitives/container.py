@@ -137,7 +137,7 @@ def calculate_container_bounds(container, elements_by_id):
     }
 
 
-def draw_container(dwg, container, elements_by_id, draw_label=True, layout_algorithm='auto', draw_icon=True):
+def draw_container(dwg, container, elements_by_id, draw_label=True, layout_algorithm='auto', draw_icon=True, embedded_icons=None):
     """
     Dibuja un elemento contenedor como un rectángulo con bordes redondeados
     y un ícono en la esquina superior izquierda.
@@ -235,23 +235,38 @@ def draw_container(dwg, container, elements_by_id, draw_label=True, layout_algor
             icon_x = x + CONTAINER_PADDING  # Padding left
             icon_y = y + CONTAINER_PADDING  # Padding top
 
-        # Intentar cargar módulo del ícono
-        try:
-            icon_module = importlib.import_module(f'AlmaGag.draw.icons.{icon_type}')
-            # Obtener función específica draw_<type>
-            draw_func = getattr(icon_module, f'draw_{icon_type}')
-            # Dibujar ícono (el módulo crea su propio gradiente)
-            icon_elem_id = f"{container['id']}_icon"
-            draw_func(dwg, icon_x, icon_y, color, icon_elem_id)
-        except (ImportError, AttributeError) as e:
-            # Fallback: dibujar rectángulo simple
-            dwg.add(dwg.rect(
-                insert=(icon_x, icon_y),
-                size=(icon_size, icon_size),
-                fill=gradient_id,  # create_gradient ya retorna url(#...)
-                stroke='black',
-                opacity=1.0
-            ))
+        # BUGS-DRAW-007: misma precedencia que draw_icon_shape — el header
+        # del contenedor sólo miraba los módulos registrados, así que un
+        # type EMBEBIDO en el archivo (§Q63) que el hijo dibujaba perfecto
+        # caía aquí a un rect gris mudo y SIN aviso (doble violación O55).
+        icon_elem_id = f"{container['id']}_icon"
+        if embedded_icons and icon_type in embedded_icons:
+            from AlmaGag.draw.icons import draw_embedded_icon
+            draw_embedded_icon(dwg, icon_x, icon_y, color, icon_elem_id,
+                               embedded_icons[icon_type])
+        else:
+            try:
+                icon_module = importlib.import_module(f'AlmaGag.draw.icons.{icon_type}')
+                draw_func = getattr(icon_module, f'draw_{icon_type}')
+                # Dibujar ícono (el módulo crea su propio gradiente)
+                draw_func(dwg, icon_x, icon_y, color, icon_elem_id)
+            except (ImportError, AttributeError) as e:
+                # §O55: lo no resuelto se dibuja BWT con su type rotulado
+                # (§Q64) y se avisa — nada de formas mudas silenciosas.
+                logger.warning(
+                    f"§O55: contenedor '{container['id']}' con type "
+                    f"'{icon_type}' sin icono registrado ni embebido — "
+                    f"se dibuja el BWT por defecto. Error: {e}")
+                from AlmaGag.draw.icons.bwt import draw_bwt
+                from AlmaGag.config import FONT_SIZE_ZONE, FONT_WEIGHT_ZONE
+                draw_bwt(dwg, icon_x, icon_y)
+                dwg.add(dwg.text(
+                    icon_type,
+                    insert=(icon_x + ICON_WIDTH / 2, icon_y - 5),
+                    text_anchor='middle', font_size=f'{FONT_SIZE_ZONE}px',
+                    font_weight=FONT_WEIGHT_ZONE,
+                    font_family="'JetBrains Mono', monospace",
+                    fill='#8a1c1c'))
 
     # Dibujar etiqueta del contenedor (si existe y draw_label=True)
     if draw_label:
