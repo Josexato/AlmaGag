@@ -170,6 +170,16 @@ class AutoLayoutOptimizer(LayoutOptimizer):
                 self._capture('topologia-red', current,
                               f'§N45: banda de hubs + {n_sites} sitio(s)')
 
+        # Grupo AA: si el grafo es un ÁRBOL FAMILIAR puro (nodos-unión con
+        # 2 padres, toda conexión toca una unión, sin coords/áreas), el
+        # placement es por generaciones con las uniones como T-joint en el
+        # carril de la pareja (AA98) y columnas anchas por label (AA100).
+        from AlmaGag.layout.strategies.auto.genealogy import apply_family_layout
+        n_unions = apply_family_layout(current)
+        if n_unions:
+            self._capture('arbol-familiar', current,
+                          f'AA98: {n_unions} unión(es) como T-joint')
+
         # §P60 (gate temprano): el macro-layout banda/periferia sólo aplica si
         # las zonas-área top-level NO traen coordenadas del autor. Se evalúa
         # ANTES del posicionamiento (después todo tiene coords) y se ejecuta
@@ -197,6 +207,10 @@ class AutoLayoutOptimizer(LayoutOptimizer):
 
         # 2. Posiciones iniciales de etiquetas
         self._calculate_initial_positions(current)
+        # AA100: en árboles familiares el label es estructural — bajo su
+        # icono, lado uniforme (la columna ya reservó el espacio).
+        from AlmaGag.layout.strategies.auto.genealogy import force_family_labels
+        force_family_labels(current)
 
         # 2.5. CRÍTICO: Recalcular contenedores AHORA que las etiquetas tienen posición
         #      Antes se calcularon solo con íconos (label_positions vacío)
@@ -296,6 +310,10 @@ class AutoLayoutOptimizer(LayoutOptimizer):
         current.label_positions = {}
         current.connection_labels = {}
         self._calculate_initial_positions(current)
+        # AA100: en árboles familiares el label es estructural — bajo su
+        # icono, lado uniforme (la columna ya reservó el espacio).
+        from AlmaGag.layout.strategies.auto.genealogy import force_family_labels
+        force_family_labels(current)
         self._log("Label positions recalculadas tras movimiento de íconos por containers")
 
         # 2.6. Calcular canvas desde bounds de todos los elementos posicionados
@@ -588,6 +606,12 @@ class AutoLayoutOptimizer(LayoutOptimizer):
             global_label_anticollision)
         if global_label_anticollision(best_layout, self.geometry):
             best_layout.invalidate_collision_cache()
+        # AA100: en árboles familiares el label es ESTRUCTURAL — la última
+        # palabra es suya: centrado bajo su icono, lado uniforme por fila,
+        # también después de la pasada global (el espacio ya está reservado
+        # por la columna; el optimizador no negocia esta convención).
+        from AlmaGag.layout.strategies.auto.genealogy import force_family_labels
+        force_family_labels(best_layout)
         best_layout.invalidate_collision_cache()
         min_collisions = self.evaluate(best_layout)
 
