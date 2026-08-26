@@ -225,6 +225,58 @@ def quality_counters(layout) -> Dict[str, int]:
     }
 
 
+# Z96 (WISH-LAYOUT-030) — la capa overlay (dashed de control/TI) es la que
+# ataja entre celdas; `dependency` es la trama estructural del grafo. El
+# presupuesto de cruces de una lámina con overlays: 2 cruces por arista
+# overlay — más que eso, hay atajos atravesando celdas ajenas.
+OVERLAY_TYPES = frozenset({'data_link', 'control_link', 'sync', 'event'})
+OVERLAY_XING_FACTOR = 2
+
+
+def overlay_crossing_report(layout):
+    """Z96: presupuesto de cruces para láminas con capa overlay declarada.
+
+    Devuelve None si ninguna conexión declara `semantic_type` overlay
+    (data_link/control_link/sync/event). Si hay capa overlay:
+    {'overlays', 'budget' (=2×|overlay|), 'crossings' (los mismos PARES
+    que count_crossings), 'offenders': [(from, to, nº de cruces en los
+    que participa)] ordenado del más cruzado al menos}. El excedente
+    sobre el presupuesto se reporta con culpables NOMBRADOS — un número
+    solo no le dice al autor qué arista reencaminar."""
+    overlays = [c for c in layout.connections
+                if c.get('semantic_type') in OVERLAY_TYPES]
+    if not overlays:
+        return None
+    centers = _icon_centers(layout)
+    conns = []
+    for c in layout.connections:
+        a, b = c.get('from'), c.get('to')
+        if a == b:
+            continue
+        segs = _conn_segments(c, centers)
+        if segs:
+            conns.append((a, b, segs))
+    per = {}
+    crossings = 0
+    for i in range(len(conns)):
+        a1, a2, s1 = conns[i]
+        for j in range(i + 1, len(conns)):
+            b1, b2, s2 = conns[j]
+            if a1 == b1 or a1 == b2 or a2 == b1 or a2 == b2:
+                continue
+            if any(_strict_cross(sa, sb) for sa in s1 for sb in s2):
+                crossings += 1
+                per[(a1, a2)] = per.get((a1, a2), 0) + 1
+                per[(b1, b2)] = per.get((b1, b2), 0) + 1
+    offenders = sorted(per.items(), key=lambda kv: (-kv[1], kv[0]))
+    return {
+        'overlays': len(overlays),
+        'budget': OVERLAY_XING_FACTOR * len(overlays),
+        'crossings': crossings,
+        'offenders': [(f, t, n) for (f, t), n in offenders],
+    }
+
+
 # §O52 — umbrales de la guarda de emisión: por debajo de esta tinta la lámina
 # es mayormente aire; fuera de este rango de aspecto es una cinta/columna.
 INK_WARN_PCT = 4.0
