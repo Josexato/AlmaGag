@@ -721,19 +721,46 @@ def layout_by_areas(layout, areas_spec):
     box_by_area = {b['id']: b for b in boxes}
     _route_inter_area(layout, area_of, box_by_area)
 
-    # ARCH-009 v2: desvío de contenedores ajenos — un segmento que cruza
-    # una caja de lado a lado se desvía por su borde; el que ENTRA a una
-    # caja (para llegar a su hijo) se respeta.
+    # ARCH-009 v2 + Z96 fase 2: la ruta NO ATRAVIESA lo que no es suyo.
+    # Un segmento que cruza DE LADO A LADO un contenedor ajeno, un ICONO
+    # ajeno o una CELDA de área ajena se desvía por el borde (registro
+    # escalonado ROUTE-008); el que ENTRA a una caja para llegar a su
+    # destino se respeta — entrar no es atravesar. Medido en el caso
+    # real: las 4 aristas×nodo eran travesías completas de un hermano
+    # (torre→bbu sobre el generador, la gestión remota sobre la flota).
     cont_boxes = [(c['x'], c['y'], c['x'] + c['width'], c['y'] + c['height'])
                   for c in containers.values()
                   if c.get('_is_container_calculated')]
-    if cont_boxes:
-        dodge_reg = {}          # ROUTE-008: desvíos escalonados por caja+lado
-        for c in conns:
-            cp = c.get('computed_path')
-            if cp and cp.get('type') == 'polyline':
-                cp['points'] = _dodge_boxes(list(cp['points']), cont_boxes,
-                                            reg=dodge_reg)
+    # la travesía se DETECTA con el icono puro y se DESVÍA rodeando
+    # icono + su etiqueta (W87): detectar con la caja inflada esconde
+    # travesías del icono, y desviar con la pelada pisa el label.
+    icon_box, icon_outer = {}, {}
+    for e in layout.elements:
+        if 'x' not in e or e.get('contains'):
+            continue
+        core = (e['x'], e['y'], e['x'] + ICON_WIDTH, e['y'] + ICON_HEIGHT)
+        icon_box[e['id']] = core
+        if e.get('label'):
+            cx = e['x'] + ICON_WIDTH / 2
+            hw = _label_halfwidth(e)
+            lines = e['label'].count('\n') + 1
+            icon_outer[core] = (min(core[0], cx - hw), core[1],
+                                max(core[2], cx + hw),
+                                core[3] + LABEL_GAP + lines * LABEL_LINE_H)
+    area_box = {b['id']: (b['x'], b['y'], b['x'] + b['w'], b['y'] + b['h'])
+                for b in boxes if not b['solo']}
+    dodge_reg = {}              # ROUTE-008: desvíos escalonados por caja+lado
+    for c in conns:
+        cp = c.get('computed_path')
+        if not (cp and cp.get('type') == 'polyline'):
+            continue
+        f, t = c.get('from'), c.get('to')
+        obs = list(cont_boxes)
+        obs += [bx for eid, bx in icon_box.items() if eid not in (f, t)]
+        obs += [bx for aid, bx in area_box.items()
+                if aid not in (area_of.get(f), area_of.get(t))]
+        cp['points'] = _dodge_boxes(list(cp['points']), obs, reg=dodge_reg,
+                                    outers=icon_outer)
 
     # canvas: cajas + banda de leyenda inferior
     max_x = max(b['x'] + b['w'] for b in boxes)
@@ -1005,7 +1032,7 @@ def _row_gap_x(row, x_pref):
 _DODGE_M = 12.0     # holgura del desvío alrededor de un contenedor ajeno
 
 
-def _dodge_boxes(pts, boxes, reg=None):
+def _dodge_boxes(pts, boxes, reg=None, outers=None):
     """ARCH-009 v2: ninguna ruta atraviesa un contenedor AJENO — cada
     segmento ortogonal que corta una caja se desvía por el borde más
     cercano (rectángulo + holgura). Se repite hasta limpiar o agotar el
@@ -1013,7 +1040,13 @@ def _dodge_boxes(pts, boxes, reg=None):
 
     `reg` (ROUTE-008): registro COMPARTIDO entre rutas — dos rutas que
     rodean la misma caja por el mismo lado se escalonan (+7px cada una)
-    en vez de montarse en la misma línea de desvío."""
+    en vez de montarse en la misma línea de desvío.
+
+    `outers` (Z96 fase 2): mapa caja→caja EXTERIOR. La travesía se
+    detecta con la caja núcleo (el icono) pero el desvío rodea la
+    exterior (icono + su label, W87) — detectar con la inflada esconde
+    travesías del icono puro, y desviar con la núcleo aterriza el
+    desvío sobre la etiqueta."""
     def _m(box, side):
         if reg is None:
             return _DODGE_M
@@ -1043,8 +1076,9 @@ def _dodge_boxes(pts, boxes, reg=None):
                         break
             if not hit:
                 continue
-            axis, (x0, y0, x1, y1) = hit
-            box = (x0, y0, x1, y1)
+            axis, core = hit
+            box = core
+            x0, y0, x1, y1 = (outers or {}).get(core, core)
             if axis == 'h':
                 y = p[1]
                 top = y - y0 <= y1 - y
