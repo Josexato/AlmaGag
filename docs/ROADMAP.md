@@ -247,7 +247,10 @@ icono pelado, desvío rodeando icono+label). Números: caso real A
 arista×nodo 4→0; caso real B 11→2 con labels en línea base y
 celdas-ajenas 1→0. También BUGS-DRAW-007: el header del contenedor
 resuelve iconos embebidos (§Q63) en vez de caer a un rect gris mudo.
-Motor v3.19.0. Residual nombrado: codos de ruta dentro de iconos.
+Motor v3.19.0. La fase 3 (v3.19.1) remató el residual: el codo que
+caía dentro de un icono se recorta rodeando la esquina — ambos casos
+reales en arista×nodo=0, y el W83 residual de Z95 cayó de yapa (la
+banda hereda el codo corregido del cable).
 
 ## Mediano plazo (sin fecha)
 

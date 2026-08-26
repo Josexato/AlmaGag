@@ -1890,12 +1890,17 @@ La medición previa mostró que el atajo-por-celda-ajena casi no existía
 (1 caso en el corpus real) — el grueso eran travesías de ICONOS
 hermanos, y eso es lo que esta fase mata.
 
+**Z96 fase 3** ✅ (2026-08-26): el codo fuera del icono — el vértice
+que caía dentro de un icono ajeno (invisible para el desvío de
+travesías) se recorta rodeando la esquina (`_relocate_corners`, solo
+codos con ambos vecinos fuera y solo iconos). Caso real B arista×nodo
+2→0, y el W83 residual de Z95 murió de yapa: la banda hereda el codo
+corregido del cable. Corpus: red-dual-homing-areas mejora 1→0.
+Los dos casos reales quedan en **arista×nodo=0**.
+
 Pendiente nombrado (el resto del wish): el re-solver de compactación
 (Z97 completo: recortar celdas al contenido y re-escalar hermanas para
-devolver el aire; meta tinta ≥12% — hoy 5%). Clase residual nombrada:
-CODOS de ruta dentro de un icono ajeno (el sub-layout pone la esquina
-ahí; el desvío de travesías no los ve — 2 casos en el caso real B,
-misma familia que el corner del cable bajo 'horeca' en Z95).
+devolver el aire; meta tinta ≥12% — hoy 5%).
 
 ---
 
