@@ -49,3 +49,30 @@ def test_entrar_no_es_atravesar():
     pts = _dodge_boxes([(0.0, 50.0), (140.0, 50.0)], [CORE],
                        outers={CORE: OUTER})
     assert pts == [(0.0, 50.0), (140.0, 50.0)]
+
+
+def test_codo_dentro_del_icono_se_recorta_por_la_esquina():
+    """Z96 fase 3: el vértice que cae DENTRO de un icono ajeno (invisible
+    para el desvío de travesías: nada cruza de lado a lado) se recorta
+    rodeando la esquina — tres puntos ortogonales por fuera del borde."""
+    from AlmaGag.layout.strategies.hier.areas import _relocate_corners
+    box = (100.0, 100.0, 180.0, 150.0)
+    # codo en L: horizontal entra por la izquierda, vertical sale por abajo
+    pts = _relocate_corners(
+        [(0.0, 120.0), (140.0, 120.0), (140.0, 300.0)], [box])
+    assert not any(_inside(p, box) for p in pts), 'el codo sigue adentro'
+    for a, b in zip(pts, pts[1:]):
+        assert abs(a[0] - b[0]) < 0.01 or abs(a[1] - b[1]) < 0.01, \
+            f'tramo diagonal {a}->{b}'
+    assert pts[0] == (0.0, 120.0) and pts[-1] == (140.0, 300.0), \
+        'el recorte movió los extremos'
+
+    # codo con un vecino ADENTRO de la caja: otra clase, no se toca
+    pts2 = _relocate_corners(
+        [(120.0, 110.0), (140.0, 110.0), (140.0, 300.0)], [box])
+    assert pts2 == [(120.0, 110.0), (140.0, 110.0), (140.0, 300.0)]
+
+    # codo fuera de toda caja: intacto
+    pts3 = _relocate_corners(
+        [(0.0, 50.0), (300.0, 50.0), (300.0, 200.0)], [box])
+    assert pts3 == [(0.0, 50.0), (300.0, 50.0), (300.0, 200.0)]
