@@ -221,6 +221,21 @@ icono, barra de unión rotulada. Verificado sobre 13-stresstest:
 contadores 0-0-0-0 y el PNG que un genealogista reconocería. Motor
 v3.17.0. Tickets: WISH-LAYOUT-028/029, WISH-ROUTE-009, BUGS-DRAW-006.
 
+## Iteración 16 — el refinamiento post-partición (26-ago): grupo Z
+
+Los cuatro Z del consolidado WISH-LAYOUT-030, medidos sobre el
+tabernero: **Z94** las cadenas largas serpentean según el aspecto de su
+celda (boustrophedon con giros verticales limpios; la Planta 1×7 en 3
+filas con la banda siguiendo el serpenteo); **Z95** W83 pasó de aviso a
+corrección (la banda esquiva iconos ajenos al carril libre — 5 avisos →
+1, y el residual es un corner del CABLE, no de la banda); **Z96** el
+audit tiene presupuesto de cruces para overlays (2×|overlay|) y nombra
+las aristas culpables (107 > 64: wan/erp/iot/observabilidad); **Z97 v1**
+el contenido va centrado en su celda (cruces 109→107, labels 23→17) y
+la celda subutilizada queda nombrada con la proporción que su contenido
+pide. Motor v3.18.0. Pendiente nombrado en el ticket: re-ruteo
+perímetro de overlays y re-solver de compactación (meta tinta ≥12%).
+
 ## Mediano plazo (sin fecha)
 
 - **«El mapa» (WISH-ARCH-004)**: separar mapa (dato) de vista (representación)

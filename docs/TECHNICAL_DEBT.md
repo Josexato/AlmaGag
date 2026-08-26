@@ -1836,21 +1836,36 @@ registrado en el corpus.
 
 ---
 
-### WISH-LAYOUT-030: Grupo Z residual — refinamiento post-partición 🆕 ABIERTO — consolidado
-**Componente**: hier/areas (dentro y entre celdas)
+### WISH-LAYOUT-030: Grupo Z residual — refinamiento post-partición ◐ PARCIAL (2026-08-26, iteración 16)
+**Componente**: hier/areas (dentro y entre celdas) + draw/journeys + metrics
 **Reportado**: 2026-08-16 (grupo Z de Claude Design, escenografía del
-tabernero; consolidado aquí el 20-ago tras re-revisión del doc)
+tabernero; consolidado el 20-ago; iteración 16 el 26-ago)
 
-Los cuatro pendientes del grupo Z siguen abiertos: **Z94** cadenas
-largas serpentean según el aspecto de su celda (boustrophedon — la
-columna 1×8 dentro de una celda ancha es J33 a escala intra-área);
-**Z95** W83 pasa de warning a corrección (desplazar el eje de la banda
-al carril libre; hoy el aviso queda sin re-ruteo); **Z96** presupuesto
-de cruces para overlays (cruces ≤ 2×|overlay|, excedente nombrado);
-**Z97** compactación intra-celda (tinta ≥12%; celdas recortadas al
-contenido, ratios re-escalados). Parcial ya cubierto: corredores
-inter-área (ROUTE-006) y desvío de cajas ajenas (ARCH-009 v2) atacan el
-espíritu de Z96 en la vía de contenedores.
+Hecho en iteración 16 (medido sobre el tabernero, scratchpad):
+- **Z94** ✅ serpenteo intra-celda: corrida dominante (1-en/1-salida,
+  ≥5 eslabones) + celda declarada → boustrophedon con giros verticales
+  limpios y peine invertido para feeders (la Planta 1×7 pasó a 3 filas;
+  la banda del journey sigue el serpenteo). Gate conservador: sin
+  partition, con ramas o con <5 eslabones no cambia nada.
+- **Z95** ✅ W83 warning→corrección: `_dodge_foreign_icons` desplaza el
+  eje de la banda al carril libre (pasos de ½ ancho, 3 intentos/lado,
+  2 pasadas); audit rectángulo-fiel como red de seguridad. 5 avisos→1;
+  el residual es un corner de CONEXIÓN bajo el icono que la banda
+  hereda por U74 (cero geometría propia) — dominio del ruteo, ya
+  contado en arista×nodo.
+- **Z96** ◐ presupuesto de cruces overlay: `overlay_crossing_report`
+  (cruces ≤ 2×|overlay|; semantic_type data/control/sync/event) con las
+  5 aristas más cruzadas NOMBRADAS (tabernero: 107 > 64, culpables
+  wan_objetivo/erp/iot/observabilidad — el diagnóstico del doc).
+- **Z97** ◐ v1: contenido CENTRADO en su celda (cruces 109→107, labels
+  23→17) + audit de subutilización (<35% del área → celda nombrada con
+  la proporción que su contenido pide).
+
+Pendiente nombrado (el resto del wish): el re-ruteo completo de
+overlays por el perímetro de celdas (Z96 corrige hoy vía corredores
+ROUTE-006 + audit; falta prohibir el atajo por celda ajena) y el
+re-solver de compactación (Z97 completo: recortar celdas al contenido
+y re-escalar hermanas para devolver el aire; meta tinta ≥12% — hoy 5%).
 
 ---
 

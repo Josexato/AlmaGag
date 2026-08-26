@@ -86,6 +86,117 @@ def _label_boxes(members):
     return boxes
 
 
+def _chain_run(members, conns):
+    """Z94: la corrida dominante — secuencia s0→s1→…→sm donde el interior
+    es estricto 1-en/1-salida (la cabeza puede recibir varios feeders).
+    Devuelve (run_ids, others_ids) o None si la corrida no domina."""
+    ids = {e['id'] for e in members}
+    nin, nout, nxt = {}, {}, {}
+    for c in conns:
+        f, t = c.get('from'), c.get('to')
+        if f in ids and t in ids:
+            nout[f] = nout.get(f, 0) + 1
+            nin[t] = nin.get(t, 0) + 1
+            nxt.setdefault(f, []).append(t)
+    best = []
+    for s0 in ids:
+        if nout.get(s0, 0) != 1:
+            continue
+        run, cur = [s0], s0
+        while True:
+            t = nxt.get(cur, [None])[0]
+            if (t is None or t in run or nin.get(t, 0) != 1
+                    or nout.get(t, 0) > 1):
+                if t is not None and nin.get(t, 0) == 1 \
+                        and t not in run:
+                    run.append(t)          # el sumidero cierra la corrida
+                break
+            run.append(t)
+            cur = t
+        if len(run) > len(best):
+            best = run
+    if len(best) < 5:
+        return None
+    # sólo si la corrida DOMINA la celda y el resto son alimentadores de
+    # su cabeza o sueltos (sin otras aristas internas).
+    others = ids - set(best)
+    head = best[0]
+    for c in conns:
+        f, t = c.get('from'), c.get('to')
+        if f in ids and t in ids:
+            in_run = f in best and t in best
+            feeder = f in others and t == head
+            if not (in_run or feeder):
+                return None
+    return best, list(others)
+
+
+def _serpentine_cell(members, conns, run_ids, others_ids, aspect_hint,
+                     pitch):
+    """Z94: la corrida serpentea (boustrophedon: fila→giro→fila, orden de
+    lectura intacto — el giro es una vertical limpia porque el fin de una
+    fila y el inicio de la siguiente comparten columna). Los feeders y
+    sueltos van en fila superior; los feeders convergen a la cabeza con
+    peine invertido (AA99 al revés). Devuelve (w, h)."""
+    by_id = {e['id']: e for e in members}
+    run = [by_id[i] for i in run_ids]
+    others = [e for e in members if e['id'] in set(others_ids)]
+    n = len(run)
+    k = min(range(2, n + 1),
+            key=lambda c: abs((c * COL_SPACING)
+                              / ((-(-n // c)) * pitch) - aspect_hint))
+    y0 = pitch if others else 0.0
+    for i, e in enumerate(run):
+        r, c = i // k, i % k
+        if r % 2 == 1:
+            c = k - 1 - c
+        e['x'] = c * COL_SPACING
+        e['y'] = y0 + r * pitch
+        e['label_position'] = 'bottom'
+    xo = 0.0
+    for e in others:
+        # columnas de la fila superior conscientes del label (J30); el
+        # factor 1.4 corrige _label_halfwidth (6.6px/char) al ancho real
+        # de la tipografía 16px (~9.2px/char, recalibración It9-3)
+        w_col = max(COL_SPACING, 2 * _label_halfwidth(e) * 1.4 + 24)
+        e['x'] = xo + w_col / 2 - ICON_WIDTH / 2
+        e['y'] = 0.0
+        e['label_position'] = 'bottom'
+        xo += w_col
+    pos = {e['id']: e for e in members}
+    head = run[0]
+    trunk_y = y0 - (pitch - ICON_HEIGHT) * 0.38 if others else 0.0
+    for cn in conns:
+        s, d = pos.get(cn.get('from')), pos.get(cn.get('to'))
+        if s is None or d is None:
+            continue
+        if cn.get('from') in others_ids:         # feeder → cabeza (peine ⊥)
+            a = (s['x'] + ICON_WIDTH / 2, s['y'] + ICON_HEIGHT)
+            hx = head['x'] + ICON_WIDTH / 2
+            pts = [a, (a[0], trunk_y), (hx, trunk_y), (hx, head['y'])]
+            cn['computed_path'] = {'type': 'polyline',
+                                   'points': _dedupe(pts)}
+            cn['_from_port'] = a
+            cn['_to_port'] = pts[-1]
+            continue
+        if abs(s['y'] - d['y']) < 1:             # misma fila: horizontal
+            if d['x'] > s['x']:
+                a = (s['x'] + ICON_WIDTH, s['y'] + ICON_HEIGHT / 2)
+                b = (d['x'], d['y'] + ICON_HEIGHT / 2)
+            else:
+                a = (s['x'], s['y'] + ICON_HEIGHT / 2)
+                b = (d['x'] + ICON_WIDTH, d['y'] + ICON_HEIGHT / 2)
+        else:                                    # giro: vertical (misma col)
+            a = (s['x'] + ICON_WIDTH / 2, s['y'] + ICON_HEIGHT)
+            b = (d['x'] + ICON_WIDTH / 2, d['y'])
+        cn['computed_path'] = {'type': 'polyline', 'points': [a, b]}
+        cn['_from_port'] = a
+        cn['_to_port'] = b
+    rows = -(-n // k)
+    w = max(k * COL_SPACING - (COL_SPACING - ICON_WIDTH), xo)
+    return w, y0 + rows * pitch
+
+
 def _sub_layout(members: List[dict], conns: List[dict], aspect_hint=None):
     """Corre A–H sobre el subgrafo de un área. Devuelve (bbox_w, bbox_h) en
     coords locales (esquina sup-izq del contenido en 0,0). Muta members/conns
@@ -117,7 +228,18 @@ def _sub_layout(members: List[dict], conns: List[dict], aspect_hint=None):
     def to_x(col):
         return (col - min_col) * COL_SPACING
 
-    if not conns and len(members) > 2 and aspect_hint:
+    # Z94: corrida dominante + celda declarada → serpentina si la columna
+    # recta violaría el aspecto de la celda (alto:ancho > 2.5× el suyo).
+    serp = None
+    if conns and aspect_hint:
+        cr = _chain_run(members, conns)
+        if cr and (len(cr[0]) * pitch) / COL_SPACING > 2.5 / aspect_hint:
+            serp = cr
+
+    if serp:
+        _serpentine_cell(members, conns, serp[0], serp[1],
+                         aspect_hint, pitch)
+    elif not conns and len(members) > 2 and aspect_hint:
         # WISH-LAYOUT-024: bloque-lista con celda declarada — grilla que
         # aproxima la proporción de la celda (cols candidatas 1..n).
         n = len(members)
@@ -138,20 +260,20 @@ def _sub_layout(members: List[dict], conns: List[dict], aspect_hint=None):
             e['y'] = (lv.level[eid] - min_lvl) * pitch
             e['label_position'] = 'bottom'      # §I27: etiqueta bajo el icono
 
-    icon_half = ICON_WIDTH / 2
-    for c in conns:
-        key = (c.get('from'), c.get('to'))
-        if key in wp_abstract and wp_abstract[key]:
-            c['waypoints'] = [
-                {'x': to_x(cx) + icon_half,
-                 'y': (gl - min_lvl) * pitch + ICON_HEIGHT / 2}
-                for cx, gl in wp_abstract[key]
-            ]
-
     subL = Layout(elements=members, connections=conns,
                   canvas={'width': 400, 'height': 300})
-    route_connections(subL, lv)
-    route_cycle_arcs(subL, lv)
+    if serp is None:
+        icon_half = ICON_WIDTH / 2
+        for c in conns:
+            key = (c.get('from'), c.get('to'))
+            if key in wp_abstract and wp_abstract[key]:
+                c['waypoints'] = [
+                    {'x': to_x(cx) + icon_half,
+                     'y': (gl - min_lvl) * pitch + ICON_HEIGHT / 2}
+                    for cx, gl in wp_abstract[key]
+                ]
+        route_connections(subL, lv)
+        route_cycle_arcs(subL, lv)
     assign_connection_label_anchors(subL)
 
     xs = [e['x'] for e in members if 'x' in e]
@@ -552,12 +674,31 @@ def layout_by_areas(layout, areas_spec):
         for d in dims:
             spec = d['spec']
             bx, by, bw, bh = cells[d['aid']]
+            # Z97 (WISH-LAYOUT-030): el contenido va CENTRADO en su celda,
+            # no pegado arriba-izquierda — la escala global px/unidad la
+            # fija la celda más densa y a las demás les sobra aire; ese
+            # aire se reparte simétrico. El re-solver que DEVUELVE el aire
+            # (re-escalar celdas hermanas) sigue pendiente en el ticket.
+            ex = max(0.0, (bw - d['w']) / 2.0)
+            ey = max(0.0, (bh - d['h']) / 2.0)
             _shift(d['members'], d['conns'],
-                   bx + AREA_PAD, by + AREA_HEAD + AREA_PAD)
+                   bx + AREA_PAD + ex, by + AREA_HEAD + AREA_PAD + ey)
             boxes.append({'id': d['aid'], 'label': spec.get('label', ''),
                           'color': spec.get('color'), 'x': bx, 'y': by,
                           'w': bw, 'h': bh,
                           'solo': d['aid'].startswith('__solo_')})
+            # Z97 audit: celda subutilizada NOMBRADA, con la proporción
+            # que su contenido pide — el autor ajusta size[] con dato,
+            # no a ojo (los ratios declarados son máximos de proporción,
+            # no mínimos de tamaño).
+            util = (d['w'] * d['h']) / (bw * bh) if bw and bh else 1.0
+            if not d['aid'].startswith('__solo_') and util < 0.35:
+                logger.warning(
+                    f"[partition] Z97: celda '{d['aid']}' usa "
+                    f"{util * 100:.0f}% de su área ({d['w']:.0f}×"
+                    f"{d['h']:.0f} en {bw:.0f}×{bh:.0f}) — su contenido "
+                    f"pide proporción ~{d['w'] / d['h']:.1f}:1 (la celda "
+                    f"da {bw / bh:.1f}:1)")
     else:
         y_cursor = MARGIN_Y
         for row in rows:

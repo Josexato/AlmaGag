@@ -235,3 +235,47 @@ def test_band_hygiene_audit_names_violations(caplog):
     with caplog.at_level(logging.WARNING, logger='AlmaGag'):
         _audit_band_hygiene(j, [(80, 225), (400, 225)], els2, conn)
     assert 'W83' not in caplog.text
+
+
+def test_z95_band_dodges_foreign_icon(caplog):
+    """Z95 (WISH-LAYOUT-030): W83 pasa de aviso a corrección — el tramo
+    cuyo eje pisa un icono ajeno se desplaza al carril libre en pasos de
+    ½ ancho, y el audit posterior CALLA. Sin intrusos, la banda no se
+    toca. Un pasillo cerrado (intrusos a ambos lados a toda distancia)
+    queda intacto y el audit lo sigue nombrando."""
+    from AlmaGag.draw.primitives.journeys import (_audit_band_hygiene,
+                                                  _dodge_foreign_icons)
+    els = {'a': {'id': 'a', 'x': 0, 'y': 200},
+           'b': {'id': 'b', 'x': 400, 'y': 200},
+           'intruso': {'id': 'intruso', 'x': 180, 'y': 200}}
+    conn = [{'from': 'a', 'to': 'b',
+             'computed_path': {'points': [(80, 225), (400, 225)]}}]
+    j = {'id': 'jx', 'label': 'JX', 'path': ['a', 'b']}
+
+    pts, slack = _dodge_foreign_icons(j, [(80, 225), (400, 225)], els)
+    assert pts[0] == (80, 225) and pts[-1] == (400, 225), \
+        'el desvío soltó las anclas de la banda'
+    assert len(pts) > 2 and slack > 0, 'no desvió nada'
+    with caplog.at_level(logging.WARNING, logger='AlmaGag'):
+        _audit_band_hygiene(j, pts, els, conn, dodge_slack=slack)
+    assert 'W83' not in caplog.text, \
+        'el desvío no despejó el icono (o el jog cuenta como paseo)'
+
+    # sin intrusos: la polilínea sale intacta
+    els2 = {k: v for k, v in els.items() if k != 'intruso'}
+    assert _dodge_foreign_icons(j, [(80, 225), (400, 225)], els2) \
+        == ([(80, 225), (400, 225)], 0.0)
+
+    # pasillo cerrado: intrusos pegados a ambos lados — sin carril libre
+    # a ≤3 pasos, el tramo queda y el audit lo nombra (red de seguridad)
+    caplog.clear()
+    els3 = dict(els)
+    for i in range(1, 4):
+        els3[f'muro_a{i}'] = {'id': f'muro_a{i}', 'x': 180,
+                              'y': 200 - i * 28}
+        els3[f'muro_b{i}'] = {'id': f'muro_b{i}', 'x': 180,
+                              'y': 200 + i * 28}
+    pts3, slack3 = _dodge_foreign_icons(j, [(80, 225), (400, 225)], els3)
+    with caplog.at_level(logging.WARNING, logger='AlmaGag'):
+        _audit_band_hygiene(j, pts3, els3, conn, dodge_slack=slack3)
+    assert "pasa por encima de" in caplog.text

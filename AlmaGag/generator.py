@@ -384,6 +384,17 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
         logger.warning(f"§O52: aspecto {em['aspect']:.2f} fuera de "
                        f"[{ASPECT_RANGE[0]}, {ASPECT_RANGE[1]}] — lámina "
                        "desproporcionada")
+    # Z96: lámina con capa overlay declarada → presupuesto de cruces
+    # 2×|overlay|; el excedente nombra a las aristas más cruzadas (un
+    # número solo no dice qué reencaminar). Bajo presupuesto, silencio.
+    from AlmaGag.layout.metrics import overlay_crossing_report
+    ov = overlay_crossing_report(optimized_layout)
+    if ov and ov['crossings'] > ov['budget']:
+        tops = ', '.join(f"'{f}→{t}' ({n})" for f, t, n in ov['offenders'][:5])
+        logger.warning(
+            f"Z96: {ov['crossings']} cruces > presupuesto "
+            f"2×|overlay|={ov['budget']} ({ov['overlays']} arista(s) "
+            f"overlay) — las más cruzadas: {tops}")
 
     logger.info(f"     - {num_levels} niveles, {num_groups} grupo(s)")
     logger.info(f"     - Prioridades: {high_priority} high, {normal_priority} normal, {low_priority} low")

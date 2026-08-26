@@ -193,7 +193,110 @@ def build_journey_lanes(journeys, elements_by_id, connections):
     return out
 
 
-def _audit_band_hygiene(journey, points, elements_by_id, connections):
+def _seg_point_dist(px, py, a, b):
+    import math
+    ax, ay = a
+    bx, by = b
+    dx, dy = bx - ax, by - ay
+    l2 = dx * dx + dy * dy
+    if l2 == 0:
+        return math.hypot(px - ax, py - ay)
+    t = max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / l2))
+    return math.hypot(px - (ax + t * dx), py - (ay + t * dy))
+
+
+def _dodge_foreign_icons(journey, points, elements_by_id):
+    """Z95 (WISH-LAYOUT-030): W83 pasa de aviso a corrección. El tramo cuyo
+    EJE atraviesa un icono ajeno al recorrido se desplaza perpendicular al
+    carril libre, en pasos de ½ ancho de banda (3 intentos por lado, del
+    lado despejado primero). El desvío empalma con jogs cortos en los
+    extremos del tramo — la banda sigue tocando sus anclas. Lo que ni con
+    3 pasos se despeja queda intacto y el audit lo nombra (red de
+    seguridad). Dos pasadas: el jog de empalme de un desvío mejor-esfuerzo
+    es un segmento común en la segunda y puede esquivar por su cuenta.
+    Devuelve (polilínea corregida, px de trazo agregados por los desvíos —
+    el audit del paseo los descuenta: esquivar no es pasear)."""
+    jid = journey.get('id', '?')
+    members = {i for i in journey.get('path', []) if isinstance(i, str)}
+    obstacles = []
+    for eid, e in elements_by_id.items():
+        if eid in members or 'contains' in e or 'x' not in e:
+            continue
+        w = e.get('width', 80)
+        h = e.get('height', 50)
+        obstacles.append((eid, e['x'] + w / 2.0, e['y'] + h / 2.0,
+                          max(w, h) / 2.0))
+    if not obstacles or len(points) < 2:
+        return points, 0.0
+
+    def _hits(a, b):
+        return [o for o in obstacles
+                if _seg_point_dist(o[1], o[2], a, b) < o[3] + 2.0]
+
+    def _one_pass(pts):
+        out = [pts[0]]
+        dodged = []
+        for a, b in zip(pts, pts[1:]):
+            bad = _hits(a, b)
+            if not bad:
+                out.append(b)
+                continue
+            dx, dy = b[0] - a[0], b[1] - a[1]
+            L = (dx * dx + dy * dy) ** 0.5
+            if L < 1e-9:
+                out.append(b)
+                continue
+            nx, ny = -dy / L, dx / L
+            # lado libre primero: alejarse del intruso más pisado
+            worst = min(bad, key=lambda o: _seg_dist_ratio(o, a, b))
+            side = -1.0 if ((worst[1] - a[0]) * nx
+                            + (worst[2] - a[1]) * ny) > 0 else 1.0
+            # el candidato se juzga completo — desvío Y sus dos jogs de
+            # empalme (un jog que pisa lo que el desvío esquivó no
+            # corrige nada). Primer candidato limpio gana; si ninguno
+            # queda limpio, el que menos intrusos deja (mejor-esfuerzo:
+            # la segunda pasada o el audit se ocupan del resto).
+            fixed = None
+            best_left = len(bad)
+            for k in (1, 2, 3):
+                for s in (side, -side):
+                    off = s * k * (JOURNEY_WIDTH / 2.0)
+                    aa = (a[0] + nx * off, a[1] + ny * off)
+                    bb = (b[0] + nx * off, b[1] + ny * off)
+                    left = {o[0] for seg in ((aa, bb), (a, aa), (bb, b))
+                            for o in _hits(*seg)}
+                    if len(left) < best_left:
+                        fixed = (aa, bb, off)
+                        best_left = len(left)
+                if fixed and best_left == 0:
+                    break
+            if fixed:
+                out.extend([fixed[0], fixed[1], b])
+                dodged.append((','.join(o[0] for o in bad), fixed[2]))
+            else:
+                out.append(b)
+        return out, dodged
+
+    out, dodged = _one_pass(points)
+    if dodged:
+        out2, dodged2 = _one_pass(out)
+        if dodged2:
+            out, dodged = out2, dodged + dodged2
+    slack = sum(2.0 * abs(off) for _, off in dodged)
+    if dodged:
+        detail = '; '.join(f"'{ids}' ({off:+.0f}px)" for ids, off in dodged)
+        logger.info(f"[journeys] banda '{jid}' esquiva icono(s) ajeno(s): "
+                    f"{detail} — eje al carril libre (Z95)")
+    return out, slack
+
+
+def _seg_dist_ratio(o, a, b):
+    """Cuánto pisa el tramo al obstáculo: distancia eje↔centro / radio."""
+    return _seg_point_dist(o[1], o[2], a, b) / max(o[3], 1e-9)
+
+
+def _audit_band_hygiene(journey, points, elements_by_id, connections,
+                        dodge_slack=0.0):
     """WISH-DRAW-006 (W83): higiene de bandas — toda violación se NOMBRA.
 
     (a) Ningún icono ajeno al recorrido queda dentro del trazo: distancia
@@ -201,7 +304,10 @@ def _audit_band_hygiene(journey, points, elements_by_id, connections):
     (b) La banda no pasea: longitud ≤ 1.25× la suma de sus conexiones
         (el excedente legítimo son los cruces ortogonales de los nodos
         intermedios, ~|Δpuertos| por nodo — BUGS-ROUTE-004).
-    Audit, no corrección: el render sale igual; la violación va al log.
+    Z95 corrige (a) antes de llegar acá (_dodge_foreign_icons); el audit
+    queda como red de seguridad para lo que ni con 3 pasos se despeja.
+    `dodge_slack` son los px agregados por esos desvíos — se descuentan
+    del presupuesto de paseo: esquivar no es pasear.
     """
     import math
     jid = journey.get('id', '?')
@@ -217,19 +323,41 @@ def _audit_band_hygiene(journey, points, elements_by_id, connections):
         t = max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / l2))
         return math.hypot(px - (ax + t * dx), py - (ay + t * dy))
 
-    half = JOURNEY_WIDTH / 2.0
+    def _seg_hits_rect(a, b, x0, y0, x1, y1):
+        """¿El segmento a—b entra al rectángulo? (Liang-Barsky)."""
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        t0, t1 = 0.0, 1.0
+        for p, q in ((-dx, a[0] - x0), (dx, x1 - a[0]),
+                     (-dy, a[1] - y0), (dy, y1 - a[1])):
+            if abs(p) < 1e-12:
+                if q < 0:
+                    return False
+                continue
+            r = q / p
+            if p < 0:
+                t0 = max(t0, r)
+            else:
+                t1 = min(t1, r)
+            if t0 > t1:
+                return False
+        return True
+
     for eid, e in elements_by_id.items():
         if eid in members or 'contains' in e or 'x' not in e:
             continue
         w = e.get('width', 80)
         h = e.get('height', 50)
         cx, cy = e['x'] + w / 2.0, e['y'] + h / 2.0
-        dmin = min(_seg_dist(cx, cy, a, b)
-                   for a, b in zip(points, points[1:]))
-        edge = dmin - max(w, h) / 2.0        # aproximación por el radio mayor
-        if edge < half + 8.0 and dmin < max(w, h) / 2.0:
-            # sólo cuando el EJE entra al icono: la cota conservadora por
-            # radio castigaría vecinos legítimos de corredores compartidos
+        # sólo cuando el EJE entra al RECTÁNGULO del icono: la cota por
+        # radio circunscrito castigaba al eje que pasa BAJO un icono ancho
+        # (80×50: a 31px vertical del centro está 6px fuera del borde,
+        # pero dentro del radio 40) y a vecinos legítimos de corredores
+        # compartidos — Z95 mide el icono real, no su círculo.
+        if any(_seg_hits_rect(a, b, e['x'], e['y'],
+                              e['x'] + w, e['y'] + h)
+               for a, b in zip(points, points[1:])):
+            dmin = min(_seg_dist(cx, cy, a, b)
+                       for a, b in zip(points, points[1:]))
             logger.warning(f"[journeys] banda '{jid}' pasa por encima de "
                            f"'{eid}' (eje a {dmin:.0f}px del centro) — la "
                            f"banda no debe encerrar nodos ajenos (W83)")
@@ -245,6 +373,7 @@ def _audit_band_hygiene(journey, points, elements_by_id, connections):
         cpts = (found[0].get('computed_path') or {}).get('points') or []
         csum += sum(math.hypot(q[0] - o[0], q[1] - o[1])
                     for o, q in zip(cpts, cpts[1:]))
+    blen = max(0.0, blen - dodge_slack)
     if csum and blen > 1.25 * csum:
         logger.warning(f"[journeys] banda '{jid}' pasea: {blen:.0f}px de "
                        f"trazo contra {csum:.0f}px de conexiones "
@@ -284,7 +413,9 @@ def draw_journeys(dwg, journeys, elements_by_id, connections) -> int:
             logger.warning(f"journeys: el recorrido '{journey.get('id', i)}' no tiene "
                            f"≥2 elementos dibujables — no se pinta")
             continue
-        _audit_band_hygiene(journey, points, elements_by_id, connections)
+        points, slack = _dodge_foreign_icons(journey, points, elements_by_id)
+        _audit_band_hygiene(journey, points, elements_by_id, connections,
+                            dodge_slack=slack)
         color = journey.get('color') or JOURNEY_PALETTE[n % len(JOURNEY_PALETTE)]
         dwg.add(dwg.polyline(
             points=[(round(x, 2), round(y, 2)) for x, y in points],
