@@ -1855,7 +1855,7 @@ fixtures idénticos.
 
 ---
 
-### WISH-LAYOUT-030: Grupo Z residual — refinamiento post-partición ◐ PARCIAL (2026-08-26, iteración 16)
+### WISH-LAYOUT-030: Grupo Z residual — refinamiento post-partición ✅ RESUELTO (2026-09-02, iteración 18)
 **Componente**: hier/areas (dentro y entre celdas) + draw/journeys + metrics
 **Reportado**: 2026-08-16 (grupo Z de Claude Design, escenografía del
 tabernero; consolidado el 20-ago; iteración 16 el 26-ago)
@@ -1898,9 +1898,18 @@ codos con ambos vecinos fuera y solo iconos). Caso real B arista×nodo
 corregido del cable. Corpus: red-dual-homing-areas mejora 1→0.
 Los dos casos reales quedan en **arista×nodo=0**.
 
-Pendiente nombrado (el resto del wish): el re-solver de compactación
-(Z97 completo: recortar celdas al contenido y re-escalar hermanas para
-devolver el aire; meta tinta ≥12% — hoy 5%).
+**Z97 re-solver** ✅ (2026-09-02, iteración 18 — cierra el wish): la
+escala global px/unidad murió; la partición conserva su estructura de
+CORTES pero cada intervalo mide lo que las celdas que lo cruzan piden
+(las locales fijan, las multi-intervalo reparten su déficit en los
+intervalos libres; piso = rótulo del área). Los ratios declarados son
+MÁXIMOS de proporción, no mínimos de tamaño. Bench 3×2 con densidades
+dispares: tinta 8.5%→12.1% (meta ≥12% del criterio), avisos de
+subutilización 4→2 (los que quedan son aire estructural de banda —
+celda floja compartiendo fila/columna con una densa, y eso el audit lo
+sigue nombrando). Los fixtures del repo no declaran partition (quedaron
+idénticos); el caso real del autor quedó fuera del scratchpad al
+reciclarse la sesión — re-medirlo cuando vuelva a subirse.
 
 ---
 
