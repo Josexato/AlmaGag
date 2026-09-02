@@ -865,16 +865,66 @@ def _place_partition(dims, partition):
                            f"plan inválido")
             return None
 
-    # Escala px/unidad: TODA celda aloja su contenido (+ corredor).
-    sx = max((by_aid[a]['w'] + AREA_GAP) / u[2] for a, u in units.items())
-    sy = max((by_aid[a]['h'] + AREA_GAP) / u[3] for a, u in units.items())
-    minx = min(u[0] for u in units.values())
-    miny = min(u[1] for u in units.values())
+    # Z97 re-solver (WISH-LAYOUT-030): compactación por INTERVALOS de la
+    # grilla. Antes: UNA escala global px/unidad — la celda más densa la
+    # fijaba y a las demás les sobraba aire (tinta 5%). Ahora la
+    # estructura de CORTES se conserva (adyacencias intactas) pero cada
+    # intervalo entre cortes mide lo que las celdas que lo cruzan piden:
+    # las celdas de menos intervalos fijan primero y las que abarcan
+    # varios reparten su déficit en proporción a los largos de unidad.
+    # Los ratios declarados son MÁXIMOS de proporción, no mínimos de
+    # tamaño (doctrina Z97): la celda floja devuelve el aire, y la que
+    # comparte banda con una densa hereda el tamaño de banda — ese aire
+    # estructural es el que el audit Z97 sigue nombrando.
+    def _axis_positions(idx):
+        cuts = sorted({round(u[idx], 6) for u in units.values()}
+                      | {round(u[idx] + u[idx + 2], 6)
+                         for u in units.values()})
+        iv = list(zip(cuts, cuts[1:]))
+        px = [0.0] * len(iv)
+        need = []
+        for aid, u in units.items():
+            lo = round(u[idx], 6)
+            hi = round(u[idx] + u[idx + 2], 6)
+            mine = [i for i, (a, b) in enumerate(iv)
+                    if a >= lo - 1e-9 and b <= hi + 1e-9]
+            req = by_aid[aid]['w' if idx == 0 else 'h'] + AREA_GAP
+            if idx == 0:
+                # piso: el rótulo del área debe caber en su celda — una
+                # celda compactada al contenido cortaba el título
+                title = (by_aid[aid]['spec'].get('label') or '')
+                req = max(req, 7.5 * max(map(len, title.split('\n')),
+                                         default=0) + 24 + AREA_GAP)
+            need.append((len(mine), -req, aid, mine, req))
+        for _, _, _, mine, req in sorted(need):
+            cur = sum(px[i] for i in mine)
+            if cur >= req:
+                continue
+            # el déficit va primero a los intervalos LIBRES (nadie más
+            # los fijó): inflar una banda ya fijada le regala aire a la
+            # celda local que la fijó justa
+            free = [i for i in mine if px[i] < 1e-9]
+            targets = free or mine
+            tot_u = sum(iv[i][1] - iv[i][0] for i in targets)
+            for i in targets:
+                px[i] += (req - cur) * (iv[i][1] - iv[i][0]) / tot_u
+        pos, acc = {cuts[0]: 0.0}, 0.0
+        for (a, b), w in zip(iv, px):
+            acc += w
+            pos[b] = acc
+        return pos
+
+    xpos = _axis_positions(0)
+    ypos = _axis_positions(1)
     cells = {}
     for aid, (ux, uy, uw, uh) in units.items():
-        cells[aid] = (MARGIN_X + (ux - minx) * sx + AREA_GAP / 2,
-                      MARGIN_Y + (uy - miny) * sy + AREA_GAP / 2,
-                      uw * sx - AREA_GAP, uh * sy - AREA_GAP)
+        x0 = xpos[round(ux, 6)]
+        x1 = xpos[round(ux + uw, 6)]
+        y0 = ypos[round(uy, 6)]
+        y1 = ypos[round(uy + uh, 6)]
+        cells[aid] = (MARGIN_X + x0 + AREA_GAP / 2,
+                      MARGIN_Y + y0 + AREA_GAP / 2,
+                      (x1 - x0) - AREA_GAP, (y1 - y0) - AREA_GAP)
 
     # Áreas fuera del plan: fila propia bajo la grilla, nombradas.
     rest = [d for d in dims if d['aid'] not in units]
@@ -883,8 +933,7 @@ def _place_partition(dims, partition):
         logger.warning(f"[partition] área(s) fuera del plan: "
                        f"{', '.join(named)} — van en fila propia al final")
     if rest:
-        base_y = MARGIN_Y + max(
-            (u[1] - miny + u[3]) * sy for u in units.values()) + AREA_GAP / 2
+        base_y = MARGIN_Y + max(ypos.values()) + AREA_GAP / 2
         x_cursor = MARGIN_X
         for d in rest:
             cells[d['aid']] = (x_cursor, base_y, d['w'], d['h'])
@@ -892,6 +941,8 @@ def _place_partition(dims, partition):
 
     ratio = partition.get('ratio')
     if isinstance(ratio, (list, tuple)) and len(ratio) == 2 and all(ratio):
+        minx = min(u[0] for u in units.values())
+        miny = min(u[1] for u in units.values())
         gw = max(u[0] - minx + u[2] for u in units.values())
         gh = max(u[1] - miny + u[3] for u in units.values())
         want = float(ratio[0]) / float(ratio[1])

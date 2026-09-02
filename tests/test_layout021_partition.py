@@ -45,13 +45,21 @@ def test_bsp_places_cells_as_declared():
     assert z1['x'] > z0['x'] and abs(z1['y'] - z0['y']) < 1, 'z1 derecha de z0'
     assert z2['x'] > z1['x'], 'z2 derecha de z1'
     assert z3['y'] > z0['y'] and abs(z3['x'] - z0['x']) < 1, 'z3 debajo de z0'
-    # proporciones: z0 y z1 declaran el mismo ancho (3) → mismo px (±2%)
+    # z0 y z1 declaran el mismo ancho (3) y tienen el MISMO contenido →
+    # mismo px (±2%). Con contenidos iguales la compactación es simétrica.
     assert abs(z0['w'] - z1['w']) / z0['w'] < 0.02
-    # z3 declara 8 de ancho contra 3 de z0: la CELDA (caja + corredor
-    # AREA_GAP) conserva el ratio exacto (±2%)
+    # Z97 re-solver: los ratios declarados son MÁXIMOS de proporción, no
+    # mínimos de tamaño. z3 declara 8 de ancho contra 3 de z0 pero su
+    # contenido es igual: la ESTRUCTURA se conserva (z3 abarca exactamente
+    # la fila de arriba, borde a borde) y el aire sobrante se devolvió
+    # (z3 ya NO mide 8/3 de z0 — mediría 3× si cada tercio pide lo mismo).
     from AlmaGag.layout.strategies.hier.areas import AREA_GAP
+    top_span = (z2['x'] + z2['w']) - z0['x']
+    assert abs((z3['w']) - top_span) < 1, \
+        'z3 perdió la adyacencia con la fila superior'
     ratio = (z3['w'] + AREA_GAP) / (z0['w'] + AREA_GAP)
-    assert abs(ratio - 8 / 3) / (8 / 3) < 0.02, f'ratio {ratio:.3f} ≠ 8/3'
+    assert ratio > 8 / 3, \
+        f'ratio {ratio:.2f}: z3 quedó inflada a escala global otra vez'
 
 
 def test_bsp_content_fits_its_cell():
