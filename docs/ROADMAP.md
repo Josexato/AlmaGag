@@ -252,6 +252,19 @@ caía dentro de un icono se recorta rodeando la esquina — ambos casos
 reales en arista×nodo=0, y el W83 residual de Z95 cayó de yapa (la
 banda hereda el codo corregido del cable).
 
+## Iteración 18 — la celda floja devuelve el aire (2-sep): Z97 re-solver
+
+El último trozo del grupo Z y el cierre de WISH-LAYOUT-030: la escala
+global px/unidad (la celda más densa la fijaba para todas) se reemplaza
+por compactación por INTERVALOS — la estructura de cortes de la
+partición se conserva, cada intervalo mide lo que su contenido pide, el
+déficit multi-intervalo va a los intervalos libres y el rótulo del área
+es piso. Ratios declarados = máximos de proporción, no mínimos de
+tamaño. Bench de densidades dispares: tinta 8.5%→12.1%, avisos de
+subutilización 4→2 (aire estructural de banda, nombrado). Motor
+v3.20.0. Pendiente de re-medición: el caso real del autor (scratchpad
+reciclado).
+
 ## Mediano plazo (sin fecha)
 
 - **«El mapa» (WISH-ARCH-004)**: separar mapa (dato) de vista (representación)
