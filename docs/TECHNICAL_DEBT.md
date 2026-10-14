@@ -1913,6 +1913,37 @@ reciclarse la sesión — re-medirlo cuando vuelva a subirse.
 
 ---
 
+### BUGS-ARCH-003: `Layout.copy()` comparte los DICTS de conexión — mutar la copia muta el original 🆕 ABIERTO
+**Componente**: `layout/layout.py::Layout.copy`
+**Reportado**: 2026-10-14 (hallazgo de la sesión de reescritura
+almagag-jv leyendo el pipeline; CONFIRMADO ejecutando contra v3.20.0)
+
+`copy()` hace `connections=self.connections.copy()` — copia superficial
+de la LISTA, dicts compartidos — bajo un comentario que dice «Shallow
+copy - no se modifican» y un docstring que promete «copia profunda».
+Ambos son falsos desde que los routers escriben `computed_path`,
+`_from_port`, `waypoints` y marcas `_*` DENTRO de esos dicts: rutear un
+candidato del optimizer puede pisar el trazado de otro candidato (o del
+ganador) sin dejar huella. Repro de 8 líneas: `C = L.copy();
+C.connections[0]['computed_path'] = X` → el original queda con X.
+
+Historia: el hack de la iteración 15 (marcar `_family_joint` EN el dict
+de conexión «porque layout.copy() no preserva atributos») era el
+SÍNTOMA de este aliasing, usado a favor. BUGS-ARCH-001 arregló el
+hermano (atributos ad-hoc del layout perdidos); este es el inverso:
+lo compartido que debía ser propio.
+
+Criterio: mutar una copia jamás toca otra escena (deepcopy de
+conexiones o copia dict-a-dict), con test de propiedad que lo congele,
+y re-medición del corpus — hay que saber si algún comportamiento vigente
+DEPENDE del aliasing (el `_family_joint` de it15, los buses X92).
+Decisión del autor (14-oct): la reescritura almagag-jv lo mata por
+diseño (escena inmutable, A1); el fix del Python se copiará de esa
+solución cuando esté probada — este ticket existe para que el bug
+conocido no quede sin nombre mientras tanto.
+
+---
+
 ### WISH-ARCH-007: SDJF 2.0 — spec formal con una sintaxis canónica (Y94) 🆕 ABIERTO — mediano plazo
 **Componente**: formato SDJF + `docs/spec/FORMATO_ARCHIVOS.md`
 **Reportado**: 2026-08-11 (grupo Y — requiere decisión de José: hay deprecaciones)
