@@ -1944,6 +1944,112 @@ conocido no quede sin nombre mientras tanto.
 
 ---
 
+### BUGS-LAYOUT-014: Un self-loop tumba el motor con RecursionError crudo (PY-001) 🆕 ABIERTO
+**Componente**: `hier/columns.py` (la recursión `longest`)
+**Reportado**: 2026-10-14 (fase 0 de almagag-jv; confirmado con repro propio)
+
+Un `b→b` cuenta como ciclo (`_has_cycle`) → entra a hier → la recursión
+de columnas no corta el lazo propio → `RecursionError` y stack trace
+crudo. Un archivo VÁLIDO de 2 nodos mata la corrida — la clase de
+defecto que BUGS-ARCH-002 ya fichó para otro input. Repro:
+`{"elements":[{"id":"a"},{"id":"b"}],"connections":[{"from":"a","to":"b"},{"from":"b","to":"b"}]}`.
+Fixture de regresión listo: `docs/diagrams/constructos/c27` (hoy la
+guarda lo documenta como línea ERROR estable). Criterio: el self-loop
+se dibuja como arco propio o se rechaza NOMBRADO — nunca un traceback.
+
+---
+
+### BUGS-VAL-009: El schema miente sobre `canvas.legend` con strings, y hier pierde la leyenda entera (PY-002) 🆕 ABIERTO
+**Componente**: `validation/` + el dibujo de leyenda en hier
+**Reportado**: 2026-10-14 (fase 0 de almagag-jv; confirmado con c20 y repros propios)
+
+Tres caras del mismo constructo, las tres confirmadas ejecutando:
+(a) `legend: ["Texto libre"]` dispara «[schema] no es un objeto (str) —
+se ignora» pero AUTO LO DIBUJA (la spec §1 dice que los strings valen:
+el aviso es falso); (b) con otra composición (elementos con label, 2
+strings) auto SÍ lo ignora — el comportamiento es inconsistente consigo
+mismo; (c) en hier con `areas` (c20) la leyenda libre ENTERA —strings y
+swatches válidos— no se dibuja y nadie la nombra. Criterio: una sola
+verdad (la spec manda: strings valen), el mismo render en auto y hier,
+y lo que no se dibuje, se nombra.
+
+---
+
+### BUGS-DRAW-008: El recorte O51 corta los labels laterales (PY-003) 🆕 ABIERTO
+**Componente**: `draw/` (bbox del viewBox §O51)
+**Reportado**: 2026-10-14 (fase 0 de almagag-jv; confirmado en PNG de c10)
+
+En la vista columns los labels a la IZQUIERDA del icono quedan fuera
+del bbox del recorte: «Revisar solicitud» sale como «sar solicitud» y
+«¿Completa?» pierde el «¿» (c10). El bbox de O51 considera iconos y
+labels bottom pero no los laterales que asigna esa vista. Criterio:
+ningún carácter de label fuera del viewBox en el corpus.
+
+---
+
+### BUGS-DRAW-009: La leyenda «Enlaces:» pisa labels y se sale del viewBox (PY-004) 🆕 ABIERTO
+**Componente**: `draw/` (leyenda §N48/§O54 vs última fila)
+**Reportado**: 2026-10-14 (fase 0 de almagag-jv; confirmado en PNG de c21)
+
+En c21 la leyenda de enlaces se monta sobre el label «Monitoreo» y su
+último ítem queda cortado por el borde derecho — la misma familia que
+BUGS-DRAW-005 (resuelto para la leyenda V82) pero en la leyenda de
+semántica, y con `labels=0` en el audit (ver BUGS-LOG-004). Criterio:
+la leyenda reserva su banda (como V82 post-fix) y entra entera en la
+lámina.
+
+---
+
+### BUGS-LAYOUT-015: Dos iconos colocados en la posición EXACTA (PY-005a) 🆕 ABIERTO
+**Componente**: layout (hier con theme/semántica, c21)
+**Reportado**: 2026-10-14 (fase 0 de almagag-jv; confirmado con coordenadas)
+
+En c21, `bd` y `cache` terminan ambos en (428.96, 40.0) — superposición
+total, un solo cilindro visible con dos labels. Ningún paso del
+pipeline los separa ni lo reporta. Criterio: cero pares de iconos con
+solape en el corpus (el audit nuevo de BUGS-LOG-004 lo vigilará).
+
+---
+
+### BUGS-LOG-004: `icon_vs_icon` no entra a ningún contador del audit (PY-005b) 🆕 ABIERTO
+**Componente**: `layout/metrics.py::quality_counters`
+**Reportado**: 2026-10-14 (fase 0 de almagag-jv)
+
+El detector de colisiones produce pares `icon_vs_icon` pero la línea
+[motor] solo suma pares con 'label': dos iconos montados EXACTOS (c21)
+reportan `labels=0` y ningún otro contador lo dice — la lámina miente
+«limpia». Misma doctrina que BUGS-VAL-008 (el contador es la cifra
+oficial): agregar el canal `icono×icono` a quality_counters y al log.
+Recalibrar la base de la guarda al activarlo (c21 y quien más caiga).
+
+---
+
+### BUGS-DRAW-010: El «pasea» de bandas cortas es un falso positivo estructural (PY-007) 🆕 ABIERTO
+**Componente**: `draw/primitives/journeys.py::_audit_band_hygiene`
+**Reportado**: 2026-09-02 (diagnóstico propio sobre el caso real);
+2026-10-14 (segunda confirmación independiente: almagag-jv, c19, ratio 1.90)
+
+El umbral del paseo (1.25×) es libre de escala pero el sobrecosto de
+los empalmes ortogonales es ~constante por nodo: en bandas CORTAS el
+ratio explota sin que la banda pasee de verdad (caso real: 182 vs 132;
+c19: 240 vs 126). Criterio: presupuesto mixto — ratio 1.25 + tolerancia
+absoluta (~ICON_H/2 por nodo intermedio); cero falsos positivos en el
+corpus, y el paseo real (c19 con desvío genuino) sigue nombrado.
+
+---
+
+### WISH-LAYOUT-031: `area.role` con muchas bandas degenera en cinta 1×N (PY-006) 🆕 ABIERTO
+**Componente**: hier/areas (macro-plano por role)
+**Reportado**: 2026-10-14 (fase 0 de almagag-jv, c13: 5 bandas → aspecto 0.12)
+
+La spec promete «nunca una cinta 1×N» pero 5 roles sin partition
+apilan 5 filas de a 1: §O52 lo nombra (0.12 fuera de rango) y nada lo
+corrige. Salidas posibles: envolver bandas del mismo nivel en
+columnas (J33 a escala de macro-plano) o corregir la promesa de la
+spec. Decisión de José.
+
+---
+
 ### WISH-ARCH-007: SDJF 2.0 — spec formal con una sintaxis canónica (Y94) 🆕 ABIERTO — mediano plazo
 **Componente**: formato SDJF + `docs/spec/FORMATO_ARCHIVOS.md`
 **Reportado**: 2026-08-11 (grupo Y — requiere decisión de José: hay deprecaciones)
