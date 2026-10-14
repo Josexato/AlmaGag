@@ -1,0 +1,77 @@
+{
+  "_comment": "Constructo: roles (franja + leyenda), status ok/partial/empty y canvas.legend libre (strings y swatches).",
+  "canvas": {
+    "legend": [
+      "Estado al cierre del periodo",
+      {
+        "label": "Prioridad alta",
+        "color": "#c62828"
+      }
+    ]
+  },
+  "roles": {
+    "a": {
+      "label": "Equipo A",
+      "color": "#2a6fdb"
+    },
+    "b": {
+      "label": "Equipo B",
+      "color": "#8e24aa"
+    }
+  },
+  "elements": [
+    {
+      "id": "x1",
+      "type": "document",
+      "label": "Diseño\nlisto",
+      "role": "a",
+      "status": "ok"
+    },
+    {
+      "id": "x2",
+      "type": "document",
+      "label": "Construcción\nen curso",
+      "role": "b",
+      "status": "partial"
+    },
+    {
+      "id": "x3",
+      "type": "document",
+      "label": "Pruebas\npendiente",
+      "role": "a",
+      "status": "empty"
+    },
+    {
+      "id": "x4",
+      "type": "server",
+      "label": "Despliegue",
+      "role": "b"
+    }
+  ],
+  "connections": [
+    {
+      "from": "x1",
+      "to": "x2"
+    },
+    {
+      "from": "x2",
+      "to": "x3"
+    },
+    {
+      "from": "x3",
+      "to": "x4"
+    }
+  ],
+  "areas": [
+    {
+      "id": "P",
+      "label": "Proyecto",
+      "members": [
+        "x1",
+        "x2",
+        "x3",
+        "x4"
+      ]
+    }
+  ]
+}

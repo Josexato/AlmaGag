@@ -1,0 +1,116 @@
+{
+  "_comment": "Constructo: journeys (capa de anotación, class ag-journey invisible a métricas) siguiendo cables reales + leyenda «Flujos:».",
+  "elements": [
+    {
+      "id": "j0",
+      "type": "server",
+      "label": "Tramo 1"
+    },
+    {
+      "id": "j1",
+      "type": "server",
+      "label": "Tramo 2"
+    },
+    {
+      "id": "j2",
+      "type": "server",
+      "label": "Tramo 3"
+    },
+    {
+      "id": "j3",
+      "type": "server",
+      "label": "Tramo 4"
+    },
+    {
+      "id": "k0",
+      "type": "server",
+      "label": "Ramal 1"
+    },
+    {
+      "id": "k1",
+      "type": "server",
+      "label": "Ramal 2"
+    },
+    {
+      "id": "k2",
+      "type": "server",
+      "label": "Ramal 3"
+    }
+  ],
+  "connections": [
+    {
+      "from": "j0",
+      "to": "j1"
+    },
+    {
+      "from": "j1",
+      "to": "j2"
+    },
+    {
+      "from": "j2",
+      "to": "j3"
+    },
+    {
+      "from": "k0",
+      "to": "k1"
+    },
+    {
+      "from": "k1",
+      "to": "k2"
+    },
+    {
+      "from": "j1",
+      "to": "k0"
+    },
+    {
+      "from": "k2",
+      "to": "j3"
+    }
+  ],
+  "areas": [
+    {
+      "id": "A",
+      "label": "Troncal",
+      "members": [
+        "j0",
+        "j1",
+        "j2",
+        "j3"
+      ]
+    },
+    {
+      "id": "B",
+      "label": "Desvío",
+      "members": [
+        "k0",
+        "k1",
+        "k2"
+      ]
+    }
+  ],
+  "journeys": [
+    {
+      "id": "r1",
+      "label": "Ruta directa",
+      "color": "#f7e017",
+      "path": [
+        "j0",
+        "j1",
+        "j2",
+        "j3"
+      ]
+    },
+    {
+      "id": "r2",
+      "label": "Ruta por desvío",
+      "path": [
+        "j0",
+        "j1",
+        "k0",
+        "k1",
+        "k2",
+        "j3"
+      ]
+    }
+  ]
+}

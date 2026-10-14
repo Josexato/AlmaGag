@@ -1,0 +1,77 @@
+{
+  "_comment": "Constructo: vista lanes (sólo por CLI --view lanes); carriles derivados de element.role + leyenda roles.",
+  "roles": {
+    "cli": {
+      "label": "Cliente",
+      "color": "#2a6fdb"
+    },
+    "ope": {
+      "label": "Operaciones",
+      "color": "#2e7d32"
+    },
+    "fin": {
+      "label": "Finanzas",
+      "color": "#b8860b"
+    }
+  },
+  "elements": [
+    {
+      "id": "pide",
+      "type": "user",
+      "label": "Pide servicio",
+      "role": "cli"
+    },
+    {
+      "id": "reg",
+      "type": "server",
+      "label": "Registra pedido",
+      "role": "ope"
+    },
+    {
+      "id": "cot",
+      "type": "document",
+      "label": "Cotiza",
+      "role": "fin"
+    },
+    {
+      "id": "acepta",
+      "type": "user",
+      "label": "Acepta",
+      "role": "cli"
+    },
+    {
+      "id": "ejec",
+      "type": "server",
+      "label": "Ejecuta",
+      "role": "ope"
+    },
+    {
+      "id": "fact",
+      "type": "document",
+      "label": "Factura",
+      "role": "fin"
+    }
+  ],
+  "connections": [
+    {
+      "from": "pide",
+      "to": "reg"
+    },
+    {
+      "from": "reg",
+      "to": "cot"
+    },
+    {
+      "from": "cot",
+      "to": "acepta"
+    },
+    {
+      "from": "acepta",
+      "to": "ejec"
+    },
+    {
+      "from": "ejec",
+      "to": "fact"
+    }
+  ]
+}

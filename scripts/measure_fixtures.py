@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Guarda anti-regresión: la línea [motor] de TODOS los fixtures.
 
-Imprime una línea estable por fixture de docs/diagrams/gags/ con los
+Imprime una línea estable por fixture de docs/diagrams/gags/ y de
+docs/diagrams/constructos/ (el corpus compartido con almagag-jv) con los
 contadores de calidad (cruces, arista×nodo, labels, tinta, aspecto).
 Uso típico (patrón probar → medir → revertir si empeora):
 
@@ -9,6 +10,11 @@ Uso típico (patrón probar → medir → revertir si empeora):
     # ... cambios ...
     python scripts/measure_fixtures.py > /tmp/despues.txt
     diff /tmp/antes.txt /tmp/despues.txt
+
+Los constructos con vista CLI declarada (views.json — la vista no vive en
+el archivo, §R) se miden con esa vista. Un fixture que revienta imprime
+«ERROR <mensaje>»: la línea es estable y la guarda documenta el bug
+conocido (c27/BUGS-LAYOUT-014) sin callar al resto.
 
 Nota de guerra: la primera versión de este medidor vivía fuera del repo y
 falló en silencio (sys.path sin la raíz) — las guardas compararon archivos
@@ -18,6 +24,7 @@ aborta ruidosamente si no midió nada.
 
 import glob
 import io
+import json
 import logging
 import os
 import sys
@@ -26,11 +33,20 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from AlmaGag.generator import generate_diagram  # noqa: E402
 
+CONSTRUCTOS = 'docs/diagrams/constructos'
+
 
 def main() -> int:
     logger = logging.getLogger('AlmaGag')
     fixtures = sorted(glob.glob('docs/diagrams/gags/*.sdjf')
                       + glob.glob('docs/diagrams/gags/*.gag'))
+    fixtures += sorted(glob.glob(f'{CONSTRUCTOS}/*.sdjf')
+                       + glob.glob(f'{CONSTRUCTOS}/*.gag'))
+    views = {}
+    views_path = os.path.join(CONSTRUCTOS, 'views.json')
+    if os.path.exists(views_path):
+        with open(views_path) as fh:
+            views = json.load(fh)
     measured = 0
     for f in fixtures:
         buf = io.StringIO()
@@ -39,9 +55,10 @@ def main() -> int:
         logger.addHandler(handler)
         try:
             generate_diagram(f, output_file='/tmp/_measure.svg',
-                             layout_algorithm='select')
+                             layout_algorithm='select',
+                             view=views.get(os.path.basename(f), 'auto'))
         except Exception as e:  # noqa: BLE001 — un fixture roto no calla al resto
-            print(f'{os.path.basename(f)} | ERROR {e}')
+            print(f'{os.path.basename(f)} | ERROR {type(e).__name__}: {e}')
             continue
         finally:
             logger.removeHandler(handler)

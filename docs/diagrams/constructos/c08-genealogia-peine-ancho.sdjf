@@ -1,0 +1,80 @@
+{
+  "_comment": "Constructo: peine AA99 con 6 hijos — troncal horizontal única y una bajada por hijo.",
+  "elements": [
+    {
+      "id": "m",
+      "type": "user",
+      "label": "Progenitora"
+    },
+    {
+      "id": "f",
+      "type": "user",
+      "label": "Progenitor"
+    },
+    {
+      "id": "k0",
+      "type": "user",
+      "label": "Descendiente 1"
+    },
+    {
+      "id": "k1",
+      "type": "user",
+      "label": "Descendiente 2"
+    },
+    {
+      "id": "k2",
+      "type": "user",
+      "label": "Descendiente 3"
+    },
+    {
+      "id": "k3",
+      "type": "user",
+      "label": "Descendiente 4"
+    },
+    {
+      "id": "k4",
+      "type": "user",
+      "label": "Descendiente 5"
+    },
+    {
+      "id": "k5",
+      "type": "user",
+      "label": "Descendiente 6"
+    }
+  ],
+  "unions": [
+    {
+      "id": "u",
+      "between": [
+        "m",
+        "f"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "u",
+      "to": "k0"
+    },
+    {
+      "from": "u",
+      "to": "k1"
+    },
+    {
+      "from": "u",
+      "to": "k2"
+    },
+    {
+      "from": "u",
+      "to": "k3"
+    },
+    {
+      "from": "u",
+      "to": "k4"
+    },
+    {
+      "from": "u",
+      "to": "k5"
+    }
+  ]
+}

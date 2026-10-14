@@ -1,0 +1,168 @@
+{
+  "_comment": "Constructo: ruteo por corredores (ROUTE-006) entre 4 áreas en grilla 2×2 con enlaces diagonales inter-área.",
+  "canvas": {
+    "partition": {
+      "scheme": "grid",
+      "rows": [
+        [
+          "nw",
+          "ne"
+        ],
+        [
+          "sw",
+          "se"
+        ]
+      ]
+    }
+  },
+  "elements": [
+    {
+      "id": "nw0",
+      "type": "server",
+      "label": "Servicio NW 1"
+    },
+    {
+      "id": "nw1",
+      "type": "server",
+      "label": "Servicio NW 2"
+    },
+    {
+      "id": "nw2",
+      "type": "server",
+      "label": "Servicio NW 3"
+    },
+    {
+      "id": "ne0",
+      "type": "server",
+      "label": "Servicio NE 1"
+    },
+    {
+      "id": "ne1",
+      "type": "server",
+      "label": "Servicio NE 2"
+    },
+    {
+      "id": "ne2",
+      "type": "server",
+      "label": "Servicio NE 3"
+    },
+    {
+      "id": "sw0",
+      "type": "server",
+      "label": "Servicio SW 1"
+    },
+    {
+      "id": "sw1",
+      "type": "server",
+      "label": "Servicio SW 2"
+    },
+    {
+      "id": "sw2",
+      "type": "server",
+      "label": "Servicio SW 3"
+    },
+    {
+      "id": "se0",
+      "type": "server",
+      "label": "Servicio SE 1"
+    },
+    {
+      "id": "se1",
+      "type": "server",
+      "label": "Servicio SE 2"
+    },
+    {
+      "id": "se2",
+      "type": "server",
+      "label": "Servicio SE 3"
+    }
+  ],
+  "connections": [
+    {
+      "from": "nw0",
+      "to": "nw1"
+    },
+    {
+      "from": "nw1",
+      "to": "nw2"
+    },
+    {
+      "from": "ne0",
+      "to": "ne1"
+    },
+    {
+      "from": "ne1",
+      "to": "ne2"
+    },
+    {
+      "from": "sw0",
+      "to": "sw1"
+    },
+    {
+      "from": "sw1",
+      "to": "sw2"
+    },
+    {
+      "from": "se0",
+      "to": "se1"
+    },
+    {
+      "from": "se1",
+      "to": "se2"
+    },
+    {
+      "from": "nw2",
+      "to": "se0"
+    },
+    {
+      "from": "ne2",
+      "to": "sw0"
+    },
+    {
+      "from": "nw1",
+      "to": "ne0"
+    },
+    {
+      "from": "sw2",
+      "to": "se1"
+    }
+  ],
+  "areas": [
+    {
+      "id": "nw",
+      "label": "Noroeste",
+      "members": [
+        "nw0",
+        "nw1",
+        "nw2"
+      ]
+    },
+    {
+      "id": "ne",
+      "label": "Noreste",
+      "members": [
+        "ne0",
+        "ne1",
+        "ne2"
+      ]
+    },
+    {
+      "id": "sw",
+      "label": "Suroeste",
+      "members": [
+        "sw0",
+        "sw1",
+        "sw2"
+      ]
+    },
+    {
+      "id": "se",
+      "label": "Sureste",
+      "members": [
+        "se0",
+        "se1",
+        "se2"
+      ]
+    }
+  ]
+}

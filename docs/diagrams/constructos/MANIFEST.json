@@ -1,0 +1,167 @@
+{
+  "_comment": "Corpus de constructos compartido AlmaGag Python ⇄ almagag-jv. Mismos archivos, mismos jueces. 'evidencia' prueba que el constructo se ACTIVÓ en el oráculo: log:<regex> sobre el log Python, motor:<perfil>, error:<tipo>, o visual (PNG mirado).",
+  "fixtures": {
+    "c01-partition-bsp.sdjf": {
+      "constructo": "canvas.partition bsp",
+      "congela": "anchor/right_of/below respetados; ratios como máximos (Z97)",
+      "evidencia": "log:\\[partition\\] Z97",
+      "vista": "auto"
+    },
+    "c02-partition-grid.sdjf": {
+      "constructo": "canvas.partition grid",
+      "congela": "filas de ids: g1|g2 arriba, g3 abajo",
+      "evidencia": "visual",
+      "vista": "auto"
+    },
+    "c03-partition-compactacion.sdjf": {
+      "constructo": "compactación por intervalos (Z97)",
+      "congela": "la celda floja devuelve el aire; cortes intactos",
+      "evidencia": "visual",
+      "vista": "auto"
+    },
+    "c04-partition-invalida.sdjf": {
+      "constructo": "partition inválida",
+      "congela": "plan inválido se NOMBRA y cae a derivación",
+      "evidencia": "log:plan inválido",
+      "vista": "auto"
+    },
+    "c05-serpenteo-celda-ancha.sdjf": {
+      "constructo": "serpenteo Z94",
+      "congela": "cadena de 7 en celda 4:1 → boustrophedon, giros verticales, orden de lectura",
+      "evidencia": "visual",
+      "vista": "auto"
+    },
+    "c06-serpenteo-feeders.sdjf": {
+      "constructo": "serpenteo Z94 + peine invertido",
+      "congela": "alimentadores arriba convergen a la cabeza con troncal única",
+      "evidencia": "visual",
+      "vista": "auto"
+    },
+    "c07-genealogia-tres-generaciones.sdjf": {
+      "constructo": "genealogía AA98/AA99/AA100",
+      "congela": "T-joint en el carril de la pareja; peine; labels debajo",
+      "evidencia": "log:\\[AA\\] árbol familiar: 2 unión",
+      "vista": "auto"
+    },
+    "c08-genealogia-peine-ancho.sdjf": {
+      "constructo": "peine AA99",
+      "congela": "troncal horizontal única + 6 bajadas",
+      "evidencia": "log:\\[AA\\] árbol familiar: 1 unión",
+      "vista": "auto"
+    },
+    "c09-template-steps.sdjf": {
+      "constructo": "layout_template steps",
+      "congela": "cadena vertical centrada",
+      "evidencia": "log:Layout template 'steps' aplicado",
+      "vista": "auto"
+    },
+    "c10-columns-decision.sdjf": {
+      "constructo": "vista columns (señal decision)",
+      "congela": "flowchart en columnas con arco de retorno",
+      "evidencia": "motor:hier",
+      "vista": "auto"
+    },
+    "c11-vista-lanes.sdjf": {
+      "constructo": "vista lanes (--view lanes)",
+      "congela": "un carril por role, flujo en Y",
+      "evidencia": "motor:hier",
+      "vista": "lanes"
+    },
+    "c12-vista-matrix.sdjf": {
+      "constructo": "vista matrix (--view matrix)",
+      "congela": "grilla fase × rol",
+      "evidencia": "motor:hier",
+      "vista": "matrix"
+    },
+    "c13-areas-roles-banda.sdjf": {
+      "constructo": "area.role",
+      "congela": "control arriba, chain centro, hub medio, external abajo, overlay fondo",
+      "evidencia": "visual",
+      "vista": "auto"
+    },
+    "c14-bus-troncal.sdjf": {
+      "constructo": "bus troncal ROUTE-005",
+      "congela": "hub con destinos en ≥3 áreas: troncal + ramales",
+      "evidencia": "log:\\[bus\\] hub 'core'",
+      "vista": "auto"
+    },
+    "c15-corredores-2x2.sdjf": {
+      "constructo": "corredores ROUTE-006",
+      "congela": "enlaces inter-área por los pasillos, sin atravesar celdas",
+      "evidencia": "visual",
+      "vista": "auto"
+    },
+    "c16-abanico-origen.sdjf": {
+      "constructo": "abanico por origen ROUTE-008",
+      "congela": "fan-out escalonado desde un origen",
+      "evidencia": "visual",
+      "vista": "auto"
+    },
+    "c17-areas-contains.sdjf": {
+      "constructo": "contenedores dentro de áreas ARCH-009",
+      "congela": "dos niveles: área ⊃ contenedor ⊃ nodos",
+      "evidencia": "log:ARCH-009",
+      "vista": "auto"
+    },
+    "c18-zonas-fisicas-anidadas.sdjf": {
+      "constructo": "zonas físicas §P59/§P60",
+      "congela": "contención real recursiva; transporte en banda",
+      "evidencia": "motor:auto",
+      "vista": "auto"
+    },
+    "c19-journeys-areas.sdjf": {
+      "constructo": "journeys",
+      "congela": "bandas siguen los cables; leyenda «Recorridos:»; invisibles a métricas",
+      "evidencia": "log:\\[journeys\\]",
+      "vista": "auto"
+    },
+    "c20-roles-status-legend.sdjf": {
+      "constructo": "roles + status + canvas.legend",
+      "congela": "franja de rol + leyenda; status colorea la última línea; leyenda libre",
+      "evidencia": "visual",
+      "vista": "auto"
+    },
+    "c21-theme-semantica-estilos.sdjf": {
+      "constructo": "theme + semantic_type + style",
+      "congela": "tokens resueltos; leyenda «Enlaces:» con ≥3 clases; dashed/dotted",
+      "evidencia": "log:§O57",
+      "vista": "auto"
+    },
+    "c22-flow-up-agregacion.sdjf": {
+      "constructo": "canvas.flow up",
+      "congela": "fuentes abajo, consolidado arriba",
+      "evidencia": "visual",
+      "vista": "auto"
+    },
+    "c23-considerations-o53.sdjf": {
+      "constructo": "considerations + §O53",
+      "congela": "align/near/avoid fuerzan AUTO; áreas como zonas near nombradas",
+      "evidencia": "log:§O53: 'considerations' fuerza AUTO",
+      "vista": "auto"
+    },
+    "c24-iconos-embebidos-bwt.gag": {
+      "constructo": "icons embebidos + §O55",
+      "congela": "viewBox escalado y currentColor; inet→cloud; type sin icono → BWT rotulado + WARNING",
+      "evidencia": "log:§O55: type 'turbina'",
+      "vista": "auto"
+    },
+    "c25-ciclo-arcos.sdjf": {
+      "constructo": "ciclo → hier (arcos E15–E17)",
+      "congela": "back-edges como arcos de ciclo",
+      "evidencia": "motor:hier",
+      "vista": "auto"
+    },
+    "c26-perf-60-nodos.sdjf": {
+      "constructo": "presupuesto de performance",
+      "congela": "60 nodos, 5 áreas, 10 contenedores: render completo < 1 s en browser (desde fase 2)",
+      "evidencia": "motor:hier",
+      "vista": "auto"
+    },
+    "c27-selfloop-hier.sdjf": {
+      "constructo": "self-loop",
+      "congela": "arco sobre el propio nodo; el oráculo Python revienta (PY-001)",
+      "evidencia": "error:RecursionError",
+      "vista": "auto"
+    }
+  }
+}

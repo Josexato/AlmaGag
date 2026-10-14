@@ -1,0 +1,69 @@
+{
+  "_comment": "Constructo: canvas.flow 'up' — fuentes como cimiento abajo y consolidado arriba (roll-up).",
+  "canvas": {
+    "flow": "up"
+  },
+  "elements": [
+    {
+      "id": "tot",
+      "type": "document",
+      "label": "Consolidado"
+    },
+    {
+      "id": "r1",
+      "type": "document",
+      "label": "Región 1"
+    },
+    {
+      "id": "r2",
+      "type": "document",
+      "label": "Región 2"
+    },
+    {
+      "id": "l0",
+      "type": "database",
+      "label": "Local 1"
+    },
+    {
+      "id": "l1",
+      "type": "database",
+      "label": "Local 2"
+    },
+    {
+      "id": "l2",
+      "type": "database",
+      "label": "Local 3"
+    },
+    {
+      "id": "l3",
+      "type": "database",
+      "label": "Local 4"
+    }
+  ],
+  "connections": [
+    {
+      "from": "r1",
+      "to": "tot"
+    },
+    {
+      "from": "r2",
+      "to": "tot"
+    },
+    {
+      "from": "l0",
+      "to": "r1"
+    },
+    {
+      "from": "l1",
+      "to": "r1"
+    },
+    {
+      "from": "l2",
+      "to": "r2"
+    },
+    {
+      "from": "l3",
+      "to": "r2"
+    }
+  ]
+}

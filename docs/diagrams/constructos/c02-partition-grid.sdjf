@@ -1,0 +1,127 @@
+{
+  "_comment": "Constructo: canvas.partition scheme grid (filas de ids, azúcar).",
+  "canvas": {
+    "partition": {
+      "scheme": "grid",
+      "rows": [
+        [
+          "g1",
+          "g2"
+        ],
+        [
+          "g3"
+        ]
+      ]
+    }
+  },
+  "elements": [
+    {
+      "id": "g1_0",
+      "type": "server",
+      "label": "Tarea 1. 1"
+    },
+    {
+      "id": "g1_1",
+      "type": "server",
+      "label": "Tarea 1. 2"
+    },
+    {
+      "id": "g2_0",
+      "type": "server",
+      "label": "Tarea 2. 1"
+    },
+    {
+      "id": "g2_1",
+      "type": "server",
+      "label": "Tarea 2. 2"
+    },
+    {
+      "id": "g2_2",
+      "type": "server",
+      "label": "Tarea 2. 3"
+    },
+    {
+      "id": "g3_0",
+      "type": "server",
+      "label": "Tarea 3. 1"
+    },
+    {
+      "id": "g3_1",
+      "type": "server",
+      "label": "Tarea 3. 2"
+    },
+    {
+      "id": "g3_2",
+      "type": "server",
+      "label": "Tarea 3. 3"
+    },
+    {
+      "id": "g3_3",
+      "type": "server",
+      "label": "Tarea 3. 4"
+    }
+  ],
+  "connections": [
+    {
+      "from": "g1_0",
+      "to": "g1_1"
+    },
+    {
+      "from": "g2_0",
+      "to": "g2_1"
+    },
+    {
+      "from": "g2_1",
+      "to": "g2_2"
+    },
+    {
+      "from": "g3_0",
+      "to": "g3_1"
+    },
+    {
+      "from": "g3_1",
+      "to": "g3_2"
+    },
+    {
+      "from": "g3_2",
+      "to": "g3_3"
+    },
+    {
+      "from": "g1_1",
+      "to": "g2_0"
+    },
+    {
+      "from": "g2_2",
+      "to": "g3_0"
+    }
+  ],
+  "areas": [
+    {
+      "id": "g1",
+      "label": "Entrada",
+      "members": [
+        "g1_0",
+        "g1_1"
+      ]
+    },
+    {
+      "id": "g2",
+      "label": "Validación",
+      "members": [
+        "g2_0",
+        "g2_1",
+        "g2_2"
+      ]
+    },
+    {
+      "id": "g3",
+      "label": "Cierre",
+      "members": [
+        "g3_0",
+        "g3_1",
+        "g3_2",
+        "g3_3"
+      ]
+    }
+  ]
+}

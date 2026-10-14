@@ -1,0 +1,98 @@
+{
+  "_comment": "Constructo: contenedores dentro de áreas (ARCH-009) — dos niveles y nada más.",
+  "elements": [
+    {
+      "id": "m1",
+      "type": "building",
+      "label": "Módulo pagos",
+      "contains": [
+        "api1",
+        "db1"
+      ]
+    },
+    {
+      "id": "api1",
+      "type": "server",
+      "label": "API pagos"
+    },
+    {
+      "id": "db1",
+      "type": "database",
+      "label": "BD pagos"
+    },
+    {
+      "id": "m2",
+      "type": "building",
+      "label": "Módulo envíos",
+      "contains": [
+        "api2",
+        "q2",
+        "db2"
+      ]
+    },
+    {
+      "id": "api2",
+      "type": "server",
+      "label": "API envíos"
+    },
+    {
+      "id": "q2",
+      "type": "server",
+      "label": "Cola"
+    },
+    {
+      "id": "db2",
+      "type": "database",
+      "label": "BD envíos"
+    },
+    {
+      "id": "web",
+      "type": "laptop",
+      "label": "Portal web"
+    }
+  ],
+  "connections": [
+    {
+      "from": "web",
+      "to": "api1"
+    },
+    {
+      "from": "web",
+      "to": "api2"
+    },
+    {
+      "from": "api1",
+      "to": "db1"
+    },
+    {
+      "from": "api2",
+      "to": "q2"
+    },
+    {
+      "from": "q2",
+      "to": "db2"
+    },
+    {
+      "from": "api1",
+      "to": "api2",
+      "label": "notifica"
+    }
+  ],
+  "areas": [
+    {
+      "id": "front",
+      "label": "Canal",
+      "members": [
+        "web"
+      ]
+    },
+    {
+      "id": "back",
+      "label": "Plataforma",
+      "members": [
+        "m1",
+        "m2"
+      ]
+    }
+  ]
+}

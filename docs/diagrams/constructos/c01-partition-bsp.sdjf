@@ -1,0 +1,195 @@
+{
+  "_comment": "Constructo: canvas.partition scheme bsp (anchor/right_of/below, ratios como máximos).",
+  "canvas": {
+    "partition": {
+      "scheme": "bsp",
+      "ratio": [
+        8,
+        4
+      ],
+      "splits": [
+        {
+          "area": "z0",
+          "size": [
+            3,
+            2
+          ],
+          "anchor": "base"
+        },
+        {
+          "area": "z1",
+          "size": [
+            3,
+            2
+          ],
+          "at": "right_of",
+          "of": "z0"
+        },
+        {
+          "area": "z2",
+          "size": [
+            2,
+            2
+          ],
+          "at": "right_of",
+          "of": "z1"
+        },
+        {
+          "area": "z3",
+          "size": [
+            8,
+            2
+          ],
+          "at": "below",
+          "of": "z0"
+        }
+      ]
+    }
+  },
+  "elements": [
+    {
+      "id": "a0n0",
+      "type": "server",
+      "label": "Nodo 1.1"
+    },
+    {
+      "id": "a0n1",
+      "type": "server",
+      "label": "Nodo 1.2"
+    },
+    {
+      "id": "a0n2",
+      "type": "server",
+      "label": "Nodo 1.3"
+    },
+    {
+      "id": "a1n0",
+      "type": "server",
+      "label": "Nodo 2.1"
+    },
+    {
+      "id": "a1n1",
+      "type": "server",
+      "label": "Nodo 2.2"
+    },
+    {
+      "id": "a1n2",
+      "type": "server",
+      "label": "Nodo 2.3"
+    },
+    {
+      "id": "a2n0",
+      "type": "server",
+      "label": "Nodo 3.1"
+    },
+    {
+      "id": "a2n1",
+      "type": "server",
+      "label": "Nodo 3.2"
+    },
+    {
+      "id": "a2n2",
+      "type": "server",
+      "label": "Nodo 3.3"
+    },
+    {
+      "id": "a3n0",
+      "type": "server",
+      "label": "Nodo 4.1"
+    },
+    {
+      "id": "a3n1",
+      "type": "server",
+      "label": "Nodo 4.2"
+    },
+    {
+      "id": "a3n2",
+      "type": "server",
+      "label": "Nodo 4.3"
+    }
+  ],
+  "connections": [
+    {
+      "from": "a0n0",
+      "to": "a0n1"
+    },
+    {
+      "from": "a0n1",
+      "to": "a0n2"
+    },
+    {
+      "from": "a1n0",
+      "to": "a1n1"
+    },
+    {
+      "from": "a1n1",
+      "to": "a1n2"
+    },
+    {
+      "from": "a2n0",
+      "to": "a2n1"
+    },
+    {
+      "from": "a2n1",
+      "to": "a2n2"
+    },
+    {
+      "from": "a3n0",
+      "to": "a3n1"
+    },
+    {
+      "from": "a3n1",
+      "to": "a3n2"
+    },
+    {
+      "from": "a0n2",
+      "to": "a1n0"
+    },
+    {
+      "from": "a1n2",
+      "to": "a2n0"
+    },
+    {
+      "from": "a0n1",
+      "to": "a3n0"
+    }
+  ],
+  "areas": [
+    {
+      "id": "z0",
+      "label": "Captura",
+      "members": [
+        "a0n0",
+        "a0n1",
+        "a0n2"
+      ]
+    },
+    {
+      "id": "z1",
+      "label": "Proceso",
+      "members": [
+        "a1n0",
+        "a1n1",
+        "a1n2"
+      ]
+    },
+    {
+      "id": "z2",
+      "label": "Entrega",
+      "members": [
+        "a2n0",
+        "a2n1",
+        "a2n2"
+      ]
+    },
+    {
+      "id": "z3",
+      "label": "Soporte",
+      "members": [
+        "a3n0",
+        "a3n1",
+        "a3n2"
+      ]
+    }
+  ]
+}

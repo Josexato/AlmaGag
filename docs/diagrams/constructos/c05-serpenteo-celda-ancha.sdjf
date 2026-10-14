@@ -1,0 +1,135 @@
+{
+  "_comment": "Constructo: serpenteo Z94 — cadena 1-en/1-sal de 7 eslabones en celda ancha; orden de lectura boustrophedon.",
+  "canvas": {
+    "partition": {
+      "scheme": "bsp",
+      "ratio": [
+        4,
+        2
+      ],
+      "splits": [
+        {
+          "area": "cadena",
+          "size": [
+            4,
+            1
+          ],
+          "anchor": "base"
+        },
+        {
+          "area": "fin",
+          "size": [
+            4,
+            1
+          ],
+          "at": "below",
+          "of": "cadena"
+        }
+      ]
+    }
+  },
+  "elements": [
+    {
+      "id": "s0",
+      "type": "server",
+      "label": "Etapa 1"
+    },
+    {
+      "id": "s1",
+      "type": "server",
+      "label": "Etapa 2"
+    },
+    {
+      "id": "s2",
+      "type": "server",
+      "label": "Etapa 3"
+    },
+    {
+      "id": "s3",
+      "type": "server",
+      "label": "Etapa 4"
+    },
+    {
+      "id": "s4",
+      "type": "server",
+      "label": "Etapa 5"
+    },
+    {
+      "id": "s5",
+      "type": "server",
+      "label": "Etapa 6"
+    },
+    {
+      "id": "s6",
+      "type": "server",
+      "label": "Etapa 7"
+    },
+    {
+      "id": "t0",
+      "type": "server",
+      "label": "Cierre 1"
+    },
+    {
+      "id": "t1",
+      "type": "server",
+      "label": "Cierre 2"
+    }
+  ],
+  "connections": [
+    {
+      "from": "s0",
+      "to": "s1"
+    },
+    {
+      "from": "s1",
+      "to": "s2"
+    },
+    {
+      "from": "s2",
+      "to": "s3"
+    },
+    {
+      "from": "s3",
+      "to": "s4"
+    },
+    {
+      "from": "s4",
+      "to": "s5"
+    },
+    {
+      "from": "s5",
+      "to": "s6"
+    },
+    {
+      "from": "t0",
+      "to": "t1"
+    },
+    {
+      "from": "s6",
+      "to": "t0"
+    }
+  ],
+  "areas": [
+    {
+      "id": "cadena",
+      "label": "Cadena principal",
+      "members": [
+        "s0",
+        "s1",
+        "s2",
+        "s3",
+        "s4",
+        "s5",
+        "s6"
+      ]
+    },
+    {
+      "id": "fin",
+      "label": "Cierre",
+      "members": [
+        "t0",
+        "t1"
+      ]
+    }
+  ]
+}

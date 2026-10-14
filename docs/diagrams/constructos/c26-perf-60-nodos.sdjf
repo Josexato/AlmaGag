@@ -1,0 +1,624 @@
+{
+  "_comment": "Presupuesto de performance (fase 2): 60 nodos, 5 áreas, 10 contenedores — render completo < 1 s en browser.",
+  "elements": [
+    {
+      "id": "c00",
+      "type": "building",
+      "label": "Módulo 1.1",
+      "contains": [
+        "n000",
+        "n001",
+        "n002",
+        "n003"
+      ]
+    },
+    {
+      "id": "n000",
+      "type": "server",
+      "label": "Comp 1.1.1"
+    },
+    {
+      "id": "n001",
+      "type": "database",
+      "label": "Comp 1.1.2"
+    },
+    {
+      "id": "n002",
+      "type": "router",
+      "label": "Comp 1.1.3"
+    },
+    {
+      "id": "n003",
+      "type": "computer",
+      "label": "Comp 1.1.4"
+    },
+    {
+      "id": "c01",
+      "type": "building",
+      "label": "Módulo 1.2",
+      "contains": [
+        "n010",
+        "n011",
+        "n012",
+        "n013"
+      ]
+    },
+    {
+      "id": "n010",
+      "type": "server",
+      "label": "Comp 1.2.1"
+    },
+    {
+      "id": "n011",
+      "type": "database",
+      "label": "Comp 1.2.2"
+    },
+    {
+      "id": "n012",
+      "type": "router",
+      "label": "Comp 1.2.3"
+    },
+    {
+      "id": "n013",
+      "type": "computer",
+      "label": "Comp 1.2.4"
+    },
+    {
+      "id": "f00",
+      "type": "laptop",
+      "label": "Puesto 1.1"
+    },
+    {
+      "id": "f01",
+      "type": "laptop",
+      "label": "Puesto 1.2"
+    },
+    {
+      "id": "c10",
+      "type": "building",
+      "label": "Módulo 2.1",
+      "contains": [
+        "n100",
+        "n101",
+        "n102",
+        "n103"
+      ]
+    },
+    {
+      "id": "n100",
+      "type": "server",
+      "label": "Comp 2.1.1"
+    },
+    {
+      "id": "n101",
+      "type": "database",
+      "label": "Comp 2.1.2"
+    },
+    {
+      "id": "n102",
+      "type": "router",
+      "label": "Comp 2.1.3"
+    },
+    {
+      "id": "n103",
+      "type": "computer",
+      "label": "Comp 2.1.4"
+    },
+    {
+      "id": "c11",
+      "type": "building",
+      "label": "Módulo 2.2",
+      "contains": [
+        "n110",
+        "n111",
+        "n112",
+        "n113"
+      ]
+    },
+    {
+      "id": "n110",
+      "type": "server",
+      "label": "Comp 2.2.1"
+    },
+    {
+      "id": "n111",
+      "type": "database",
+      "label": "Comp 2.2.2"
+    },
+    {
+      "id": "n112",
+      "type": "router",
+      "label": "Comp 2.2.3"
+    },
+    {
+      "id": "n113",
+      "type": "computer",
+      "label": "Comp 2.2.4"
+    },
+    {
+      "id": "f10",
+      "type": "laptop",
+      "label": "Puesto 2.1"
+    },
+    {
+      "id": "f11",
+      "type": "laptop",
+      "label": "Puesto 2.2"
+    },
+    {
+      "id": "c20",
+      "type": "building",
+      "label": "Módulo 3.1",
+      "contains": [
+        "n200",
+        "n201",
+        "n202",
+        "n203"
+      ]
+    },
+    {
+      "id": "n200",
+      "type": "server",
+      "label": "Comp 3.1.1"
+    },
+    {
+      "id": "n201",
+      "type": "database",
+      "label": "Comp 3.1.2"
+    },
+    {
+      "id": "n202",
+      "type": "router",
+      "label": "Comp 3.1.3"
+    },
+    {
+      "id": "n203",
+      "type": "computer",
+      "label": "Comp 3.1.4"
+    },
+    {
+      "id": "c21",
+      "type": "building",
+      "label": "Módulo 3.2",
+      "contains": [
+        "n210",
+        "n211",
+        "n212",
+        "n213"
+      ]
+    },
+    {
+      "id": "n210",
+      "type": "server",
+      "label": "Comp 3.2.1"
+    },
+    {
+      "id": "n211",
+      "type": "database",
+      "label": "Comp 3.2.2"
+    },
+    {
+      "id": "n212",
+      "type": "router",
+      "label": "Comp 3.2.3"
+    },
+    {
+      "id": "n213",
+      "type": "computer",
+      "label": "Comp 3.2.4"
+    },
+    {
+      "id": "f20",
+      "type": "laptop",
+      "label": "Puesto 3.1"
+    },
+    {
+      "id": "f21",
+      "type": "laptop",
+      "label": "Puesto 3.2"
+    },
+    {
+      "id": "c30",
+      "type": "building",
+      "label": "Módulo 4.1",
+      "contains": [
+        "n300",
+        "n301",
+        "n302",
+        "n303"
+      ]
+    },
+    {
+      "id": "n300",
+      "type": "server",
+      "label": "Comp 4.1.1"
+    },
+    {
+      "id": "n301",
+      "type": "database",
+      "label": "Comp 4.1.2"
+    },
+    {
+      "id": "n302",
+      "type": "router",
+      "label": "Comp 4.1.3"
+    },
+    {
+      "id": "n303",
+      "type": "computer",
+      "label": "Comp 4.1.4"
+    },
+    {
+      "id": "c31",
+      "type": "building",
+      "label": "Módulo 4.2",
+      "contains": [
+        "n310",
+        "n311",
+        "n312",
+        "n313"
+      ]
+    },
+    {
+      "id": "n310",
+      "type": "server",
+      "label": "Comp 4.2.1"
+    },
+    {
+      "id": "n311",
+      "type": "database",
+      "label": "Comp 4.2.2"
+    },
+    {
+      "id": "n312",
+      "type": "router",
+      "label": "Comp 4.2.3"
+    },
+    {
+      "id": "n313",
+      "type": "computer",
+      "label": "Comp 4.2.4"
+    },
+    {
+      "id": "f30",
+      "type": "laptop",
+      "label": "Puesto 4.1"
+    },
+    {
+      "id": "f31",
+      "type": "laptop",
+      "label": "Puesto 4.2"
+    },
+    {
+      "id": "c40",
+      "type": "building",
+      "label": "Módulo 5.1",
+      "contains": [
+        "n400",
+        "n401",
+        "n402",
+        "n403"
+      ]
+    },
+    {
+      "id": "n400",
+      "type": "server",
+      "label": "Comp 5.1.1"
+    },
+    {
+      "id": "n401",
+      "type": "database",
+      "label": "Comp 5.1.2"
+    },
+    {
+      "id": "n402",
+      "type": "router",
+      "label": "Comp 5.1.3"
+    },
+    {
+      "id": "n403",
+      "type": "computer",
+      "label": "Comp 5.1.4"
+    },
+    {
+      "id": "c41",
+      "type": "building",
+      "label": "Módulo 5.2",
+      "contains": [
+        "n410",
+        "n411",
+        "n412",
+        "n413"
+      ]
+    },
+    {
+      "id": "n410",
+      "type": "server",
+      "label": "Comp 5.2.1"
+    },
+    {
+      "id": "n411",
+      "type": "database",
+      "label": "Comp 5.2.2"
+    },
+    {
+      "id": "n412",
+      "type": "router",
+      "label": "Comp 5.2.3"
+    },
+    {
+      "id": "n413",
+      "type": "computer",
+      "label": "Comp 5.2.4"
+    },
+    {
+      "id": "f40",
+      "type": "laptop",
+      "label": "Puesto 5.1"
+    },
+    {
+      "id": "f41",
+      "type": "laptop",
+      "label": "Puesto 5.2"
+    }
+  ],
+  "connections": [
+    {
+      "from": "n000",
+      "to": "n001"
+    },
+    {
+      "from": "n001",
+      "to": "n002"
+    },
+    {
+      "from": "n002",
+      "to": "n003"
+    },
+    {
+      "from": "n010",
+      "to": "n011"
+    },
+    {
+      "from": "n011",
+      "to": "n012"
+    },
+    {
+      "from": "n012",
+      "to": "n013"
+    },
+    {
+      "from": "f00",
+      "to": "n000"
+    },
+    {
+      "from": "f01",
+      "to": "n010"
+    },
+    {
+      "from": "n003",
+      "to": "n013"
+    },
+    {
+      "from": "n100",
+      "to": "n101"
+    },
+    {
+      "from": "n101",
+      "to": "n102"
+    },
+    {
+      "from": "n102",
+      "to": "n103"
+    },
+    {
+      "from": "n110",
+      "to": "n111"
+    },
+    {
+      "from": "n111",
+      "to": "n112"
+    },
+    {
+      "from": "n112",
+      "to": "n113"
+    },
+    {
+      "from": "f10",
+      "to": "n100"
+    },
+    {
+      "from": "f11",
+      "to": "n110"
+    },
+    {
+      "from": "n103",
+      "to": "n113"
+    },
+    {
+      "from": "n200",
+      "to": "n201"
+    },
+    {
+      "from": "n201",
+      "to": "n202"
+    },
+    {
+      "from": "n202",
+      "to": "n203"
+    },
+    {
+      "from": "n210",
+      "to": "n211"
+    },
+    {
+      "from": "n211",
+      "to": "n212"
+    },
+    {
+      "from": "n212",
+      "to": "n213"
+    },
+    {
+      "from": "f20",
+      "to": "n200"
+    },
+    {
+      "from": "f21",
+      "to": "n210"
+    },
+    {
+      "from": "n203",
+      "to": "n213"
+    },
+    {
+      "from": "n300",
+      "to": "n301"
+    },
+    {
+      "from": "n301",
+      "to": "n302"
+    },
+    {
+      "from": "n302",
+      "to": "n303"
+    },
+    {
+      "from": "n310",
+      "to": "n311"
+    },
+    {
+      "from": "n311",
+      "to": "n312"
+    },
+    {
+      "from": "n312",
+      "to": "n313"
+    },
+    {
+      "from": "f30",
+      "to": "n300"
+    },
+    {
+      "from": "f31",
+      "to": "n310"
+    },
+    {
+      "from": "n303",
+      "to": "n313"
+    },
+    {
+      "from": "n400",
+      "to": "n401"
+    },
+    {
+      "from": "n401",
+      "to": "n402"
+    },
+    {
+      "from": "n402",
+      "to": "n403"
+    },
+    {
+      "from": "n410",
+      "to": "n411"
+    },
+    {
+      "from": "n411",
+      "to": "n412"
+    },
+    {
+      "from": "n412",
+      "to": "n413"
+    },
+    {
+      "from": "f40",
+      "to": "n400"
+    },
+    {
+      "from": "f41",
+      "to": "n410"
+    },
+    {
+      "from": "n403",
+      "to": "n413"
+    },
+    {
+      "from": "n013",
+      "to": "n100",
+      "label": "interzona"
+    },
+    {
+      "from": "n113",
+      "to": "n200",
+      "label": "interzona"
+    },
+    {
+      "from": "n213",
+      "to": "n300",
+      "label": "interzona"
+    },
+    {
+      "from": "n313",
+      "to": "n400",
+      "label": "interzona"
+    },
+    {
+      "from": "n000",
+      "to": "n400",
+      "semantic_type": "control_link"
+    }
+  ],
+  "areas": [
+    {
+      "id": "Z0",
+      "label": "Zona 1",
+      "members": [
+        "c00",
+        "c01",
+        "f00",
+        "f01"
+      ]
+    },
+    {
+      "id": "Z1",
+      "label": "Zona 2",
+      "members": [
+        "c10",
+        "c11",
+        "f10",
+        "f11"
+      ]
+    },
+    {
+      "id": "Z2",
+      "label": "Zona 3",
+      "members": [
+        "c20",
+        "c21",
+        "f20",
+        "f21"
+      ]
+    },
+    {
+      "id": "Z3",
+      "label": "Zona 4",
+      "members": [
+        "c30",
+        "c31",
+        "f30",
+        "f31"
+      ]
+    },
+    {
+      "id": "Z4",
+      "label": "Zona 5",
+      "members": [
+        "c40",
+        "c41",
+        "f40",
+        "f41"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,190 @@
+{
+  "_comment": "Constructo: compactación por intervalos (Z97) — la celda floja devuelve el aire; estructura de cortes intacta.",
+  "canvas": {
+    "partition": {
+      "scheme": "bsp",
+      "ratio": [
+        6,
+        4
+      ],
+      "splits": [
+        {
+          "area": "densa",
+          "size": [
+            3,
+            4
+          ],
+          "anchor": "base"
+        },
+        {
+          "area": "floja",
+          "size": [
+            3,
+            2
+          ],
+          "at": "right_of",
+          "of": "densa"
+        },
+        {
+          "area": "media",
+          "size": [
+            3,
+            2
+          ],
+          "at": "below",
+          "of": "floja"
+        }
+      ]
+    }
+  },
+  "elements": [
+    {
+      "id": "d0",
+      "type": "server",
+      "label": "Denso 1"
+    },
+    {
+      "id": "d1",
+      "type": "server",
+      "label": "Denso 2"
+    },
+    {
+      "id": "d2",
+      "type": "server",
+      "label": "Denso 3"
+    },
+    {
+      "id": "d3",
+      "type": "server",
+      "label": "Denso 4"
+    },
+    {
+      "id": "d4",
+      "type": "server",
+      "label": "Denso 5"
+    },
+    {
+      "id": "d5",
+      "type": "server",
+      "label": "Denso 6"
+    },
+    {
+      "id": "d6",
+      "type": "server",
+      "label": "Denso 7"
+    },
+    {
+      "id": "d7",
+      "type": "server",
+      "label": "Denso 8"
+    },
+    {
+      "id": "l0",
+      "type": "server",
+      "label": "Liviano 1"
+    },
+    {
+      "id": "l1",
+      "type": "server",
+      "label": "Liviano 2"
+    },
+    {
+      "id": "m0",
+      "type": "server",
+      "label": "Medio 1"
+    },
+    {
+      "id": "m1",
+      "type": "server",
+      "label": "Medio 2"
+    },
+    {
+      "id": "m2",
+      "type": "server",
+      "label": "Medio 3"
+    }
+  ],
+  "connections": [
+    {
+      "from": "d0",
+      "to": "d1"
+    },
+    {
+      "from": "d1",
+      "to": "d2"
+    },
+    {
+      "from": "d2",
+      "to": "d3"
+    },
+    {
+      "from": "d3",
+      "to": "d4"
+    },
+    {
+      "from": "d4",
+      "to": "d5"
+    },
+    {
+      "from": "d5",
+      "to": "d6"
+    },
+    {
+      "from": "d6",
+      "to": "d7"
+    },
+    {
+      "from": "l0",
+      "to": "l1"
+    },
+    {
+      "from": "m0",
+      "to": "m1"
+    },
+    {
+      "from": "m1",
+      "to": "m2"
+    },
+    {
+      "from": "d7",
+      "to": "l0"
+    },
+    {
+      "from": "l1",
+      "to": "m0"
+    }
+  ],
+  "areas": [
+    {
+      "id": "densa",
+      "label": "Celda densa",
+      "members": [
+        "d0",
+        "d1",
+        "d2",
+        "d3",
+        "d4",
+        "d5",
+        "d6",
+        "d7"
+      ]
+    },
+    {
+      "id": "floja",
+      "label": "Celda floja",
+      "members": [
+        "l0",
+        "l1"
+      ]
+    },
+    {
+      "id": "media",
+      "label": "Celda media",
+      "members": [
+        "m0",
+        "m1",
+        "m2"
+      ]
+    }
+  ]
+}

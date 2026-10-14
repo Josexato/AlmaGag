@@ -1,0 +1,98 @@
+{
+  "_comment": "Constructo: considerations (align/near/avoid) fuerzan AUTO; las áreas se siembran como zonas near (§O53 nombrado).",
+  "elements": [
+    {
+      "id": "w0",
+      "type": "server",
+      "label": "Web 1"
+    },
+    {
+      "id": "w1",
+      "type": "server",
+      "label": "Web 2"
+    },
+    {
+      "id": "w2",
+      "type": "server",
+      "label": "Web 3"
+    },
+    {
+      "id": "lb",
+      "type": "router",
+      "label": "Balanceador"
+    },
+    {
+      "id": "db",
+      "type": "database",
+      "label": "BD"
+    },
+    {
+      "id": "cache",
+      "type": "database",
+      "label": "Caché"
+    }
+  ],
+  "connections": [
+    {
+      "from": "lb",
+      "to": "w0"
+    },
+    {
+      "from": "lb",
+      "to": "w1"
+    },
+    {
+      "from": "lb",
+      "to": "w2"
+    },
+    {
+      "from": "w0",
+      "to": "db"
+    },
+    {
+      "from": "w1",
+      "to": "db"
+    },
+    {
+      "from": "w2",
+      "to": "db"
+    },
+    {
+      "from": "w0",
+      "to": "cache"
+    }
+  ],
+  "areas": [
+    {
+      "id": "datos",
+      "label": "Datos",
+      "members": [
+        "db",
+        "cache"
+      ]
+    }
+  ],
+  "considerations": [
+    {
+      "align": [
+        "w0",
+        "w1",
+        "w2"
+      ],
+      "axis": "y"
+    },
+    {
+      "near": [
+        "db",
+        "cache"
+      ],
+      "label": "Persistencia"
+    },
+    {
+      "avoid": [
+        "lb",
+        "cache"
+      ]
+    }
+  ]
+}

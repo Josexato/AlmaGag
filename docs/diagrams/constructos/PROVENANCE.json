@@ -1,0 +1,9 @@
+{
+  "reference_engine": "AlmaGag-Python",
+  "repository": "https://github.com/Josexato/AlmaGag",
+  "version": "3.20.0",
+  "commit": "9c7087d5861d94e03baf53e7946901ad2526bcf0",
+  "commit_note": "Merge de Josexato/AlmaGag#113 — cierre iteración 18 (Z97 re-solver)",
+  "python": ">=3.10 (medido con 3.13)",
+  "dependencies": { "svgwrite": "1.4.3" }
+}
