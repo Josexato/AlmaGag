@@ -1,0 +1,145 @@
+{
+  "_comment": "Constructo: area.role (control/chain/hub/external/overlay) decide la banda del macro-plano.",
+  "elements": [
+    {
+      "id": "gob0",
+      "type": "server",
+      "label": "Gobierno 1"
+    },
+    {
+      "id": "gob1",
+      "type": "server",
+      "label": "Gobierno 2"
+    },
+    {
+      "id": "cad0",
+      "type": "server",
+      "label": "Cadena 1"
+    },
+    {
+      "id": "cad1",
+      "type": "server",
+      "label": "Cadena 2"
+    },
+    {
+      "id": "cad2",
+      "type": "server",
+      "label": "Cadena 3"
+    },
+    {
+      "id": "cad3",
+      "type": "server",
+      "label": "Cadena 4"
+    },
+    {
+      "id": "hub0",
+      "type": "server",
+      "label": "Integración 1"
+    },
+    {
+      "id": "ext0",
+      "type": "server",
+      "label": "Clientes 1"
+    },
+    {
+      "id": "ext1",
+      "type": "server",
+      "label": "Clientes 2"
+    },
+    {
+      "id": "bus0",
+      "type": "server",
+      "label": "Bus de datos 1"
+    }
+  ],
+  "connections": [
+    {
+      "from": "gob0",
+      "to": "gob1"
+    },
+    {
+      "from": "cad0",
+      "to": "cad1"
+    },
+    {
+      "from": "cad1",
+      "to": "cad2"
+    },
+    {
+      "from": "cad2",
+      "to": "cad3"
+    },
+    {
+      "from": "ext0",
+      "to": "ext1"
+    },
+    {
+      "from": "gob1",
+      "to": "cad0"
+    },
+    {
+      "from": "cad3",
+      "to": "ext0"
+    },
+    {
+      "from": "hub0",
+      "to": "cad1"
+    },
+    {
+      "from": "hub0",
+      "to": "ext1"
+    },
+    {
+      "from": "bus0",
+      "to": "hub0",
+      "direction": "bidirectional"
+    }
+  ],
+  "areas": [
+    {
+      "id": "gob",
+      "label": "Gobierno",
+      "role": "control",
+      "members": [
+        "gob0",
+        "gob1"
+      ]
+    },
+    {
+      "id": "cad",
+      "label": "Cadena",
+      "role": "chain",
+      "members": [
+        "cad0",
+        "cad1",
+        "cad2",
+        "cad3"
+      ]
+    },
+    {
+      "id": "hub",
+      "label": "Integración",
+      "role": "hub",
+      "members": [
+        "hub0"
+      ]
+    },
+    {
+      "id": "ext",
+      "label": "Clientes",
+      "role": "external",
+      "members": [
+        "ext0",
+        "ext1"
+      ]
+    },
+    {
+      "id": "bus",
+      "label": "Bus de datos",
+      "role": "overlay",
+      "members": [
+        "bus0"
+      ]
+    }
+  ]
+}

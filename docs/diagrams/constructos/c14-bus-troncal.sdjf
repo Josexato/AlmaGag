@@ -1,0 +1,125 @@
+{
+  "_comment": "Constructo: bus troncal (ROUTE-005) — hub con destinos en ≥3 áreas: troncal única + ramal por destino ('[bus]' en el log).",
+  "elements": [
+    {
+      "id": "core",
+      "type": "router",
+      "label": "Núcleo"
+    },
+    {
+      "id": "s0a",
+      "type": "server",
+      "label": "Sede Norte srv"
+    },
+    {
+      "id": "s0b",
+      "type": "laptop",
+      "label": "Sede Norte pc"
+    },
+    {
+      "id": "s1a",
+      "type": "server",
+      "label": "Sede Sur srv"
+    },
+    {
+      "id": "s1b",
+      "type": "laptop",
+      "label": "Sede Sur pc"
+    },
+    {
+      "id": "s2a",
+      "type": "server",
+      "label": "Sede Este srv"
+    },
+    {
+      "id": "s2b",
+      "type": "laptop",
+      "label": "Sede Este pc"
+    },
+    {
+      "id": "s3a",
+      "type": "server",
+      "label": "Sede Oeste srv"
+    },
+    {
+      "id": "s3b",
+      "type": "laptop",
+      "label": "Sede Oeste pc"
+    }
+  ],
+  "connections": [
+    {
+      "from": "core",
+      "to": "s0a"
+    },
+    {
+      "from": "s0a",
+      "to": "s0b"
+    },
+    {
+      "from": "core",
+      "to": "s1a"
+    },
+    {
+      "from": "s1a",
+      "to": "s1b"
+    },
+    {
+      "from": "core",
+      "to": "s2a"
+    },
+    {
+      "from": "s2a",
+      "to": "s2b"
+    },
+    {
+      "from": "core",
+      "to": "s3a"
+    },
+    {
+      "from": "s3a",
+      "to": "s3b"
+    }
+  ],
+  "areas": [
+    {
+      "id": "centro",
+      "label": "Centro",
+      "members": [
+        "core"
+      ]
+    },
+    {
+      "id": "sede0",
+      "label": "Sede Norte",
+      "members": [
+        "s0a",
+        "s0b"
+      ]
+    },
+    {
+      "id": "sede1",
+      "label": "Sede Sur",
+      "members": [
+        "s1a",
+        "s1b"
+      ]
+    },
+    {
+      "id": "sede2",
+      "label": "Sede Este",
+      "members": [
+        "s2a",
+        "s2b"
+      ]
+    },
+    {
+      "id": "sede3",
+      "label": "Sede Oeste",
+      "members": [
+        "s3a",
+        "s3b"
+      ]
+    }
+  ]
+}

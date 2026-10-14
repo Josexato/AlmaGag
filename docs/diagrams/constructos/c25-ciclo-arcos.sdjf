@@ -1,0 +1,49 @@
+{
+  "_comment": "Constructo: flujo con dos ciclos anidados sin coordenadas → hier (niveles + arcos de ciclo E15–E17).",
+  "elements": [
+    {
+      "id": "a",
+      "type": "server",
+      "label": "Recibir"
+    },
+    {
+      "id": "b",
+      "type": "server",
+      "label": "Procesar"
+    },
+    {
+      "id": "c",
+      "type": "server",
+      "label": "Verificar"
+    },
+    {
+      "id": "d",
+      "type": "database",
+      "label": "Guardar"
+    }
+  ],
+  "connections": [
+    {
+      "from": "a",
+      "to": "b"
+    },
+    {
+      "from": "b",
+      "to": "c"
+    },
+    {
+      "from": "c",
+      "to": "b",
+      "label": "reintento"
+    },
+    {
+      "from": "c",
+      "to": "d"
+    },
+    {
+      "from": "d",
+      "to": "a",
+      "label": "nuevo lote"
+    }
+  ]
+}

@@ -1,0 +1,146 @@
+{
+  "_comment": "Constructo: plan inválido ('of' sin colocar) — se nombra en el log y cae a derivación.",
+  "canvas": {
+    "partition": {
+      "scheme": "bsp",
+      "splits": [
+        {
+          "area": "Ap",
+          "size": [
+            1,
+            1
+          ],
+          "anchor": "base"
+        },
+        {
+          "area": "Aq",
+          "size": [
+            1,
+            1
+          ],
+          "at": "right_of",
+          "of": "Ainexistente"
+        },
+        {
+          "area": "Ar",
+          "size": [
+            1,
+            1
+          ],
+          "at": "below",
+          "of": "Ap"
+        }
+      ]
+    }
+  },
+  "elements": [
+    {
+      "id": "p0",
+      "type": "server",
+      "label": "Elemento P 1"
+    },
+    {
+      "id": "p1",
+      "type": "server",
+      "label": "Elemento P 2"
+    },
+    {
+      "id": "p2",
+      "type": "server",
+      "label": "Elemento P 3"
+    },
+    {
+      "id": "q0",
+      "type": "server",
+      "label": "Elemento Q 1"
+    },
+    {
+      "id": "q1",
+      "type": "server",
+      "label": "Elemento Q 2"
+    },
+    {
+      "id": "q2",
+      "type": "server",
+      "label": "Elemento Q 3"
+    },
+    {
+      "id": "r0",
+      "type": "server",
+      "label": "Elemento R 1"
+    },
+    {
+      "id": "r1",
+      "type": "server",
+      "label": "Elemento R 2"
+    },
+    {
+      "id": "r2",
+      "type": "server",
+      "label": "Elemento R 3"
+    }
+  ],
+  "connections": [
+    {
+      "from": "p0",
+      "to": "p1"
+    },
+    {
+      "from": "p1",
+      "to": "p2"
+    },
+    {
+      "from": "q0",
+      "to": "q1"
+    },
+    {
+      "from": "q1",
+      "to": "q2"
+    },
+    {
+      "from": "r0",
+      "to": "r1"
+    },
+    {
+      "from": "r1",
+      "to": "r2"
+    },
+    {
+      "from": "p2",
+      "to": "q0"
+    },
+    {
+      "from": "q2",
+      "to": "r0"
+    }
+  ],
+  "areas": [
+    {
+      "id": "Ap",
+      "label": "Ámbito P",
+      "members": [
+        "p0",
+        "p1",
+        "p2"
+      ]
+    },
+    {
+      "id": "Aq",
+      "label": "Ámbito Q",
+      "members": [
+        "q0",
+        "q1",
+        "q2"
+      ]
+    },
+    {
+      "id": "Ar",
+      "label": "Ámbito R",
+      "members": [
+        "r0",
+        "r1",
+        "r2"
+      ]
+    }
+  ]
+}

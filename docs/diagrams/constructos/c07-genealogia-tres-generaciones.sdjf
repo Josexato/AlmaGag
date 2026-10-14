@@ -1,0 +1,83 @@
+{
+  "_comment": "Constructo: genealogía (AA98 T-joint, AA99 peine, AA100 labels abajo) vía unions.",
+  "elements": [
+    {
+      "id": "p1",
+      "type": "user",
+      "label": "Abuela A"
+    },
+    {
+      "id": "p2",
+      "type": "user",
+      "label": "Abuelo A"
+    },
+    {
+      "id": "h1",
+      "type": "user",
+      "label": "Hija 1"
+    },
+    {
+      "id": "h2",
+      "type": "user",
+      "label": "Hijo 2"
+    },
+    {
+      "id": "h3",
+      "type": "user",
+      "label": "Hija 3"
+    },
+    {
+      "id": "c1",
+      "type": "user",
+      "label": "Cónyuge 1"
+    },
+    {
+      "id": "n1",
+      "type": "user",
+      "label": "Nieto 1"
+    },
+    {
+      "id": "n2",
+      "type": "user",
+      "label": "Nieta 2"
+    }
+  ],
+  "unions": [
+    {
+      "id": "u1",
+      "between": [
+        "p1",
+        "p2"
+      ]
+    },
+    {
+      "id": "u2",
+      "between": [
+        "h1",
+        "c1"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "u1",
+      "to": "h1"
+    },
+    {
+      "from": "u1",
+      "to": "h2"
+    },
+    {
+      "from": "u1",
+      "to": "h3"
+    },
+    {
+      "from": "u2",
+      "to": "n1"
+    },
+    {
+      "from": "u2",
+      "to": "n2"
+    }
+  ]
+}

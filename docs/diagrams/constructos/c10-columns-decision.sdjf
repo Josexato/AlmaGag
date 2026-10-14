@@ -1,0 +1,73 @@
+{
+  "_comment": "Constructo: vista columns de hier por señal decision (rombo) — flowchart con rama y retorno.",
+  "elements": [
+    {
+      "id": "ini",
+      "type": "server",
+      "label": "Inicio"
+    },
+    {
+      "id": "rev",
+      "type": "document",
+      "label": "Revisar solicitud"
+    },
+    {
+      "id": "ok",
+      "type": "decision",
+      "label": "¿Completa?"
+    },
+    {
+      "id": "cor",
+      "type": "user",
+      "label": "Corregir datos"
+    },
+    {
+      "id": "apr",
+      "type": "server",
+      "label": "Aprobar"
+    },
+    {
+      "id": "arc",
+      "type": "database",
+      "label": "Archivar"
+    },
+    {
+      "id": "fin",
+      "type": "server",
+      "label": "Fin"
+    }
+  ],
+  "connections": [
+    {
+      "from": "ini",
+      "to": "rev"
+    },
+    {
+      "from": "rev",
+      "to": "ok"
+    },
+    {
+      "from": "ok",
+      "to": "apr",
+      "label": "sí"
+    },
+    {
+      "from": "ok",
+      "to": "cor",
+      "label": "no"
+    },
+    {
+      "from": "cor",
+      "to": "rev",
+      "label": "reenvía"
+    },
+    {
+      "from": "apr",
+      "to": "arc"
+    },
+    {
+      "from": "arc",
+      "to": "fin"
+    }
+  ]
+}

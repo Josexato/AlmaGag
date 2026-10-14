@@ -1,0 +1,110 @@
+{
+  "_comment": "Constructo: serpenteo Z94 con alimentadores a la cabeza (peine invertido AA99).",
+  "canvas": {
+    "partition": {
+      "scheme": "bsp",
+      "ratio": [
+        4,
+        1
+      ],
+      "splits": [
+        {
+          "area": "linea",
+          "size": [
+            4,
+            1
+          ],
+          "anchor": "base"
+        }
+      ]
+    }
+  },
+  "elements": [
+    {
+      "id": "f0",
+      "type": "database",
+      "label": "Insumo 1"
+    },
+    {
+      "id": "f1",
+      "type": "database",
+      "label": "Insumo 2"
+    },
+    {
+      "id": "k0",
+      "type": "server",
+      "label": "Fase 1"
+    },
+    {
+      "id": "k1",
+      "type": "server",
+      "label": "Fase 2"
+    },
+    {
+      "id": "k2",
+      "type": "server",
+      "label": "Fase 3"
+    },
+    {
+      "id": "k3",
+      "type": "server",
+      "label": "Fase 4"
+    },
+    {
+      "id": "k4",
+      "type": "server",
+      "label": "Fase 5"
+    },
+    {
+      "id": "k5",
+      "type": "server",
+      "label": "Fase 6"
+    }
+  ],
+  "connections": [
+    {
+      "from": "f0",
+      "to": "k0"
+    },
+    {
+      "from": "f1",
+      "to": "k0"
+    },
+    {
+      "from": "k0",
+      "to": "k1"
+    },
+    {
+      "from": "k1",
+      "to": "k2"
+    },
+    {
+      "from": "k2",
+      "to": "k3"
+    },
+    {
+      "from": "k3",
+      "to": "k4"
+    },
+    {
+      "from": "k4",
+      "to": "k5"
+    }
+  ],
+  "areas": [
+    {
+      "id": "linea",
+      "label": "Línea de producción",
+      "members": [
+        "f0",
+        "f1",
+        "k0",
+        "k1",
+        "k2",
+        "k3",
+        "k4",
+        "k5"
+      ]
+    }
+  ]
+}

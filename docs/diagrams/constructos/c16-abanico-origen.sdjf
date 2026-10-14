@@ -1,0 +1,82 @@
+{
+  "_comment": "Constructo: abanico por origen (ROUTE-008) — un origen con 5 destinos en otra área.",
+  "elements": [
+    {
+      "id": "src",
+      "type": "cloud",
+      "label": "Origen"
+    },
+    {
+      "id": "d0",
+      "type": "server",
+      "label": "Destino 1"
+    },
+    {
+      "id": "d1",
+      "type": "server",
+      "label": "Destino 2"
+    },
+    {
+      "id": "d2",
+      "type": "server",
+      "label": "Destino 3"
+    },
+    {
+      "id": "d3",
+      "type": "server",
+      "label": "Destino 4"
+    },
+    {
+      "id": "d4",
+      "type": "server",
+      "label": "Destino 5"
+    }
+  ],
+  "connections": [
+    {
+      "from": "src",
+      "to": "d0",
+      "label": "enlace 1"
+    },
+    {
+      "from": "src",
+      "to": "d1",
+      "label": "enlace 2"
+    },
+    {
+      "from": "src",
+      "to": "d2",
+      "label": "enlace 3"
+    },
+    {
+      "from": "src",
+      "to": "d3",
+      "label": "enlace 4"
+    },
+    {
+      "from": "src",
+      "to": "d4",
+      "label": "enlace 5"
+    }
+  ],
+  "areas": [
+    {
+      "id": "o",
+      "label": "Origen",
+      "members": [
+        "src"
+      ]
+    },
+    {
+      "id": "d",
+      "label": "Destinos",
+      "members": [
+        "d0",
+        "d1",
+        "d2",
+        "d3",
+        "d4"
+      ]
+    }
+  ]
+}

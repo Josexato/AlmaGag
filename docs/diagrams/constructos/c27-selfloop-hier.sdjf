@@ -1,0 +1,26 @@
+{
+  "_comment": "Constructo: self-loop (arco sobre el propio nodo). Python v3.20.0: RecursionError en hier/columns.py::longest — bug fichado.",
+  "elements": [
+    {
+      "id": "a",
+      "type": "server",
+      "label": "Origen"
+    },
+    {
+      "id": "b",
+      "type": "server",
+      "label": "Reintenta"
+    }
+  ],
+  "connections": [
+    {
+      "from": "a",
+      "to": "b"
+    },
+    {
+      "from": "b",
+      "to": "b",
+      "label": "reintento"
+    }
+  ]
+}

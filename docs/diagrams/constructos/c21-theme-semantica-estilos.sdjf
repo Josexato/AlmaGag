@@ -1,0 +1,73 @@
+{
+  "_comment": "Constructo: theme (tokens §O57), semantic_type con ≥3 clases (leyenda «Enlaces:»), style dashed/dotted, direction.",
+  "theme": {
+    "primario": "#1565c0",
+    "acento": "#ef6c00",
+    "neutro": "#607d8b"
+  },
+  "elements": [
+    {
+      "id": "app",
+      "type": "server",
+      "label": "Aplicación",
+      "color": "primario"
+    },
+    {
+      "id": "bd",
+      "type": "database",
+      "label": "Base de datos",
+      "color": "acento"
+    },
+    {
+      "id": "cache",
+      "type": "database",
+      "label": "Caché",
+      "color": "neutro"
+    },
+    {
+      "id": "cola",
+      "type": "server",
+      "label": "Cola de eventos",
+      "color": "primario"
+    },
+    {
+      "id": "mon",
+      "type": "computer",
+      "label": "Monitoreo",
+      "color": "neutro"
+    }
+  ],
+  "connections": [
+    {
+      "from": "app",
+      "to": "bd",
+      "semantic_type": "data_link",
+      "label": "consultas"
+    },
+    {
+      "from": "app",
+      "to": "cache",
+      "semantic_type": "sync",
+      "style": "dashed",
+      "direction": "bidirectional"
+    },
+    {
+      "from": "app",
+      "to": "cola",
+      "semantic_type": "event",
+      "label": "publica"
+    },
+    {
+      "from": "mon",
+      "to": "app",
+      "semantic_type": "control_link",
+      "style": "dotted"
+    },
+    {
+      "from": "cola",
+      "to": "mon",
+      "semantic_type": "error",
+      "direction": "forward"
+    }
+  ]
+}

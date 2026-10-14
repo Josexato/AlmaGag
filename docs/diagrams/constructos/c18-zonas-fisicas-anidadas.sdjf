@@ -1,0 +1,117 @@
+{
+  "_comment": "Constructo: zonas físicas anidadas en AUTO (§P59 contención real, §P60 banda/periferia por direction).",
+  "elements": [
+    {
+      "id": "planta",
+      "type": "area",
+      "label": "Planta",
+      "contains": [
+        "sala1",
+        "sala2"
+      ]
+    },
+    {
+      "id": "sala1",
+      "type": "building",
+      "label": "Sala de equipos",
+      "contains": [
+        "sw1",
+        "srv1"
+      ]
+    },
+    {
+      "id": "sw1",
+      "type": "router",
+      "label": "Switch 1"
+    },
+    {
+      "id": "srv1",
+      "type": "server",
+      "label": "Servidor 1"
+    },
+    {
+      "id": "sala2",
+      "type": "building",
+      "label": "Sala de control",
+      "contains": [
+        "pc1",
+        "pc2"
+      ]
+    },
+    {
+      "id": "pc1",
+      "type": "computer",
+      "label": "Consola 1"
+    },
+    {
+      "id": "pc2",
+      "type": "computer",
+      "label": "Consola 2"
+    },
+    {
+      "id": "oficina",
+      "type": "area",
+      "label": "Oficina",
+      "contains": [
+        "sw2",
+        "lap"
+      ]
+    },
+    {
+      "id": "sw2",
+      "type": "router",
+      "label": "Switch 2"
+    },
+    {
+      "id": "lap",
+      "type": "laptop",
+      "label": "Portátil"
+    },
+    {
+      "id": "remoto",
+      "type": "area",
+      "label": "Sitio remoto",
+      "contains": [
+        "fw"
+      ]
+    },
+    {
+      "id": "fw",
+      "type": "firewall",
+      "label": "Firewall"
+    }
+  ],
+  "connections": [
+    {
+      "from": "sw1",
+      "to": "srv1",
+      "direction": "none"
+    },
+    {
+      "from": "sw1",
+      "to": "pc1",
+      "direction": "none"
+    },
+    {
+      "from": "sw1",
+      "to": "pc2",
+      "direction": "none"
+    },
+    {
+      "from": "sw1",
+      "to": "sw2",
+      "direction": "bidirectional",
+      "label": "troncal"
+    },
+    {
+      "from": "sw2",
+      "to": "lap",
+      "direction": "none"
+    },
+    {
+      "from": "srv1",
+      "to": "fw",
+      "label": "respaldo"
+    }
+  ]
+}

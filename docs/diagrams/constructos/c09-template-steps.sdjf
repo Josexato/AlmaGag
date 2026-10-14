@@ -1,0 +1,58 @@
+{
+  "_comment": "Constructo: layout_template 'steps' (cadena vertical centrada; hasta v3.8 'flow').",
+  "layout_template": "steps",
+  "elements": [
+    {
+      "id": "st0",
+      "type": "document",
+      "label": "Paso 1"
+    },
+    {
+      "id": "st1",
+      "type": "document",
+      "label": "Paso 2"
+    },
+    {
+      "id": "st2",
+      "type": "document",
+      "label": "Paso 3"
+    },
+    {
+      "id": "st3",
+      "type": "document",
+      "label": "Paso 4"
+    },
+    {
+      "id": "st4",
+      "type": "document",
+      "label": "Paso 5"
+    },
+    {
+      "id": "st5",
+      "type": "document",
+      "label": "Paso 6"
+    }
+  ],
+  "connections": [
+    {
+      "from": "st0",
+      "to": "st1"
+    },
+    {
+      "from": "st1",
+      "to": "st2"
+    },
+    {
+      "from": "st2",
+      "to": "st3"
+    },
+    {
+      "from": "st3",
+      "to": "st4"
+    },
+    {
+      "from": "st4",
+      "to": "st5"
+    }
+  ]
+}
