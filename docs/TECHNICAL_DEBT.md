@@ -1959,7 +1959,7 @@ se dibuja como arco propio o se rechaza NOMBRADO — nunca un traceback.
 
 ---
 
-### BUGS-VAL-009: El schema miente sobre `canvas.legend` con strings, y hier pierde la leyenda entera (PY-002) 🆕 ABIERTO
+### BUGS-VAL-009: El schema miente sobre `canvas.legend` con strings, y hier pierde la leyenda entera (PY-002) ✅ RESUELTO (2026-10-22, iteración 20 — strings valen en el audit; hier conserva el canvas del autor en los 5 sitios que lo reconstruían)
 **Componente**: `validation/` + el dibujo de leyenda en hier
 **Reportado**: 2026-10-14 (fase 0 de almagag-jv; confirmado con c20 y repros propios)
 
@@ -1987,7 +1987,7 @@ ningún carácter de label fuera del viewBox en el corpus.
 
 ---
 
-### BUGS-DRAW-009: La leyenda «Enlaces:» pisa labels y se sale del viewBox (PY-004) 🆕 ABIERTO
+### BUGS-DRAW-009: La leyenda «Enlaces:» pisa labels y se sale del viewBox (PY-004) ✅ RESUELTO (2026-10-22, iteración 20 — cayó por DRAW-008 + LAYOUT-015; congelado en test sobre el repro c21)
 **Componente**: `draw/` (leyenda §N48/§O54 vs última fila)
 **Reportado**: 2026-10-14 (fase 0 de almagag-jv; confirmado en PNG de c21)
 
@@ -2000,7 +2000,7 @@ lámina.
 
 ---
 
-### BUGS-LAYOUT-015: Dos iconos colocados en la posición EXACTA (PY-005a) 🆕 ABIERTO
+### BUGS-LAYOUT-015: Dos iconos colocados en la posición EXACTA (PY-005a) ✅ RESUELTO (2026-10-22, iteración 20 — §A2 escalona satélites hermanos; red de seguridad en AUTO antes del ruteo; censo 3→0. Residual nombrado: en c21 la dashed de sync ahora ATRAVIESA bd — clase «ruteo plano de hier sin corredores», el dodge Z96-f2 solo corre con áreas; candidata a extenderlo)
 **Componente**: layout (hier con theme/semántica, c21)
 **Reportado**: 2026-10-14 (fase 0 de almagag-jv; confirmado con coordenadas)
 
@@ -2026,7 +2026,7 @@ Recalibrar la base de la guarda al activarlo (c21 y quien más caiga).
 
 ---
 
-### BUGS-DRAW-010: El «pasea» de bandas cortas es un falso positivo estructural (PY-007) 🆕 ABIERTO
+### BUGS-DRAW-010: El «pasea» de bandas cortas es un falso positivo estructural (PY-007) ✅ RESUELTO (2026-10-22, iteración 20 — el empalme ortogonal se MIDE y se descuenta, sin umbral mágico; c19 1.90→silencio y el paseo real sigue nombrado)
 **Componente**: `draw/primitives/journeys.py::_audit_band_hygiene`
 **Reportado**: 2026-09-02 (diagnóstico propio sobre el caso real);
 2026-10-14 (segunda confirmación independiente: almagag-jv, c19, ratio 1.90)
