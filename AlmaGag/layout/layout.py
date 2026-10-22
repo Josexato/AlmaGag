@@ -95,7 +95,14 @@ class Layout:
         """
         new = Layout(
             elements=deepcopy(self.elements),
-            connections=self.connections.copy(),  # Shallow copy - no se modifican
+            # BUGS-ARCH-003: las conexiones también van en copia PROFUNDA.
+            # El «shallow copy - no se modifican» era falso desde que los
+            # routers escriben computed_path/puertos/marcas DENTRO de los
+            # dicts: rutear un candidato pisaba el trazado de otro sin
+            # dejar huella (el hack _family_joint de it15 era este aliasing
+            # usado a favor — sigue funcionando porque deepcopy conserva
+            # los valores, ya sin compartir identidad).
+            connections=deepcopy(self.connections),
             canvas=self.canvas.copy(),
             label_positions=self.label_positions.copy(),
             connection_labels=self.connection_labels.copy(),
