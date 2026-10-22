@@ -17,6 +17,8 @@ from collections import defaultdict
 from typing import Dict, Tuple
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 from AlmaGag.layout.strategies.hier.shapes import is_diamond, diamond_port, diamond_vertices
+from AlmaGag.layout.strategies.hier.dodge import (
+    dodge_boxes, icon_obstacles, seg_crosses_box)
 
 PORT_MIN_FRAC = 0.16
 PORT_MAX_FRAC = 0.84
@@ -186,6 +188,9 @@ def route_connections(layout, levels):
                     straight_cross.add(cj)
 
     # --- construir paths ---
+    # BUGS-LAYOUT-016 (Z96 fase 2 en el flujo plano): obstáculos icono
+    # pelado (detección) → icono+label (desvío, W87), como en areas.
+    icon_box, icon_outer = icon_obstacles(layout.elements)
     for ci, c in enumerate(conns):
         m = meta[ci]
         if m is None:
@@ -207,8 +212,16 @@ def route_connections(layout, levels):
         elif abs(lt - lf) < 0.5:
             # D12: mismo nivel → recta directa (puede quedar levemente diagonal
             # si los puertos se separaron; §H24 la admite como recta).
-            pts = [p_from, p_to]
-            c['_straight'] = True
+            # BUGS-LAYOUT-016: si la recta ATRAVIESA un icono hermano del
+            # nivel, vuelve al codo ortogonal — la travesía la resuelve el
+            # desvío Z96 del post-pass (el dodge solo ve tramos ortogonales).
+            if any(seg_crosses_box(p_from, p_to, bx)
+                   for eid, bx in icon_box.items()
+                   if eid not in (c['from'], c['to'])):
+                pts = _ortho_route(p_from, sf, p_to, st)
+            else:
+                pts = [p_from, p_to]
+                c['_straight'] = True
         elif ci in straight_cross:
             # D13/§M44: cruce real → recta PURA puerto a puerto (se cortan en
             # un punto limpio; única diagonal permitida junto a los arcos de
@@ -238,6 +251,21 @@ def route_connections(layout, levels):
         # dejaba los conectores flotando — QA-Q1/Q3 de Claude Design).
         c['_from_port'] = pts[0]
         c['_to_port'] = pts[-1]
+
+    # BUGS-LAYOUT-016 (Z96 fase 2 en el flujo plano): la ruta no ATRAVIESA
+    # un icono ajeno. Mismo desvío que en areas — detecta con el icono
+    # pelado, rodea icono+label, registro escalonado compartido entre
+    # rutas (ROUTE-008). Las rectas D12/D13 que quedaron rectas son
+    # diagonales o no atraviesan nada: el dodge las deja intactas.
+    dodge_reg = {}
+    for c in conns:
+        cp = c.get('computed_path')
+        if not (cp and cp.get('type') == 'polyline'):
+            continue
+        obs = [bx for eid, bx in icon_box.items()
+               if eid not in (c.get('from'), c.get('to'))]
+        cp['points'] = dodge_boxes(list(cp['points']), obs, reg=dodge_reg,
+                                   outers=icon_outer)
 
 
 def _ortho_route(p_from, side_f, p_to, side_t, channel=0.0):
