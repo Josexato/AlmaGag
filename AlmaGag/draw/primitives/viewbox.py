@@ -1,16 +1,23 @@
-"""§O51 — viewBox recortado al contenido en la emisión.
+"""§O51 — viewBox ajustado al contenido en la emisión.
 
 El canvas se expande durante el layout pero nunca se contrae: un diagrama
 chico sobre un canvas declarado grande emitía láminas casi vacías (1400×900
-con <2% de tinta). Al final de emit, el viewBox (y width/height) se recorta
-al bbox de todo lo dibujado + margen. Regla: SÓLO contraer, nunca expandir —
-las estimaciones de ancho de texto son aproximadas y un sobrestimado no debe
-agrandar la lámina.
+con <2% de tinta). Al final de emit, el viewBox (y width/height) se ajusta
+al bbox de todo lo dibujado + margen.
+
+BUGS-DRAW-008: la regla original era «sólo contraer, nunca expandir» (un
+sobrestimado de ancho de texto no debía agrandar la lámina) y además se
+clampeaba al canvas declarado. Esa doctrina AMPUTABA contenido real: labels
+laterales en x<0 («Revisar solicitud» → «sar solicitud», c10) y zonas
+recolocadas más allá del canvas (git.sdjf perdía 'Rescate' entera). El
+costo de un sobrestimado son decenas de px de aire; el costo del clamp era
+contenido cortado. Regla vigente: el viewBox ES el bbox de lo dibujado +
+margen — contrae o expande, sin clamp al canvas declarado.
 
 Las leyendas de la franja inferior (§I30 roles, §N48 tipos de conexión) van
 ancladas al borde del canvas, no al contenido: se marcan con la clase
 `ag-bottom-anchored`, se excluyen del bbox vertical y se trasladan al nuevo
-borde inferior tras el recorte.
+borde inferior tras el ajuste.
 """
 
 import math
@@ -321,10 +328,11 @@ def crop_viewbox(root, margin=CROP_MARGIN):
             minx = min(minx, sub[0])
             maxx = max(maxx, sub[2])
 
-    x0 = max(vx, minx - margin)
-    y0 = max(vy, miny - margin)
-    x1 = min(vx + vw, maxx + margin)
-    y1 = min(vy + vh, maxy + margin)
+    # BUGS-DRAW-008: sin clamp al canvas declarado — el contenido manda.
+    x0 = minx - margin
+    y0 = miny - margin
+    x1 = maxx + margin
+    y1 = maxy + margin
 
     # BUGS-DRAW-005: el reanclaje conserva la distancia de cada leyenda al
     # borde inferior — si el nuevo borde queda a sólo `margin` del
@@ -338,10 +346,11 @@ def crop_viewbox(root, margin=CROP_MARGIN):
             if sub:
                 dist_max = max(dist_max, (vy + vh) - sub[1])
         if dist_max:
-            y1 = min(vy + vh, max(y1, maxy + 12.0 + dist_max))
+            y1 = max(y1, maxy + 12.0 + dist_max)
 
-    if x1 - x0 >= vw and y1 - y0 >= vh:
-        return False                      # nada que contraer
+    if (abs(x0 - vx) < 0.5 and abs(y0 - vy) < 0.5
+            and abs((x1 - x0) - vw) < 0.5 and abs((y1 - y0) - vh) < 0.5):
+        return False                      # el viewBox ya es el bbox
     if x1 <= x0 or y1 <= y0:
         return False
 
