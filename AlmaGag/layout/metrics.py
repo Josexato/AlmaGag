@@ -148,10 +148,41 @@ def _seg_hits_rect(ax, ay, bx, by, r, inset=3.0):
     return False
 
 
+def _bezier_polyline(p0, p1, ctrl, n=8):
+    """BUGS-LOG-003: poligonaliza el bezier DIBUJADO (cúbico con 2
+    control_points, cuadrático con 1) en n tramos — lo que el renderer
+    traza, no su cuerda."""
+    out = []
+    for i in range(n + 1):
+        t = i / n
+        mt = 1.0 - t
+        if len(ctrl) >= 2:
+            c1, c2 = ctrl[0], ctrl[1]
+            x = (mt ** 3 * p0[0] + 3 * mt * mt * t * c1[0]
+                 + 3 * mt * t * t * c2[0] + t ** 3 * p1[0])
+            y = (mt ** 3 * p0[1] + 3 * mt * mt * t * c1[1]
+                 + 3 * mt * t * t * c2[1] + t ** 3 * p1[1])
+        else:
+            c1 = ctrl[0]
+            x = mt * mt * p0[0] + 2 * mt * t * c1[0] + t * t * p1[0]
+            y = mt * mt * p0[1] + 2 * mt * t * c1[1] + t * t * p1[1]
+        out.append((x, y))
+    return out
+
+
 def _conn_segments(conn, centers):
     cp = conn.get('computed_path')
     if isinstance(cp, dict) and cp.get('points') and len(cp['points']) >= 2:
         pts = [((p[0], p[1]) if not hasattr(p, 'x') else (p.x, p.y)) for p in cp['points']]
+        # BUGS-LOG-003: el arco se mide por su CURVA, no por su cuerda —
+        # `points` solo trae los extremos y la comba vive en control_points;
+        # medir la cuerda evaluaba una línea que no existe en la lámina
+        # (doctrina VAL-008: lo dibujado es lo medido).
+        ctrl = cp.get('control_points')
+        if cp.get('type') == 'bezier' and ctrl:
+            ctrl = [((p[0], p[1]) if not hasattr(p, 'x') else (p.x, p.y))
+                    for p in ctrl]
+            pts = _bezier_polyline(pts[0], pts[-1], ctrl)
         return [(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1]) for i in range(len(pts) - 1)]
     a, b = conn.get('from'), conn.get('to')
     if a in centers and b in centers:

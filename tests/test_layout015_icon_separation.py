@@ -6,7 +6,6 @@ satélites hermanos, y separate_overlapping_icons es la red de seguridad
 de AUTO antes del ruteo definitivo.
 """
 
-import json
 import logging
 
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT

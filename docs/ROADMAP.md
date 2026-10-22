@@ -313,6 +313,14 @@ rodeando icono+label, con las primitivas del dodge movidas al módulo
 compartido `hier/dodge.py`. c21 arista×nodo 2→1; el 1 restante es el
 arco bezier sobre `cola`, fichado con los arcos (BUGS-LOG-003).
 
+Y **BUGS-LOG-003** cayó el mismo día (v3.25.0): los arcos se miden por
+su CURVA poligonalizada, no por su cuerda — 6 láminas limpian falsos
+positivos (14-stresstest, el caso del reporte de agosto, entre ellas; y
+c21 queda 0-0-0-0: su «arco sobre cola» era artefacto de la cuerda,
+fe de erratas en el ticket 016) y layout-optimization-flow destapa
+cruces=4/arista×nodo=2 que la cuerda escondía — el contador dejó de
+mentir en ambas direcciones. Cero píxeles movidos: solo la medición.
+
 ## Mediano plazo (sin fecha)
 
 - **«El mapa» (WISH-ARCH-004)**: separar mapa (dato) de vista (representación)
