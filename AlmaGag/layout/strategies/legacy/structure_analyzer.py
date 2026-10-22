@@ -11,7 +11,7 @@ Date: 2026-01-17
 
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple, Optional, Set
+from typing import Dict, List, Tuple, Set
 from AlmaGag.utils import extract_item_id
 
 logger = logging.getLogger('AlmaGag')

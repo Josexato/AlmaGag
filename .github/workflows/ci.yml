@@ -20,7 +20,10 @@ jobs:
       - name: Install package + pytest
         run: |
           pip install -e .
-          pip install pytest pillow
+          pip install pytest pillow ruff
+
+      - name: Lint (solo errores F — imports sin uso, nombres indefinidos)
+        run: python -m ruff check AlmaGag scripts tests
 
       - name: Unit tests
         run: python -m pytest tests/ -v

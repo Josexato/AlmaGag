@@ -14,7 +14,7 @@ Date: 2026-02-19
 """
 
 import math
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple
 from collections import defaultdict
 from AlmaGag.routing.router_base import Point
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT

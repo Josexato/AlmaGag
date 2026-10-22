@@ -8,9 +8,9 @@ siguiente comparten columna) y los feeders convergen a la cabeza con peine
 invertido (AA99 al revés).
 """
 
-from AlmaGag.layout.strategies.hier.areas import (COL_SPACING, _chain_run,
+from AlmaGag.layout.strategies.hier.areas import (_chain_run,
                                                   _sub_layout)
-from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
+from AlmaGag.config import ICON_WIDTH
 
 
 def _chain(n, prefix='s'):

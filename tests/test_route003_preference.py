@@ -12,7 +12,6 @@ dejaban el barrido perpendicular PEGADO al borde del icono — el codo
    columna libre en filas intermedias).
 """
 
-import json
 
 from AlmaGag.generator import select_strategy
 from AlmaGag.layout import Layout

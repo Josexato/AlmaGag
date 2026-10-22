@@ -10,7 +10,6 @@ Pipeline de optimización:
 """
 
 import logging
-from copy import deepcopy
 from typing import List, Tuple, Optional
 from AlmaGag.layout.optimizer_base import LayoutOptimizer
 

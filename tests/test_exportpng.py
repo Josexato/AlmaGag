@@ -6,7 +6,6 @@ si no hay ninguno, rasteriza con cairosvg (fiable desde §O50). Con eso los
 PNG de revisión se pueden regenerar desde CI.
 """
 
-import io
 
 import pytest
 

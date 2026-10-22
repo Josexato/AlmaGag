@@ -11,7 +11,7 @@ Trabaja en unidades de columna abstractas sobre el resultado de §A.
 """
 
 from collections import defaultdict
-from typing import Dict, List, Tuple
+from typing import Dict, List
 from AlmaGag.layout.strategies.hier.leveling import Levels
 
 

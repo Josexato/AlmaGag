@@ -9,7 +9,7 @@ Version: v2.1
 Date: 2026-01-08
 """
 
-from typing import Dict, List, Tuple
+from typing import Dict
 from collections import defaultdict
 from AlmaGag.routing.router_base import ConnectionRouter
 from AlmaGag.config import SEGMENT_SEPARATION_SPACING

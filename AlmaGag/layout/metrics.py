@@ -14,7 +14,7 @@ el abanico de salidas de un hub) se tocan en el nodo, NO es un cruce; acá se
 excluyen esos pares para que la métrica cuente sólo cruces genuinos.
 """
 
-from typing import Dict, List, Tuple
+from typing import Dict, Tuple
 
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 
@@ -202,6 +202,7 @@ def quality_counters(layout) -> Dict[str, int]:
     exn = count_edge_node_overlaps(layout)
     label_overlap = 0
     label_own_line = 0
+    icon_x_icon = 0
     pairs = getattr(layout, '_collision_pairs', None)
     if pairs is None:
         # BUGS-VAL-008 (X93): sólo el optimizer de AUTO poblaba
@@ -217,11 +218,16 @@ def quality_counters(layout) -> Dict[str, int]:
         label_overlap = sum(1 for p in pairs
                             if 'label' in p[2] and p[2] != 'label_vs_own_line')
         label_own_line = sum(1 for p in pairs if p[2] == 'label_vs_own_line')
+        # BUGS-LOG-004 (PY-005b de almagag-jv): dos iconos montados daban
+        # labels=0 y NINGUN contador lo decia — la lamina mentia <<limpia>>.
+        # El contador es la cifra oficial (doctrina BUGS-VAL-008).
+        icon_x_icon = sum(1 for p in pairs if p[2] == 'icon_vs_icon')
     return {
         'edge_x_edge': exe,
         'edge_x_node': exn,
         'label_overlap': label_overlap,
         'label_own_line': label_own_line,
+        'icon_x_icon': icon_x_icon,
     }
 
 

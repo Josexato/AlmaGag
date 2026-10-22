@@ -4,7 +4,7 @@ Tests para el validador de calidad visual (3 reglas del usuario).
 
 import os
 import tempfile
-from AlmaGag.validation import validate_svg, validate_gag, QualityReport
+from AlmaGag.validation import validate_svg, validate_gag
 
 
 SAMPLE_SVG = '''<?xml version="1.0"?>

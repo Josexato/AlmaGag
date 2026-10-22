@@ -15,7 +15,7 @@ Fecha: 2026-01-08
 """
 
 import math
-from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT, CORNER_RADIUS_DEFAULT, FONT_SIZE_CONNECTION
+from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT, FONT_SIZE_CONNECTION
 
 
 def compute_visual_offset(elem):

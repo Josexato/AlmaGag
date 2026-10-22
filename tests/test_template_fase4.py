@@ -6,7 +6,6 @@ Tests para Fase 4: semantic hints (role) + templates anidados
 from AlmaGag.layout.templates import (
     GraphFeatures,
     ArchitectureTemplate,
-    HubAndSpokeTemplate,
     StateTemplate,
     get_default_classifier,
     auto_apply_template,

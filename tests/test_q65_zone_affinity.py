@@ -10,7 +10,6 @@ periferia por baricentro; desempate por orden de aparición. Determinista.
 
 import json
 
-import pytest
 
 from AlmaGag.generator import select_strategy
 from AlmaGag.layout import Layout

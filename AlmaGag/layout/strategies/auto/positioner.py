@@ -16,12 +16,11 @@ from typing import List, Dict
 from AlmaGag.layout.layout import Layout
 from AlmaGag.layout.sizing import SizingCalculator
 from AlmaGag.layout.graph_analysis import GraphAnalyzer
-from AlmaGag.layout.container_calculator import is_band, band_label_margin, band_left_region
+from AlmaGag.layout.container_calculator import is_band, band_left_region
 from AlmaGag.config import (
     ICON_WIDTH, ICON_HEIGHT,
-    SPACING_SMALL, SPACING_MEDIUM, SPACING_LARGE, SPACING_XLARGE, SPACING_XXLARGE,
-    LABEL_OFFSET_BOTTOM, LABEL_OFFSET_TOP,
-    CONTAINER_PADDING, CONTAINER_SPACING, CONTAINER_ELEMENT_SPACING, CONTAINER_ICON_HEIGHT,
+    SPACING_SMALL, SPACING_MEDIUM, SPACING_XLARGE, LABEL_OFFSET_BOTTOM, LABEL_OFFSET_TOP,
+    CONTAINER_PADDING, CONTAINER_ICON_HEIGHT,
     TEXT_LINE_HEIGHT, TEXT_CHAR_WIDTH,
     LABEL_OFFSET_VERTICAL,
     CONTAINER_ICON_X,
@@ -31,7 +30,7 @@ from AlmaGag.config import (
     RADIUS_NORMAL_MAX, RADIUS_LOW_MAX,
     TOP_MARGIN_DEBUG, TOP_MARGIN_NORMAL,
 )
-from AlmaGag.utils import extract_item_id, calculate_label_dimensions
+from AlmaGag.utils import extract_item_id
 
 logger = logging.getLogger('AlmaGag.AutoPositioner')
 

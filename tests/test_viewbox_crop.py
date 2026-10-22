@@ -54,14 +54,19 @@ def test_crop_shrinks_sparse_canvas():
     assert (600 * 400) / (w * h) >= 0.60
 
 
-def test_crop_never_expands():
-    """Contenido que ya llena (o desborda) el canvas: no se toca nada."""
+def test_crop_expande_si_el_contenido_desborda():
+    """BUGS-DRAW-008 recalibró el contrato: el clamp al canvas declarado
+    AMPUTABA contenido real (labels en x<0, zonas fuera del alto). Ahora
+    el viewBox ES el bbox + margen — contenido que desborda EXPANDE."""
     src = (f'<svg xmlns="{SVG_NS}" width="400" height="300" '
            'viewBox="0,0,400,300">'
            '<rect x="-20" y="0" width="500" height="320" fill="red"/></svg>')
     root = ET.fromstring(src)
-    assert not crop_viewbox(root)
-    assert root.get('viewBox') == '0,0,400,300'
+    assert crop_viewbox(root, margin=10)
+    vx, vy, vw, vh = [float(n) for n in
+                      root.get('viewBox').replace(',', ' ').split()]
+    assert vx <= -30 and vx + vw >= 490 and vy + vh >= 330, \
+        f'el viewBox ({vx},{vy},{vw},{vh}) sigue amputando el rect'
 
 
 def test_bbox_respects_transforms():

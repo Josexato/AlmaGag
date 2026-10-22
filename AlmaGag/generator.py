@@ -4,7 +4,7 @@ import logging
 
 from datetime import datetime
 from AlmaGag.config import WIDTH, HEIGHT
-from AlmaGag.layout import Layout, AutoLayoutOptimizer
+from AlmaGag.layout import Layout
 from AlmaGag.debug import dump_layout_table
 
 # Logger global para AlmaGag
@@ -370,10 +370,12 @@ def generate_diagram(json_file, debug=False, visualdebug=False, exportpng=False,
     # desde la línea de métricas. Se imprime como canal de diagnóstico; NO
     # suma al umbral de WARNING (decisión §H6: no es un solape de bboxes).
     line = (f"[{engine}] cruces(arista×arista)={q['edge_x_edge']} "
-            f"arista×nodo={q['edge_x_node']} labels={q['label_overlap']} "
+            f"arista×nodo={q['edge_x_node']} "
+            f"icono×icono={q['icon_x_icon']} labels={q['label_overlap']} "
             f"own-line={q['label_own_line']} "
             f"tinta={em['ink_pct']:.1f}% aspecto={em['aspect']:.2f}")
-    if q['edge_x_edge'] + q['edge_x_node'] + q['label_overlap'] > 0:
+    if q['edge_x_edge'] + q['edge_x_node'] + q['label_overlap'] \
+            + q['icon_x_icon'] > 0:
         logger.warning(line)
     else:
         logger.info(line)

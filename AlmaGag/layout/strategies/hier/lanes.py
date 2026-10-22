@@ -14,7 +14,6 @@ en el orden del mapa `roles`). Se activa con la vista 'lanes'.
 """
 
 from typing import Dict, List
-from AlmaGag.layout.layout import Layout
 from AlmaGag.layout.strategies.hier.leveling import compute_levels
 from AlmaGag.layout.strategies.hier.routing import route_connections
 from AlmaGag.layout.strategies.hier.arcs import route_cycle_arcs

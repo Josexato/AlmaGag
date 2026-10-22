@@ -65,7 +65,6 @@ def test_deterministic_between_files():
 
 def test_n47_interzone_edges_orthogonal():
     """§N47: los enlaces entre zonas distintas llevan routing ortogonal."""
-    import json
     d = _load('docs/diagrams/gags/red-minera-antes.gag')
     from AlmaGag.layout import Layout
     from AlmaGag.layout.strategies.auto.network import apply_network_layout

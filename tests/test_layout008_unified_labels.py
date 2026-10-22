@@ -6,7 +6,6 @@ ahora cubre también elementos LIBRES y siembra la verdad que falte."""
 import json
 import re
 
-import pytest
 
 from AlmaGag.layout import Layout
 from AlmaGag.layout.geometry import GeometryCalculator

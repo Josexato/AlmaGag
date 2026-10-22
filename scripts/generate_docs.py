@@ -16,7 +16,6 @@ El script:
 import os
 import sys
 import subprocess
-import glob
 from pathlib import Path
 
 # Fix encoding for Windows

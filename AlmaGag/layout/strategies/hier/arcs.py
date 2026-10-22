@@ -15,7 +15,7 @@ se dibujan como arcos con sentido de giro coherente:
 """
 
 import math
-from typing import Dict, List, Tuple
+from typing import Dict, List
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 from AlmaGag.layout.strategies.hier.shapes import clip_shape
 
@@ -92,6 +92,27 @@ def route_cycle_arcs(layout, levels):
     handled = set()
     for (u, v) in back:
         if not (placed(u) and placed(v)):
+            continue
+        # BUGS-LAYOUT-014: el self-loop (u==v) es su propio ciclo — sin
+        # caso especial salía un bezier degenerado de 14px (invisible).
+        # Lazo propio por el costado derecho del icono: sale por R arriba,
+        # comba hacia afuera y entra por R abajo.
+        if u == v:
+            e = by_id[u]
+            x1 = e['x'] + e.get('width', ICON_WIDTH)
+            cy = e['y'] + e.get('height', ICON_HEIGHT) / 2
+            p0 = (x1, cy - 12.0)
+            p1 = (x1, cy + 12.0)
+            bulge = 46.0
+            for c in layout.connections:
+                if c.get('from') == u and c.get('to') == u:
+                    c['computed_path'] = {
+                        'type': 'bezier', 'points': [p0, p1],
+                        'control_points': [(x1 + bulge, cy - 26.0),
+                                           (x1 + bulge, cy + 26.0)]}
+                    c['_from_port'] = p0
+                    c['_to_port'] = p1
+            handled.add((u, v))
             continue
         comp = cycle_nodes(u, v)
         # aristas del ciclo: (a→b) con ambos en comp (incluye back-edge u→v).

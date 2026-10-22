@@ -12,7 +12,6 @@ Uso:
 
 import os
 import sys
-import glob
 import argparse
 from pathlib import Path
 

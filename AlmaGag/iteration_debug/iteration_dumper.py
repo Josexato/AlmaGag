@@ -6,11 +6,9 @@ mostrando cómo evolucionan las posiciones de todos los elementos.
 """
 
 import json
-import os
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Tuple
-from dataclasses import asdict
+from typing import Dict, List, Any
 
 
 class IterationDumper:

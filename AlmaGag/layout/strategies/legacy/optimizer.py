@@ -34,7 +34,6 @@ from AlmaGag.layout.container_calculator import ContainerCalculator
 from AlmaGag.layout.graph_analysis import GraphAnalyzer
 from AlmaGag.layout.strategies.auto.positioner import AutoLayoutPositioner
 from AlmaGag.layout.label_optimizer import LabelPositionOptimizer
-from AlmaGag.routing.router_manager import ConnectionRouterManager
 from AlmaGag.config import LAF_SPACING_BASE, WIDTH as DEFAULT_CANVAS_WIDTH, HEIGHT as DEFAULT_CANVAS_HEIGHT
 import logging
 
@@ -779,7 +778,6 @@ class LAFOptimizer(LayoutOptimizer):
 
     def _apply_global_dx(self, dx, by_level, layout, structure_info):
         """Apply a uniform horizontal shift to ALL elements."""
-        from AlmaGag.config import ICON_WIDTH
 
         for level_elems in by_level.values():
             for elem_id in level_elems:

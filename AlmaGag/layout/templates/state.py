@@ -15,7 +15,6 @@ máquinas de estado sin metadata adicional.
 """
 
 import math
-from collections import defaultdict
 
 from AlmaGag.layout.templates.base import BaseTemplate
 from AlmaGag.layout.templates.features import GraphFeatures

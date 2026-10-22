@@ -13,8 +13,7 @@ Características específicas de AUTO:
 
 import logging
 
-from AlmaGag.config import (ICON_WIDTH, ICON_HEIGHT, TEXT_LINE_HEIGHT,
-                            FONT_SIZE_NODE)
+from AlmaGag.config import (ICON_WIDTH, ICON_HEIGHT, FONT_SIZE_NODE)
 from AlmaGag.draw.primitives.container import draw_container as _draw_container
 from AlmaGag.draw.icons import draw_icon_shape as _draw_icon_shape, draw_icon_label as _draw_icon_label
 from AlmaGag.draw.primitives.svg import (

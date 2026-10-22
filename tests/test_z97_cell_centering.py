@@ -12,7 +12,6 @@ hermanas sigue pendiente en el ticket.
 
 import logging
 
-from AlmaGag.config import ICON_WIDTH
 from AlmaGag.layout import Layout
 from AlmaGag.layout.strategies.hier.areas import layout_by_areas
 

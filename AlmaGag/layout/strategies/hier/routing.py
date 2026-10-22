@@ -14,7 +14,7 @@ que el renderer dibuja. No usa la política AUTO.
 """
 
 from collections import defaultdict
-from typing import Dict, List, Tuple
+from typing import Dict, Tuple
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 from AlmaGag.layout.strategies.hier.shapes import is_diamond, diamond_port, diamond_vertices
 

@@ -1913,7 +1913,7 @@ reciclarse la sesión — re-medirlo cuando vuelva a subirse.
 
 ---
 
-### BUGS-ARCH-003: `Layout.copy()` comparte los DICTS de conexión — mutar la copia muta el original 🆕 ABIERTO
+### BUGS-ARCH-003: `Layout.copy()` comparte los DICTS de conexión — mutar la copia muta el original ✅ RESUELTO (2026-10-22, iteración 19)
 **Componente**: `layout/layout.py::Layout.copy`
 **Reportado**: 2026-10-14 (hallazgo de la sesión de reescritura
 almagag-jv leyendo el pipeline; CONFIRMADO ejecutando contra v3.20.0)
@@ -1944,7 +1944,7 @@ conocido no quede sin nombre mientras tanto.
 
 ---
 
-### BUGS-LAYOUT-014: Un self-loop tumba el motor con RecursionError crudo (PY-001) 🆕 ABIERTO
+### BUGS-LAYOUT-014: Un self-loop tumba el motor con RecursionError crudo (PY-001) ✅ RESUELTO (2026-10-22, iteración 19)
 **Componente**: `hier/columns.py` (la recursión `longest`)
 **Reportado**: 2026-10-14 (fase 0 de almagag-jv; confirmado con repro propio)
 
@@ -1975,7 +1975,7 @@ y lo que no se dibuje, se nombra.
 
 ---
 
-### BUGS-DRAW-008: El recorte O51 corta los labels laterales (PY-003) 🆕 ABIERTO
+### BUGS-DRAW-008: El recorte O51 corta los labels laterales (PY-003) ✅ RESUELTO (2026-10-22, iteración 19 — el viewBox ES el bbox, sin clamp)
 **Componente**: `draw/` (bbox del viewBox §O51)
 **Reportado**: 2026-10-14 (fase 0 de almagag-jv; confirmado en PNG de c10)
 
@@ -2007,11 +2007,13 @@ lámina.
 En c21, `bd` y `cache` terminan ambos en (428.96, 40.0) — superposición
 total, un solo cilindro visible con dos labels. Ningún paso del
 pipeline los separa ni lo reporta. Criterio: cero pares de iconos con
-solape en el corpus (el audit nuevo de BUGS-LOG-004 lo vigilará).
+solape en el corpus. Censo con el contador de BUGS-LOG-004 activo
+(22-oct): 3 láminas con icono×icono=1 — 05-arquitectura-gag,
+06-flujo-ejecucion y c21. Ese es el alcance del fix.
 
 ---
 
-### BUGS-LOG-004: `icon_vs_icon` no entra a ningún contador del audit (PY-005b) 🆕 ABIERTO
+### BUGS-LOG-004: `icon_vs_icon` no entra a ningún contador del audit (PY-005b) ✅ RESUELTO (2026-10-22, iteración 19 — canal icono×icono en la línea [motor])
 **Componente**: `layout/metrics.py::quality_counters`
 **Reportado**: 2026-10-14 (fase 0 de almagag-jv)
 

@@ -13,9 +13,7 @@ Date: 2026-02-19
 """
 
 import heapq
-import math
 from typing import List, Tuple, Dict, Optional, Set
-from collections import defaultdict
 from AlmaGag.routing.router_base import Point
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 

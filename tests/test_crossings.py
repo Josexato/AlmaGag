@@ -7,14 +7,10 @@ un hub NO es cruce). Incluye una prueba de calidad comparativa: para un flujo
 dirigido, hier debe cruzar ≤ que AUTO (hier minimiza cruces por diseño).
 """
 
-import subprocess
-import sys
 
-import pytest
 
 from AlmaGag.layout.layout import Layout
 from AlmaGag.layout.metrics import count_crossings, segments_intersect
-from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 
 
 def _elem(eid, x, y):
