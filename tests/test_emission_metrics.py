@@ -62,6 +62,6 @@ def test_motor_line_includes_ink_and_aspect(caplog, tmp_path):
                          layout_algorithm='select')
     text = '\n'.join(r.message for r in caplog.records)
     m = re.search(r'\[\w+\] cruces\(arista×arista\)=\d+ arista×nodo=\d+ '
-                  r'labels=\d+ own-line=\d+ tinta=[\d.]+% aspecto=[\d.]+',
+                  r'icono×icono=\d+ labels=\d+ own-line=\d+ tinta=[\d.]+% aspecto=[\d.]+',
                   text)
     assert m, f'línea de métricas sin own-line/tinta/aspecto: {text}'
