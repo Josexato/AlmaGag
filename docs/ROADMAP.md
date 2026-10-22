@@ -283,6 +283,24 @@ BUGS-LAYOUT-015 (abierto). Más la higiene verificada del plan externo:
 scripts de debug consolidados, deps en pyproject, ruff-F en CI (166
 imports muertos fuera). Motor v3.21.0.
 
+## Iteración 20 — la cosecha, segunda pasada (22-oct): 4 bugs más
+
+Los últimos fichados de la fase 0 de almagag-jv, resueltos con números:
+**BUGS-LAYOUT-015** ningún par de iconos montados sobrevive (hier §A2
+escalona satélites hermanos — c21 por fin muestra DOS cilindros — y
+AUTO gana la red de seguridad separate_overlapping_icons antes del
+ruteo; censo del contador 3→0, con 05 mejorando arista×nodo de rebote);
+**BUGS-VAL-009** una sola verdad sobre canvas.legend (los strings valen
+en el audit, y los CINCO sitios de hier que reconstruían el canvas
+entero ya conservan lo del autor — toda vista hier perdía la leyenda
+sin aviso); **BUGS-DRAW-009** la leyenda entra entera y no pisa labels
+(cayó por DRAW-008 + LAYOUT-015, congelado en test sobre el repro);
+**BUGS-DRAW-010** el empalme ortogonal se MIDE y se descuenta del
+presupuesto de paseo — c19 pasó de ratio 1.90 a silencio y el paseo
+real sigue nombrado. Motor v3.22.0. Residual nombrado en el ticket 015:
+travesías de la vía recta en hier sin áreas (extender Z96-f2).
+Pendiente de decisión del autor: WISH-LAYOUT-031 (cinta de roles).
+
 ## Mediano plazo (sin fecha)
 
 - **«El mapa» (WISH-ARCH-004)**: separar mapa (dato) de vista (representación)

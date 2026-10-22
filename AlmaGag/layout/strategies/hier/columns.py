@@ -318,10 +318,18 @@ def compute_columns(levels: Levels, elements: List[dict],
     main_min, main_max = min(real_xs), max(real_xs)
     center = sum(real_xs) / len(real_xs)
 
-    # --- §A2 satélites: al costado del padre, hacia afuera del centro ---
+    # --- §A2 satélites: al costado del padre, hacia afuera del centro.
+    # BUGS-LAYOUT-015: dos satélites del MISMO padre caían en la misma
+    # columna y nivel — iconos montados EXACTOS (c21: bd y cache sobre
+    # app). Se escalonan hacia afuera, igual que las tomas §A3. ---
+    sats_by_parent: Dict[str, List[str]] = defaultdict(list)
     for sat, parent in satellites.items():
+        sats_by_parent[parent].append(sat)
+    for parent, sats in sats_by_parent.items():
         px = x.get(parent, 0)
-        x[sat] = px + 1.5 * STEP if px >= center else px - 1.5 * STEP
+        outward = 1 if px >= center else -1
+        for rank, sat in enumerate(sorted(sats)):
+            x[sat] = px + outward * (1.5 + rank) * STEP
 
     # --- §A3/§C11 tomas (K38): a UN carril del destino, del lado libre
     # (exterior respecto al centro), NO en el margen del canvas. La toma vive a

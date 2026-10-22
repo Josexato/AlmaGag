@@ -365,15 +365,31 @@ def _audit_band_hygiene(journey, points, elements_by_id, connections,
     blen = sum(math.hypot(b[0] - a[0], b[1] - a[1])
                for a, b in zip(points, points[1:]))
     csum = 0.0
+    # BUGS-DRAW-010: el sobrecosto legítimo de la banda son sus EMPALMES
+    # ortogonales — el salto manhattan entre el puerto de llegada de una
+    # conexión y el de salida de la siguiente en cada nodo intermedio
+    # (BUGS-ROUTE-004). Es ~constante por nodo, así que en bandas CORTAS
+    # el ratio 1.25 (libre de escala) explotaba como falso positivo
+    # (caso real 182 vs 132; c19 240 vs 126 — confirmación de
+    # almagag-jv). Se MIDE y se descuenta, sin número mágico; el paseo
+    # real (desvío que no viene de empalmes) sigue nombrado.
+    junction_slack = 0.0
+    prev_end = None
     path_ids = [i for i in journey.get('path', []) if isinstance(i, str)]
     for a, b in zip(path_ids, path_ids[1:]):
         found = _find_conn(connections, a, b)
         if not found:
+            prev_end = None
             continue
-        cpts = (found[0].get('computed_path') or {}).get('points') or []
+        cpts = _conn_points(found[0], found[1]) or []
         csum += sum(math.hypot(q[0] - o[0], q[1] - o[1])
                     for o, q in zip(cpts, cpts[1:]))
-    blen = max(0.0, blen - dodge_slack)
+        if cpts:
+            if prev_end is not None:
+                junction_slack += (abs(cpts[0][0] - prev_end[0])
+                                   + abs(cpts[0][1] - prev_end[1]))
+            prev_end = cpts[-1]
+    blen = max(0.0, blen - dodge_slack - junction_slack)
     if csum and blen > 1.25 * csum:
         logger.warning(f"[journeys] banda '{jid}' pasea: {blen:.0f}px de "
                        f"trazo contra {csum:.0f}px de conexiones "

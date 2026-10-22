@@ -115,7 +115,9 @@ class HierLayoutOptimizer(LayoutOptimizer):
         if xs and ys:
             width = max(xs) + ICON_WIDTH + MARGIN_X
             height = max(ys) + ICON_HEIGHT + MARGIN_Y
-            L.canvas = {'width': max(width, 400), 'height': max(height, 300)}
+            # BUGS-VAL-009: conservar las claves del autor (legend/flow)
+            L.canvas = {**(L.canvas or {}), 'width': max(width, 400),
+                        'height': max(height, 300)}
         self._capture('niveles-columnas', L,
                       '§A niveles + §B columnas → coords reales')
 
@@ -256,7 +258,9 @@ class HierLayoutOptimizer(LayoutOptimizer):
             pts = [(px + sx, py + sy) for px, py in pts]
         max_x = max(p[0] for p in pts)
         max_y = max(p[1] for p in pts)
+        # BUGS-VAL-009: conservar las claves del autor (legend/flow)
         L.canvas = {
+            **(L.canvas or {}),
             'width': max(L.canvas['width'], max_x + pad),
             'height': max(L.canvas['height'], max_y + pad),
         }

@@ -469,3 +469,76 @@ def global_label_anticollision(layout, geometry) -> int:
                                    f"bajo la banda de '{jid}' — sin lado "
                                    f"limpio disponible (W84)")
     return moved
+
+
+def separate_overlapping_icons(layout) -> int:
+    """BUGS-LAYOUT-015 — red de seguridad: ningún par de ICONOS montados
+    sobrevive al layout. Corre ANTES del ruteo definitivo (los iconos
+    movidos necesitan rutas coherentes), a diferencia de §P61 que solo
+    toca etiquetas al final.
+
+    Dos iconos cuyo bbox se solapa (c21: satélites gemelos en la posición
+    EXACTA; 06-flujo: routing y output_svg montados) se separan empujando
+    el de MENOR grado por el eje de menor solape, lo justo + 12px de
+    aire. Los contenedores y sus hijos quedan fuera (su geometría es del
+    container_calculator). Determinista y nombrado: cada empujón sale al
+    log con el par y el desplazamiento. Devuelve cuántos iconos movió.
+    """
+    from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
+
+    contained = set()
+    containers = set()
+    for e in layout.elements:
+        if e.get('contains'):
+            containers.add(e['id'])
+            for ref in e['contains']:
+                contained.add(ref['id'] if isinstance(ref, dict) else ref)
+
+    def _free(e):
+        return ('x' in e and 'y' in e and e['id'] not in containers
+                and e['id'] not in contained)
+
+    grado = {}
+    for c in layout.connections:
+        for eid in (c.get('from'), c.get('to')):
+            grado[eid] = grado.get(eid, 0) + 1
+
+    moved = 0
+    for _ in range(12):
+        icons = sorted((e for e in layout.elements if _free(e)),
+                       key=lambda e: (e['y'], e['x'], e['id']))
+        hubo = False
+        for i, a in enumerate(icons):
+            for b in icons[i + 1:]:
+                ax0, ay0 = a['x'], a['y']
+                bx0, by0 = b['x'], b['y']
+                w, h = ICON_WIDTH, ICON_HEIGHT
+                ox = min(ax0 + w, bx0 + w) - max(ax0, bx0)
+                oy = min(ay0 + h, by0 + h) - max(ay0, by0)
+                if ox <= 0 or oy <= 0:
+                    continue
+                vict = b if grado.get(b['id'], 0) <= grado.get(a['id'], 0) \
+                    else a
+                otro = a if vict is b else b
+                # eje de menor solape; empate/montaje exacto → a la derecha
+                if ox <= oy:
+                    d = ox + 12.0
+                    sign = 1.0 if vict['x'] >= otro['x'] else -1.0
+                    vict['x'] += sign * d
+                    eje = f'{sign * d:+.0f}px x'
+                else:
+                    d = oy + 12.0
+                    sign = 1.0 if vict['y'] >= otro['y'] else -1.0
+                    vict['y'] += sign * d
+                    eje = f'{sign * d:+.0f}px y'
+                logger.warning(
+                    f"[P-sep] iconos montados '{a['id']}'×'{b['id']}' — "
+                    f"'{vict['id']}' desplazado {eje} (BUGS-LAYOUT-015)")
+                moved += 1
+                hubo = True
+                break
+            if hubo:
+                break
+        if not hubo:
+            return moved
+    return moved

@@ -279,3 +279,38 @@ def test_z95_band_dodges_foreign_icon(caplog):
     with caplog.at_level(logging.WARNING, logger='AlmaGag'):
         _audit_band_hygiene(j, pts3, els3, conn, dodge_slack=slack3)
     assert "pasa por encima de" in caplog.text
+
+
+def test_draw010_el_empalme_legitimo_no_es_paseo(caplog):
+    """BUGS-DRAW-010: el salto ortogonal entre puertos de un nodo
+    intermedio es sobrecosto ~constante — en bandas CORTAS el ratio 1.25
+    explotaba como falso positivo (caso real 182 vs 132; c19 240 vs 126).
+    El empalme se MIDE y se descuenta; el paseo real sigue nombrado."""
+    from AlmaGag.draw.primitives.journeys import _audit_band_hygiene
+    els = {'a': {'id': 'a', 'x': 0, 'y': 100},
+           'b': {'id': 'b', 'x': 200, 'y': 100},
+           'c': {'id': 'c', 'x': 400, 'y': 100}}
+    # puertos desfasados en b: llega a (200,110) y sale de (280,140) —
+    # empalme manhattan de 110px sobre conexiones que suman solo 300px
+    conns = [
+        {'from': 'a', 'to': 'b',
+         'computed_path': {'points': [(80, 110), (200, 110)]}},
+        {'from': 'b', 'to': 'c',
+         'computed_path': {'points': [(280, 140), (400, 140)]}},
+    ]
+    j = {'id': 'jc', 'label': 'JC', 'path': ['a', 'b', 'c']}
+    from AlmaGag.draw.primitives.journeys import build_journey_points
+    pts = build_journey_points(j, els, conns)
+    import logging
+    with caplog.at_level(logging.WARNING, logger='AlmaGag'):
+        _audit_band_hygiene(j, pts, els, conns)
+    assert 'pasea' not in caplog.text, \
+        'el empalme legítimo sigue contando como paseo'
+
+    # el paseo REAL (desvío que NO viene de empalmes) sigue nombrado
+    caplog.clear()
+    paseo = [(80, 110), (80, 500), (400, 500), (400, 140)]
+    with caplog.at_level(logging.WARNING, logger='AlmaGag'):
+        _audit_band_hygiene({'id': 'jp', 'label': 'JP', 'path': ['a', 'b']},
+                            paseo, els, conns)
+    assert 'pasea' in caplog.text, 'el paseo real quedó sin nombrar'

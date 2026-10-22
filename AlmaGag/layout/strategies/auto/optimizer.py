@@ -588,6 +588,17 @@ class AutoLayoutOptimizer(LayoutOptimizer):
                           f'{met}/{len(soft)} consideraciones blandas · '
                           f'{n_zones} zona(s) near · {min_collisions} colisiones')
 
+        # BUGS-LAYOUT-015: red de seguridad — ningún par de iconos montados
+        # sobrevive. Corre ANTES de troncales/anticolisión porque los
+        # iconos movidos necesitan rutas coherentes (re-ruteo completo).
+        from AlmaGag.layout.strategies.auto.anticollision import (
+            separate_overlapping_icons)
+        if separate_overlapping_icons(best_layout):
+            best_layout.invalidate_collision_cache()
+            self.routing.route(best_layout)
+            self._calculate_canvas_from_bounds(best_layout)
+            min_collisions = self.evaluate(best_layout)
+
         # §P60: las troncales inter-zona son ESTRUCTURALES (cero diagonales,
         # H24) — se recalculan sobre la geometría definitiva, después de que
         # las consideraciones blandas (y su re-ruteo) hayan movido lo último.
