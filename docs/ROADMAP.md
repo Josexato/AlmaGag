@@ -265,6 +265,24 @@ subutilización 4→2 (aire estructural de banda, nombrado). Motor
 v3.20.0. Pendiente de re-medición: el caso real del autor (scratchpad
 reciclado).
 
+## Iteración 19 — la cosecha de la mirada externa (22-oct): 4 bugs + higiene
+
+Con almagag-jv en pausa (decisión del autor: el Python sigue siendo EL
+motor), los hallazgos verificados de su fase 0 pasaron de fichados a
+resueltos: **BUGS-ARCH-003** Layout.copy() copia conexiones en
+profundidad (un fixture dependía del aliasing: git.sdjf era un
+frankenstein de posiciones de un candidato con rutas de otro — la
+composición nueva es la elección real del optimizer, completa y
+verificada en PNG); **BUGS-DRAW-008** el viewBox ES el bbox de lo
+dibujado, sin clamp al canvas (ya no se amputan labels laterales ni
+zonas desbordadas); **BUGS-LAYOUT-014** el self-loop es un lazo propio
+nombrado y dibujado, no un RecursionError (c27 pasó de ERROR a 0-0-0-0);
+**BUGS-LOG-004** canal icono×icono en el audit — el censo destapó 3
+láminas con iconos montados (05, 06, c21), que son el alcance de
+BUGS-LAYOUT-015 (abierto). Más la higiene verificada del plan externo:
+scripts de debug consolidados, deps en pyproject, ruff-F en CI (166
+imports muertos fuera). Motor v3.21.0.
+
 ## Mediano plazo (sin fecha)
 
 - **«El mapa» (WISH-ARCH-004)**: separar mapa (dato) de vista (representación)
