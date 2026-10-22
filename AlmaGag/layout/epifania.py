@@ -27,7 +27,7 @@ import re
 import logging
 from copy import deepcopy
 
-from AlmaGag.layout.metrics import count_crossings, quality_counters
+from AlmaGag.layout.metrics import quality_counters
 
 logger = logging.getLogger('AlmaGag')
 

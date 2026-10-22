@@ -9,7 +9,6 @@ resúmenes». Si no existe rango factible, no se toca nada y el audit
 nombra la violación (mitad honesta, como V79).
 """
 
-import json
 import logging
 
 import pytest

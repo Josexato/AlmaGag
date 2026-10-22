@@ -1,14 +1,8 @@
 """Epifanía (visualizador de fases) — auto-extraído de visualizer.py (WISH-ARCH-003 sub-tarea B)."""
 
 import os
-import math
 import logging
 import svgwrite
-from typing import Dict, List, Tuple
-from copy import deepcopy
-from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
-from AlmaGag.utils import extract_item_id
-from AlmaGag.layout.strategies.legacy.structure_analyzer import StructureInfo
 
 logger = logging.getLogger('AlmaGag')
 

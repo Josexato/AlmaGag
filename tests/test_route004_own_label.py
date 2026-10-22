@@ -12,7 +12,6 @@ detector y en el score de P61: la dashed resumen→cron cortaba
   contrae: un label en y<0 sale cortado de la lámina).
 """
 
-import json
 
 from AlmaGag.generator import select_strategy
 from AlmaGag.layout import Layout

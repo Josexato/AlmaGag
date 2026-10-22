@@ -9,7 +9,6 @@ Verifica:
 4. Coords manuales se respetan (template solo asigna si falta x/y).
 """
 
-import pytest
 
 from AlmaGag.layout.templates.architecture import (
     _is_shared,

@@ -31,6 +31,24 @@ dependencies = [
 
 [project.optional-dependencies]
 debug = []
+dev = [
+    "pytest",
+    "pillow",
+    "ruff",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--import-mode=importlib"
+
+[tool.ruff]
+# Solo errores F (imports sin uso, nombres indefinidos) — no es un
+# formateador: la higiene de estilo no entra al CI.
+lint.select = ["F401", "F821"]
+
+[tool.ruff.lint.per-file-ignores]
+# Los __init__.py re-exportan API pública a propósito.
+"**/__init__.py" = ["F401"]
 
 [project.scripts]
 almagag = "AlmaGag.main:main"

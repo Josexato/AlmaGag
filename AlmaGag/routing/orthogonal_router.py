@@ -10,7 +10,6 @@ Version: v3.1
 Date: 2026-02-19
 """
 
-import math
 from typing import List
 from AlmaGag.routing.router_base import ConnectionRouter, Path, Point
 from AlmaGag.config import CORNER_RADIUS_DEFAULT

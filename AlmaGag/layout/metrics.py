@@ -14,7 +14,7 @@ el abanico de salidas de un hub) se tocan en el nodo, NO es un cruce; acá se
 excluyen esos pares para que la métrica cuente sólo cruces genuinos.
 """
 
-from typing import Dict, List, Tuple
+from typing import Dict, Tuple
 
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 

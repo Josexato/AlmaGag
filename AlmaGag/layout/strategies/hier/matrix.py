@@ -17,7 +17,7 @@ from AlmaGag.layout.strategies.hier.routing import route_connections
 from AlmaGag.layout.strategies.hier.arcs import route_cycle_arcs
 from AlmaGag.layout.strategies.hier.labels import assign_connection_label_anchors
 from AlmaGag.layout.strategies.hier.areas import (
-    MARGIN_X, MARGIN_Y, LABEL_LINE_H, LABEL_GAP, _all_points)
+    MARGIN_X, MARGIN_Y, LABEL_LINE_H, LABEL_GAP)
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 
 CELL_W = 224.0                 # ancho de columna (fase)

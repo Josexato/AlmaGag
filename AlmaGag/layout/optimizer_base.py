@@ -12,7 +12,6 @@ Los optimizadores son responsables de:
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional
 from AlmaGag.layout.layout import Layout
 
 logger = logging.getLogger('AlmaGag')

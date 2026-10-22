@@ -20,7 +20,7 @@ curvas declaradas por el autor (manual/bezier/arc) y las troncales §P60
 (`_zone_trunk`) se respetan tal cual.
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 from AlmaGag.config import ICON_HEIGHT, ICON_WIDTH
 from AlmaGag.utils import extract_item_id

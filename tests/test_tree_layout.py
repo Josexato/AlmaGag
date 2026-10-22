@@ -12,9 +12,7 @@ En grafos con merges/ciclos nada cambia (métricas idénticas en los 36
 fixtures al introducir esto).
 """
 
-import json
 
-import pytest
 
 from AlmaGag.layout import Layout
 from AlmaGag.layout.engine import LayoutEngine

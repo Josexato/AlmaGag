@@ -6,12 +6,10 @@ libres) y rutas ortogonales que no atraviesan iconos ajenos."""
 
 import json
 
-import pytest
 
 from AlmaGag.layout import Layout
 from AlmaGag.layout.engine import LayoutEngine
 from AlmaGag.layout.geometry import GeometryCalculator
-from AlmaGag.utils import extract_item_id
 
 LONG = 'Etiqueta larga de tres palabras'      # ~31 chars ≈ 217px > 80px icono
 

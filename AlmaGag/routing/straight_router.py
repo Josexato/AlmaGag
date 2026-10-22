@@ -9,7 +9,7 @@ Version: v2.1
 Date: 2026-01-08
 """
 
-from AlmaGag.routing.router_base import ConnectionRouter, Path, Point
+from AlmaGag.routing.router_base import ConnectionRouter, Path
 
 
 class StraightRouter(ConnectionRouter):

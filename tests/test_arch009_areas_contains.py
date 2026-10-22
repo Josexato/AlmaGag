@@ -8,7 +8,6 @@ como nodo gordo con su caja dibujada = la reservada.
 """
 
 import copy
-import json
 
 from AlmaGag.generator import select_strategy
 from AlmaGag.layout.layout import Layout

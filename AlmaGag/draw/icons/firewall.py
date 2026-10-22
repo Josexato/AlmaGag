@@ -3,7 +3,6 @@ Dibuja el ícono de tipo 'firewall' para GAG.
 Basado en fw3.svg - patrón de hexágonos de firewall.
 """
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
-from AlmaGag.draw.icons import create_gradient
 
 def draw_firewall(dwg, x, y, color, element_id):
     """

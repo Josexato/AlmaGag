@@ -11,7 +11,6 @@ icono — sin eso, mover el icono dejaba el texto huérfano (label de
 'Construcción' ENCIMA de su icono, R1 real).
 """
 
-import json
 
 from AlmaGag.generator import select_strategy
 from AlmaGag.layout import Layout

@@ -7,7 +7,7 @@ import json
 
 from AlmaGag.layout import Layout
 from AlmaGag.layout.strategies.hier.optimizer import HierLayoutOptimizer
-from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
+from AlmaGag.config import ICON_WIDTH
 
 ADC = 'docs/diagrams/gags/activacion-datacenter.sdjf'
 

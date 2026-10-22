@@ -4,7 +4,7 @@ import logging
 
 from datetime import datetime
 from AlmaGag.config import WIDTH, HEIGHT
-from AlmaGag.layout import Layout, AutoLayoutOptimizer
+from AlmaGag.layout import Layout
 from AlmaGag.debug import dump_layout_table
 
 # Logger global para AlmaGag

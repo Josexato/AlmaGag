@@ -8,7 +8,6 @@ mismo lado se reparten (≥18px, sin punto de llegada compartido).
 
 import json
 
-import pytest
 
 from AlmaGag.generator import select_strategy
 from AlmaGag.layout import Layout

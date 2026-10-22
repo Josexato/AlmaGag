@@ -10,7 +10,6 @@ como `icons{}`), que el motor aplica mecánicamente con WARNING. Sin match
 import json
 import logging
 
-import pytest
 
 from AlmaGag.layout.semantics import apply_embedded_semantics
 

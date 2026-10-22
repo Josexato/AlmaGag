@@ -19,7 +19,7 @@ que el ORDEN de aparición en `connections` representa el tiempo. Cada
 conexión genera una "fila" de mensaje.
 """
 
-from collections import defaultdict, Counter
+from collections import defaultdict
 
 from AlmaGag.layout.templates.base import BaseTemplate
 from AlmaGag.layout.templates.features import GraphFeatures

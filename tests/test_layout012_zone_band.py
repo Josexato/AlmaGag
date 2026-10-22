@@ -10,7 +10,6 @@ las zonas operativas se alinean al TECHO de la banda por construcción.
 
 import json
 
-import pytest
 
 from AlmaGag.generator import select_strategy
 from AlmaGag.layout import Layout

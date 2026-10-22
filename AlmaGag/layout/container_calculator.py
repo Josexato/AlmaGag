@@ -14,7 +14,7 @@ Versión: v2.2
 Fecha: 2026-01-09
 """
 
-from typing import Dict, List, Tuple
+from typing import Tuple
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 from AlmaGag.utils import extract_item_id
 

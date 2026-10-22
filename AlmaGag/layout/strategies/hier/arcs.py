@@ -15,7 +15,7 @@ se dibujan como arcos con sentido de giro coherente:
 """
 
 import math
-from typing import Dict, List, Tuple
+from typing import Dict, List
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 from AlmaGag.layout.strategies.hier.shapes import clip_shape
 
