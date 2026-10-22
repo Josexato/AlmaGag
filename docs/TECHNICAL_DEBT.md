@@ -2060,6 +2060,35 @@ dibujada esquiva `cola`; con la métrica honesta c21 queda 0-0-0-0.
 
 ---
 
+### BUGS-LAYOUT-017: La comba E17 barre la lámina en ciclos largos ✅ RESUELTO (2026-10-22, v3.26.0 — E17 v2: banda barrida completa por punto fijo + lado más barato para las idas; layout-optimization-flow cruces 4→1, arista×nodo 2→0)
+**Componente**: `layout/strategies/hier/arcs.py` (§E)
+**Reportado**: 2026-10-22 (censo honesto de BUGS-LOG-003:
+layout-optimization-flow destapó cruces=4/arista×nodo=2 reales)
+
+Dos cegueras juntas. (1) E17 solo miraba nodos a ±72px de la CUERDA:
+cuando la comba crecía (hasta 320px) para librar un nodo pegado, la
+curva barría una banda mucho más ancha y pisaba nodos que ese test
+jamás vio (phase0→router crecía a ~190px para librar a positioner… y
+aterrizaba sobre phase1). (2) El signo global E15 obligaba a cada ida
+a combar hacia su lado fijo aunque estuviera poblado y el otro vacío
+(router→phase1 barría por ENCIMA de toda la lámina, ctrl en y≈20).
+
+Fix (E17 v2): `_side_bulge` calcula la comba mínima por PUNTO FIJO
+sobre la banda barrida completa [cuerda, comba+margen] — monótona,
+converge en ≤6 vueltas, devuelve el tope si ni el tope libra. Las
+aristas de IDA evalúan ambos lados y toman el más barato; el EMPATE
+conserva el signo global E15 (giro coherente), y el RETORNO conserva
+su lado E16 — el lazo exterior es doctrina.
+
+Medido: layout-optimization-flow cruces 4→1, arista×nodo 2→0 (el cruce
+restante es el apretón retorno×ida de la doble vuelta, aceptado por
+E16); PNG mirado — desapareció el barrido superior. Los ciclos
+clásicos (ciclo-retrabajo, 14-stresstest) emiten SVG BYTE-IDÉNTICO:
+el desempate preserva el giro. Guarda: solo la lámina objetivo cambia.
+Test: `tests/test_layout017_arc_sweep.py`.
+
+---
+
 ### BUGS-LOG-004: `icon_vs_icon` no entra a ningún contador del audit (PY-005b) ✅ RESUELTO (2026-10-22, iteración 19 — canal icono×icono en la línea [motor])
 **Componente**: `layout/metrics.py::quality_counters`
 **Reportado**: 2026-10-14 (fase 0 de almagag-jv)
