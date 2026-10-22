@@ -299,7 +299,12 @@ sin aviso); **BUGS-DRAW-009** la leyenda entra entera y no pisa labels
 presupuesto de paseo — c19 pasó de ratio 1.90 a silencio y el paseo
 real sigue nombrado. Motor v3.22.0. Residual nombrado en el ticket 015:
 travesías de la vía recta en hier sin áreas (extender Z96-f2).
-Pendiente de decisión del autor: WISH-LAYOUT-031 (cinta de roles).
+Pendiente de decisión del autor: WISH-LAYOUT-031 (cinta de roles) —
+decidido el mismo día: MOTOR (v3.23.0): si el apilado de bandas de role
+viola el aspecto mínimo, bandas adyacentes se fusionan — el orden
+semántico se vuelve orden de lectura por filas, jamás invertido; c13
+pasó de aspecto 0.12 a 0.78 y la promesa «jamás una cinta 1×N» de la
+spec rige ahora en TODOS los caminos del macro-plano.
 
 ## Mediano plazo (sin fecha)
 

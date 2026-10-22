@@ -61,16 +61,23 @@ def test_healthy_single_row_is_stable():
 
 
 def test_declared_role_wins_over_derivation():
-    """`area.role`: control arriba, chain al centro, external abajo,
-    overlay al fondo — el orden vertical es el semántico."""
+    """`area.role`: el orden vertical es el semántico — control nunca
+    DEBAJO de chain, chain nunca debajo de external, etc. Recalibrado
+    por WISH-LAYOUT-031: si el apilado estricto (una banda por fila)
+    viola el aspecto mínimo, bandas adyacentes comparten fila — el
+    orden pasa a DÉBIL (≤), jamás invertido."""
     L, spec = _mk(4, 2)
     spec[0]['role'] = 'external'
     spec[1]['role'] = 'chain'
     spec[2]['role'] = 'control'
     spec[3]['role'] = 'overlay'
     boxes = {b['id']: b for b in layout_by_areas(L, spec)}
-    assert boxes['z2']['y'] < boxes['z1']['y'] < boxes['z0']['y'] \
-        < boxes['z3']['y'], {k: v['y'] for k, v in boxes.items()}
+    ys = {k: v['y'] for k, v in boxes.items()}
+    assert ys['z2'] <= ys['z1'] <= ys['z0'] <= ys['z3'], ys
+    # y el apilado no degenera en cinta: con bandas flacas hay menos
+    # filas que bandas (la promesa «jamás 1×N» de la spec)
+    assert len({round(y) for y in ys.values()}) < 4, \
+        f'volvió la cinta de una banda por fila: {ys}'
 
 
 def test_inter_area_route_uses_dominant_axis():

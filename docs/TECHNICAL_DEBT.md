@@ -2040,7 +2040,7 @@ corpus, y el paseo real (c19 con desvío genuino) sigue nombrado.
 
 ---
 
-### WISH-LAYOUT-031: `area.role` con muchas bandas degenera en cinta 1×N (PY-006) 🆕 ABIERTO
+### WISH-LAYOUT-031: `area.role` con muchas bandas degenera en cinta 1×N (PY-006) ✅ RESUELTO (2026-10-22 — decisión del autor: MOTOR; bandas adyacentes se fusionan cuando el apilado viola el aspecto mínimo, orden semántico débil jamás invertido; c13 aspecto 0.12→0.78)
 **Componente**: hier/areas (macro-plano por role)
 **Reportado**: 2026-10-14 (fase 0 de almagag-jv, c13: 5 bandas → aspecto 0.12)
 

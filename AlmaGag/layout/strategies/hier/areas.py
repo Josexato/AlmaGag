@@ -980,7 +980,35 @@ def _macro_rows(dims):
         for d in dims:
             b = _ROLE_BAND.get(roles[d['aid']], _BAND_DEFAULT)
             bands.setdefault(b, []).append(d)
-        return [bands[k] for k in sorted(bands)]
+        rows = [bands[k] for k in sorted(bands)]
+        # WISH-LAYOUT-031: la promesa «jamás una cinta 1×N» también rige
+        # con roles (c13: 5 bandas de a 1 → aspecto 0.12). Si el apilado
+        # viola el aspecto MÍNIMO, se fusionan bandas ADYACENTES (par
+        # consecutivo de menor ancho combinado primero): el orden
+        # vertical de la semántica se vuelve orden de LECTURA dentro de
+        # la fila — la banda menor queda a la izquierda, y ningún role
+        # termina por debajo de uno mayor. Nombrado.
+
+        def _aspect(rws):
+            w = max(sum(d['w'] for d in r) + AREA_GAP * (len(r) - 1)
+                    for r in rws)
+            h = (sum(max(d['h'] for d in r) for r in rws)
+                 + AREA_GAP * (len(rws) - 1))
+            return w / h if h else 1.0
+
+        aspecto0 = _aspect(rows)
+        while _aspect(rows) < ASPECT_RANGE[0] and len(rows) > 2:
+            anchos = [sum(d['w'] for d in r) for r in rows]
+            i = min(range(len(rows) - 1),
+                    key=lambda k: anchos[k] + anchos[k + 1])
+            rows[i:i + 2] = [rows[i] + rows[i + 1]]
+        if len(rows) < len(bands):
+            logger.info(
+                f"[areas] {len(bands)} bandas de role armaban aspecto "
+                f"{aspecto0:.2f} — bandas adyacentes fusionadas en "
+                f"{len(rows)} fila(s); el orden semántico se lee por "
+                f"filas (WISH-LAYOUT-031)")
+        return rows
 
     total_w = sum(d['w'] for d in dims) + AREA_GAP * (len(dims) - 1)
     max_h = max(d['h'] for d in dims)
