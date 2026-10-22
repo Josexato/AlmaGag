@@ -1760,7 +1760,7 @@ test_entries_to_same_node_get_distinct_ports`.
 
 ---
 
-### BUGS-LOG-003: Los arcos se miden por su CUERDA, no por la curva dibujada 🆕 ABIERTO
+### BUGS-LOG-003: Los arcos se miden por su CUERDA, no por la curva dibujada ✅ RESUELTO (2026-10-22, v3.25.0 — el bezier se poligonaliza con sus control_points y se mide esa polilínea; 6 falsos positivos limpiados y 1 lámina destapada)
 **Componente**: `layout/metrics.py::_conn_segments`
 **Reportado**: 2026-08-20 (auditoría de criterios de Claude Design sobre
 14-stresstest: `arista×nodo=1` señala K→I tocando a J, pero la curva
@@ -1776,6 +1776,24 @@ t=0.25/0.5/0.75 con los control_points, o poligonalizarla) y medir esa
 polilínea. Recalibración esperada: los fixtures con arcos de ciclo
 (14-stresstest, ciclo-retrabajo, es-primo…) pueden mover cruces y
 arista×nodo en ±1-2 — revisar el delta como en It6-2c/LOG-002.
+
+**Cierre (22-oct, v3.25.0)**: `_bezier_polyline` en metrics.py —
+cúbico (2 control_points) o cuadrático (1), 8 tramos; `_conn_segments`
+mide esa polilínea. Delta medido en la guarda, todo verificado en PNG:
+- Falsos positivos limpiados (la cuerda tocaba lo que la comba rodea,
+  E17 en acción): 14-stresstest 1→0 (el caso del reporte original),
+  activacion-datacenter 2→0, ciclo-retrabajo 1→0, es-primo 1→0,
+  c25 1→0, y c21 1→0.
+- Falsos negativos destapados: layout-optimization-flow pasa de
+  cruces=1/arista×nodo=0 a cruces=4/arista×nodo=2 — sus arcos
+  dibujados SÍ se cruzan y pasan sobre iconos; la lámina no empeoró,
+  el contador dejó de mentir (misma doctrina que el censo de LOG-004).
+
+**Fe de erratas sobre BUGS-LAYOUT-016**: el «residual real» que ese
+ticket fichó (el arco de mon→app sobre `cola` en c21) era TAMBIÉN un
+artefacto de la cuerda — la comba dibujada esquiva `cola`. c21 queda
+0-0-0-0. Test: `tests/test_log003_arc_curve_metrics.py` (falso
+positivo, falso negativo y forma de la polilínea congelados).
 
 ---
 
@@ -2035,10 +2053,10 @@ Medido: c21 arista×nodo 2→1; el resto del corpus (66 láminas) emite
 idéntico. Las rectas D12/D13 sanas quedan rectas (congelado en test).
 Test: `tests/test_layout016_flat_route_dodge.py`.
 
-**Residual nombrado**: el arista×nodo=1 restante de c21 es el ARCO
-bezier de `mon→app` (control) pasando sobre `cola` — clase «arcos de
-ciclo §E», emparentada con BUGS-LOG-003 (los arcos se miden/rutean por
-su cuerda, no por su comba). Se cobra con los arcos, no con el dodge.
+**Residual nombrado**: el arista×nodo=1 restante de c21 se atribuyó al
+ARCO bezier de `mon→app` sobre `cola`. Fe de erratas al cerrarse
+BUGS-LOG-003 el mismo día: era un artefacto de la CUERDA — la comba
+dibujada esquiva `cola`; con la métrica honesta c21 queda 0-0-0-0.
 
 ---
 
