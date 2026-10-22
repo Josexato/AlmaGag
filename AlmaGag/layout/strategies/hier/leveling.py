@@ -16,8 +16,12 @@ la maquinaria de contenedores virtuales de LAF.
 from dataclasses import dataclass, field
 from typing import Dict, List, Set, Tuple
 
+import logging
+
 from AlmaGag.layout.strategies.hier.scc import (
     strongly_connected_components, feedback_back_edges)
+
+logger = logging.getLogger('AlmaGag')
 
 
 @dataclass
@@ -47,12 +51,26 @@ def compute_levels(elements: List[dict], connections: List[dict]) -> Levels:
             out_graph[f].append(t)
             incoming[t].append(f)
 
+    # BUGS-LAYOUT-014: un self-loop (b→b) no entra al grafo de flujo, así
+    # que el SCC nunca lo veía y no caía en back_edges — columns lo
+    # aceptaba como hijo de sí mismo y la recursión de cadenas reventaba
+    # con RecursionError. El self-loop ES una arista de ciclo: va directo
+    # a back_edges (route_cycle_arcs le dibuja el lazo propio) y se
+    # NOMBRA — nunca un traceback por un archivo válido de 2 nodos.
+    self_loops = {(f, f) for c in connections
+                  for f in [c.get('from')]
+                  if f in idset and c.get('to') == f}
+    for f, _ in sorted(self_loops):
+        logger.warning(f"[hier] self-loop '{f}'→'{f}' — se dibuja como "
+                       f"lazo propio, no participa de niveles ni columnas")
+
     # §A back-edges vía SCC (rescate ②): componentes canónicos → feedback set
     # que depende sólo del ciclo, no del recorrido global. En un DAG da ∅; en un
     # ciclo simple, la arista que lo cierra (idéntico al DFS previo).
     sccs = strongly_connected_components(ids, out_graph)
     cyclic_sccs = [c for c in sccs if len(c) >= 2]
     back_edges = feedback_back_edges(ids, out_graph, incoming, sccs)
+    back_edges |= self_loops
 
     outdeg = {i: len(out_graph[i]) for i in ids}
     acyclic_out = {i: 0 for i in ids}
