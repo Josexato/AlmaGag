@@ -9,9 +9,15 @@ se dibujan como arcos con sentido de giro coherente:
   retorno como arco exterior — el lazo natural.
 - E16: el signo se elige desde la arista de RETORNO (mayor caída de nivel)
   para que su normal apunte lejos del centroide del grafo.
-- E17: comba adaptativa — base ~44px, crece sólo para librar nodos con
-  proyección interior a la cuerda (0.06<t<0.94) y perpendicular pequeña
-  (|perp|<~72px) del lado de la comba; tope ~320px.
+- E17: comba adaptativa — base ~44px, crece para librar nodos con
+  proyección interior a la cuerda (0.06<t<0.94) del lado de la comba;
+  tope ~320px.
+- E17 v2 (BUGS-LAYOUT-017): la comba se calcula por PUNTO FIJO sobre la
+  banda barrida completa [cuerda, comba+margen] — una comba grande barre
+  lejos de la cuerda y pisaba nodos que el test de ±72px no veía. Las
+  aristas de IDA eligen el lado de MENOR comba (desempate: el signo
+  global E15, que conserva el giro coherente en ciclos simples); el
+  RETORNO conserva su lado E16 — el lazo exterior es doctrina.
 """
 
 import math
@@ -21,12 +27,40 @@ from AlmaGag.layout.strategies.hier.shapes import clip_shape
 
 BULGE_BASE = 44.0
 BULGE_CAP = 320.0
-PROX_PERP = 72.0
 ICON_HALF = ICON_WIDTH / 2
 
 
 def _center(e):
     return (e['x'] + ICON_WIDTH / 2, e['y'] + ICON_HEIGHT / 2)
+
+
+def _side_bulge(ca, ex, ey, elen, n, s, node_centers, exclude):
+    """E17 v2: comba mínima que libra TODOS los nodos del lado `s` de la
+    cuerda dentro de la banda BARRIDA [0, comba+margen] — punto fijo: una
+    comba grande barre lejos de la cuerda y puede pisar nodos que una
+    chica no veía (el test anterior de ±72px era ciego a eso). Converge
+    en pocas vueltas porque la necesidad es monótona; devuelve el tope
+    si ni el tope libra (el lado queda caro y el otro puede ganar)."""
+    margin = ICON_HALF + 16
+    bulge = BULGE_BASE
+    for _ in range(6):
+        need = BULGE_BASE
+        for (pc, pid) in node_centers:
+            if pid in exclude:
+                continue
+            t = ((pc[0] - ca[0]) * ex + (pc[1] - ca[1]) * ey) / (elen * elen)
+            if not (0.06 < t < 0.94):
+                continue
+            perp = ((pc[0] - ca[0]) * n[0] + (pc[1] - ca[1]) * n[1]) * s
+            if perp < -ICON_HALF or perp > bulge + margin:
+                continue                  # al otro lado, o fuera de la banda
+            need = max(need, (max(perp, 0.0) + margin) / (2 * t * (1 - t)))
+        if need <= bulge + 0.5:
+            return min(bulge, BULGE_CAP)
+        bulge = min(need, BULGE_CAP)
+        if bulge >= BULGE_CAP:
+            return BULGE_CAP
+    return min(bulge, BULGE_CAP)
 
 
 def clip_to_border(elem, tx, ty):
@@ -141,27 +175,22 @@ def route_cycle_arcs(layout, levels):
             ex, ey = cb[0] - ca[0], cb[1] - ca[1]
             elen = math.hypot(ex, ey) or 1.0
             n = (-ey / elen, ex / elen)           # normal de ESTA arista
-            bdir = (sign * n[0], sign * n[1])     # E15: mismo signo global
+            exclude = (c['from'], c['to'])
 
-            # E17: comba adaptativa — librar nodos cerca de la cuerda del lado.
-            bulge = BULGE_BASE
-            for (pc, pid) in node_centers:
-                if pid in (c['from'], c['to']):
-                    continue
-                # proyección t sobre la cuerda
-                t = ((pc[0] - ca[0]) * ex + (pc[1] - ca[1]) * ey) / (elen * elen)
-                if not (0.06 < t < 0.94):
-                    continue
-                perp = (pc[0] - ca[0]) * n[0] + (pc[1] - ca[1]) * n[1]
-                # sólo nodos del lado de la comba
-                if perp * sign < 0:
-                    continue
-                if abs(perp) > PROX_PERP:
-                    continue
-                margin = ICON_HALF + 16
-                need = (abs(perp) + margin) / (2 * t * (1 - t))
-                bulge = max(bulge, need)
-            bulge = min(bulge, BULGE_CAP)
+            # E17 v2: comba mínima por lado (banda barrida completa).
+            b_glob = _side_bulge(ca, ex, ey, elen, n, sign,
+                                 node_centers, exclude)
+            if (c['from'], c['to']) == (u, v):
+                # E16: el retorno conserva el lazo exterior.
+                s_edge, bulge = sign, b_glob
+            else:
+                b_flip = _side_bulge(ca, ex, ey, elen, n, -sign,
+                                     node_centers, exclude)
+                if b_flip < b_glob:
+                    s_edge, bulge = -sign, b_flip
+                else:                             # empate → giro coherente E15
+                    s_edge, bulge = sign, b_glob
+            bdir = (s_edge * n[0], s_edge * n[1])
 
             # Extremos EXACTAMENTE sobre el borde (no en el centro): se recorta
             # el centro hacia el otro nodo. Corrige el hueco de 15px (QA-Q1).

@@ -321,6 +321,14 @@ fe de erratas en el ticket 016) y layout-optimization-flow destapa
 cruces=4/arista×nodo=2 que la cuerda escondía — el contador dejó de
 mentir en ambas direcciones. Cero píxeles movidos: solo la medición.
 
+Y el censo destapado se cobró como **BUGS-LAYOUT-017** (v3.26.0, E17
+v2): la comba de los arcos se calcula por punto fijo sobre la banda
+barrida completa (el test viejo de ±72px era ciego a lo que una comba
+de 300px pisa) y las idas eligen el lado más barato — el empate
+conserva el giro E15 y el retorno su lazo exterior E16. La lámina del
+censo pasó de cruces=4/arista×nodo=2 a 1/0 y los ciclos clásicos
+emiten byte-idéntico.
+
 ## Mediano plazo (sin fecha)
 
 - **«El mapa» (WISH-ARCH-004)**: separar mapa (dato) de vista (representación)
