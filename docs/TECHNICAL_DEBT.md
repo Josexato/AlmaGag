@@ -2000,7 +2000,7 @@ lámina.
 
 ---
 
-### BUGS-LAYOUT-015: Dos iconos colocados en la posición EXACTA (PY-005a) ✅ RESUELTO (2026-10-22, iteración 20 — §A2 escalona satélites hermanos; red de seguridad en AUTO antes del ruteo; censo 3→0. Residual nombrado: en c21 la dashed de sync ahora ATRAVIESA bd — clase «ruteo plano de hier sin corredores», el dodge Z96-f2 solo corre con áreas; candidata a extenderlo)
+### BUGS-LAYOUT-015: Dos iconos colocados en la posición EXACTA (PY-005a) ✅ RESUELTO (2026-10-22, iteración 20 — §A2 escalona satélites hermanos; red de seguridad en AUTO antes del ruteo; censo 3→0. Residual nombrado: en c21 la dashed de sync ahora ATRAVIESA bd — cobrado como BUGS-LAYOUT-016)
 **Componente**: layout (hier con theme/semántica, c21)
 **Reportado**: 2026-10-14 (fase 0 de almagag-jv; confirmado con coordenadas)
 
@@ -2010,6 +2010,35 @@ pipeline los separa ni lo reporta. Criterio: cero pares de iconos con
 solape en el corpus. Censo con el contador de BUGS-LOG-004 activo
 (22-oct): 3 láminas con icono×icono=1 — 05-arquitectura-gag,
 06-flujo-ejecucion y c21. Ese es el alcance del fix.
+
+---
+
+### BUGS-LAYOUT-016: La ruta plana de hier atraviesa iconos hermanos ✅ RESUELTO (2026-10-22, v3.24.0 — Z96 fase 2 extendida al flujo plano; c21 arista×nodo 2→1)
+**Componente**: `layout/strategies/hier/routing.py` (+ `dodge.py` nuevo)
+**Reportado**: 2026-10-22 (residual nombrado al cerrar BUGS-LAYOUT-015)
+
+El dodge de travesías Z96 fase 2 («la ruta no atraviesa lo que no es
+suyo») solo corría en la vista areas. En el hier plano, la recta D12 de
+mismo nivel podía atravesar un icono hermano: en c21 la dashed de sync
+`app→cache` cruzaba `bd` de lado a lado (arista×nodo=2).
+
+Fix en dos partes: (1) la recta de mismo nivel que atraviesa un icono
+ajeno (clip Liang-Barsky, `seg_crosses_box`) vuelve al codo ortogonal;
+(2) post-pass en `route_connections` con el MISMO desvío de areas —
+detecta con el icono pelado, rodea icono+label (W87), registro
+escalonado compartido (ROUTE-008). Las primitivas (`dodge_boxes`,
+`relocate_corners`, `dedupe`, métricas de label) se movieron de
+areas.py al módulo compartido `hier/dodge.py`; areas las importa de
+ahí — cero cambio de comportamiento en areas (guarda idéntica).
+
+Medido: c21 arista×nodo 2→1; el resto del corpus (66 láminas) emite
+idéntico. Las rectas D12/D13 sanas quedan rectas (congelado en test).
+Test: `tests/test_layout016_flat_route_dodge.py`.
+
+**Residual nombrado**: el arista×nodo=1 restante de c21 es el ARCO
+bezier de `mon→app` (control) pasando sobre `cola` — clase «arcos de
+ciclo §E», emparentada con BUGS-LOG-003 (los arcos se miden/rutean por
+su cuerda, no por su comba). Se cobra con los arcos, no con el dodge.
 
 ---
 

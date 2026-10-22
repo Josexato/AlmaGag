@@ -306,6 +306,13 @@ semántico se vuelve orden de lectura por filas, jamás invertido; c13
 pasó de aspecto 0.12 a 0.78 y la promesa «jamás una cinta 1×N» de la
 spec rige ahora en TODOS los caminos del macro-plano.
 
+El residual del 015 se cobró como **BUGS-LAYOUT-016** (v3.24.0): Z96
+fase 2 extendida al flujo plano de hier — la recta de mismo nivel que
+atraviesa un icono hermano vuelve al codo y el post-pass la desvía
+rodeando icono+label, con las primitivas del dodge movidas al módulo
+compartido `hier/dodge.py`. c21 arista×nodo 2→1; el 1 restante es el
+arco bezier sobre `cola`, fichado con los arcos (BUGS-LOG-003).
+
 ## Mediano plazo (sin fecha)
 
 - **«El mapa» (WISH-ARCH-004)**: separar mapa (dato) de vista (representación)
