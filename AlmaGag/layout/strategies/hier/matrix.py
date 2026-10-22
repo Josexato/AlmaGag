@@ -105,6 +105,8 @@ def layout_by_matrix(layout):
     rows = [{'id': r, 'label': roles.get(r, {}).get('label', r),
              'color': roles.get(r, {}).get('color'),
              'y': row_y0[i], 'h': row_h[i]} for i, r in enumerate(role_order)]
-    layout.canvas = {'width': total_w, 'height': total_h}
+    # BUGS-VAL-009: conservar las claves del autor (legend/flow)
+    layout.canvas = {**(layout.canvas or {}),
+                     'width': total_w, 'height': total_h}
     return {'cols': cols, 'rows': rows, 'left': HEADER_LEFT,
             'top': HEADER_TOP, 'w': total_w, 'h': total_h}

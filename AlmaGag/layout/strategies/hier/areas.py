@@ -772,7 +772,11 @@ def layout_by_areas(layout, areas_spec):
     # canvas: cajas + banda de leyenda inferior
     max_x = max(b['x'] + b['w'] for b in boxes)
     max_y = max(b['y'] + b['h'] for b in boxes)
-    layout.canvas = {'width': max_x + MARGIN_X,
+    # BUGS-VAL-009: reemplazar el dict canvas ENTERO perdía legend/flow
+    # declarados — toda vista hier emitía sin la leyenda libre y sin aviso.
+    # Solo width/height son del motor; el resto es del autor y se conserva.
+    layout.canvas = {**(layout.canvas or {}),
+                     'width': max_x + MARGIN_X,
                      'height': max_y + LEGEND_BAND + MARGIN_Y}
     return boxes
 

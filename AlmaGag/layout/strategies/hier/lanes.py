@@ -129,5 +129,7 @@ def layout_by_lanes(layout):
                        'x': lane_x0[lid], 'y': MARGIN_Y, 'w': lane_w[lid],
                        'h': total_h - MARGIN_Y})
 
-    layout.canvas = {'width': total_w, 'height': total_h}
+    # BUGS-VAL-009: conservar las claves del autor (legend/flow)
+    layout.canvas = {**(layout.canvas or {}),
+                     'width': total_w, 'height': total_h}
     return strips

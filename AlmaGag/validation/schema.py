@@ -131,8 +131,16 @@ def audit_schema(data) -> int:
                                f"{', '.join(repr(k) for k in bad)} — "
                                f"se ignoran")
                 n += 1
-            n += _audit_items(canvas.get('legend'), LEGEND_KEYS,
-                              'canvas.legend', lambda i: repr(i.get('label', '?')))
+            # BUGS-VAL-009: la spec dice que los STRINGS valen en
+            # canvas.legend (texto libre sin swatch) y el drawer los dibuja
+            # — el audit genérico los llamaba «no es un objeto — se ignora»:
+            # aviso FALSO. Solo los dicts se auditan por claves.
+            legend = canvas.get('legend')
+            if isinstance(legend, list):
+                dicts = [i for i in legend if not isinstance(i, str)]
+                n += _audit_items(dicts, LEGEND_KEYS, 'canvas.legend',
+                                  lambda i: repr(i.get('label', '?'))
+                                  if isinstance(i, dict) else repr(i))
         else:
             logger.warning(f"[schema] canvas no es un objeto "
                            f"({type(canvas).__name__}) — se ignora")
