@@ -829,6 +829,30 @@ Los otros canonicals no listados (16) no usan routing ortogonal sobre containers
 
 ---
 
+### WISH-ROUTE-013: Puertos y orden de salida DENTRO del contenedor (AUTO) 🆕 ABIERTO
+**Componente**: `routing/port_assignment.py` + `routing/container_ports.py` + colocación de miembros
+**Reportado**: 2026-10-23 (problema 4 del segundo reporte GAG-WV,
+re-medido tras cerrar ROUTE-011/012 y TPL-004)
+
+Los 4 cruces que quedan en cakephp-mvc son dos clases internas:
+(a) las SALIDAS de controllers se cruzan entre sí — articles_ctrl
+(izquierda) sale hacia models por encima de users_ctrl, y la entrada
+de dispatcher→users_ctrl cruza la salida de articles_ctrl (2 pares);
+(b) el rombo interno de models — users_table→entity (abajo-izquierda)
+cruza las bajadas de articles_table→db/cache (2 pares): colocación de
+miembros dentro del contenedor (entity a la izquierda recibe de la
+tabla derecha), no puertos.
+
+Criterio candidato: dentro de un contenedor, el ORDEN de los puertos
+de salida hacia un mismo destino externo respeta el orden x de los
+miembros (sin trenzas), y la colocación de miembros receptores
+considera el baricentro de sus fuentes. Rendimiento esperado: 4→≤2
+cruces en cakephp. Se cobra cuando el censo lo justifique en más
+láminas — con 18 conexiones y 3 contenedores, 4 cruces ya es zona de
+rendimientos decrecientes.
+
+---
+
 ### BUGS-TPL-004: La cadena de entrada colgaba del centro del canvas, no de sus hijos ✅ RESUELTO (2026-10-23, v3.33.0 — ancla al baricentro de los destinos externos resueltos al contenedor)
 **Componente**: `layout/templates/architecture.py::apply_architecture_template`
 **Reportado**: 2026-10-23 (problema 3 del segundo reporte GAG-WV —
