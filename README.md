@@ -1,6 +1,6 @@
 # AlmaGag - Generador Automatico de Grafos
 
-**Proyecto**: ALMA (Almas y Sentidos) | **Version**: v3.5.0
+**Proyecto**: ALMA (Almas y Sentidos) | **Versión**: la declara `pyproject.toml` (fuente única — el motor sube de versión por iteración cerrada y un número copiado aquí envejece mal: este README dijo «v3.5.0» hasta la v3.33.0)
 
 AlmaGag genera diagramas SVG a partir de archivos JSON. Define elementos y conexiones, y AlmaGag los organiza automaticamente en un grafico vectorial.
 
