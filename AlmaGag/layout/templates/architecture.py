@@ -203,27 +203,53 @@ def apply_architecture_template(data):
     canvas_w = max(containers_total_w + 100, 800)
     center_x = canvas_w // 2
 
-    # 1. Entry + chain vertical centrado
+    # 2 (primero): Containers en fila, shared al medio — se colocan ANTES
+    # que la cadena para que ésta pueda anclarse a sus hijos reales
+    # (BUGS-TPL-004). Las y se asignan después de conocer el alto de la
+    # cadena; aquí solo las x.
+    ordered = _order_containers_with_shared_center(cats['containers'])
+    start_x = center_x - containers_total_w // 2
+    x = start_x
+    cont_cx = {}
+    for c in ordered:
+        if 'x' not in c:
+            c['x'] = x
+        cont_cx[c['id']] = c['x'] + CONTAINER_W_ESTIMATED / 2
+        x += CONTAINER_W_ESTIMATED + CONTAINER_GAP_X
+
+    # 1. Entry + chain vertical — BUGS-TPL-004: anclado al BARICENTRO de
+    # sus destinos externos (resueltos al contenedor), no al centro del
+    # canvas. La cadena centrada sobre un contenedor que no alimenta
+    # obligaba a sus aristas a viajar hasta la columna correcta cruzando
+    # el canal central (cakephp: dispatcher alimenta SOLO a controllers,
+    # a la izquierda, y colgaba sobre models, al centro).
+    owner = {}
+    for e in elements:
+        for ref in e.get('contains', []) or []:
+            owner[_extract_id(ref)] = e['id']
+    seq = cats['entry'] + cats['chain']
+    seq_ids = {e['id'] for e in seq}
+    anchors = []
+    for c in connections:
+        if c.get('from') in seq_ids and c.get('to') not in seq_ids:
+            tid = owner.get(c.get('to'), c.get('to'))
+            if tid in cont_cx:
+                anchors.append(cont_cx[tid])
+    chain_cx = sum(anchors) / len(anchors) if anchors else center_x
     y = TOP_MARGIN
-    for e in cats['entry'] + cats['chain']:
+    for e in seq:
         if 'x' not in e:
-            e['x'] = center_x - ICON_W_HALF
+            e['x'] = chain_cx - ICON_W_HALF
         if 'y' not in e:
             e['y'] = y
         y += ENTRY_SPACING_Y
 
-    # 2. Containers en fila, shared al medio
+    # 2b. Las y de los containers, ya conocido el alto de la cadena.
     middle_y = y + MIDDLE_GAP_Y
     if n_containers > 0:
-        ordered = _order_containers_with_shared_center(cats['containers'])
-        start_x = center_x - containers_total_w // 2
-        x = start_x
         for c in ordered:
-            if 'x' not in c:
-                c['x'] = x
             if 'y' not in c:
                 c['y'] = middle_y
-            x += CONTAINER_W_ESTIMATED + CONTAINER_GAP_X
 
     # 3. Contract debajo, centrado
     abstract_y = middle_y + CONTAINER_ROW_H + ABSTRACT_GAP_Y

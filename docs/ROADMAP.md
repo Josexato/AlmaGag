@@ -348,7 +348,16 @@ primitivas compartidas ahora viven en `layout/dodge.py`. Y cuarta:
 fallback nombrado (wheat/plum ya no caen al gris mudo). Con las cuatro,
 la cosecha del paquete cakephp-mvc queda cerrada: arista×nodo 4→0,
 aspecto 0.84→0.99, flujo declarado legible y colores del autor en la
-lámina. Fichado con dueño: el dodge
+lámina.
+
+La SEGUNDA vuelta del paquete (23-oct) cobró tres más: **BUGS-ROUTE-011**
+(v3.31.0, el dodge ya no hace cremalleras ni invierte flechas —
+presupuesto anti-ping-pong + enganche acotado; cakephp cruces 8→4),
+**BUGS-ROUTE-012** (v3.32.0, el desvío elige el lado del VIAJE — la C
+de template→response se volteó) y **BUGS-TPL-004** (v3.33.0, la cadena
+de entrada se ancla al baricentro de sus hijos reales — la lámina se
+lee como el MVC que declara). cakephp cierra en cruces=4, arista×nodo=0,
+labels=0, aspecto 0.99 — desde 7/4/2/0.84 al abrir el caso. Fichado con dueño: el dodge
 Z96 para AUTO (travesías de models_box, del icono de cabecera de los
 contenedores y de `cell`), y los named colors CSS que caen a gris en
 silencio (wheat/plum).
