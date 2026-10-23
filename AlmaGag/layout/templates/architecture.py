@@ -216,13 +216,48 @@ def apply_architecture_template(data):
             a['y'] = abstract_y
         abstract_y += TERMINAL_GAP_Y
 
-    # 4. Terminales al final
+    # 4. Terminales al final — BUGS-TPL-002: en UNA FILA, cada uno bajo su
+    # padre primario (afinidad topológica), no en columna única centrada:
+    # la columna apilaba db/cache/response a 100px bajo el contenedor
+    # central (cakephp-mvc: aspecto 0.84 con canvas declarado 1.56) y
+    # obligaba a sus aristas a compartir el mismo canal vertical.
     terminal_y = abstract_y + TERMINAL_GAP_Y if cats['abstracts'] else abstract_y
-    for t in cats['terminals']:
+    owner = {}
+    for e in elements:
+        for ref in e.get('contains', []) or []:
+            owner[_extract_id(ref)] = e['id']
+    by_id = {e['id']: e for e in elements}
+
+    def _anchor_x(eid):
+        """Centro x del primario que ancla a `eid` (contenedor padre o él
+        mismo); None si aún no tiene coordenadas."""
+        p = by_id.get(owner.get(eid, eid))
+        if not p or 'x' not in p:
+            return None
+        half = CONTAINER_W_ESTIMATED / 2 if 'contains' in p else ICON_W_HALF
+        return p['x'] + half
+
+    TERMINAL_SPACING_X = 150
+    pending = [t for t in cats['terminals'] if 'x' not in t or 'y' not in t]
+    slots = []
+    for t in pending:
+        parents = [c.get('from') for c in connections if c.get('to') == t['id']]
+        xs = [x for x in (_anchor_x(p) for p in parents) if x is not None]
+        ax = sum(xs) / len(xs) if xs else center_x
+        slots.append((ax, t))
+    slots.sort(key=lambda s: s[0])
+    # separar anclas que colisionan en la fila (empuje a la derecha)
+    placed_x = []
+    for ax, t in slots:
+        x = ax - ICON_W_HALF
+        if placed_x and x < placed_x[-1] + TERMINAL_SPACING_X:
+            x = placed_x[-1] + TERMINAL_SPACING_X
+        placed_x.append(x)
         if 'x' not in t:
-            t['x'] = center_x - ICON_W_HALF
+            t['x'] = x
         if 'y' not in t:
             t['y'] = terminal_y
+    if pending:
         terminal_y += TERMINAL_GAP_Y
 
     canvas['width'] = canvas_w
