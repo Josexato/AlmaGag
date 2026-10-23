@@ -127,9 +127,20 @@ def dodge_boxes(pts, boxes, reg=None, outers=None):
             axis, core = hit
             box = core
             x0, y0, x1, y1 = (outers or {}).get(core, core)
+            # BUGS-ROUTE-012: el lado del desvío mira hacia dónde VIAJA la
+            # ruta — rodear por el lado «cercano» cuando el destino queda
+            # del otro costado dibuja una C (ida, rodeo y vuelta). Si el
+            # destino cae claramente a un lado de la caja, ese lado gana;
+            # si cae en su franja, decide el cercano (como siempre).
+            dest = pts[-1]
             if axis == 'h':
                 y = p[1]
-                top = y - y0 <= y1 - y
+                if dest[1] < y0:
+                    top = True
+                elif dest[1] > y1:
+                    top = False
+                else:
+                    top = y - y0 <= y1 - y
                 m = _m(box, 'T' if top else 'B')
                 yd = y0 - m if top else y1 + m
                 if p[0] < q[0]:
@@ -146,7 +157,12 @@ def dodge_boxes(pts, boxes, reg=None, outers=None):
                 detour = [(xa, y), (xa, yd), (xb, yd), (xb, y)]
             else:
                 x = p[0]
-                left = x - x0 <= x1 - x
+                if dest[0] < x0:
+                    left = True
+                elif dest[0] > x1:
+                    left = False
+                else:
+                    left = x - x0 <= x1 - x
                 m = _m(box, 'L' if left else 'R')
                 xd = x0 - m if left else x1 + m
                 if p[1] < q[1]:
@@ -263,12 +279,23 @@ def route_around_boxes(pts, boxes, reg=None):
                 x0, y0, x1, y1 = b
                 mid_y = (A[1] + B[1]) / 2
                 mid_x = (A[0] + B[0]) / 2
+                dest = pts[-1]           # BUGS-ROUTE-012: el lado del viaje
                 if (A[0] < x0 or A[0] > x1) and (B[0] < x0 or B[0] > x1):
-                    top = (mid_y - y0) <= (y1 - mid_y)
+                    if dest[1] < y0:
+                        top = True
+                    elif dest[1] > y1:
+                        top = False
+                    else:
+                        top = (mid_y - y0) <= (y1 - mid_y)
                     yd = y0 - _m(b, 'T') if top else y1 + _m(b, 'B')
                     detour = [(A[0], yd), (B[0], yd)]
                 elif (A[1] < y0 or A[1] > y1) and (B[1] < y0 or B[1] > y1):
-                    left = (mid_x - x0) <= (x1 - mid_x)
+                    if dest[0] < x0:
+                        left = True
+                    elif dest[0] > x1:
+                        left = False
+                    else:
+                        left = (mid_x - x0) <= (x1 - mid_x)
                     xd = x0 - _m(b, 'L') if left else x1 + _m(b, 'R')
                     detour = [(xd, A[1]), (xd, B[1])]
                 else:
