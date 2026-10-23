@@ -829,6 +829,27 @@ Los otros canonicals no listados (16) no usan routing ortogonal sobre containers
 
 ---
 
+### BUGS-DRAW-011: 129 named colors CSS caían al gris en silencio ✅ RESUELTO (2026-10-23, v3.30.0 — tabla completa de 150 nombres + fallback NOMBRADO)
+**Componente**: `draw/icons/__init__.py::CSS_COLORS / color_to_rgb`
+**Reportado**: 2026-10-23 («fallo crítico 4» del reporte externo sobre
+cakephp-mvc — verificado: gradient-models_box arrancaba en #a6a6a6 con
+"wheat" declarado, mientras controllers_box sí recibía su lightgreen)
+
+CSS_COLORS tenía 19 nombres y `color_to_rgb` mandaba todo lo demás al
+gris #808080 sin aviso. El SVG nativo entiende los 148 named colors del
+estándar, pero el gradiente de iconos y contenedores calcula sus
+variantes claro/oscuro desde RGB — ahí se perdía el color del autor.
+Doble violación O55: fallback Y mudo.
+
+Fix: la tabla completa (148 del estándar + grey-sinónimos), y un color
+inexistente cae al gris PERO nombrado — WARNING §O55 una sola vez por
+nombre. Medido: cakephp-mvc emite Models en wheat y Views en plum con
+sus hijos tintados (PNG mirado); la guarda no mueve UN número (los
+contadores no ven color — por eso este bug vivió oculto hasta que un
+reporte externo miró el SVG). Test: `tests/test_draw011_css_colors.py`.
+
+---
+
 ### BUGS-ROUTE-010: Z96 llega a AUTO — la ruta no atraviesa lo que no es suyo ✅ RESUELTO (2026-10-23, v3.29.0 — post-pase en AutoRoutingPolicy.route(); −7 travesías en el corpus, cero regresiones)
 **Componente**: `layout/strategies/auto/routing_policy.py` (+ `layout/dodge.py`)
 **Reportado**: 2026-10-23 (paquete del skill sobre cakephp-mvc: las

@@ -343,8 +343,12 @@ dodge Z96 llega a AUTO como post-pase de cada re-ruteo, con la
 primitiva nueva `route_around_boxes` (la polilínea que codea DENTRO de
 una caja ajena) y best-effort por conteo de ofensas; −7 travesías en el
 corpus (cakephp 4→0, 06-flujo, 07-containers, mina-hld) y las
-primitivas compartidas ahora viven en `layout/dodge.py`. Fichado con
-dueño: el dodge
+primitivas compartidas ahora viven en `layout/dodge.py`. Y cuarta:
+**BUGS-DRAW-011** (v3.30.0) — la tabla completa de named colors CSS con
+fallback nombrado (wheat/plum ya no caen al gris mudo). Con las cuatro,
+la cosecha del paquete cakephp-mvc queda cerrada: arista×nodo 4→0,
+aspecto 0.84→0.99, flujo declarado legible y colores del autor en la
+lámina. Fichado con dueño: el dodge
 Z96 para AUTO (travesías de models_box, del icono de cabecera de los
 contenedores y de `cell`), y los named colors CSS que caen a gris en
 silencio (wheat/plum).
