@@ -335,9 +335,10 @@ El «paquete de análisis GAG-WV» del skill sobre cakephp-mvc.gag (el test
 neutro anti-overfitting) destapó que el template `architecture`
 auto-detectado colocaba mal dos cosas. Primera cobrada:
 **BUGS-TPL-002** (v3.27.0) — los terminales van en UNA fila anclados a
-su padre primario, no en columna ciega (aspecto 0.84→0.99). Fichados
-con dueño: la cadena entry/chain se ordena por out-degree y no por
-topología (invierte router/dispatcher — siguiente criterio), el dodge
+su padre primario, no en columna ciega (aspecto 0.84→0.99). Segunda:
+**BUGS-TPL-003** (v3.28.0) — la cadena entry/chain se ordena por
+topología, no por out-degree (request→router→dispatcher se lee como se
+declaró; arista×nodo 5→4). Fichados con dueño: el dodge
 Z96 para AUTO (travesías de models_box, del icono de cabecera de los
 contenedores y de `cell`), y los named colors CSS que caen a gris en
 silencio (wheat/plum).

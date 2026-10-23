@@ -829,6 +829,27 @@ Los otros canonicals no listados (16) no usan routing ortogonal sobre containers
 
 ---
 
+### BUGS-TPL-003: La cadena del template architecture se ordena por out-degree, no por topología ✅ RESUELTO (2026-10-23, v3.28.0 — longest-path acotado sobre el subgrafo entry+chain; cakephp-mvc arista×nodo 5→4 y el flujo se lee como se declaró)
+**Componente**: `layout/templates/architecture.py::_categorize`
+**Reportado**: 2026-10-23 (paquete del skill sobre cakephp-mvc, «fallo
+crítico 2» del reporte externo — verificado: dispatcher y=190 ENTRE
+request y=60 y router y=320)
+
+La cadena entry+chain se apila en vertical pero se ordenaba por
+`-out_count`: dispatcher (2 salidas) le ganaba a router (1) y quedaba
+request→dispatcher→router — la arista request→router atravesaba el
+icono de dispatcher y router→dispatcher regresaba hacia arriba. La
+topología declarada nunca se consultaba.
+
+Fix: longest-path acotado (tolera ciclos) sobre el subgrafo de
+entry+chain; el out-degree sobrevive como desempate dentro del mismo
+rango (congelado en test). Medido: cakephp-mvc arista×nodo 5→4 (murió
+la travesía de dispatcher) y 15-architecture-template own-line 3→2 de
+rebote; PNG mirados ambos. Guarda: solo esas dos líneas cambian.
+Test: `tests/test_tpl003_chain_topo_order.py`.
+
+---
+
 ### BUGS-TPL-002: Los terminales del template architecture se apilan en columna ciega a su padre ✅ RESUELTO (2026-10-23, v3.27.0 — una fila de terminales anclada al padre primario; cakephp-mvc aspecto 0.84→0.99)
 **Componente**: `layout/templates/architecture.py::apply_architecture_template`
 **Reportado**: 2026-10-23 (paquete de análisis del skill sobre cakephp-mvc,

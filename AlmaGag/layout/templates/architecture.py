@@ -79,8 +79,26 @@ def _categorize(elements, connections):
         else:
             cats['chain'].append(e)
 
-    cats['entry'].sort(key=lambda e: -out_count[e['id']])
-    cats['chain'].sort(key=lambda e: -out_count[e['id']])
+    # BUGS-TPL-003: la cadena se apila en VERTICAL, así que su orden debe
+    # ser el TOPOLÓGICO — ordenar por out-degree invertía request→router→
+    # dispatcher (dispatcher, con 2 salidas, le ganaba a router y la
+    # arista request→router atravesaba su icono). Longest-path acotado
+    # (tolera ciclos); el out-degree queda solo como desempate.
+    seq = cats['entry'] + cats['chain']
+    seq_ids = {e['id'] for e in seq}
+    lvl = {i: 0 for i in seq_ids}
+    for _ in range(len(seq_ids)):
+        changed = False
+        for c in connections:
+            f, t = c.get('from'), c.get('to')
+            if f in seq_ids and t in seq_ids and f != t \
+                    and lvl[f] + 1 > lvl[t]:
+                lvl[t] = lvl[f] + 1
+                changed = True
+        if not changed:
+            break
+    cats['entry'].sort(key=lambda e: (lvl[e['id']], -out_count[e['id']]))
+    cats['chain'].sort(key=lambda e: (lvl[e['id']], -out_count[e['id']]))
     return cats
 
 
