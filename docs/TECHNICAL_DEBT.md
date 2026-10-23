@@ -829,6 +829,36 @@ Los otros canonicals no listados (16) no usan routing ortogonal sobre containers
 
 ---
 
+### BUGS-ROUTE-011: El dodge de AUTO hacía cremalleras y flechas en reversa ✅ RESUELTO (2026-10-23, v3.31.0 — presupuesto anti-ping-pong por llamada + enganche acotado al tramo; cakephp cruces 8→4)
+**Componente**: `layout/dodge.py` (las tres primitivas Z96)
+**Reportado**: 2026-10-23 (segundo paquete GAG-WV del skill sobre
+cakephp-mvc — problemas 1 y 2 del reporte externo, VERIFICADOS; deuda
+fresca de BUGS-ROUTE-010)
+
+(a) Dos cajas enfrentadas hacían ping-pong — cada desvío cruzaba a la
+otra — y el registro escalonado convertía el rebote en una CREMALLERA:
+users_ctrl→users_table emitía 45 puntos oscilando ±7px, y el
+best-effort la aceptaba porque el conteo final de ofensas mejoraba.
+Fe de erratas propia: al mirar el PNG de v3.29 llamé a esas marcas
+«glifos T70 de cruce perpendicular» — NO existe tal glifo en el
+renderer; era geometría rota de mi propio pase.
+(b) El enganche del desvío pasaba de largo el extremo del tramo cuando
+la caja termina a <DODGE_M del endpoint: dispatcher→articles_ctrl
+rejuntaba en y=612 con el puerto en 610 y la flecha entraba al icono
+EN REVERSA (▲).
+
+Fix: presupuesto de desvíos POR LLAMADA en dodge_boxes (≤8),
+route_around_boxes (≤6) y relocate_corners (≤4) — al agotarse vuelve
+la ruta ORIGINAL, no la mangleada; y el enganche del desvío se acota
+al span del tramo (nunca más allá del endpoint ∓1px).
+
+Medido: la cremallera 45→9 puntos (limpia, llega bajando), la flecha
+restaurada, y de rebote cakephp cruces 8→4 con labels 1→0 y
+05-arquitectura cruces 3→2. Cero regresiones en el resto de la guarda.
+PNG mirado. Test: `tests/test_route011_dodge_sanity.py`.
+
+---
+
 ### BUGS-DRAW-011: 129 named colors CSS caían al gris en silencio ✅ RESUELTO (2026-10-23, v3.30.0 — tabla completa de 150 nombres + fallback NOMBRADO)
 **Componente**: `draw/icons/__init__.py::CSS_COLORS / color_to_rgb`
 **Reportado**: 2026-10-23 («fallo crítico 4» del reporte externo sobre

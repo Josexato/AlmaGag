@@ -94,6 +94,13 @@ def dodge_boxes(pts, boxes, reg=None, outers=None):
         n = reg.get((box, side), 0)
         reg[(box, side)] = n + 1
         return DODGE_M + 7.0 * n
+    # BUGS-ROUTE-011: presupuesto de desvíos POR LLAMADA — dos cajas
+    # enfrentadas pueden hacer ping-pong (cada desvío cruza a la otra) y
+    # el registro escalonado convierte el rebote en cremallera de 45
+    # puntos. Un desvío legítimo mete ≤4 cajas por ruta; al agotar el
+    # presupuesto se devuelve la ruta ORIGINAL, no la mangleada.
+    pts0 = list(pts)
+    inserted = 0
     for _ in range(24):
         changed = False
         for i in range(len(pts) - 1):
@@ -129,6 +136,13 @@ def dodge_boxes(pts, boxes, reg=None, outers=None):
                     xa, xb = x0 - DODGE_M, x1 + DODGE_M
                 else:
                     xa, xb = x1 + DODGE_M, x0 - DODGE_M
+                # BUGS-ROUTE-011: el enganche del desvío no puede pasar de
+                # largo el extremo del tramo — si la caja termina a menos
+                # de DODGE_M del endpoint, el tramo final se invertía (la
+                # flecha entraba al puerto EN REVERSA, ▲ dentro del icono).
+                lo, hi = (p[0], q[0]) if p[0] < q[0] else (q[0], p[0])
+                xa = min(max(xa, lo + 1.0), hi - 1.0)
+                xb = min(max(xb, lo + 1.0), hi - 1.0)
                 detour = [(xa, y), (xa, yd), (xb, yd), (xb, y)]
             else:
                 x = p[0]
@@ -139,8 +153,14 @@ def dodge_boxes(pts, boxes, reg=None, outers=None):
                     ya, yb = y0 - DODGE_M, y1 + DODGE_M
                 else:
                     ya, yb = y1 + DODGE_M, y0 - DODGE_M
+                lo, hi = (p[1], q[1]) if p[1] < q[1] else (q[1], p[1])
+                ya = min(max(ya, lo + 1.0), hi - 1.0)
+                yb = min(max(yb, lo + 1.0), hi - 1.0)
                 detour = [(x, ya), (xd, ya), (xd, yb), (x, yb)]
             pts = pts[:i + 1] + detour + pts[i + 1:]
+            inserted += 1
+            if inserted > 8:
+                return dedupe(pts0)
             changed = True
             break
         if not changed:
@@ -169,6 +189,8 @@ def relocate_corners(pts, boxes, reg=None):
     def _inside(p, b):
         return b[0] < p[0] < b[2] and b[1] < p[1] < b[3]
 
+    pts0 = list(pts)
+    relocated = 0
     for _ in range(8):
         moved = False
         for i in range(1, len(pts) - 1):
@@ -197,6 +219,9 @@ def relocate_corners(pts, boxes, reg=None):
             if not a_h:
                 corte.reverse()
             pts = pts[:i] + corte + pts[i + 1:]
+            relocated += 1
+            if relocated > 4:
+                return dedupe(pts0)            # BUGS-ROUTE-011: ping-pong
             moved = True
             break
         if not moved:
@@ -221,6 +246,8 @@ def route_around_boxes(pts, boxes, reg=None):
         reg[(box, side)] = n + 1
         return DODGE_M + 7.0 * n
 
+    pts0 = list(pts)
+    rerouted = 0
     for _ in range(12):
         changed = False
         for b in boxes:
@@ -247,6 +274,9 @@ def route_around_boxes(pts, boxes, reg=None):
                 else:
                     continue              # un extremo encara la caja: otra clase
                 pts = pts[:i] + detour + pts[j:]
+                rerouted += 1
+                if rerouted > 6:
+                    return dedupe(pts0)        # BUGS-ROUTE-011: ping-pong
                 changed = True
                 break
             if changed:
