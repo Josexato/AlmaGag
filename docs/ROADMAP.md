@@ -338,7 +338,13 @@ auto-detectado colocaba mal dos cosas. Primera cobrada:
 su padre primario, no en columna ciega (aspecto 0.84→0.99). Segunda:
 **BUGS-TPL-003** (v3.28.0) — la cadena entry/chain se ordena por
 topología, no por out-degree (request→router→dispatcher se lee como se
-declaró; arista×nodo 5→4). Fichados con dueño: el dodge
+declaró; arista×nodo 5→4). Tercera: **BUGS-ROUTE-010** (v3.29.0) — el
+dodge Z96 llega a AUTO como post-pase de cada re-ruteo, con la
+primitiva nueva `route_around_boxes` (la polilínea que codea DENTRO de
+una caja ajena) y best-effort por conteo de ofensas; −7 travesías en el
+corpus (cakephp 4→0, 06-flujo, 07-containers, mina-hld) y las
+primitivas compartidas ahora viven en `layout/dodge.py`. Fichado con
+dueño: el dodge
 Z96 para AUTO (travesías de models_box, del icono de cabecera de los
 contenedores y de `cell`), y los named colors CSS que caen a gris en
 silencio (wheat/plum).

@@ -204,6 +204,58 @@ def relocate_corners(pts, boxes, reg=None):
     return dedupe(pts)
 
 
+def route_around_boxes(pts, boxes, reg=None):
+    """Z96 (BUGS-ROUTE-010): la polilínea que ENTRA a una caja ajena,
+    CODEA adentro y SALE no es travesía de un solo segmento — el desvío
+    por segmentos de dodge_boxes no la ve (cada tramo solo entra o solo
+    sale). Se detecta la corrida de vértices interiores con ambos
+    vecinos fuera y se reemplaza por el rodeo ortogonal del lado más
+    cercano (mismo registro escalonado ROUTE-008)."""
+    def _inside(p, b):
+        return b[0] < p[0] < b[2] and b[1] < p[1] < b[3]
+
+    def _m(box, side):
+        if reg is None:
+            return DODGE_M
+        n = reg.get((box, side), 0)
+        reg[(box, side)] = n + 1
+        return DODGE_M + 7.0 * n
+
+    for _ in range(12):
+        changed = False
+        for b in boxes:
+            for i in range(1, len(pts) - 1):
+                if not _inside(pts[i], b):
+                    continue
+                j = i
+                while j < len(pts) and _inside(pts[j], b):
+                    j += 1
+                if j >= len(pts):
+                    break                 # termina adentro: entrada legítima
+                A, B = pts[i - 1], pts[j]
+                x0, y0, x1, y1 = b
+                mid_y = (A[1] + B[1]) / 2
+                mid_x = (A[0] + B[0]) / 2
+                if (A[0] < x0 or A[0] > x1) and (B[0] < x0 or B[0] > x1):
+                    top = (mid_y - y0) <= (y1 - mid_y)
+                    yd = y0 - _m(b, 'T') if top else y1 + _m(b, 'B')
+                    detour = [(A[0], yd), (B[0], yd)]
+                elif (A[1] < y0 or A[1] > y1) and (B[1] < y0 or B[1] > y1):
+                    left = (mid_x - x0) <= (x1 - mid_x)
+                    xd = x0 - _m(b, 'L') if left else x1 + _m(b, 'R')
+                    detour = [(xd, A[1]), (xd, B[1])]
+                else:
+                    continue              # un extremo encara la caja: otra clase
+                pts = pts[:i] + detour + pts[j:]
+                changed = True
+                break
+            if changed:
+                break
+        if not changed:
+            return dedupe(pts)
+    return dedupe(pts)
+
+
 def dedupe(pts):
     """Quita puntos duplicados y colineales consecutivos."""
     out = []

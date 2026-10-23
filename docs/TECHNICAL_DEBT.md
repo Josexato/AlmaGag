@@ -829,6 +829,45 @@ Los otros canonicals no listados (16) no usan routing ortogonal sobre containers
 
 ---
 
+### BUGS-ROUTE-010: Z96 llega a AUTO — la ruta no atraviesa lo que no es suyo ✅ RESUELTO (2026-10-23, v3.29.0 — post-pase en AutoRoutingPolicy.route(); −7 travesías en el corpus, cero regresiones)
+**Componente**: `layout/strategies/auto/routing_policy.py` (+ `layout/dodge.py`)
+**Reportado**: 2026-10-23 (paquete del skill sobre cakephp-mvc: las
+`render` cruzaban models_box de lado a lado, 3 rutas cruzaban el icono
+de cabecera de los contenedores, template→response pisaba a cell)
+
+El desvío Z96 corría en hier (areas y flujo plano) pero AUTO ruteaba
+sin higiene. Tres clases medidas en cakephp-mvc: travesía de contenedor
+ajeno, travesía del ICONO DE CABECERA (invisible para los contadores:
+no es elemento), y codo dentro de icono ajeno.
+
+Fix: post-pase al final de CADA re-ruteo de AUTO con tres primitivas
+del módulo compartido (movido de hier/dodge.py a `layout/dodge.py`):
+1. `route_around_boxes` (NUEVA): la polilínea que entra a una caja
+   ajena, CODEA adentro y sale no es travesía de un solo segmento — el
+   dodge por tramos no la ve. Se detecta la corrida de vértices
+   interiores con ambos vecinos fuera y se reemplaza por el rodeo.
+2. `dodge_boxes` (travesías de un tramo) y 3. `relocate_corners`
+   (codos en L), con registro escalonado compartido.
+Obstáculos: contenedores ajenos PRIMERO (el rodeo grande evita la
+escalerita sobre sus miembros), iconos de cabecera (sin excepción:
+cruzarlos nunca es legítimo), iconos ajenos. Sin `outers`: en AUTO los
+labels los administra el optimizador y §P61 corre después.
+
+**Best-effort (precedente Z95)**: el candidato desviado solo gana si
+REDUCE las cajas ofendidas — §H6 cuenta el roce parcial y una pata de
+desvío puede rozar al vecino (medido: 05/15/16 regresionaban sin esta
+guarda; con ella quedan en base). Fe de erratas del desarrollo: el
+primer gate comparaba len(pts) y descartaba rodeos con la MISMA
+cantidad de puntos — se compara contenido.
+
+Medido en la guarda: cakephp 4→0 arista×nodo (cruces 7→8), 06-flujo
+cruces 5→1 y arista×nodo 1→0 (labels 15→10), 07-containers 2→1,
+mina-hld 1→0 (cruces 4→6 — el trueque travesía→cruce que la doctrina
+acepta), git labels −1. Cabeceras: 3→0 en cakephp. PNG mirados:
+cakephp, 06-flujo, mina-hld. Test: `tests/test_route010_auto_dodge.py`.
+
+---
+
 ### BUGS-TPL-003: La cadena del template architecture se ordena por out-degree, no por topología ✅ RESUELTO (2026-10-23, v3.28.0 — longest-path acotado sobre el subgrafo entry+chain; cakephp-mvc arista×nodo 5→4 y el flujo se lee como se declaró)
 **Componente**: `layout/templates/architecture.py::_categorize`
 **Reportado**: 2026-10-23 (paquete del skill sobre cakephp-mvc, «fallo
