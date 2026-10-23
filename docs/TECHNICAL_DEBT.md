@@ -829,6 +829,28 @@ Los otros canonicals no listados (16) no usan routing ortogonal sobre containers
 
 ---
 
+### BUGS-ROUTE-012: El desvío elige el lado del viaje, no el cercano ✅ RESUELTO (2026-10-23, v3.32.0 — el destino de la polilínea decide el lado; fallback al cercano si cae en la franja)
+**Componente**: `layout/dodge.py` (dodge_boxes + route_around_boxes)
+**Reportado**: 2026-10-23 (problema 5 del segundo reporte GAG-WV —
+verificado: template→response rodeaba a cell por la IZQUIERDA con
+response a la derecha, dibujando una C de ida, rodeo y vuelta)
+
+El lado del desvío se elegía solo por cercanía geométrica a la caja,
+ciego a hacia dónde sigue la ruta. Ahora: si el destino de la
+polilínea cae claramente a un lado de la caja (fuera de su franja),
+el desvío va por ese lado; si cae dentro de la franja, decide el
+cercano (contrato histórico, congelado como fallback en test).
+relocate_corners no cambia: su corte ya es travel-aware (usa los
+vecinos del codo).
+
+Medido: la C de template→response se volteó al lado del destino (PNG
+mirado: la ruta abraza a cell por la derecha y sigue hacia response);
+la guarda no mueve UN número y los SVGs hier quedan byte-idénticos
+(c21, c19, c15 verificados con cmp). Test:
+`tests/test_route012_travel_side.py`.
+
+---
+
 ### BUGS-ROUTE-011: El dodge de AUTO hacía cremalleras y flechas en reversa ✅ RESUELTO (2026-10-23, v3.31.0 — presupuesto anti-ping-pong por llamada + enganche acotado al tramo; cakephp cruces 8→4)
 **Componente**: `layout/dodge.py` (las tres primitivas Z96)
 **Reportado**: 2026-10-23 (segundo paquete GAG-WV del skill sobre
