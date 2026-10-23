@@ -829,6 +829,33 @@ Los otros canonicals no listados (16) no usan routing ortogonal sobre containers
 
 ---
 
+### BUGS-TPL-002: Los terminales del template architecture se apilan en columna ciega a su padre ✅ RESUELTO (2026-10-23, v3.27.0 — una fila de terminales anclada al padre primario; cakephp-mvc aspecto 0.84→0.99)
+**Componente**: `layout/templates/architecture.py::apply_architecture_template`
+**Reportado**: 2026-10-23 (paquete de análisis del skill sobre cakephp-mvc,
+«fallo crítico 6» del reporte externo — verificado)
+
+Los terminales (out=0: db, cache, response) se apilaban en columna única
+centrada a paso de 100px, ignorando QUIÉN los alimenta: response (hijo
+exclusivo de template, en views_box a la derecha) quedaba centrado bajo
+models_box, y las dos SQL bidireccionales compartían canal vertical. El
+canvas declarado pedía aspecto 1.56 y salía 0.84.
+
+Fix: UNA fila de terminales; cada uno anclado al centro x de su padre
+primario (el contenedor del padre si está contenido; baricentro si hay
+varios padres), con empuje a la derecha si dos anclas colisionan en la
+fila (paso 150px). Entry/chain/containers/abstracts no cambian.
+
+Medido en cakephp-mvc: aspecto 0.84→0.99, tinta 22.5%→26.6%, db+cache
+bajo models_box y response bajo views_box (PNG mirado). El arista×nodo
+sube 4→5: la vertical template→response ahora pasa por `cell` — clase
+ruteo (obstáculos), fichada para el dodge de AUTO, no de este criterio.
+Medición del «fallo 5» del mismo reporte: los HIJOS no pisan el icono
+de cabecera (esa mitad era falsa), pero 3 RUTAS sí lo cruzan
+(dispatcher→articles_ctrl y 2 más) — también clase obstáculo, va con el
+dodge. Test: `tests/test_tpl002_terminal_row.py`.
+
+---
+
 ### BUGS-TPL-001: Architecture Scorer Calibrado Demasiado Conservador ✅ RESUELTO
 **Componente**: `AlmaGag/layout/templates/architecture.py` — `ArchitectureTemplate.detect_score`
 **Severidad**: Media (arquitecturas claras no reciben el template adecuado y caen al fallback agnóstico)
