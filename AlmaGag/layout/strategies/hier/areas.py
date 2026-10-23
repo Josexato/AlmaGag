@@ -32,8 +32,8 @@ from AlmaGag.layout.strategies.hier.arcs import route_cycle_arcs
 from AlmaGag.layout.strategies.hier.labels import assign_connection_label_anchors
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 # Z96: primitivas de higiene de ruta compartidas con el ruteo plano
-# (BUGS-LAYOUT-016) — nacieron aquí, viven en dodge.py.
-from AlmaGag.layout.strategies.hier.dodge import (
+# (BUGS-LAYOUT-016) — nacieron aquí, viven en layout/dodge.py (compartido también con AUTO).
+from AlmaGag.layout.dodge import (
     dodge_boxes as _dodge_boxes, relocate_corners as _relocate_corners,
     dedupe as _dedupe, label_halfwidth as _label_halfwidth, icon_obstacles,
     LABEL_LINE_H, LABEL_GAP)

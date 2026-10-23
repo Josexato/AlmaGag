@@ -11,7 +11,7 @@ rectas — cero regresión en D12/D13.
 
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 from AlmaGag.layout.layout import Layout
-from AlmaGag.layout.strategies.hier.dodge import seg_crosses_box
+from AlmaGag.layout.dodge import seg_crosses_box
 from AlmaGag.layout.strategies.hier.optimizer import HierLayoutOptimizer
 
 

@@ -17,7 +17,7 @@ from collections import defaultdict
 from typing import Dict, Tuple
 from AlmaGag.config import ICON_WIDTH, ICON_HEIGHT
 from AlmaGag.layout.strategies.hier.shapes import is_diamond, diamond_port, diamond_vertices
-from AlmaGag.layout.strategies.hier.dodge import (
+from AlmaGag.layout.dodge import (
     dodge_boxes, icon_obstacles, seg_crosses_box)
 
 PORT_MIN_FRAC = 0.16
