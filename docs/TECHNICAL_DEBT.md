@@ -829,6 +829,29 @@ Los otros canonicals no listados (16) no usan routing ortogonal sobre containers
 
 ---
 
+### BUGS-TPL-004: La cadena de entrada colgaba del centro del canvas, no de sus hijos ✅ RESUELTO (2026-10-23, v3.33.0 — ancla al baricentro de los destinos externos resueltos al contenedor)
+**Componente**: `layout/templates/architecture.py::apply_architecture_template`
+**Reportado**: 2026-10-23 (problema 3 del segundo reporte GAG-WV —
+verificado el hecho; su aritmética no: «elimina 4 de los 8 cruces» era
+falso, solo 1 par involucraba a dispatcher)
+
+La cadena entry+chain se colocaba en el centro horizontal del canvas
+aunque sus destinos vivieran en una columna lateral: en cakephp-mvc,
+dispatcher alimenta SOLO a los controllers (izquierda) y la cadena
+colgaba sobre models_box (centro) — sus aristas viajaban hasta la
+columna correcta cruzando el canal central.
+
+Fix: los containers se colocan PRIMERO (solo x) y la cadena hereda el
+baricentro de sus destinos externos resueltos al contenedor; sin
+destinos externos, el centro del canvas (contrato histórico, congelado
+en test). Medido: la cadena cayó sobre Controllers (x 530→190) y la
+bajada de dispatcher quedó casi vertical; los contadores no se movieron
+(como se predijo contra la aritmética del reporte) pero la lámina se
+LEE como el MVC que declara — PNG mirado. Guarda: cero deltas.
+Test: `tests/test_tpl004_chain_anchor.py`.
+
+---
+
 ### BUGS-ROUTE-012: El desvío elige el lado del viaje, no el cercano ✅ RESUELTO (2026-10-23, v3.32.0 — el destino de la polilínea decide el lado; fallback al cercano si cae en la franja)
 **Componente**: `layout/dodge.py` (dodge_boxes + route_around_boxes)
 **Reportado**: 2026-10-23 (problema 5 del segundo reporte GAG-WV —
